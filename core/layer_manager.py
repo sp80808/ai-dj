@@ -6,6 +6,7 @@ import librosa
 import numpy as np
 import soundfile as sf
 from typing import Dict, List, Optional, Any
+from config.music_prompts import rhythm_keywords, rhythm_types
 
 # Constantes
 BEATS_PER_BAR = 4
@@ -396,349 +397,7 @@ class LayerManager:
             sample_type = sample_details.get("type", "").lower()
 
             # Liste exhaustive des types rythmiques basée sur les observations et prévisions
-            rhythm_types = [
-                # Techno/Electronic
-                "techno_kick",
-                "techno_percussion",
-                "techno_drums",
-                "techno_beat",
-                "electronic_drums",
-                "electronic_percussion",
-                "electro_beat",
-                "techno_loop",
-                "minimal_beat",
-                "minimal_drums",
-                "minimal_percussion",
-                "acid_percussion",
-                "industrial_drums",
-                # House
-                "house_kick",
-                "house_percussion",
-                "house_drums",
-                "house_beat",
-                "house_rhythm",
-                "deep_house_drums",
-                "deep_house_percussion",
-                "deep_house_kick",
-                "deep_house_rhythm",
-                "soulful_house_drums",
-                "jazzy_house_percussion",
-                "progressive_house_beat",
-                "tech_house_percussion",
-                "tech_house_kick",
-                "afro_house_percussion",
-                "tribal_house_drums",
-                "chicago_house_beat",
-                "disco_house_rhythm",
-                # Hip-Hop
-                "hiphop_beat",
-                "hip_hop_beat",
-                "hiphop_drums",
-                "trap_beat",
-                "boom_bap_beat",
-                "hiphop_percussion",
-                "lo-fi_beat",
-                "lo-fi_drums",
-                "rap_beat",
-                "urban_drums",
-                "808_beat",
-                "breakbeat",
-                "beat_loop",
-                "drill_beat",
-                "crunk_drums",
-                "phonk_rhythm",
-                "old_school_beat",
-                "dirty_south_drums",
-                # Rock
-                "rock_drums",
-                "rock_beat",
-                "rock_percussion",
-                "indie_drums",
-                "alternative_beat",
-                "drum_kit",
-                "live_drums",
-                "acoustic_drums",
-                "band_percussion",
-                "metal_drums",
-                "punk_beat",
-                "progressive_rock_drums",
-                "psychedelic_percussion",
-                "garage_rock_beat",
-                # Général
-                "drum_loop",
-                "percussion_loop",
-                "beat_pattern",
-                "rhythm_section",
-                "groove_loop",
-                "drum_pattern",
-                "rhythm_loop",
-                "percussion_pattern",
-                "beat_section",
-                "metronome",
-                "click_track",
-                "polyrhythm_loop",
-                # Styles spécifiques
-                "glitch_perc",
-                "glitch_drums",
-                "experimental_percussion",
-                "abstract_beat",
-                "jungle_drums",
-                "dnb_beat",
-                "breakcore_drums",
-                "ambient_percussion",
-                "industrial_beat",
-                "noise_rhythm",
-                "footwork_beat",
-                "juke_drums",
-                "uk_garage_beat",
-                "2step_rhythm",
-                "grime_drums",
-                "dubstep_beat",
-                "future_garage_rhythm",
-                "neuro_drums",
-                "liquid_breaks",
-                # Dub/Reggae
-                "dub_riddim",
-                "dub_drums",
-                "dub_percussion",
-                "dub_beat",
-                "dub_steppers",
-                "reggae_riddim",
-                "reggae_drums",
-                "reggae_percussion",
-                "steppers_beat",
-                "one_drop_drums",
-                "rockers_rhythm",
-                "nyabinghi_drums",
-                "roots_percussion",
-                "dub_echo_drums",
-                "dub_one_drop",
-                "dancehall_beat",
-                "roots_beat",
-                "ska_drums",
-                "rocksteady_rhythm",
-                # Deep House Spécifique
-                "deep_house_beat",
-                "jazzy_house_drums",
-                "soulful_rhythm",
-                "organic_house_percussion",
-                "lounge_house_beat",
-                "afro_deep_percussion",
-                "nu_jazz_drums",
-                "downtempo_house_beat",
-                "spiritual_house_percussion",
-                "mellow_house_rhythm",
-                "detroit_house_beat",
-                "rhodes_house_groove",
-                # Autres Genres
-                "trance_percussion",
-                "hardstyle_kick",
-                "gabber_drums",
-                "hardcore_beat",
-                "psytrance_rhythm",
-                "goa_beat",
-                "idm_drums",
-                "ambient_beat",
-                "downtempo_rhythm",
-                "trip_hop_drums",
-                "chillout_percussion",
-                "balearic_rhythm",
-                "latin_percussion",
-                "afrobeat_drums",
-                "world_percussion",
-                "fusion_rhythm",
-                "cinematic_drums",
-                "orchestral_percussion",
-                "big_band_drums",
-                "jazz_rhythm",
-                "funk_beat",
-                "soul_groove",
-                "disco_beat",
-                "vaporwave_drums",
-                "synthwave_percussion",
-                "8bit_beat",  # Dans la liste rhythm_types, ajouter:
-                "triphop_beat",
-                "triphop_drums",
-                "triphop_percussion",
-                "triphop_rhythm",
-                "broken_beat",
-                "vinyl_drums",
-                "scratchy_beat",
-            ]
 
-            # Liste étendue des mots-clés qui suggèrent un élément rythmique
-            rhythm_keywords = [
-                # Éléments de batterie
-                "kick",
-                "drum",
-                "snare",
-                "hat",
-                "hihat",
-                "hi-hat",
-                "cymbal",
-                "clap",
-                "rim",
-                "tom",
-                "conga",
-                "bongo",
-                "shaker",
-                "tambourine",
-                "cowbell",
-                "woodblock",
-                "ride",
-                "crash",
-                "stick",
-                "brushes",
-                "clave",
-                "timbale",
-                "djembe",
-                "tabla",
-                "cajon",
-                "guiro",
-                "maracas",
-                # Types de patterns
-                "beat",
-                "rhythm",
-                "groove",
-                "percussion",
-                "loop",
-                "break",
-                "pattern",
-                "fill",
-                "shuffle",
-                "swing",
-                "cadence",
-                "pulse",
-                "meter",
-                "measure",
-                "downbeat",
-                "upbeat",
-                "backbeat",
-                "accent",
-                "ghost note",
-                "syncopation",
-                # Descriptions spécifiques
-                "808",
-                "909",
-                "606",
-                "707",
-                "727",
-                "LinnDrum",
-                "DMX",
-                "kit",
-                "top",
-                "backbeat",
-                "downbeat",
-                "bpm",
-                "tempo",
-                "rolls",
-                "flam",
-                "paradiddle",
-                "drag",
-                "rimshot",
-                "sidestick",
-                "cross-stick",
-                # Technologies/terminologie
-                "sequenced",
-                "programmed",
-                "quantized",
-                "acoustic",
-                "electronic",
-                "sampled",
-                "live",
-                "triggered",
-                "MIDI",
-                "velocity",
-                "dynamic",
-                "transient",
-                "attack",
-                "decay",
-                "sustain",
-                "release",
-                "envelope",
-                "modulation",
-                "automation",
-                # Styles rythmiques
-                "four-on-floor",
-                "breakbeat",
-                "footwork",
-                "swing",
-                "shuffle",
-                "trap",
-                "boom-bap",
-                "jungle",
-                "dubstep",
-                "step",
-                "riddim",
-                "polyrhythm",
-                "syncopated",
-                "riddim",
-                "steppers",
-                "one_drop",
-                "rockers",
-                "nyabinghi",
-                "skank",
-                "bubble",
-                "roots",
-                "dembow",
-                "clave",
-                "son",
-                "tresillo",
-                "cinquillo",
-                # Deep House Spécifique
-                "jazzy",
-                "soulful",
-                "organic",
-                "vinyl",
-                "analogue",
-                "analog",
-                "dusty",
-                "lofi",
-                "warm",
-                "mellow",
-                "smooth",
-                "rhodes",
-                "finger_snap",
-                "brushed",
-                "subtle",
-                "gentle",
-                "crisp",
-                "tight",
-                # Autres termes rythmiques
-                "metric",
-                "compound",
-                "simple",
-                "triple",
-                "duple",
-                "quadruple",
-                "half-time",
-                "double-time",
-                "off-beat",
-                "on-beat",
-                "drop",
-                "build",
-                "breakdown",
-                "build-up",
-                "crescendo",
-                "diminuendo",
-                "cross-rhythm",
-                "polymeter",
-                "hemiola",
-                "isorhythm",
-                "ostinato",
-                "groove",
-                "pocket",
-                "time-feel",
-                "timing",
-                "micro-timing",
-                "humanized",
-                "machine",
-                "robotic",
-                "tribal",
-                "ethnic",
-                "world",
-                "fusion",
-            ]
             is_rhythm_layer = sample_type in rhythm_types or any(
                 keyword in sample_type for keyword in rhythm_keywords
             )
@@ -840,28 +499,24 @@ class LayerManager:
                 print(
                     f"Limite de {max_active_layers} layers atteinte. Sélection d'un layer à supprimer..."
                 )
-                # Liste des layers non essentiels (exclut kicks et basses)
-                non_essential_layers = [
-                    l_id
-                    for l_id in self.layers.keys()
-                    if not (l_id.startswith("kick") or l_id.startswith("bass"))
-                ]
-                if non_essential_layers:
-                    # Choisir aléatoirement parmi les layers non essentiels
-                    layer_to_remove_id = random.choice(non_essential_layers)
-                    print(f"Layers non essentiels disponibles: {non_essential_layers}")
-                else:
-                    # S'il n'y a que des kicks/basses, prendre un layer aléatoire
-                    layer_to_remove_id = random.choice(list(self.layers.keys()))
-                    print("Pas de layers non essentiels, choix aléatoire forcé.")
+
+                # Obtenir tous les IDs de layers actuels
+                all_layers = list(self.layers.keys())
+
+                # Si ce n'est pas le premier ajout, s'assurer que le premier layer peut être remplacé
+                if len(all_layers) > 0:
+                    weights = [
+                        3 if i == 0 else 2 if i < len(all_layers) // 2 else 1
+                        for i in range(len(all_layers))
+                    ]
+                    layer_to_remove_id = random.choices(all_layers, weights=weights)[0]
+
                 print(
-                    f"Suppression aléatoire du layer '{layer_to_remove_id}' pour faire de la place."
+                    f"Suppression du layer '{layer_to_remove_id}' pour faire de la place."
                 )
                 # Suppression avec fade out et nettoyage du fichier
                 layer_to_remove = self.layers.pop(layer_to_remove_id)
-                layer_to_remove.stop(
-                    fadeout_ms=200, cleanup=True
-                )  # Ajout du paramètre cleanup=True
+                layer_to_remove.stop(fadeout_ms=200, cleanup=True)
                 # Informer le LLM ou les logs
                 print(
                     f"Layer '{layer_to_remove_id}' automatiquement retiré pour respecter la limite de {max_active_layers} layers."
