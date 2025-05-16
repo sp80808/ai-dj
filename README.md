@@ -134,10 +134,6 @@ Les contributions sont les bienvenues! Voici comment vous pouvez contribuer:
 4. Push vers la branche (`git push origin feature/amazing-feature`)
 5. Ouverture d'une Pull Request
 
-## 📜 Licence
-
-Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
-
 ## 🙏 Remerciements
 
 - [Audiocraft/MusicGen](https://github.com/facebookresearch/audiocraft) pour la génération audio
