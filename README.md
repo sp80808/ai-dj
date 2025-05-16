@@ -1,6 +1,6 @@
-# 🎧 DJ-IA: DJ piloté par Intelligence Artificielle
+# 🎧 DJ-IA: DJ piloté par Intelligence Artificielle avec analyse spectrale avancée
 
-DJ-IA est un système innovant de DJ virtuel piloté par intelligence artificielle, capable de générer et mixer de la musique en temps réel. En utilisant un Large Language Model (LLM) pour les décisions créatives et MusicGen pour la génération audio, DJ-IA crée des sessions musicales dynamiques et évolutives dans différents styles.
+DJ-IA est un système innovant de DJ virtuel piloté par intelligence artificielle, capable de générer et mixer de la musique en temps réel. En utilisant un Large Language Model (LLM) pour les décisions créatives, MusicGen pour la génération audio, et Demucs pour l'analyse et l'isolation spectrale, DJ-IA crée des sessions musicales dynamiques et évolutives dans différents styles.
 
 ⚠️ **IMPORTANT : Proof of Concept** ⚠️  
 Ce projet est actuellement à l'état de preuve de concept (POC). Certains styles musicaux fonctionnent mieux que d'autres, et le code contient des sections inutilisées ou expérimentales qui n'ont pas encore été nettoyées. L'architecture globale est fonctionnelle mais continue d'évoluer.
@@ -16,9 +16,11 @@ Ce projet est actuellement à l'état de preuve de concept (POC). Certains style
 ## ✨ Caractéristiques
 
 - 🧠 IA générative pour les décisions DJ et la génération audio
+- 🔊 **NOUVEAU : Analyse spectrale et séparation des stems pour un mixage intelligent**
+- 🎭 **NOUVEAU : Sélection intelligente d'instruments complémentaires**
 - 🎛️ Système de gestion des layers audio en temps réel
 - 🎚️ Effets audio: filtres, panoramique, réverbération et delay
-- 🎵 Support pour 7 styles musicaux différents
+- 🎵 Support pour 10 styles musicaux différents
 - 🔄 Transitions synchronisées et progression musicale naturelle
 - 🗣️ Interventions vocales générées par TTS
 
@@ -55,6 +57,9 @@ pip install setuptools wheel
 # Installer les bibliothèques principales
 pip install audiocraft pygame llama-cpp-python tqdm librosa
 
+# Installer Demucs pour la séparation de sources
+pip install demucs
+
 # Installer les bibliothèques audio
 pip install pyrubberband pedalboard soundfile sounddevice pyttsx3
 ```
@@ -64,7 +69,7 @@ pip install pyrubberband pedalboard soundfile sounddevice pyttsx3
 ### Lancement
 
 ```bash
-python main.py --model-path "/chemin/vers/ton/modele/llm.gguf" --profile "techno_minimal" --output-dir "./output"
+python main.py --model-path "/chemin/vers/ton/modele/llm.gguf" --profile "techno_minimal" --output-dir "./output" --clean
 ```
 
 ### Paramètres
@@ -72,6 +77,7 @@ python main.py --model-path "/chemin/vers/ton/modele/llm.gguf" --profile "techno
 - `--model-path`: Chemin vers le modèle LLM (format GGUF recommandé)
 - `--profile`: Style musical (voir ci-dessous)
 - `--output-dir`: Dossier où sauvegarder les fichiers audio générés
+- `--clean`: Nettoie les fichiers temporaires au démarrage (optionnel)
 
 ### Profils disponibles
 
@@ -92,12 +98,22 @@ DJ-IA est composé de plusieurs modules:
 
 - **LLM DJ Brain**: Prend les décisions créatives et détermine quels éléments audio ajouter/modifier
 - **MusicGen**: Génère les samples audio en fonction des instructions du LLM
+- **Demucs**: Analyse et sépare les samples en leurs composantes instrumentales (stems)
+- **Spectral Analysis Engine**: Analyse intelligente pour éviter les chevauchements d'instruments
 - **LayerManager**: Gère la lecture, le mixage et les effets des différentes couches audio
 - **TTS Engine**: Génère des interventions vocales
 
 Le système maintient en permanence un maximum de 3 layers simultanés, dont un seul élément rythmique à la fois pour garantir la cohérence du mix.
 
-> **Note**: Le projet contient certaines sections de code expérimentales ou duplicées qui ne sont pas toutes utilisées dans la version actuelle. Un refactoring est prévu pour nettoyer et optimiser la codebase.
+### 🎛️ Analyse spectrale et séparation de stems
+
+Le système intègre désormais une technologie avancée d'analyse et de séparation spectrale:
+
+1. **Analyse des échantillons**: Chaque sample généré est analysé avec Demucs pour identifier sa composition (batterie, basse, vocaux, etc.)
+2. **Sélection intelligente de stems**: Le système sélectionne intelligemment les éléments complémentaires à ceux déjà présents dans le mix
+3. **Évitement des chevauchements**: DJ-IA évite naturellement d'avoir plusieurs couches rythmiques simultanées
+4. **Extraction ciblée**: Seul l'élément le plus pertinent pour le mix est extrait et utilisé
+5. **Effets adaptés**: Les effets sont automatiquement optimisés pour le type d'instrument utilisé
 
 ### Limitations actuelles
 
@@ -105,6 +121,7 @@ Le système maintient en permanence un maximum de 3 layers simultanés, dont un 
 - Certains effets audio (comme la réverbération complexe) sont implémentés mais peu utilisés
 - Les profils techno_minimal, hip_hop et deep_house donnent généralement les meilleurs résultats
 - La performance dépend fortement de la puissance de votre GPU
+- L'analyse spectrale ajoute un délai supplémentaire entre les décisions du DJ
 
 ## 📊 Comportement du DJ
 
@@ -128,6 +145,7 @@ Selon le profil choisi, DJ-IA adoptera différents comportements:
 - **Erreurs CUDA**: Vérifiez que votre version de PyTorch correspond à votre version de CUDA
 - **Audio saccadé**: Essayez d'augmenter la valeur du buffer audio dans le fichier `layer_manager.py`
 - **Erreurs de mémoire**: Libérez de la RAM ou réduisez la taille du modèle LLM utilisé
+- **Erreurs Demucs**: Assurez-vous que Demucs est correctement installé (`pip install demucs`)
 
 ## 🤝 Contribution
 
@@ -142,6 +160,7 @@ Les contributions sont les bienvenues! Voici comment vous pouvez contribuer:
 ## 🙏 Remerciements
 
 - [Audiocraft/MusicGen](https://github.com/facebookresearch/audiocraft) pour la génération audio
+- [Demucs](https://github.com/facebookresearch/demucs) pour la séparation de sources audio
 - [llama-cpp-python](https://github.com/abetlen/llama-cpp-python) pour l'inférence LLM optimisée
 - [Pygame](https://www.pygame.org) pour la lecture audio
 - [Librosa](https://librosa.org) pour le traitement audio
