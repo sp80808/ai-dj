@@ -54,22 +54,63 @@ class DJAILL:
             ]
         )
 
+        # Informations détaillées sur les layers actifs (avec leurs stems extraits)
+        active_layers = self.session_state.get("active_layers", {})
+        active_layers_details = []
+
+        for layer_id, layer_info in active_layers.items():
+            layer_type = layer_info.get("type", "unknown")
+            layer_key = layer_info.get("key", "unknown")
+            layer_volume = layer_info.get("volume", 0.8)
+
+            # Information cruciale: le stem utilisé s'il a été extrait par Demucs
+            used_stem = layer_info.get("used_stem")
+            stem_info = f" (stem extrait: {used_stem})" if used_stem else ""
+
+            spectral_profile = layer_info.get("spectral_profile", {})
+            profile_info = ""
+            if spectral_profile:
+                # Sélectionner les composants principaux
+                main_components = sorted(
+                    spectral_profile.items(), key=lambda x: x[1], reverse=True
+                )[
+                    :2
+                ]  # Les 2 composants les plus importants
+                if main_components:
+                    components_str = ", ".join(
+                        [f"{k}: {v:.1%}" for k, v in main_components]
+                    )
+                    profile_info = f" [analyse spectrale: {components_str}]"
+
+            active_layers_details.append(
+                f"• {layer_id}: {layer_type}{stem_info}, tonalité: {layer_key}, volume: {layer_volume}{profile_info}"
+            )
+
+        active_layers_text = (
+            "\n".join(active_layers_details)
+            if active_layers_details
+            else "Aucun layer actif"
+        )
+
         # Construction du prompt utilisateur
         user_prompt = f"""
-État actuel du mix:
-- Tempo: {self.session_state['tempo']} BPM
-- Tonalité actuelle: {self.session_state['current_key']}
-- Niveau d'énergie: {self.session_state['energy_level']}/10
-- Phase: {self.session_state['phase']}
-- Durée de session: {self.session_state['session_duration']} secondes
-- Samples actifs: {', '.join([s['type'] for s in self.session_state['active_samples']])}
+    État actuel du mix:
+    - Tempo: {self.session_state.get('tempo', self.profile['default_tempo'])} BPM
+    - Tonalité actuelle: {self.session_state.get('current_key', 'C minor')}
+    - Phase: {self.session_state.get('phase', 'intro')}
+    - Durée: {self.session_state.get('session_duration', 0)} secondes
 
-Historique récent:
-{history_text}
+    Layers actifs en détail:
+    {active_layers_text}
 
-Décide maintenant de la prochaine action pour maintenir un set cohérent de techno minimale.
-Réponds UNIQUEMENT en format JSON comme spécifié.
-"""
+    Historique récent:
+    {history_text}
+
+    Décide maintenant de la prochaine action pour maintenir un set cohérent.
+    IMPORTANT: Prends en compte les stems extraits et les analyses spectrales pour tes décisions.
+    Par exemple, si tu vois "stem extrait: drums" pour un layer précédent, ajuste ta stratégie en conséquence.
+    Réponds UNIQUEMENT en format JSON comme spécifié.
+    """
         return user_prompt
 
     def get_next_decision(self):
@@ -123,18 +164,3 @@ Réponds UNIQUEMENT en format JSON comme spécifié.
         self.session_state["history"].append(decision)
 
         return decision
-
-    def update_state(
-        self, key=None, tempo=None, energy=None, phase=None, active_samples=None
-    ):
-        """Met à jour l'état interne du DJ"""
-        if key is not None:
-            self.session_state["current_key"] = key
-        if tempo is not None:
-            self.session_state["tempo"] = tempo
-        if energy is not None:
-            self.session_state["energy_level"] = energy
-        if phase is not None:
-            self.session_state["phase"] = phase
-        if active_samples is not None:
-            self.session_state["active_samples"] = active_samples

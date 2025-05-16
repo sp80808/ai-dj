@@ -6,6 +6,7 @@ import sys
 import subprocess
 from pathlib import Path
 import shutil
+import random
 
 # import sounddevice as sd # Semble non utilisé, commenter si c'est le cas
 import threading
@@ -473,7 +474,7 @@ class DJSystem:
     def _extract_and_use_dominant_stem(
         self, spectral_profile, separated_path, layer_id
     ):
-        """Extrait le stem dominant et crée un nouveau fichier pour l'utiliser"""
+        """Extrait un stem aléatoirement (pondéré par l'énergie) et crée un fichier pour l'utiliser"""
 
         if not spectral_profile or not separated_path:
             print(
@@ -481,14 +482,36 @@ class DJSystem:
             )
             return None
 
-        # Trouver le stem dominant
-        dominant_stem = max(spectral_profile, key=spectral_profile.get)
-        dominant_value = spectral_profile[dominant_stem]
+        # Filtrer les stems avec une énergie significative (>10%)
+        significant_stems = {
+            stem: energy for stem, energy in spectral_profile.items() if energy > 0.1
+        }
 
-        # Ne traiter que les stems vraiment dominants
-        if dominant_value < 0.5:
+        if not significant_stems:
+            print(f"⚠️ Aucun stem avec une énergie significative trouvé")
+            # Fallback au comportement original: stem dominant
+            dominant_stem = max(spectral_profile, key=spectral_profile.get)
+            dominant_value = spectral_profile[dominant_stem]
+        else:
+            # Créer une liste de stems et une liste de poids pour random.choices
+            stems = list(significant_stems.keys())
+            weights = list(significant_stems.values())
+
+            # Sélectionner aléatoirement un stem, pondéré par son énergie
+            selected_stem = random.choices(stems, weights=weights, k=1)[0]
+            selected_value = spectral_profile[selected_stem]
+
             print(
-                f"⚠️ Stem dominant ({dominant_stem}: {dominant_value:.2%}) pas assez fort pour extraction"
+                f"🎲 Sélection aléatoire pondérée: stem '{selected_stem}' ({selected_value:.2%})"
+            )
+
+            dominant_stem = selected_stem
+            dominant_value = selected_value
+
+        # Ne traiter que les stems avec une énergie significative
+        if dominant_value < 0.15:  # Seuil abaissé à 15% pour permettre plus de variété
+            print(
+                f"⚠️ Stem sélectionné ({dominant_stem}: {dominant_value:.2%}) pas assez fort pour extraction"
             )
             return None
 
@@ -609,6 +632,75 @@ class DJSystem:
 
         print("Fin de la boucle principale du DJ (session_running est False).")
 
+    def _extract_preferred_stem(
+        self, spectral_profile, separated_path, layer_id, preferred_stem=None
+    ):
+        """Extrait le stem préféré par le LLM ou le dominant si non spécifié"""
+
+        if not spectral_profile or not separated_path:
+            print(
+                "❌ Impossible d'extraire un stem: profil spectral ou chemin non disponible"
+            )
+            return None, None
+
+        available_stems = [
+            s for s in spectral_profile.keys() if spectral_profile[s] > 0.05
+        ]
+        print(f"🔍 Stems disponibles avec énergie >5%: {', '.join(available_stems)}")
+
+        # Déterminer le stem à extraire
+        selected_stem = None
+        selection_method = "auto"
+
+        if preferred_stem == "random":
+            # Sélection aléatoire pondérée
+            import random
+
+            stems = list(spectral_profile.keys())
+            weights = list(spectral_profile.values())
+            selected_stem = random.choices(stems, weights=weights, k=1)[0]
+            selection_method = "aléatoire"
+
+        elif (
+            preferred_stem in spectral_profile
+            and spectral_profile[preferred_stem] > 0.05
+        ):
+            # Stem préféré disponible et avec assez d'énergie
+            selected_stem = preferred_stem
+            selection_method = "préférence LLM"
+
+        else:
+            # Fallback au stem dominant
+            selected_stem = max(spectral_profile, key=spectral_profile.get)
+            selection_method = "dominant"
+
+        selected_value = spectral_profile[selected_stem]
+        print(
+            f"🎯 Sélection {selection_method}: stem '{selected_stem}' ({selected_value:.2%})"
+        )
+
+        # Chemin vers le stem sélectionné
+        stem_path = separated_path / f"{selected_stem}.wav"
+
+        if not stem_path.exists():
+            print(f"❌ Stem sélectionné {selected_stem} introuvable à {stem_path}")
+            return None, None
+
+        # Créer un nouveau fichier pour le stem sélectionné
+        output_dir = os.path.dirname(os.path.dirname(str(separated_path)))
+        stem_output_path = os.path.join(
+            output_dir, f"{layer_id}_{selected_stem}_stem_{int(time.time())}.wav"
+        )
+
+        # Copier le stem vers le nouveau fichier
+        try:
+            shutil.copy(stem_path, stem_output_path)
+            print(f"✅ Stem extrait: {os.path.basename(stem_output_path)}")
+            return stem_output_path, selected_stem
+        except Exception as e:
+            print(f"❌ Erreur lors de l'extraction du stem: {e}")
+            return None, None
+
     def _process_dj_decision(self, decision: Dict[str, Any]):
         action_type = decision.get("action_type", "")
         params = decision.get("parameters", {})
@@ -638,6 +730,7 @@ class DJSystem:
                 def prepare_sample_details():
                     """Prépare les détails du sample à générer"""
                     sample_type = sample_details_from_llm.get("type", "techno_synth")
+                    preferred_stem = sample_details_from_llm.get("preferred_stem", None)
                     musicgen_keywords = sample_details_from_llm.get(
                         "musicgen_prompt_keywords", [sample_type]
                     )
@@ -653,8 +746,16 @@ class DJSystem:
                         f"🔑 Keywords={musicgen_keywords}\n"
                         f"🎹 Key={key}\n"
                         f"📏 Measures={measures}\n"
+                        f"🎯 Stem préféré={preferred_stem if preferred_stem else 'auto'}\n"
                     )
-                    return sample_type, musicgen_keywords, key, measures, intensity
+                    return (
+                        sample_type,
+                        preferred_stem,
+                        musicgen_keywords,
+                        key,
+                        measures,
+                        intensity,
+                    )
 
                 def determine_genre():
                     """Détermine le genre musical en fonction du profil DJ"""
@@ -685,9 +786,14 @@ class DJSystem:
 
                 try:
                     # Préparation des paramètres
-                    sample_type, musicgen_keywords, key, measures, intensity = (
-                        prepare_sample_details()
-                    )
+                    (
+                        sample_type,
+                        preferred_stem,
+                        musicgen_keywords,
+                        key,
+                        measures,
+                        intensity,
+                    ) = prepare_sample_details()
                     genre = determine_genre()
 
                     # Génération du sample audio
@@ -731,72 +837,25 @@ class DJSystem:
                         )
                         print(f"📊 Profil spectral détecté: {spectral_profile}")
 
-                        # Phase 3: Sélection intelligente du stem à utiliser
+                        # Phase 3: Sélection du stem basée sur la préférence du LLM
                         if spectral_profile and separated_stems_path:
-                            # Identifier les stems déjà utilisés dans le mix
-                            current_stems_in_use = []
-                            for existing_id, layer in self.layer_manager.layers.items():
-                                if hasattr(layer, "used_stem") and layer.used_stem:
-                                    current_stems_in_use.append(layer.used_stem)
-
-                            print(
-                                f"🔍 Stems déjà utilisés dans le mix: {', '.join(current_stems_in_use) if current_stems_in_use else 'aucun'}"
+                            file_to_process, used_stem_type = (
+                                self._extract_preferred_stem(
+                                    spectral_profile,
+                                    separated_stems_path,
+                                    layer_id,
+                                    preferred_stem,
+                                )
                             )
 
-                            # Trier les stems par énergie et sélectionner le meilleur
-                            sorted_stems = sorted(
-                                spectral_profile.items(),
-                                key=lambda x: x[1],
-                                reverse=True,
-                            )
-                            selected_stem = None
-                            selected_value = 0
-
-                            # Stratégie 1: Privilégier un stem complémentaire
-                            for stem, value in sorted_stems:
-                                if value > 0.2 and stem not in current_stems_in_use:
-                                    selected_stem = stem
-                                    selected_value = value
-                                    print(
-                                        f"💡 DJ-IA intelligence: Sélection du stem '{stem}' ({value:.2%}) pour complémentarité avec le mix actuel"
-                                    )
-                                    break
-
-                            # Stratégie 2: Si pas de complémentaire, prendre le dominant
-                            if not selected_stem and sorted_stems:
-                                selected_stem, selected_value = sorted_stems[0]
-                                print(
-                                    f"⚠️  DJ-IA compromis: Utilisation du stem dominant '{selected_stem}' ({selected_value:.2%}) même s'il est déjà présent dans le mix"
-                                )
-
-                            # Appliquer l'extraction si le stem a une énergie significative
-                            if selected_stem and selected_value > 0.3:
-                                stem_path = (
-                                    separated_stems_path / f"{selected_stem}.wav"
-                                )
-
-                                if stem_path.exists():
-                                    # Créer le fichier pour le stem sélectionné
-                                    stem_output_path = os.path.join(
-                                        self.layer_manager.output_dir,
-                                        f"{layer_id}_{selected_stem}_stem_{int(time.time())}.wav",
-                                    )
-
-                                    # Copier le stem
-                                    import shutil
-
-                                    shutil.copy(stem_path, stem_output_path)
-
-                                    # Utiliser ce stem comme source
-                                    file_to_process = stem_output_path
-                                    used_stem_type = selected_stem
-
-                                    print(
-                                        f"🎯 DJ-IA optimisation: Utilisation du stem '{selected_stem}' ({selected_value:.2%}) comme source principale"
-                                    )
-
-                                    # Adapter le type du sample
-                                    refined_sample_type = f"{selected_stem}_{sample_type.split('_')[-1] if '_' in sample_type else 'element'}"
+                            # Si l'extraction a échoué, utiliser le fichier original
+                            if not file_to_process:
+                                file_to_process = original_file_path
+                                used_stem_type = None
+                            else:
+                                # Adapter le type du sample en fonction du stem extrait
+                                if used_stem_type:
+                                    refined_sample_type = f"{used_stem_type}_{sample_type.split('_')[-1] if '_' in sample_type else 'element'}"
                                     print(
                                         f"🧠 DJ-IA raffine: Type de sample ajusté de '{sample_type}' à '{refined_sample_type}'"
                                     )
