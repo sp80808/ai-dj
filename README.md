@@ -140,7 +140,3 @@ Les contributions sont les bienvenues! Voici comment vous pouvez contribuer:
 - [llama-cpp-python](https://github.com/abetlen/llama-cpp-python) pour l'inférence LLM optimisée
 - [Pygame](https://www.pygame.org) pour la lecture audio
 - [Librosa](https://librosa.org) pour le traitement audio
-
----
-
-Créé avec ❤️ par [Votre Nom]
