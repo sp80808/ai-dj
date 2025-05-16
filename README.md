@@ -82,6 +82,8 @@ python main.py --model-path "/chemin/vers/ton/modele/llm.gguf" --profile "techno
 5. **jungle_dnb**: Breakbeats rapides et basses profondes à 174 BPM
 6. **dub**: Sons spacieux avec échos et réverbérations à 70 BPM
 7. **deep_house**: Grooves house profonds et mélodiques à 124 BPM
+8. **downtempo_ambient**: Paysages sonores atmosphériques et méditatifs à 85 BPM
+9. **classical**: Réinterprétations électroniques de musique classique à 110 BPM
 
 ## 🧩 Architecture du système
 
@@ -115,6 +117,8 @@ Selon le profil choisi, DJ-IA adoptera différents comportements:
 - **jungle_dnb**: Tempos rapides et breakbeats complexes
 - **dub**: Espaces sonores profonds avec delays et échos
 - **deep_house**: Progression fluide avec éléments jazzy et soulful
+- **downtempo_ambient**: Évolutions lentes et atmosphériques avec textures immersives
+- **classical**: Fusion d'éléments orchestraux avec des rythmiques modernes
 
 ## 🔧 Dépannage
 

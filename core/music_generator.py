@@ -81,12 +81,43 @@ class MusicGenerator:
                     genre = "hip-hop"
                 elif sample_type.startswith("rock_"):
                     genre = "rock"
+                elif sample_type.startswith("classical_") or sample_type.startswith(
+                    "orchestral_"
+                ):
+                    genre = "classical"
+                elif sample_type.startswith("ambient_") or sample_type.startswith(
+                    "downtempo_"
+                ):
+                    genre = "ambient"
+                elif sample_type.startswith("dub_") or sample_type.startswith(
+                    "reggae_"
+                ):
+                    genre = "dub"
+                elif sample_type.startswith("jungle_") or sample_type.startswith(
+                    "dnb_"
+                ):
+                    genre = "jungle_dnb"
+                elif sample_type.startswith("house_") or sample_type.startswith(
+                    "deep_house_"
+                ):
+                    genre = "deep_house"
                 else:
                     genre = "electronic"
+
             if genre == "hip-hop":
                 template = "A {style_tag} hip-hop sound at {tempo} BPM, {key}"
             elif genre == "rock":
                 template = "A {style_tag} rock sound at {tempo} BPM, {key}"
+            elif genre == "classical":
+                template = "A {style_tag} orchestral sound at {tempo} BPM, {key}"
+            elif genre == "ambient":
+                template = "A {style_tag} ambient atmosphere at {tempo} BPM, {key}"
+            elif genre == "dub":
+                template = "A {style_tag} dub reggae sound at {tempo} BPM, {key}"
+            elif genre == "jungle_dnb":
+                template = "A {style_tag} drum and bass sound at {tempo} BPM, {key}"
+            elif genre == "deep_house":
+                template = "A {style_tag} deep house sound at {tempo} BPM, {key}"
             else:
                 template = MUSICGEN_TEMPLATES.get(
                     sample_type, "A {style_tag} sound at {tempo} BPM, {key}"
@@ -97,6 +128,16 @@ class MusicGenerator:
                     style_tag = "boom bap beats"
                 elif genre == "rock":
                     style_tag = "guitar rock"
+                elif genre == "classical":
+                    style_tag = "orchestral cinematic"
+                elif genre == "ambient":
+                    style_tag = "atmospheric ethereal"
+                elif genre == "dub":
+                    style_tag = "deep reggae dub"
+                elif genre == "jungle_dnb":
+                    style_tag = "breakbeat jungle"
+                elif genre == "deep_house":
+                    style_tag = "soulful jazzy house"
                 else:
                     style_tag = "minimal techno"
 
@@ -116,14 +157,6 @@ class MusicGenerator:
             intensity_desc = intensity_words[
                 min(intensity - 1, len(intensity_words) - 1)
             ]
-
-            if not style_tag:
-                if genre == "hip-hop":
-                    style_tag = "boom bap beats"
-                elif genre == "rock":
-                    style_tag = "guitar rock"
-                else:
-                    style_tag = "minimal techno"
 
             # Traiter les mots-clés supplémentaires
             keyword_str = ""

@@ -779,7 +779,31 @@ class LayerManager:
                 print(f"Échec de l'application des effets pour {layer_id}.")
                 # On pourrait décider de jouer le sample non-effecté ou d'annuler
                 final_sample_path = looped_sample_path  # Jouer sans effets dans ce cas
-
+            if (
+                os.path.exists(original_file_path)
+                and final_sample_path != original_file_path
+            ):
+                try:
+                    os.remove(original_file_path)
+                    print(f"Fichier audio original supprimé: {original_file_path}")
+                except (PermissionError, OSError) as e:
+                    print(
+                        f"Impossible de supprimer le fichier original {original_file_path}: {e}"
+                    )
+            if (
+                os.path.exists(looped_sample_path)
+                and final_sample_path != looped_sample_path
+                and final_sample_path != original_file_path
+            ):
+                try:
+                    os.remove(looped_sample_path)
+                    print(
+                        f"Fichier audio bouclé intermédiaire supprimé: {looped_sample_path}"
+                    )
+                except (PermissionError, OSError) as e:
+                    print(
+                        f"Impossible de supprimer le fichier bouclé {looped_sample_path}: {e}"
+                    )
             # Attendre le point de synchronisation
             start_sync_beats = playback_params.get(
                 "start_beats_sync", BEATS_PER_BAR
