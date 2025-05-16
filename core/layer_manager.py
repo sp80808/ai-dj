@@ -556,7 +556,14 @@ class LayerManager:
                 "disco_beat",
                 "vaporwave_drums",
                 "synthwave_percussion",
-                "8bit_beat",
+                "8bit_beat",  # Dans la liste rhythm_types, ajouter:
+                "triphop_beat",
+                "triphop_drums",
+                "triphop_percussion",
+                "triphop_rhythm",
+                "broken_beat",
+                "vinyl_drums",
+                "scratchy_beat",
             ]
 
             # Liste étendue des mots-clés qui suggèrent un élément rythmique

@@ -84,6 +84,7 @@ python main.py --model-path "/chemin/vers/ton/modele/llm.gguf" --profile "techno
 7. **deep_house**: Grooves house profonds et mélodiques à 124 BPM
 8. **downtempo_ambient**: Paysages sonores atmosphériques et méditatifs à 85 BPM
 9. **classical**: Réinterprétations électroniques de musique classique à 110 BPM
+10. **trip_hop**: Beats lourds et mélodies mélancoliques à 95 BPM
 
 ## 🧩 Architecture du système
 
@@ -119,6 +120,7 @@ Selon le profil choisi, DJ-IA adoptera différents comportements:
 - **deep_house**: Progression fluide avec éléments jazzy et soulful
 - **downtempo_ambient**: Évolutions lentes et atmosphériques avec textures immersives
 - **classical**: Fusion d'éléments orchestraux avec des rythmiques modernes
+- **trip_hop**: Ambiances cinématiques sombres avec beats lourds et scratches vinyles
 
 ## 🔧 Dépannage
 

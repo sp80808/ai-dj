@@ -70,7 +70,6 @@ class MusicGenerator:
             # Définir la durée de génération
             self.model.set_generation_params(duration=params["duration"])
 
-            # Appliquer le style tag (ou utiliser un par défaut)
             if not genre:
                 # Déduire le genre du type de sample
                 if sample_type.startswith("techno_"):
@@ -101,6 +100,8 @@ class MusicGenerator:
                     "deep_house_"
                 ):
                     genre = "deep_house"
+                elif sample_type.startswith("triphop_"):
+                    genre = "trip-hop"
                 else:
                     genre = "electronic"
 
@@ -118,6 +119,8 @@ class MusicGenerator:
                 template = "A {style_tag} drum and bass sound at {tempo} BPM, {key}"
             elif genre == "deep_house":
                 template = "A {style_tag} deep house sound at {tempo} BPM, {key}"
+            elif genre == "trip-hop":
+                template = "A {style_tag} trip-hop sound at {tempo} BPM, {key}"
             else:
                 template = MUSICGEN_TEMPLATES.get(
                     sample_type, "A {style_tag} sound at {tempo} BPM, {key}"
@@ -138,6 +141,8 @@ class MusicGenerator:
                     style_tag = "breakbeat jungle"
                 elif genre == "deep_house":
                     style_tag = "soulful jazzy house"
+                elif genre == "trip-hop":
+                    style_tag = "cinematic melancholic downtempo"
                 else:
                     style_tag = "minimal techno"
 
