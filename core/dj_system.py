@@ -89,8 +89,7 @@ class DJSystem:
             % (self.profile_name, self.layer_manager.master_tempo)
         )
 
-        # Pas besoin de démarrer un lecteur audio spécifique ici, LayerManager gère Pygame
-        # self.speech_audio_player.start() # SimpleAudioPlayer n'a pas de méthode start/stop globale
+        self.speech_audio_player.start()
 
         self.dj_thread = threading.Thread(target=self._main_loop)
         self.dj_thread.daemon = True

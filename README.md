@@ -93,7 +93,6 @@ DJ-IA est composé de plusieurs modules:
 - **LLM DJ Brain**: Prend les décisions créatives et détermine quels éléments audio ajouter/modifier
 - **MusicGen**: Génère les samples audio en fonction des instructions du LLM
 - **LayerManager**: Gère la lecture, le mixage et les effets des différentes couches audio
-- **AudioProcessor**: Applique des effets et des traitements audio en temps réel
 - **TTS Engine**: Génère des interventions vocales
 
 Le système maintient en permanence un maximum de 3 layers simultanés, dont un seul élément rythmique à la fois pour garantir la cohérence du mix.
