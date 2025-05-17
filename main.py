@@ -51,8 +51,27 @@ def main():
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="./dj_session_output",
+        default="./output",
         help="Répertoire de sortie principal pour la session",
+    )
+    parser.add_argument(
+        "--audio-model",
+        type=str,
+        default="musicgen-medium",
+        choices=[
+            "musicgen-small",
+            "musicgen-medium",
+            "musicgen-large",
+            "stable-audio-open",
+            "stable-audio-pro",
+        ],
+        help="Modèle audio à utiliser (MusicGen ou Stable Audio)",
+    )
+    parser.add_argument(
+        "--generation-duration",
+        type=float,
+        default=8.0,
+        help="Durée de génération par défaut (en secondes)",
     )
     parser.add_argument(
         "--clean",
@@ -88,7 +107,7 @@ def main():
     try:
         dj_system_instance = DJSystem(args)
         dj_system_instance.start_session()
-        print("DJ-IA en cours d'exécution. Appuyez sur Ctrl+C pour arrêter.")
+        print("💡 DJ-IA en cours d'exécution. Appuyez sur Ctrl+C pour arrêter.")
         while dj_system_instance.session_running:
             if (
                 hasattr(dj_system_instance, "dj_thread")

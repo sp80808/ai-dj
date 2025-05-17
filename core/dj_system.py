@@ -32,13 +32,11 @@ class DJSystem:
         # ... (début de ton __init__ inchangé) ...
         self.model_path = args.model_path
         self.profile_name = args.profile
-        self.output_dir_base = (
-            args.output_dir
-        )  # Renommer pour éviter conflit avec celui du LayerManager
+        self.output_dir_base = args.output_dir
         self.sample_rate = 44100
-
+        self.audio_model = args.audio_model
+        self.generation_duration = args.generation_duration
         if self.profile_name not in DJ_PROFILES:
-            # ... (gestion erreur profil) ...
             profiles = ", ".join(DJ_PROFILES.keys())
             raise ValueError(
                 f"Profil inconnu: {self.profile_name}. Disponibles: {profiles}"
@@ -58,12 +56,15 @@ class DJSystem:
         self.dj_brain = DJAILL(self.model_path, self.profile_name, initial_llm_state)
 
         print("Chargement de MusicGen...")
-        self.music_gen = MusicGenerator(model_size="medium")
+        self.music_gen = MusicGenerator(
+            model_name=self.audio_model, default_duration=self.generation_duration
+        )
 
         print("Initialisation du LayerManager...")
         self.layer_manager = LayerManager(
             sample_rate=self.sample_rate,
             output_dir=os.path.join(self.output_dir_base, "layers"),
+            on_max_layers_reached=self.handle_max_layers,
         )
         self.layer_manager.set_master_tempo(initial_llm_state["current_tempo"])
 
@@ -80,7 +81,7 @@ class DJSystem:
         if not os.path.exists(self.output_dir_base):
             os.makedirs(self.output_dir_base)
 
-        print("Système DJ-IA initialisé et prêt!")
+        print("\n🎛️  Système DJ-IA initialisé et prêt!\n")
 
     def _get_new_layer_id(self, prefix="layer") -> str:
         self.layer_id_counter += 1
@@ -101,6 +102,112 @@ class DJSystem:
         self.dj_thread = threading.Thread(target=self._main_loop)
         self.dj_thread.daemon = True
         self.dj_thread.start()
+
+    def normalize_low_energy_stem(self, audio_data, target_rms=-20.0):
+        """Normalise un stem à faible énergie vers un niveau RMS cible."""
+        # Calculer le RMS actuel
+        current_rms = 20 * np.log10(np.sqrt(np.mean(audio_data**2)) + 1e-10)
+
+        # Calculer le gain nécessaire pour atteindre le niveau cible
+        gain_db = target_rms - current_rms
+
+        # Convertir de dB à facteur d'amplitude
+        gain_linear = 10 ** (gain_db / 20.0)
+
+        # Limiter le gain pour éviter les valeurs extrêmes
+        gain_linear = min(gain_linear, 10.0)  # Limite à +20dB de gain
+
+        # Appliquer le gain
+        normalized_audio = audio_data * gain_linear
+
+        print(f"🔊 Normalisation de stem faible : gain de {gain_db:.1f} dB appliqué")
+
+        return normalized_audio
+
+    def compress_low_energy_stem(
+        self, audio_data, threshold=-24.0, ratio=4.0, attack=0.005, release=0.1
+    ):
+        """Applique une compression dynamique pour rendre le stem plus présent."""
+        from scipy.signal import lfilter
+
+        # Convertir le signal en dB
+        db = 20 * np.log10(np.abs(audio_data) + 1e-10)
+
+        # Calculer la réduction de gain
+        mask = db > threshold
+        gain_reduction = np.zeros_like(db)
+        gain_reduction[mask] = (db[mask] - threshold) * (1 - 1 / ratio)
+
+        # Appliquer l'attaque et le relâchement
+        b = [1.0 - np.exp(-1.0 / (attack * 44100))]
+        a = [1.0, -np.exp(-1.0 / (attack * 44100))]
+        attack_env = lfilter(b, a, gain_reduction)
+
+        b = [1.0 - np.exp(-1.0 / (release * 44100))]
+        a = [1.0, -np.exp(-1.0 / (release * 44100))]
+        env = lfilter(b, a, attack_env)
+
+        # Appliquer la compression
+        gain = 10 ** (-env / 20.0)
+        compressed_audio = audio_data * gain
+
+        # Appliquer un gain de compensation
+        makeup_gain = 10 ** ((threshold * (1 - 1 / ratio)) / 20.0)
+        compressed_audio = compressed_audio * makeup_gain
+
+        print(
+            f"🔊 Compression appliquée sur stem faible : ratio {ratio}:1, seuil {threshold} dB"
+        )
+
+        return compressed_audio
+
+    def process_low_energy_stem(self, stem_path, energy_level, output_path):
+        """Traite un stem à faible énergie pour le rendre utilisable."""
+        # Charger le stem
+        audio, sr = librosa.load(stem_path, sr=None)
+
+        # Si l'énergie est très faible, appliquer un traitement plus agressif
+        if energy_level < 0.05:  # Moins de 5%
+            print(
+                f"⚠️ Stem avec énergie très faible ({energy_level:.2%}), traitement intensif..."
+            )
+
+            # Étape 1: Normalisation
+            audio = self.normalize_low_energy_stem(audio, target_rms=-18.0)
+
+            # Étape 2: Compression
+            audio = self.compress_low_energy_stem(audio, threshold=-30.0, ratio=5.0)
+
+            # Étape 3: Filtrage pour améliorer la clarté
+            if np.std(audio) > 0:  # Vérifier qu'il y a un signal
+                from scipy.signal import butter, sosfilt
+
+                # Accentuer les médiums/aigus pour plus de présence
+                nyquist = 0.5 * sr
+                cutoff = 800 / nyquist
+                sos = butter(2, cutoff, btype="highpass", analog=False, output="sos")
+                audio = sosfilt(sos, audio)
+
+                print("🎛️ Filtrage appliqué pour améliorer la clarté du stem faible")
+
+        # Pour énergie modérément faible, traitement plus léger
+        elif energy_level < 0.15:  # Entre 5% et 15%
+            print(
+                f"ℹ️ Stem avec énergie modérée ({energy_level:.2%}), amélioration légère..."
+            )
+            audio = self.normalize_low_energy_stem(audio, target_rms=-20.0)
+
+        # Limiter pour éviter l'écrêtage
+        max_val = np.max(np.abs(audio))
+        if max_val > 0.95:
+            audio = audio * (0.95 / max_val)
+            print("🔊 Limiteur appliqué pour éviter l'écrêtage")
+
+        # Enregistrer le stem traité
+        sf.write(output_path, audio, sr)
+
+        print(f"✅ Stem faible traité et optimisé : {os.path.basename(output_path)}")
+        return output_path
 
     def stop_session(self):
         if not self.session_running:
@@ -181,31 +288,31 @@ class DJSystem:
                 strong_elements["other"] += 1
 
         print(
-            f"Analyse spectrale - Éléments forts détectés dans le mix: {strong_elements}"
+            f"\n📊 Analyse spectrale - Éléments forts détectés dans le mix: {strong_elements}"
         )
-        print(f"Profil spectral du nouveau layer: {new_profile}")
+        print(f"🔬 Profil spectral du nouveau layer: {new_profile}")
 
         # 1. Traitement de la BASSE
         if new_profile.get("bass", 0) > 0.2:  # Si le nouveau sample a une basse forte
             if strong_elements["bass"] > 0:
                 # Basse déjà présente, appliquer filtre passe-haut pour éviter chevauchement
+                # IMPORTANT: Limiter la fréquence de coupure à des valeurs raisonnables
+                cutoff_basse = min(120 + (strong_elements["bass"] * 20), 160)
+
                 if has_effect_type(effects, "hpf"):
-                    # Ajuster HPF existant pour être plus agressif
+                    # Ajuster HPF existant
                     idx, hpf = find_effect(effects, "hpf")
                     current_cutoff = hpf.get("cutoff_hz", 20)
-                    if current_cutoff < 120:  # Si le filtre est trop bas
-                        effects[idx]["cutoff_hz"] = 120 + (strong_elements["bass"] * 40)
+                    if current_cutoff < 40:  # Si le filtre est trop bas
+                        effects[idx]["cutoff_hz"] = cutoff_basse
                         print(
                             f"Ajustement du HPF existant à {effects[idx]['cutoff_hz']}Hz pour éviter chevauchement de basses"
                         )
                 else:
-                    # Ajouter un nouveau HPF
-                    cutoff = 120 + (
-                        strong_elements["bass"] * 40
-                    )  # Plus de basses = filtre plus haut
-                    effects.append({"type": "hpf", "cutoff_hz": cutoff})
+                    # Ajouter un nouveau HPF avec une fréquence raisonnable
+                    effects.append({"type": "hpf", "cutoff_hz": cutoff_basse})
                     print(
-                        f"Ajout d'un HPF à {cutoff}Hz pour éviter chevauchement de basses"
+                        f"Ajout d'un HPF à {cutoff_basse}Hz pour éviter chevauchement de basses"
                     )
 
         # 2. Traitement des DRUMS/PERCUSSIONS
@@ -217,28 +324,37 @@ class DJSystem:
                 if not has_effect_type(effects, "lpf"):
                     # Ajouter un filtre passe-bas pour adoucir les aigus des percussions
                     cutoff = 8000 - (
-                        strong_elements["drums"] * 1000
-                    )  # Plus de percus = filtre plus bas
+                        strong_elements["drums"] * 500
+                    )  # Réduction moins agressive
                     effects.append({"type": "lpf", "cutoff_hz": cutoff})
                     print(
                         f"Ajout d'un LPF à {cutoff}Hz pour adoucir les nouvelles percussions"
                     )
 
-                # Réduire légèrement le volume des nouvelles percussions
+                # CRUCIAL: Si c'est un kick drum, NE PAS ajouter de HPF élevé
+                if "kick" in new_profile.get("type", "").lower():
+                    # Pour les kicks, on veut un HPF très bas (20-40Hz)
+                    if has_effect_type(effects, "hpf"):
+                        idx, hpf = find_effect(effects, "hpf")
+                        if hpf.get("cutoff_hz", 20) > 50:
+                            effects[idx][
+                                "cutoff_hz"
+                            ] = 30  # Valeur conservatrice pour un kick
+                            print(
+                                f"Réduction du HPF à 30Hz pour préserver l'impact du kick"
+                            )
+
+                # Appliquer une réduction fixe basée sur le nombre de drums existants
+                # Mais pas trop forte pour conserver la présence
+                reduction = -0.1 * min(strong_elements["drums"], 2)  # Limite à -0.2 max
                 for i, effect in enumerate(effects):
                     if effect.get("type") == "volume":
-                        effects[i]["gain"] = effect.get("gain", 0.0) - (
-                            0.1 * strong_elements["drums"]
-                        )
+                        # Remplacement plutôt qu'addition
+                        effects[i]["gain"] = reduction
                         break
                 else:
-                    # Pas d'effet de volume trouvé, ajouter
-                    effects.append(
-                        {"type": "volume", "gain": -0.1 * strong_elements["drums"]}
-                    )
-                    print(
-                        f"Réduction du volume des percussions de {0.1 * strong_elements['drums']} dB"
-                    )
+                    effects.append({"type": "volume", "gain": reduction})
+                    print(f"🔉 Réduction du volume des percussions de {-reduction} dB")
 
         # 3. Traitement des VOCAUX
         if (
@@ -331,21 +447,34 @@ class DJSystem:
 
         # Si l'énergie totale dépasse un certain seuil, réduire le volume global
         if total_energy_existing > 1.5 and total_energy_new > 0.8:
+            # Limiter la réduction à des valeurs raisonnables
             volume_reduction = min(
-                0.3, (total_energy_existing + total_energy_new - 1.5) * 0.2
+                0.3, (total_energy_existing + total_energy_new - 1.5) * 0.15
             )
 
             if has_effect_type(effects, "volume"):
                 idx, vol_effect = find_effect(effects, "volume")
+                # Ici on ADDITIONNE pour ne pas perdre l'effet précédent
                 effects[idx]["gain"] = vol_effect.get("gain", 0.0) - volume_reduction
             else:
                 effects.append({"type": "volume", "gain": -volume_reduction})
 
             print(
-                f"Réduction du volume global de {volume_reduction} dB pour éviter la saturation du mix"
+                f"🔈 Réduction du volume global de {volume_reduction} dB pour éviter la saturation du mix"
             )
 
-        print(f"Effets ajustés pour le layering: {effects}")
+        # 8. Correction de toute erreur de syntaxe dans les effets
+        for effect in effects:
+            # Corriger les fautes d'orthographe courantes
+            if effect.get("type") == "compression":
+                if "threshhold" in effect:
+                    effect["threshold"] = effect.pop("threshhold")
+                    print("🛠️ Correction: 'threshhold' → 'threshold'")
+                if "thresshold" in effect:
+                    effect["threshold"] = effect.pop("thresshold")
+                    print("🛠️ Correction: 'thresshold' → 'threshold'")
+
+        print(f"🎛️  Effets ajustés pour le layering: {effects}")
         return effects
 
     def _analyze_sample_with_demucs(self, sample_path, temp_output_dir):
@@ -366,7 +495,7 @@ class DJSystem:
             sample_path,
         ]
 
-        print(f"Exécution de la commande Demucs: {' '.join(cmd)}")
+        print(f"🔊 Analyse audio : Exécution de la commande Demucs: {' '.join(cmd)}")
         process = subprocess.run(cmd, capture_output=True, text=True)
 
         if process.returncode != 0:
@@ -541,9 +670,6 @@ class DJSystem:
 
     def _main_loop(self):
         try:
-            print(
-                f"Démarrage d'une session DJ '{self.profile_name}' à {self.layer_manager.master_tempo} BPM"
-            )
 
             # S'assurer que les dictionnaires nécessaires sont initialisés
             if "active_layers" not in self.dj_brain.session_state:
@@ -561,9 +687,6 @@ class DJSystem:
                 1  # secondes, pour éviter que le LLM ne spamme MusicGen
             )
 
-            # Laisser le LLM prendre l'initiative dès le début
-            print("\nEn attente de la première décision du DJ-IA...\n")
-
             while self.session_running:
                 try:
                     if (
@@ -573,7 +696,6 @@ class DJSystem:
                         time.sleep(
                             0.5
                         )  # Vérifier régulièrement si la session doit s'arrêter
-                        print("En attente...")
                         continue
 
                     # Vérifier que les structures nécessaires existent
@@ -612,6 +734,32 @@ class DJSystem:
                         f"🔊 Layers actifs={current_active_layers_count}/3\n"
                     )
 
+                    if self.dj_brain.session_state.get("need_layer_removal", False):
+                        print(
+                            "⚠️  ALERTE: Trop de layers actifs! DJ-AI doit supprimer un layer!"
+                        )
+                        print(
+                            f"🗑️  Layers disponibles pour suppression: {list(self.dj_brain.session_state.get('layers_to_choose_from', {}).keys())}"
+                        )
+                        self.dj_brain.session_state["need_layer_removal"] = False
+
+                    # Dans _main_loop, après avoir calculé current_active_layers_count
+                    if current_active_layers_count == 2:
+                        print("ℹ️  INFO: Déjà 2 layers actifs sur 3 possibles.")
+                        # Ajouter un état visible par le LLM pour le rendre conscient de la situation
+                        self.dj_brain.session_state["approaching_max_layers"] = True
+                        self.dj_brain.session_state["current_layers_count"] = 2
+                        self.dj_brain.session_state["max_layers_allowed"] = 3
+                        print(
+                            f"🔊 Layers actifs: {list(self.layer_manager.layers.keys())}"
+                        )
+                    elif current_active_layers_count < 2:
+                        # Réinitialiser la clé si on repasse en dessous de 2 layers
+                        if "approaching_max_layers" in self.dj_brain.session_state:
+                            self.dj_brain.session_state["approaching_max_layers"] = (
+                                False
+                            )
+
                     decision = self.dj_brain.get_next_decision()
                     last_decision_time = time.time()
                     self._process_dj_decision(decision)
@@ -632,10 +780,17 @@ class DJSystem:
 
         print("Fin de la boucle principale du DJ (session_running est False).")
 
+    def handle_max_layers(self, layer_info):
+        # Mettre à jour l'état du LLM
+        self.dj_brain.session_state["need_layer_removal"] = True
+        self.dj_brain.session_state["layers_to_choose_from"] = layer_info
+        print("LLM informé qu'il doit supprimer un layer à sa prochaine action.")
+        return True
+
     def _extract_preferred_stem(
         self, spectral_profile, separated_path, layer_id, preferred_stem=None
     ):
-        """Extrait le stem préféré par le LLM ou le dominant si non spécifié"""
+        """Extrait le stem préféré par le LLM et le normalise pour un niveau optimal"""
 
         if not spectral_profile or not separated_path:
             print(
@@ -643,10 +798,8 @@ class DJSystem:
             )
             return None, None
 
-        available_stems = [
-            s for s in spectral_profile.keys() if spectral_profile[s] > 0.05
-        ]
-        print(f"🔍 Stems disponibles avec énergie >5%: {', '.join(available_stems)}")
+        available_stems = list(spectral_profile.keys())
+        print(f"🔍 Stems disponibles: {', '.join(available_stems)}")
 
         # Déterminer le stem à extraire
         selected_stem = None
@@ -661,45 +814,126 @@ class DJSystem:
             selected_stem = random.choices(stems, weights=weights, k=1)[0]
             selection_method = "aléatoire"
 
-        elif (
-            preferred_stem in spectral_profile
-            and spectral_profile[preferred_stem] > 0.05
-        ):
-            # Stem préféré disponible et avec assez d'énergie
+        elif preferred_stem in spectral_profile:
+            # TOUJOURS accepter le stem demandé par le LLM s'il existe
             selected_stem = preferred_stem
             selection_method = "préférence LLM"
 
         else:
-            # Fallback au stem dominant
+            # Fallback au stem dominant uniquement si le stem demandé n'existe pas
             selected_stem = max(spectral_profile, key=spectral_profile.get)
-            selection_method = "dominant"
+            selection_method = "dominant (fallback)"
 
         selected_value = spectral_profile[selected_stem]
         print(
             f"🎯 Sélection {selection_method}: stem '{selected_stem}' ({selected_value:.2%})"
         )
 
+        # Avertissement si le stem a une énergie très faible
+        if selected_value < 0.05:
+            print(
+                f"⚠️  Attention: Le stem '{selected_stem}' a une énergie très faible ({selected_value:.2%})"
+            )
+
         # Chemin vers le stem sélectionné
         stem_path = separated_path / f"{selected_stem}.wav"
-
         if not stem_path.exists():
             print(f"❌ Stem sélectionné {selected_stem} introuvable à {stem_path}")
             return None, None
 
-        # Créer un nouveau fichier pour le stem sélectionné
+        # Créer un nouveau fichier pour le stem normalisé
         output_dir = os.path.dirname(os.path.dirname(str(separated_path)))
         stem_output_path = os.path.join(
             output_dir, f"{layer_id}_{selected_stem}_stem_{int(time.time())}.wav"
         )
 
-        # Copier le stem vers le nouveau fichier
         try:
-            shutil.copy(stem_path, stem_output_path)
-            print(f"✅ Stem extrait: {os.path.basename(stem_output_path)}")
+            # Charger l'audio
+            audio, sr = librosa.load(str(stem_path), sr=None)
+
+            # Appliquons d'abord tous les traitements
+            processed_audio = audio.copy()
+
+            # Traitements spécifiques selon le type de stem
+            if selected_stem == "drums":
+                # Pour les drums: ajouter un peu de compression pour plus d'impact
+                threshold = 0.4
+                ratio = 2.0
+
+                # Calculer le niveau d'atténuation
+                amplitude = np.abs(processed_audio)
+                attenuation = np.ones_like(amplitude)
+                mask = amplitude > threshold
+                attenuation[mask] = (
+                    threshold + (amplitude[mask] - threshold) / ratio
+                ) / amplitude[mask]
+
+                # Appliquer l'atténuation
+                processed_audio = processed_audio * attenuation
+                print(f"🥁 Compression appliquée au stem 'drums' pour plus d'impact")
+
+            elif selected_stem == "bass":
+                # Pour la basse: ajouter un peu de compression pour plus de punch
+                threshold = 0.3
+                ratio = 2.5
+
+                # Compression
+                amplitude = np.abs(processed_audio)
+                attenuation = np.ones_like(amplitude)
+                mask = amplitude > threshold
+                attenuation[mask] = (
+                    threshold + (amplitude[mask] - threshold) / ratio
+                ) / amplitude[mask]
+
+                processed_audio = processed_audio * attenuation
+                print(f"🔊 Compression appliquée au stem 'bass' pour plus de présence")
+
+            # Normalisation finale après tous les traitements
+            # Calculer le pic actuel
+            current_peak = np.max(np.abs(processed_audio))
+            if current_peak > 0:
+                # Niveau cible (-1 dB pour éviter l'écrêtage)
+                target_gain = 0.89 / current_peak  # -1 dB ~ 0.89
+
+                # Limiter le gain pour éviter d'amplifier excessivement le bruit de fond
+                max_gain = 10.0  # Maximum +20 dB en linéaire
+                target_gain = min(target_gain, max_gain)
+
+                # Appliquer le gain
+                normalized_audio = processed_audio * target_gain
+
+                # Calculer le gain en dB pour le log
+                gain_db = 20 * np.log10(target_gain) if target_gain > 0 else 0
+                print(
+                    f"🔊 Normalisation du stem '{selected_stem}' à -1 dB (gain appliqué: {gain_db:.1f} dB)"
+                )
+            else:
+                normalized_audio = processed_audio
+                print(
+                    f"⚠️ Le stem '{selected_stem}' a un niveau trop faible pour être normalisé"
+                )
+
+            # Enregistrer le stem normalisé
+            sf.write(stem_output_path, normalized_audio, sr)
+
+            print(
+                f"✅ Stem normalisé extrait à -1 dB: {os.path.basename(stem_output_path)}"
+            )
+
             return stem_output_path, selected_stem
+
         except Exception as e:
-            print(f"❌ Erreur lors de l'extraction du stem: {e}")
-            return None, None
+            print(f"⚠️ Erreur lors de la normalisation du stem: {e}")
+            # Fallback à la copie simple en cas d'erreur
+            try:
+                shutil.copy(stem_path, stem_output_path)
+                print(
+                    f"✅ Stem extrait sans normalisation: {os.path.basename(stem_output_path)}"
+                )
+                return stem_output_path, selected_stem
+            except Exception as e:
+                print(f"❌ Erreur lors de l'extraction du stem: {e}")
+                return None, None
 
     def _process_dj_decision(self, decision: Dict[str, Any]):
         action_type = decision.get("action_type", "")
@@ -708,7 +942,7 @@ class DJSystem:
 
         print(f"\n🤖 Action LLM: {action_type}")
         print(f"💭 Raison: {reasoning}")
-        print(f"⚙️  Paramètres: {params}\n")
+        print(f"\n⚙️  Paramètres: {params}\n")
 
         if action_type == "manage_layer":
             layer_id = params.get("layer_id")
@@ -932,6 +1166,7 @@ class DJSystem:
                         "measures": measures,
                         "type": sample_type,
                         "key": key,
+                        "used_stem": used_stem_type,
                     }
 
                     # Gérer le layer avec les effets ajustés
@@ -968,7 +1203,7 @@ class DJSystem:
                         # Informer sur l'optimisation
                         if used_stem_type:
                             print(
-                                f"💡 DJ-IA innovation: Sample optimisé en utilisant uniquement le stem '{used_stem_type}'"
+                                f"\n💡 Sample optimisé en utilisant uniquement le stem '{used_stem_type}'"
                             )
                     else:
                         # Si le layer n'a pas pu être ajouté
@@ -1007,10 +1242,76 @@ class DJSystem:
                 if layer_id in self.dj_brain.session_state["active_layers"]:
                     del self.dj_brain.session_state["active_layers"][layer_id]
 
-            else:
+                # Réinitialiser le flag si présent
+                if self.dj_brain.session_state.get("need_layer_removal", False):
+                    # Le LLM n'a pas supprimé de layer alors qu'on le lui a demandé
+                    print(
+                        "⚠️ ALERTE: Le LLM n'a pas supprimé de layer alors qu'il y a déjà 3 layers actifs!"
+                    )
+
+                    # Choisir un layer à supprimer automatiquement
+                    layers_to_remove = list(self.layer_manager.layers.keys())
+                    if layers_to_remove:
+                        layer_to_remove_id = layers_to_remove[
+                            0
+                        ]  # Prendre le premier par simplicité
+                        print(
+                            f"🚨 Suppression automatique du layer '{layer_to_remove_id}' pour respecter la limite"
+                        )
+
+                        # Supprimer le layer
+                        layer_to_remove = self.layer_manager.layers.pop(
+                            layer_to_remove_id
+                        )
+                        layer_to_remove.stop(fadeout_ms=200, cleanup=True)
+
+                        # Mettre à jour l'état pour le LLM
+                        if (
+                            layer_to_remove_id
+                            in self.dj_brain.session_state["active_layers"]
+                        ):
+                            del self.dj_brain.session_state["active_layers"][
+                                layer_to_remove_id
+                            ]
+
+                        # Réinitialiser le flag
+                        self.dj_brain.session_state["need_layer_removal"] = False
+
+                    else:
+                        print(
+                            f"Opération '{operation}' sur layer non reconnue par DJSystem._process_dj_decision."
+                        )
+            if self.dj_brain.session_state.get("need_layer_removal", False):
+                # Le LLM n'a pas supprimé de layer alors qu'on le lui a demandé
                 print(
-                    f"Opération '{operation}' sur layer non reconnue par DJSystem._process_dj_decision."
+                    "⚠️ ALERTE: Le LLM n'a pas supprimé de layer alors qu'il y a déjà 3 layers actifs!"
                 )
+
+                # Choisir un layer à supprimer automatiquement
+                layers_to_remove = list(self.layer_manager.layers.keys())
+                if layers_to_remove:
+                    layer_to_remove_id = layers_to_remove[
+                        0
+                    ]  # Prendre le premier par simplicité
+                    print(
+                        f"🚨 Suppression automatique du layer '{layer_to_remove_id}' pour respecter la limite"
+                    )
+
+                    # Supprimer le layer
+                    layer_to_remove = self.layer_manager.layers.pop(layer_to_remove_id)
+                    layer_to_remove.stop(fadeout_ms=200, cleanup=True)
+
+                    # Mettre à jour l'état pour le LLM
+                    if (
+                        layer_to_remove_id
+                        in self.dj_brain.session_state["active_layers"]
+                    ):
+                        del self.dj_brain.session_state["active_layers"][
+                            layer_to_remove_id
+                        ]
+
+                    # Réinitialiser le flag
+                    self.dj_brain.session_state["need_layer_removal"] = False
 
         elif action_type == "speech":
             text_to_say = params.get("text", "Let's go!")

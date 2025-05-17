@@ -20,14 +20,15 @@ class AudioLayer:
         layer_id: str,
         file_path: str,
         channel: pygame.mixer.Channel,
-        volume: float = 0.8,
+        volume: float = 0.9,
         pan: float = 0.0,
     ):
         self.layer_id = layer_id
         self.file_path = file_path  # Chemin vers le sample bouclé et traité
         self.sound_object: Optional[pygame.mixer.Sound] = None
         self.channel = channel
-        self.volume = volume
+        self.master_volume = 0.8
+        self.volume = volume * self.master_volume
         self.pan = pan  # -1.0 (gauche) à 1.0 (droite), 0.0 (centre)
         self.is_playing = False
         self.length_seconds = 0.0
@@ -53,7 +54,9 @@ class AudioLayer:
             try:
                 self.channel.play(self.sound_object, loops=loops)
                 self.is_playing = True
-                print(f"Layer '{self.layer_id}' démarré sur le canal {self.channel}.")
+                print(
+                    f"\n▶️  Layer '{self.layer_id}' démarré sur le canal {self.channel}."
+                )
             except pygame.error as e:
                 print(f"Erreur Pygame lors de la lecture du layer {self.layer_id}: {e}")
         elif not self.sound_object:
@@ -78,7 +81,7 @@ class AudioLayer:
                 self.channel.stop()
 
             self.is_playing = False
-            print(f"Layer '{self.layer_id}' arrêté.")
+            print(f"⏹️  Layer '{self.layer_id}' arrêté.")
 
             # Nettoyer les ressources
             if cleanup:
@@ -103,7 +106,7 @@ class AudioLayer:
                         try:
                             os.remove(self.file_path)
                             print(
-                                f"Fichier audio temporaire supprimé: {self.file_path}"
+                                f"🗑️  Fichier audio temporaire supprimé: {self.file_path}"
                             )
                         except (PermissionError, OSError) as e:
                             # Ignorer l'erreur si le fichier est encore utilisé
@@ -141,9 +144,11 @@ class LayerManager:
         sample_rate: int = 44100,
         num_channels: int = 16,
         output_dir: str = "./dj_layers_output",
+        on_max_layers_reached=None,
     ):
         self.sample_rate = sample_rate
         self.output_dir = output_dir
+        self.on_max_layers_reached = on_max_layers_reached
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
 
@@ -220,7 +225,7 @@ class LayerManager:
                 start_offset_samples = onsets_samples[0]  # Sinon, le premier détecté
 
             print(
-                f"Layer '{layer_id}': Premier onset (trim) à {start_offset_samples / sr:.3f}s."
+                f"\n✂️  Layer '{layer_id}': Premier onset (trim) à {start_offset_samples / sr:.3f}s."
             )
             audio = audio[start_offset_samples:]
         else:
@@ -264,7 +269,7 @@ class LayerManager:
         try:
             sf.write(looped_sample_path, audio, sr)
             print(
-                f"Layer '{layer_id}': Sample bouclé sauvegardé : {looped_sample_path}"
+                f"💾 Layer '{layer_id}': Sample bouclé sauvegardé : {looped_sample_path}"
             )
             return looped_sample_path
         except Exception as e:
@@ -304,7 +309,7 @@ class LayerManager:
                     4, normal_cutoff, btype="highpass", analog=False, output="sos"
                 )
                 audio = sosfilt(sos, audio)
-                print(f"Layer '{layer_id}': HPF appliqué à {cutoff}Hz.")
+                print(f"🔉 Layer '{layer_id}': HPF appliqué à {cutoff}Hz.")
             elif effect_type == "lpf":
                 cutoff = effect.get("cutoff_hz", 20000)
                 from scipy.signal import butter, sosfilt
@@ -320,7 +325,7 @@ class LayerManager:
                     4, normal_cutoff, btype="lowpass", analog=False, output="sos"
                 )
                 audio = sosfilt(sos, audio)
-                print(f"Layer '{layer_id}': LPF appliqué à {cutoff}Hz.")
+                print(f"🔉 Layer '{layer_id}': LPF appliqué à {cutoff}Hz.")
             # Ajouter d'autres effets ici (compresseur, etc. plus complexe avec numpy/scipy)
 
         effected_sample_filename = (
@@ -337,7 +342,7 @@ class LayerManager:
     def _wait_for_sync_point(self, beats_to_wait: float = BEATS_PER_BAR):
         """Attend le prochain point de synchronisation (début de mesure par défaut)."""
         if not self.is_master_clock_running or self.global_playback_start_time is None:
-            print("Horloge maître non démarrée. Démarrage immédiat.")
+            print("⏱️  Horloge maître non démarrée. Démarrage immédiat.")
             if not self.is_master_clock_running:  # Si c'est le tout premier sample
                 self.global_playback_start_time = time.time()
                 self.is_master_clock_running = True
@@ -361,7 +366,7 @@ class LayerManager:
 
         if time_remaining_to_sync > 0:
             print(
-                f"Attente de synchronisation: {time_remaining_to_sync:.3f}s (Tempo: {self.master_tempo} BPM, intervalle de {beats_to_wait} beats)"
+                f"\n⏱️  Attente de synchronisation: {time_remaining_to_sync:.3f}s (Tempo: {self.master_tempo} BPM, intervalle de {beats_to_wait} beats)"
             )
             time.sleep(time_remaining_to_sync)
 
@@ -451,7 +456,7 @@ class LayerManager:
             ):
                 try:
                     os.remove(original_file_path)
-                    print(f"Fichier audio original supprimé: {original_file_path}")
+                    print(f"\n🗑️  Fichier audio original supprimé: {original_file_path}")
                 except (PermissionError, OSError) as e:
                     print(
                         f"Impossible de supprimer le fichier original {original_file_path}: {e}"
@@ -464,7 +469,7 @@ class LayerManager:
                 try:
                     os.remove(looped_sample_path)
                     print(
-                        f"Fichier audio bouclé intermédiaire supprimé: {looped_sample_path}"
+                        f"🧹 Fichier audio bouclé intermédiaire supprimé: {looped_sample_path}"
                     )
                 except (PermissionError, OSError) as e:
                     print(
@@ -481,7 +486,7 @@ class LayerManager:
                 self.layers[layer_id].stop(
                     fadeout_ms=50, cleanup=True
                 )  # Petit fade pour éviter clic
-                print(f"Layer '{layer_id}' existant arrêté pour remplacement.")
+                print(f"⏹️  Layer '{layer_id}' existant arrêté pour remplacement.")
                 # Important: libérer le canal? Ou réutiliser le même?
                 # Pour l'instant, on réutilise le canal si possible, sinon on en prend un nouveau.
                 channel = self.layers[layer_id].channel
@@ -496,37 +501,89 @@ class LayerManager:
 
             max_active_layers = 3
             if len(self.layers) >= max_active_layers and layer_id not in self.layers:
-                print(
-                    f"Limite de {max_active_layers} layers atteinte. Sélection d'un layer à supprimer..."
-                )
+                print(f"\n⚠️  Limite de {max_active_layers} layers atteinte.\n")
 
-                # Obtenir tous les IDs de layers actuels
-                all_layers = list(self.layers.keys())
+                # Utiliser le callback si disponible
+                if self.on_max_layers_reached:
+                    layer_info = {
+                        layer_id: {
+                            "type": getattr(layer, "type", "unknown"),
+                            "used_stem": getattr(layer, "used_stem", None),
+                        }
+                        for layer_id, layer in self.layers.items()
+                    }
 
-                # Si ce n'est pas le premier ajout, s'assurer que le premier layer peut être remplacé
-                if len(all_layers) > 0:
+                    # Appeler le callback avec les infos des layers
+                    should_continue = self.on_max_layers_reached(layer_info)
+
+                    if not should_continue:
+                        print("Ajout du nouveau layer annulé par le callback.")
+                        return
+
+                    # Sinon, on continue et on ajoute quand même ce layer (temporairement à 4)
+                else:
+                    # Comportement par défaut (comme avant)
+                    all_layers = list(self.layers.keys())
                     weights = [
                         3 if i == 0 else 2 if i < len(all_layers) // 2 else 1
                         for i in range(len(all_layers))
                     ]
                     layer_to_remove_id = random.choices(all_layers, weights=weights)[0]
 
-                print(
-                    f"Suppression du layer '{layer_to_remove_id}' pour faire de la place."
-                )
-                # Suppression avec fade out et nettoyage du fichier
-                layer_to_remove = self.layers.pop(layer_to_remove_id)
-                layer_to_remove.stop(fadeout_ms=200, cleanup=True)
-                # Informer le LLM ou les logs
-                print(
-                    f"Layer '{layer_to_remove_id}' automatiquement retiré pour respecter la limite de {max_active_layers} layers."
-                )
+                    print(
+                        f"Suppression du layer '{layer_to_remove_id}' pour faire de la place."
+                    )
+                    layer_to_remove = self.layers.pop(layer_to_remove_id)
+                    layer_to_remove.stop(fadeout_ms=200, cleanup=True)
+                    print(f"Layer '{layer_to_remove_id}' automatiquement retiré.")
 
+            used_stem_type = sample_details.get("used_stem") or "unknown"
+            # On peut aussi extraire du layer_id si ça contient des infos (bass_layer, kick_layer, etc.)
+            layer_type = "unknown"
+            if "_" in layer_id:
+                parts = layer_id.split("_")
+                if len(parts) > 0:
+                    layer_type = parts[0].lower()
+
+            # Ajuster le volume en fonction du stem et du type de layer
+            adjusted_volume = playback_params.get("volume", 0.9)
+
+            # Réglages basés sur le stem extrait
+            if used_stem_type == "drums":
+                if "kick" in layer_type:
+                    # Kick drum - bon volume
+                    adjusted_volume *= 1.0
+                    print(f"🥁 Volume du kick conservé à {adjusted_volume:.2f}")
+                else:
+                    # Autres percussions - légèrement réduit
+                    adjusted_volume *= 0.85
+                    print(f"🥁 Volume des percussions ajusté à {adjusted_volume:.2f}")
+
+            elif used_stem_type == "bass":
+                adjusted_volume *= 0.8
+                print(f"🔉 Volume de basse réduit à {adjusted_volume:.2f}")
+
+            elif used_stem_type == "other":
+                # Éléments "other" - réglage standard avec légère réduction
+                adjusted_volume *= 0.8
+                print(f"🎹 Volume des éléments autres ajusté à {adjusted_volume:.2f}")
+
+            elif used_stem_type == "vocals":
+                # Éléments vocaux - assez fort pour être distincts
+                adjusted_volume *= 0.9
+                print(f"🎤 Volume des éléments vocaux ajusté à {adjusted_volume:.2f}")
+
+            elif used_stem_type == "full_mix" or used_stem_type == "unknown":
+                # Mix complet - réduction significative car contient tous les éléments
+                adjusted_volume *= 0.7
+                print(f"🎛️  Volume du mix complet ajusté à {adjusted_volume:.2f}")
+
+            # Ensuite création du layer avec le volume ajusté
             new_layer = AudioLayer(
                 layer_id,
                 final_sample_path,
                 channel,
-                volume=playback_params.get("volume", 0.8),
+                volume=adjusted_volume,  # Volume ajusté selon le stem
                 pan=playback_params.get("pan", 0.0),
             )
 
@@ -578,7 +635,7 @@ class LayerManager:
 
         elif operation == "remove":
             if layer_id not in self.layers:
-                print(f"Erreur: Layer '{layer_id}' non trouvé pour suppression.")
+                print(f"❌ Erreur: Layer '{layer_id}' non trouvé pour suppression.")
                 return
 
             layer_to_remove = self.layers.pop(layer_id)  # Retirer du dictionnaire

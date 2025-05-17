@@ -39,6 +39,7 @@ class DJAILL:
             "session_duration": 0,
             "last_action_time": 0,
             "history": [],  # Historique des décisions pour contexte
+            "approaching_max_layers": False,
         }
 
         self.system_prompt = self.profile["system_prompt"]
@@ -125,7 +126,7 @@ class DJAILL:
 
         # Générer la réponse du LLM
         user_prompt = self._build_prompt()
-        print("🧠 Génération AI-DJ prompt...")
+        print("\n🧠 Génération AI-DJ prompt...")
         response = self.model.create_chat_completion(
             [
                 {"role": "system", "content": self.system_prompt},

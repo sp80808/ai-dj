@@ -1,33 +1,89 @@
 import torch
 import numpy as np
-from audiocraft.models import MusicGen
 import tempfile
 import os
 from config.music_prompts import MUSICGEN_TEMPLATES, SAMPLE_PARAMS
 
 
 class MusicGenerator:
-    """Générateur de samples musicaux avec MusicGen"""
+    """Générateur de samples musicaux avec différents modèles (MusicGen ou Stable Audio)"""
 
-    def __init__(self, model_size="medium"):
+    def __init__(self, model_name="musicgen-medium", default_duration=8.0):
         """
         Initialise le générateur de musique
 
         Args:
-            model_size (str): Taille du modèle MusicGen ('small', 'medium', 'large')
+            model_name (str): Nom du modèle à utiliser ('musicgen-small', 'musicgen-medium',
+                              'musicgen-large', 'stable-audio-open', 'stable-audio-pro')
+            default_duration (float): Durée par défaut des générations en secondes
         """
-        print(f"Initialisation de MusicGen ({model_size})...")
-        self.model = MusicGen.get_pretrained(model_size)
+        self.model_name = model_name
+        self.default_duration = default_duration
+        self.model = None
+        self.sample_rate = 32000  # MusicGen default
 
-        # Définir les paramètres par défaut
-        self.model.set_generation_params(
-            duration=8,  # 8 secondes par défaut
-            temperature=1.0,  # Contrôle la randomité
-            top_k=250,  # Filtrage top-k
-            top_p=0.0,  # Pas de nucleus sampling par défaut
-            use_sampling=True,
-        )
-        print("MusicGen initialisé!")
+        if "musicgen" in model_name:
+            size = model_name.split("-")[1] if "-" in model_name else "medium"
+            print(f"Initialisation de MusicGen ({size})...")
+            from audiocraft.models import MusicGen
+
+            self.model = MusicGen.get_pretrained(size)
+            self.model_type = "musicgen"
+
+            # Définir les paramètres par défaut pour MusicGen
+            self.model.set_generation_params(
+                duration=default_duration,
+                temperature=1.0,
+                top_k=250,
+                top_p=0.0,
+                use_sampling=True,
+            )
+            print("MusicGen initialisé!")
+
+        elif "stable-audio" in model_name:
+            print(f"Initialisation de Stable Audio ({model_name})...")
+            try:
+                # Utiliser l'approche du code fourni plutôt que StableAudio
+                import torch
+                from stable_audio_tools import get_pretrained_model
+
+                # Définir le device
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+                print(f"Utilisation du dispositif: {device}")
+
+                # Télécharger le modèle et le déplacer sur GPU
+                model_id = "stabilityai/stable-audio-open-1.0"
+                if model_name == "stable-audio-pro":
+                    model_id = "stabilityai/stable-audio-pro-1.0"
+
+                self.model, self.model_config = get_pretrained_model(model_id)
+                self.sample_rate = self.model_config["sample_rate"]
+                self.sample_size = self.model_config["sample_size"]
+                self.model = self.model.to(device)
+                self.device = device
+
+                self.model_type = "stable-audio"
+                print(f"Stable Audio initialisé (sample rate: {self.sample_rate}Hz)!")
+
+            except ImportError as e:
+                print(f"⚠️ Erreur: {e}")
+                print(
+                    "Installation: pip install torch torchaudio stable-audio-tools einops"
+                )
+                # Fallback à MusicGen si Stable Audio n'est pas disponible
+                print("Fallback à MusicGen medium")
+                from audiocraft.models import MusicGen
+
+                self.model = MusicGen.get_pretrained("medium")
+                self.model_type = "musicgen"
+
+        else:
+            # Modèle inconnu, fallback à MusicGen
+            print(f"⚠️ Modèle {model_name} inconnu, fallback à MusicGen medium")
+            from audiocraft.models import MusicGen
+
+            self.model = MusicGen.get_pretrained("medium")
+            self.model_type = "musicgen"
 
         # Stockage des samples générés
         self.sample_cache = {}
@@ -68,7 +124,8 @@ class MusicGenerator:
             )
 
             # Définir la durée de génération
-            self.model.set_generation_params(duration=params["duration"])
+            if self.model_type == "musicgen":
+                self.model.set_generation_params(duration=params["duration"])
 
             if not genre:
                 # Déduire le genre du type de sample
@@ -177,29 +234,95 @@ class MusicGenerator:
 
             # Ajouter les mots-clés si présents
             if keyword_str:
-                prompt = f"{base_prompt}, {keyword_str}"
+                prompt = f"{base_prompt} {keyword_str}"
             else:
                 prompt = base_prompt
 
             print(f"🔮 Génération sample avec prompt: '{prompt}'")
-
-            # Générer le sample
-            self.model.set_generation_params(
-                duration=params["duration"],
-                temperature=0.7
-                + (intensity * 0.03),  # Plus d'intensité = plus de randomité
-            )
-
-            # Génération du sample
             print("\n🎵 Génération audio en cours...")
-            wav = self.model.generate([prompt])
-            print(f"✅ Génération terminée !")
-            # Convertir en numpy array de manière sécurisée
-            with torch.no_grad():
-                wav_np = wav.cpu().detach().numpy()
+            if self.model_type == "musicgen":
+                # Paramètres spécifiques à MusicGen
+                self.model.set_generation_params(
+                    duration=params["duration"],
+                    temperature=0.7
+                    + (intensity * 0.03),  # Plus d'intensité = plus de randomité
+                )
 
-            # Extraire le premier sample du batch
-            sample_audio = wav_np[0, 0]  # [batch, channel, sample]
+                # Génération avec MusicGen
+                wav = self.model.generate([prompt])
+
+                # Convertir en numpy array
+                with torch.no_grad():
+                    wav_np = wav.cpu().detach().numpy()
+
+                # Extraire le premier sample du batch
+                sample_audio = wav_np[0, 0]  # [batch, channel, sample]
+
+            elif self.model_type == "stable-audio":
+                # Importer les modules nécessaires pour Stable Audio
+                from einops import rearrange
+                from stable_audio_tools.inference.generation import (
+                    generate_diffusion_cond,
+                )
+
+                # Créer le format de conditionnement attendu par Stable Audio
+                conditioning = [
+                    {
+                        "prompt": prompt,
+                        "seconds_start": 0,
+                        "seconds_total": params["duration"],
+                    }
+                ]
+                intensity = 5 if intensity is None else intensity
+                # Paramètres ajustés selon l'intensité
+                cfg_scale = min(5.0 + (intensity * 0.5), 9.0)  # 5.0-9.0
+                steps_value = int(50 + (intensity * 5))  # 50-100 steps
+                seed_value = 42  # Valeur fixe dans les limites
+
+                print(
+                    f"⚙️  Génération Stable Audio: steps={steps_value}, cfg_scale={cfg_scale}, seed={seed_value}"
+                )
+
+                # Générer l'audio
+                output = generate_diffusion_cond(
+                    self.model,
+                    steps=steps_value,
+                    cfg_scale=cfg_scale,
+                    conditioning=conditioning,
+                    sample_size=self.sample_size,
+                    sigma_min=0.3,
+                    sigma_max=500,
+                    sampler_type="dpmpp-3m-sde",
+                    device=self.device,
+                    seed=seed_value,
+                )
+
+                # Calculer le nombre d'échantillons cible
+                target_samples = int(params["duration"] * self.sample_rate)
+
+                # Formater l'audio
+                output = rearrange(output, "b d n -> d (b n)")
+
+                # Tronquer si nécessaire
+                if output.shape[1] > target_samples:
+                    output = output[:, :target_samples]
+
+                # Normaliser en audio PCM standard
+                output_normalized = (
+                    output.to(torch.float32)
+                    .div(torch.max(torch.abs(output) + 1e-8))
+                    .cpu()
+                    .numpy()
+                )
+
+                # Prendre le premier canal si stéréo
+                sample_audio = (
+                    output_normalized[0]
+                    if output_normalized.shape[0] > 1
+                    else output_normalized
+                )
+
+            print(f"✅ Génération terminée !\n")
 
             # Créer les métadonnées du sample
             sample_info = {
@@ -216,7 +339,7 @@ class MusicGenerator:
             return sample_audio, sample_info
 
         except Exception as e:
-            print(f"Erreur lors de la génération du sample: {str(e)}")
+            print(f"❌ Erreur lors de la génération du sample: {str(e)}")
             # En cas d'erreur, retourner un silence et des infos de base
             silence = np.zeros(44100 * 4)  # 4 secondes de silence
             error_info = {"type": sample_type, "tempo": tempo, "error": str(e)}
@@ -246,5 +369,5 @@ class MusicGenerator:
 
             return path
         except Exception as e:
-            print(f"Erreur lors de la sauvegarde du sample: {e}")
+            print(f"❌ Erreur lors de la sauvegarde du sample: {e}")
             return None
