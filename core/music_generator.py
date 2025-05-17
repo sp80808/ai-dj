@@ -20,7 +20,7 @@ class MusicGenerator:
         self.model_name = model_name
         self.default_duration = default_duration
         self.model = None
-        self.sample_rate = 32000  # MusicGen default
+        self.sample_rate = 32000
 
         if "musicgen" in model_name:
             size = model_name.split("-")[1] if "-" in model_name else "medium"
@@ -75,6 +75,7 @@ class MusicGenerator:
                 from audiocraft.models import MusicGen
 
                 self.model = MusicGen.get_pretrained("medium")
+                self.sample_rate = self.model.sample_rate
                 self.model_type = "musicgen"
 
         else:

@@ -54,7 +54,6 @@ Tu dois gérer intelligemment tes layers:
    - Utilise des séquences de A-B-A (ajoute, supprime, réintroduis)
    - Supprime un layer juste avant de créer un "drop" pour l'impact
 """
-
 # Section commune pour le format JSON
 COMMON_JSON_FORMAT = """
 Format de réponse JSON OBLIGATOIRE:
@@ -69,7 +68,11 @@ Format de réponse JSON OBLIGATOIRE:
             "key": "{default_key}",
             "measures": {default_measures},  // Nombre de mesures (1, 2, 4, 8)
             "intensity": {default_intensity},  // 1-10
-            "preferred_stem": "drums"  // OPTIONNEL: "drums", "bass", "other" ou "random"
+            "preferred_stems": ["drums", "bass"],  // NOUVEAU: Liste de stems à extraire et mixer ensemble
+            // Alternative 1: "preferred_stems": "drums"  // Un seul stem (chaîne de caractères)
+            // Alternative 2: "preferred_stems": "all"    // Utiliser tous les stems disponibles
+            // Alternative 3: "preferred_stems": "random" // Sélection aléatoire pondérée de 1-3 stems
+            // Rétrocompatibilité: "preferred_stem": "drums"  // Ancienne syntaxe, toujours supportée
         }}}},
         "playback_params": {{{{
             "volume": 0.9,  // 0.0 à 1.0
@@ -116,18 +119,27 @@ Le système utilise une technologie appelée "source separation" (Demucs) qui pe
 - "bass": basses, sub-bass, éléments graves
 - "other": tout le reste (synthés, pads, leads, etc.)
 
-Tu peux maintenant spécifier le stem que tu souhaites extraire en utilisant "preferred_stem" dans sample_details:
-- Pour extraire uniquement les percussions: "preferred_stem": "drums"
-- Pour extraire uniquement la basse: "preferred_stem": "bass"
-- Pour extraire uniquement les autres éléments: "preferred_stem": "other"
-- Pour une sélection aléatoire: "preferred_stem": "random"
+Tu peux maintenant spécifier un ou plusieurs stems à extraire en utilisant "preferred_stems" dans sample_details:
+1. Pour extraire et mixer plusieurs stems ensemble:
+   - "preferred_stems": ["drums", "bass"]  // Extraire et mixer la batterie et la basse
+   - "preferred_stems": ["other", "bass"]  // Extraire et mixer les éléments mélodiques et la basse
 
-Exemple d'utilisation créative:
-- Générer un sample complet mais n'en garder que la ligne de basse
-- Créer un sample mélodique mais n'extraire que les éléments autres que drums/bass
-- Produire un rythme complexe mais ne conserver que la batterie
+2. Pour extraire un seul stem:
+   - "preferred_stems": "drums"            // Extraire uniquement les percussions
+   - "preferred_stems": "bass"             // Extraire uniquement la basse
+   - "preferred_stems": "other"            // Extraire uniquement les autres éléments
 
-C'est un outil puissant pour créer des layers plus ciblés et mieux mixés!
+3. Options spéciales:
+   - "preferred_stems": "all"              // Utiliser tous les stems disponibles (mix complet)
+   - "preferred_stems": "random"           // Sélection aléatoire pondérée de 1 à 3 stems
+
+Exemples d'utilisation créative:
+- Combiner la basse et les percussions pour un groove solide: ["drums", "bass"]
+- Extraire uniquement les éléments mélodiques pour un breakdown: "other"
+- Créer un mix complet mais atténuer certains éléments: "all"
+- Laisser le système choisir aléatoirement pour des surprises créatives: "random"
+
+Cette fonctionnalité permet de créer des layers plus ciblés, de contrôler précisément le mix, et d'assembler des combinaisons sonores impossibles autrement!
 """
 
 # =====================================

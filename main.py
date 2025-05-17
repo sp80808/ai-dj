@@ -107,6 +107,7 @@ def main():
     try:
         dj_system_instance = DJSystem(args)
         dj_system_instance.start_session()
+        print("")
         print("💡 DJ-IA en cours d'exécution. Appuyez sur Ctrl+C pour arrêter.")
         while dj_system_instance.session_running:
             if (

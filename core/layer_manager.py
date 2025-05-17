@@ -264,13 +264,34 @@ class LayerManager:
             print(f"Layer '{layer_id}' trop court pour le crossfade de {fade_ms}ms.")
 
         looped_sample_filename = f"{os.path.splitext(os.path.basename(original_audio_path))[0]}_loop_{layer_id}.wav"
+        temp_path = os.path.join(self.output_dir, "temp_" + looped_sample_filename)
         looped_sample_path = os.path.join(self.output_dir, looped_sample_filename)
 
+        # Sauvegarder d'abord une version temporaire
+        sf.write(temp_path, audio, sr)
+
         try:
-            sf.write(looped_sample_path, audio, sr)
-            print(
-                f"💾 Layer '{layer_id}': Sample bouclé sauvegardé : {looped_sample_path}"
+            stretched_audio = self.match_sample_to_tempo(
+                temp_path,  # Le chemin du fichier temporaire
+                target_tempo=self.master_tempo,
+                sr=self.sample_rate,
             )
+
+            if isinstance(stretched_audio, np.ndarray):
+                # Si le résultat est un array, l'utiliser pour la sauvegarde finale
+                sf.write(looped_sample_path, stretched_audio, sr)
+                print(f"⏩ Sample bouclé avec tempo adapté: {looped_sample_path}")
+            else:
+                # Sinon, copier le fichier temporaire au bon endroit
+                sf.write(looped_sample_path, audio, sr)
+                print(
+                    f"💾 Layer '{layer_id}': Sample bouclé sauvegardé : {looped_sample_path}"
+                )
+
+            # Supprimer le fichier temporaire
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
             return looped_sample_path
         except Exception as e:
             print(f"Erreur de sauvegarde du sample bouclé pour {layer_id}: {e}")
@@ -697,3 +718,135 @@ class LayerManager:
         gc.collect()
 
         print("Tous les layers ont été arrêtés et nettoyés.")
+
+    def match_sample_to_tempo(
+        self, audio, target_tempo, sr, preserve_measures=True, beats_per_measure=4
+    ):
+        """
+        Détecte le tempo d'un sample audio et l'adapte au tempo cible sans modifier sa hauteur.
+
+        Args:
+            audio: Audio à adapter (numpy array ou tout objet convertible)
+            target_tempo (float): Tempo cible en BPM
+            sr (int): Taux d'échantillonnage
+            preserve_measures (bool): Si True, préserve le nombre de mesures musicales
+            beats_per_measure (int): Nombre de temps par mesure (généralement 4 pour 4/4)
+
+        Returns:
+            np.array: Audio adapté au nouveau tempo
+        """
+        try:
+            import numpy as np
+            import librosa
+
+            if isinstance(audio, str):
+                print(f"📂 Chargement du fichier audio: {audio}")
+                try:
+                    audio, file_sr = librosa.load(audio, sr=sr)
+                    print(f"✅ Fichier audio chargé: {audio.shape}, sr={file_sr}")
+                except Exception as e:
+                    print(f"❌ Échec du chargement du fichier: {e}")
+                    return audio
+
+            # S'assurer que l'audio est un numpy array
+            if not isinstance(audio, np.ndarray):
+                print(
+                    f"⚠️  Conversion de l'audio en numpy array (type actuel: {type(audio)})"
+                )
+                try:
+                    audio = np.array(audio, dtype=np.float32)
+                except Exception as e:
+                    print(f"❌ Échec de la conversion: {e}")
+                    return audio
+
+            # Vérifier que l'array contient des données
+            if audio.size == 0:
+                print("❌ L'audio est vide!")
+                return audio
+
+            print(f"ℹ️  Audio shape: {audio.shape}, dtype: {audio.dtype}")
+
+            # Si l'audio est stéréo, le convertir en mono
+            if len(audio.shape) > 1 and audio.shape[1] > 1:
+                print("⚠️  Audio stéréo détecté, conversion en mono...")
+                audio = np.mean(audio, axis=1)
+
+            # Longueur originale en échantillons et en secondes
+            original_length = len(audio)
+            original_duration = original_length / sr
+
+            # Étape 1: Estimer le tempo du sample
+            onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
+            estimated_tempo = librosa.beat.tempo(onset_envelope=onset_env, sr=sr)[0]
+            print(f"🎵 Tempo estimé du sample: {estimated_tempo:.1f} BPM")
+
+            # Si le tempo estimé semble anormal, utiliser une valeur par défaut
+            if estimated_tempo < 40 or estimated_tempo > 220:
+                print(
+                    f"⚠️  Tempo estimé peu plausible ({estimated_tempo:.1f} BPM), utilisation d'une valeur par défaut"
+                )
+                estimated_tempo = 120  # Tempo par défaut si l'estimation échoue
+
+            # Si les tempos sont très proches, pas besoin de time stretching
+            tempo_ratio = abs(estimated_tempo - target_tempo) / target_tempo
+            if tempo_ratio < 0.02:  # Moins de 2% de différence
+                print(
+                    f"ℹ️  Tempos similaires ({estimated_tempo:.1f} vs {target_tempo:.1f} BPM), pas de stretching"
+                )
+                return audio
+
+            # Calculer le ratio de time stretching
+            stretch_ratio = estimated_tempo / target_tempo
+
+            # Time stretching avec phase vocoder pour préserver la qualité
+            stretched_audio = librosa.effects.time_stretch(audio, rate=stretch_ratio)
+            stretched_length = len(stretched_audio)
+
+            # Si on veut préserver le nombre de mesures musicales
+            if preserve_measures:
+                # Calculer le nombre de mesures dans l'audio original
+                beats_in_original = (original_duration / 60.0) * estimated_tempo
+                measures_in_original = beats_in_original / beats_per_measure
+
+                # Arrondir au nombre entier de mesures le plus proche, au moins 1
+                whole_measures = max(1, round(measures_in_original))
+
+                print(
+                    f"📏 Nombre estimé de mesures: {measures_in_original:.2f} → {whole_measures}"
+                )
+
+                # Calculer la durée idéale en nombre entier de mesures au nouveau tempo
+                target_beats = whole_measures * beats_per_measure
+                target_duration = (target_beats / target_tempo) * 60.0
+                target_length = int(target_duration * sr)
+
+                # Redimensionner l'audio adapté pour avoir un nombre exact de mesures
+                if (
+                    abs(target_length - stretched_length) > sr * 0.1
+                ):  # Si différence > 100ms
+                    print(
+                        f"✂️  Ajustement à un nombre exact de mesures: {target_duration:.2f}s ({whole_measures} mesures)"
+                    )
+
+                    # Utiliser l'interpolation pour atteindre exactement la longueur cible
+                    x_original = np.linspace(0, 1, stretched_length)
+                    x_target = np.linspace(0, 1, target_length)
+                    stretched_audio = np.interp(x_target, x_original, stretched_audio)
+
+            print(
+                f"⏩ Time stretching appliqué : {estimated_tempo:.1f} → {target_tempo:.1f} BPM (ratio: {stretch_ratio:.2f})"
+            )
+
+            # Informations sur les changements de durée
+            final_duration = len(stretched_audio) / sr
+            print(f"⏱️  Durée: {original_duration:.2f}s → {final_duration:.2f}s")
+
+            return stretched_audio
+
+        except Exception as e:
+            print(f"⚠️  Erreur lors du time stretching: {e}")
+            import traceback
+
+            traceback.print_exc()
+            print("⚠️  Retour de l'audio original sans modification")
+            return audio

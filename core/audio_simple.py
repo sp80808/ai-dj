@@ -30,8 +30,6 @@ class SimpleAudioPlayer:
         self.output_thread.daemon = True
         self.output_thread.start()
 
-        print("\n🎵 Lecture audio démarrée")
-
     def stop(self):
         """Arrête la lecture audio"""
         self.playing = False
