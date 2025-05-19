@@ -171,8 +171,6 @@ pip install demucs
 pip install pyrubberband pedalboard soundfile sounddevice pyttsx3
 ```
 
-````
-
 ### Stable Audio Open (Optional)
 
 ⚠️ **IMPORTANT: Dependency Conflict Warning** ⚠️
@@ -344,4 +342,3 @@ Contributions are welcome! Here's how you can contribute:
 - [llama-cpp-python](https://github.com/abetlen/llama-cpp-python) for optimized LLM inference
 - [Pygame](https://www.pygame.org) for audio playback
 - [Librosa](https://librosa.org) for audio processing
-````
