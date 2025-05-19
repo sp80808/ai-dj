@@ -4,6 +4,7 @@ import pygame
 import os
 import shutil
 from core.dj_system import DJSystem
+from core.live_session import LiveSession
 
 
 def cleanup_output_directory(directory_path, max_age_minutes=60):
@@ -78,11 +79,18 @@ def main():
         action="store_true",
         help="Nettoyer tous les fichiers du répertoire de sortie au démarrage",
     )
+    parser.add_argument(
+        "--mode",
+        default="legacy",
+        choices=["legacy", "live"],
+        help="Mode de fonctionnement: legacy (DJ complet) ou live (génération toutes les 30s)",
+    )
     args = parser.parse_args()
 
     # Nettoyer les répertoires de sortie
     layers_dir = os.path.join(args.output_dir, "layers")
     speech_dir = os.path.join(args.output_dir, "speech")
+    live_samples_dir = os.path.join(args.output_dir, "live_samples")
 
     # Créer les répertoires s'ils n'existent pas
     os.makedirs(args.output_dir, exist_ok=True)
@@ -93,48 +101,68 @@ def main():
             shutil.rmtree(layers_dir)
         if os.path.exists(speech_dir):
             shutil.rmtree(speech_dir)
+        if os.path.exists(live_samples_dir):
+            shutil.rmtree(live_samples_dir)
         print("Répertoires de sortie entièrement nettoyés.")
     else:
         # Nettoyer uniquement les fichiers plus anciens que 60 minutes
         cleanup_output_directory(layers_dir)
         cleanup_output_directory(speech_dir)
+        cleanup_output_directory(live_samples_dir)
 
     # Recréer les répertoires après nettoyage complet
     os.makedirs(layers_dir, exist_ok=True)
     os.makedirs(speech_dir, exist_ok=True)
 
-    dj_system_instance = None  # Pour le finally
-    try:
-        dj_system_instance = DJSystem(args)
-        dj_system_instance.start_session()
-        print("")
-        print("💡 DJ-IA en cours d'exécution. Appuyez sur Ctrl+C pour arrêter.")
-        while dj_system_instance.session_running:
-            if (
-                hasattr(dj_system_instance, "dj_thread")
-                and not dj_system_instance.dj_thread.is_alive()
-            ):
-                print(
-                    "ALERTE: Le thread principal du DJ s'est terminé de manière inattendue!"
-                )
-                dj_system_instance.session_running = (
-                    False  # Forcer l'arrêt de la boucle main
-                )
-                break
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("\nArrêt manuel demandé par l'utilisateur...")
-    except Exception as e:
-        print(f"Une erreur non gérée est survenue dans main(): {e}")
-        import traceback
+    if args.mode == "live":
+        live_session = LiveSession(args)
+        try:
+            live_session.start_session()
 
-        traceback.print_exc()
-    finally:
-        if dj_system_instance:
-            print("Nettoyage final de la session DJ...")
-            dj_system_instance.stop_session()
-        elif pygame.mixer.get_init():  # Si DJSystem n'a pas été créé mais pygame oui
-            pygame.mixer.quit()
+            # Garder le script en vie jusqu'à interruption
+            print("")
+            print("💡 DJ-IA en cours d'exécution. Appuyez sur Ctrl+C pour arrêter.")
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\nArrêt demandé par l'utilisateur.")
+        finally:
+            live_session.stop_session()
+    else:
+        dj_system_instance = None  # Pour le finally
+        try:
+            dj_system_instance = DJSystem(args)
+            dj_system_instance.start_session()
+            print("")
+            print("💡 DJ-IA en cours d'exécution. Appuyez sur Ctrl+C pour arrêter.")
+            while dj_system_instance.session_running:
+                if (
+                    hasattr(dj_system_instance, "dj_thread")
+                    and not dj_system_instance.dj_thread.is_alive()
+                ):
+                    print(
+                        "ALERTE: Le thread principal du DJ s'est terminé de manière inattendue!"
+                    )
+                    dj_system_instance.session_running = (
+                        False  # Forcer l'arrêt de la boucle main
+                    )
+                    break
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\nArrêt manuel demandé par l'utilisateur...")
+        except Exception as e:
+            print(f"Une erreur non gérée est survenue dans main(): {e}")
+            import traceback
+
+            traceback.print_exc()
+        finally:
+            if dj_system_instance:
+                print("Nettoyage final de la session DJ...")
+                dj_system_instance.stop_session()
+            elif (
+                pygame.mixer.get_init()
+            ):  # Si DJSystem n'a pas été créé mais pygame oui
+                pygame.mixer.quit()
     print("Programme DJ-IA terminé.")
 
 
