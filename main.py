@@ -3,8 +3,35 @@ import argparse
 import pygame
 import os
 import shutil
+from fastapi import FastAPI, Request, Depends
+from functools import partial
+import uvicorn
 from core.dj_system import DJSystem
 from core.live_session import LiveSession
+
+
+def get_dj_system(request: Request):
+    return request.app.dj_system
+
+
+def create_api_app(args):
+    app = FastAPI(
+        title="DJ-IA API", description="API pour le plugin VST DJ-IA", version="1.0.0"
+    )
+
+    # Créer une instance DJSystem
+    dj_system = DJSystem(args)
+    app.dj_system = dj_system
+
+    # Importer et inclure les routes
+    from server.api.routes import router
+
+    # Injecter dj_system dans le router
+    app.include_router(
+        router, prefix="/api/v1", dependencies=[Depends(partial(get_dj_system))]
+    )
+
+    return app
 
 
 def cleanup_output_directory(directory_path, max_age_minutes=60):
@@ -82,8 +109,12 @@ def main():
     parser.add_argument(
         "--mode",
         default="legacy",
-        choices=["legacy", "live"],
-        help="Mode de fonctionnement: legacy (DJ complet) ou live (génération toutes les 30s)",
+        choices=["legacy", "live", "api"],
+        help="Mode de fonctionnement: legacy (DJ complet), live (génération 30s) ou api (serveur FastAPI)",
+    )
+    parser.add_argument("--host", default="localhost", help="Hôte pour le serveur API")
+    parser.add_argument(
+        "--port", type=int, default=8000, help="Port pour le serveur API"
     )
     parser.add_argument("--sample-interval", type=int, default=30)
     args = parser.parse_args()
@@ -115,7 +146,19 @@ def main():
     os.makedirs(layers_dir, exist_ok=True)
     os.makedirs(speech_dir, exist_ok=True)
 
-    if args.mode == "live":
+    if args.mode == "api":
+        print(f"🚀 Démarrage du serveur API sur {args.host}:{args.port}")
+        app = create_api_app(args)
+
+        # Créer une instance DJSystem partagée pour l'API
+        dj_system = DJSystem(args)
+        # Rendre dj_system accessible aux routes
+        app.state.dj_system = dj_system
+
+        # Lancer le serveur
+        uvicorn.run(app, host=args.host, port=args.port)
+
+    elif args.mode == "live":
         live_session = LiveSession(args)
         try:
             live_session.start_session()
