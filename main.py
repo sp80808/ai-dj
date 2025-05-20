@@ -85,6 +85,7 @@ def main():
         choices=["legacy", "live"],
         help="Mode de fonctionnement: legacy (DJ complet) ou live (génération toutes les 30s)",
     )
+    parser.add_argument("--sample-interval", type=int, default=30)
     args = parser.parse_args()
 
     # Nettoyer les répertoires de sortie
