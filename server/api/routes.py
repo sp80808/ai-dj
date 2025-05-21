@@ -4,8 +4,6 @@ from fastapi.security.api_key import APIKeyHeader
 import os
 import time
 import librosa
-import psutil
-import pygame
 from core.music_generator import MusicGenerator
 from dotenv import load_dotenv
 from config.vst_prompts import (
@@ -19,7 +17,17 @@ router = APIRouter()
 
 
 def get_dj_system(request: Request):
-    return request.app.dj_system
+    """Récupère l'instance DJ System à partir de la requête"""
+    # Vérifier d'abord app.dj_system (méthode principale)
+    if hasattr(request.app, "dj_system"):
+        return request.app.dj_system
+
+    # Vérifier ensuite app.state.dj_system (méthode alternative)
+    if hasattr(request.app, "state") and hasattr(request.app.state, "dj_system"):
+        return request.app.state.dj_system
+
+    # Si aucune instance n'est trouvée, c'est une erreur grave
+    raise RuntimeError("Aucune instance DJSystem trouvée dans l'application FastAPI!")
 
 
 # Définir le header pour l'API key
@@ -51,41 +59,113 @@ async def generate_loop(
     dj_system=Depends(get_dj_system),
 ):
     try:
+        request_timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        request_id = int(time.time())
+        print(f"\n===== NOUVELLE REQUÊTE {request_id} - {request_timestamp} =====")
+        print(f"Style demandé: {request.style}")
+        print(f"BPM: {request.bpm}")
+        print(f"Clé: {request.key}")
+        print(f"Prompt: '{request.prompt}'")
+        print(f"[{request_id}] 🔄 Réinitialisation complète du modèle LLM...")
+        print("")
+        dj_system.dj_brain._init_model()
+        print("")
         initial_state = {
             "mode": "vst",
             "current_tempo": request.bpm,
             "current_key": request.key,
             "phase": "generation",
             "energy_level": 7,
-            "history": [],
             "last_action_time": time.time(),
             "session_duration": 0,
             "active_layers": {},
             "time_elapsed": 0,
             "samples_generated": 0,
+            "special_instruction": "",
+            "request_id": request_id,
         }
 
+        print(f"[{request_id}] Réinitialisation partielle de l'état de session...")
         if not hasattr(dj_system.dj_brain, "session_state"):
-            dj_system.dj_brain.session_state = initial_state
+            # Première initialisation
+            dj_system.dj_brain.session_state = initial_state.copy()
+            dj_system.dj_brain.session_state["history"] = []
+            print(f"[{request_id}] Première initialisation de la session")
         else:
-            current_time = time.time()
-            if dj_system.dj_brain.session_state.get("last_action_time"):
-                elapsed = (
-                    current_time - dj_system.dj_brain.session_state["last_action_time"]
+            # Conserver l'historique existant
+            old_history = dj_system.dj_brain.session_state.get("history", [])
+            old_session_duration = dj_system.dj_brain.session_state.get(
+                "session_duration", 0
+            )
+
+            print(
+                f"[{request_id}] Mise à jour de la session. Historique conservé: {len(old_history)} éléments"
+            )
+
+            # Mettre à jour l'état de la session mais conserver l'historique
+            dj_system.dj_brain.session_state.update(initial_state)
+
+            # Conserver explicitement l'historique et la durée de session
+            dj_system.dj_brain.session_state["history"] = old_history
+            dj_system.dj_brain.session_state["session_duration"] = old_session_duration
+
+            # Ne conserver que les 10 dernières décisions au maximum
+            if len(dj_system.dj_brain.session_state["history"]) > 10:
+                dj_system.dj_brain.session_state["history"] = (
+                    dj_system.dj_brain.session_state["history"][-10:]
                 )
-                dj_system.dj_brain.session_state["session_duration"] = (
-                    dj_system.dj_brain.session_state.get("session_duration", 0)
-                    + elapsed
+                print(f"[{request_id}] Historique tronqué aux 10 dernières décisions")
+
+        # Afficher un résumé des 3 dernières décisions si disponibles
+        history = dj_system.dj_brain.session_state.get("history", [])
+        if history:
+            print(
+                f"[{request_id}] Résumé des dernières décisions ({len(history)} au total):"
+            )
+            for i, action in enumerate(
+                history[-3:]
+            ):  # Afficher au maximum les 3 dernières
+                # Calcul de l'index correct
+                action_index = len(history) - len(history[-3:]) + i
+
+                # Extraction des informations clés
+                action_type = action.get("action_type", "unknown")
+                reasoning_full = action.get("reasoning", "")
+                reasoning = reasoning_full[:50] + (
+                    "..." if len(reasoning_full) > 50 else ""
                 )
 
-            dj_system.dj_brain.session_state.update(initial_state)
+                # Extraction des détails du sample
+                sample_details = action.get("parameters", {}).get("sample_details", {})
+                sample_type = sample_details.get("type", "unknown")
+
+                # Affichage formaté
+                print(f"  [{action_index + 1}] {action_type}: {sample_type}")
+                print(f"      Raison: {reasoning}")
+
+                keywords = sample_details.get("musicgen_prompt_keywords", [])
+                if keywords:
+                    keywords_str = ", ".join(keywords[:5])
+                    print(f"      Mots-clés: {keywords_str}")
+        else:
+            print(f"[{request_id}] Aucun historique de décision disponible")
         layer_manager = dj_system.layer_manager
         use_stems = (
             request.preferred_stems is not None and len(request.preferred_stems) > 0
         )
-        system_prompt = create_vst_system_prompt(include_stems=use_stems)
+        system_prompt = create_vst_system_prompt(
+            style=request.style, include_stems=use_stems
+        )
+
+        if request.prompt != "":
+            instruction = f"L'utilisateur demande explicitement: '{request.prompt}'. Tu DOIS générer un sample qui correspond EXACTEMENT à cette demande."
+            dj_system.dj_brain.session_state["special_instruction"] = instruction
+            print(f"[{request_id}] 🔊 Instruction spéciale définie: '{instruction}'")
+        else:
+            print(f"[{request_id}] 🔇 Aucune instruction spéciale définie")
 
         # 1. Préparer l'état pour le LLM
+        print(f"[{request_id}] Configuration de l'état pour le LLM...")
         dj_system.dj_brain.session_state.update(
             {
                 "mode": "vst",
@@ -94,17 +174,33 @@ async def generate_loop(
                 "style": request.style,
                 "user_request": {"text": request.prompt, "timestamp": time.time()},
                 "vst_params": VST_STYLE_PARAMS.get(
-                    request.style, VST_STYLE_PARAMS["techno"]
+                    request.style, VST_STYLE_PARAMS["techno_minimal"]
                 ),
                 "stems_enabled": use_stems,
             }
+        )
+
+        special_instruction = dj_system.dj_brain.session_state.get(
+            "special_instruction", ""
+        )
+        print(
+            f"[{request_id}] Vérification post-configuration - Instruction spéciale: '{special_instruction}'"
         )
 
         if dj_system.dj_brain.system_prompt != system_prompt:
             dj_system.dj_brain.system_prompt = system_prompt
 
         # 2. Obtenir la décision du LLM
+        print(f"[{request_id}] Demande de décision au LLM...")
         llm_decision = dj_system.dj_brain.get_next_decision()
+
+        action_type = llm_decision.get("action_type", "")
+        params = llm_decision.get("parameters", {})
+        reasoning = llm_decision.get("reasoning", "N/A")
+
+        print(f"\n🤖 Action LLM: {action_type}")
+        print(f"💭 Raison: {reasoning}")
+        print(f"\n⚙️  Paramètres: {params}\n")
 
         # 3. Extraire les paramètres de génération du LLM
         sample_details = llm_decision.get("parameters", {}).get("sample_details", {})
@@ -172,16 +268,21 @@ async def generate_loop(
         audio_data, sr = librosa.load(processed_path, sr=None)
         duration = len(audio_data) / sr
 
-        return GenerateResponse(
-            file_path=processed_path,
-            duration=duration,
-            bpm=request.bpm,
-            key=request.key or "C minor",
-            stems_used=used_stems,
-            llm_reasoning=llm_decision.get(
-                "reasoning"
-            ),  # On renvoie aussi le raisonnement du LLM
-        )
+        with open(processed_path, "rb") as audio_file:
+            audio_data = audio_file.read()
+
+        import base64
+
+        audio_base64 = base64.b64encode(audio_data).decode("utf-8")
+
+        return {
+            "audio_data": audio_base64,
+            "duration": duration,
+            "bpm": request.bpm,
+            "key": request.key,
+            "stems_used": used_stems,
+            "sample_rate": layer_manager.sample_rate,
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

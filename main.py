@@ -4,65 +4,34 @@ import pygame
 import os
 import shutil
 from fastapi import FastAPI, Request, Depends
-from functools import partial
 import uvicorn
 from core.dj_system import DJSystem
 from core.live_session import LiveSession
+from utils.file_utils import cleanup_output_directory
 
 
 def get_dj_system(request: Request):
-    return request.app.dj_system
+    """Récupère l'instance DJ System à partir de la requête"""
+    # Vérifier d'abord app.dj_system (méthode principale)
+    if hasattr(request.app, "dj_system"):
+        return request.app.dj_system
+
+    # Vérifier ensuite app.state.dj_system (méthode alternative)
+    if hasattr(request.app, "state") and hasattr(request.app.state, "dj_system"):
+        return request.app.state.dj_system
+
+    # Si aucune instance n'est trouvée, c'est une erreur grave
+    raise RuntimeError("Aucune instance DJSystem trouvée dans l'application FastAPI!")
 
 
-def create_api_app(args):
+def create_api_app():
     app = FastAPI(
         title="DJ-IA API", description="API pour le plugin VST DJ-IA", version="1.0.0"
     )
-
-    # Créer une instance DJSystem
-    dj_system = DJSystem(args)
-    app.dj_system = dj_system
-
-    # Importer et inclure les routes
     from server.api.routes import router
 
-    # Injecter dj_system dans le router
-    app.include_router(
-        router, prefix="/api/v1", dependencies=[Depends(partial(get_dj_system))]
-    )
-
+    app.include_router(router, prefix="/api/v1", dependencies=[Depends(get_dj_system)])
     return app
-
-
-def cleanup_output_directory(directory_path, max_age_minutes=60):
-    """Nettoie les fichiers temporaires du répertoire de sortie."""
-    if not os.path.exists(directory_path):
-        os.makedirs(directory_path, exist_ok=True)
-        print(f"Répertoire créé: {directory_path}")
-        return
-
-    print(f"Nettoyage du répertoire de sortie: {directory_path}")
-    try:
-        now = time.time()
-        count = 0
-        for filename in os.listdir(directory_path):
-            file_path = os.path.join(directory_path, filename)
-            if os.path.isfile(file_path):
-                # Vérifier l'âge du fichier
-                file_age_minutes = (now - os.path.getmtime(file_path)) / 60.0
-                if file_age_minutes > max_age_minutes:
-                    try:
-                        os.remove(file_path)
-                        count += 1
-                    except (PermissionError, OSError) as e:
-                        print(f"Erreur lors de la suppression de {file_path}: {e}")
-
-        if count > 0:
-            print(f"Nettoyage: {count} fichiers temporaires supprimés du répertoire.")
-        else:
-            print("Aucun fichier à nettoyer.")
-    except Exception as e:
-        print(f"Erreur lors du nettoyage du répertoire: {e}")
 
 
 def main():
@@ -148,10 +117,10 @@ def main():
 
     if args.mode == "api":
         print(f"🚀 Démarrage du serveur API sur {args.host}:{args.port}")
-        app = create_api_app(args)
+        app = create_api_app()
 
         # Créer une instance DJSystem partagée pour l'API
-        dj_system = DJSystem(args)
+        dj_system = DJSystem.get_instance(args)
         # Rendre dj_system accessible aux routes
         app.state.dj_system = dj_system
 

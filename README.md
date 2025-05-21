@@ -306,6 +306,74 @@ Depending on the chosen profile, DJ-IA will adopt different behaviors:
 - **classical**: Fusion of orchestral elements with modern rhythms
 - **trip_hop**: Dark cinematic atmospheres with heavy beats and vinyl scratches
 
+## DJ-IA Client for Music Loop Generation
+
+The DJ-IA client is a command-line interface that allows you to generate and continuously play musical loops through the DJ-IA API. It's perfect for testing loop generation or quickly creating musical ideas for your projects.
+
+### Features
+
+- **Continuous Generation**: Create new loops without interrupting the currently playing sound
+- **Seamless Transitions**: Automatic crossfades between loops
+- **Interactive Interface**: Generate loops by simply pressing Enter or with custom prompts
+- **Real-time Control**: Modify BPM, key, style, and stems during execution
+- **Automatic Saving**: All generated loops are saved locally for future use
+
+### Installation
+
+```bash
+# Make sure you have the required dependencies
+pip install requests numpy pygame sounddevice soundfile python-dotenv
+```
+
+### Usage
+
+#### Basic Startup
+
+```bash
+python client.py --api-key YOUR_API_KEY
+```
+
+#### Advanced Configuration
+
+```bash
+python client.py --api-url http://localhost:8000/api/v1 --api-key YOUR_API_KEY --style techno_minimal --bpm 126 --key "C minor" --sample-rate 44100
+```
+
+#### Command-line Arguments
+
+- `--api-url`: URL of the DJ-IA API (default: http://localhost:8000/api/v1)
+- `--api-key`: Your DJ-IA API key (can also be set in .env file as DJ_IA_API_KEY)
+- `--style`: Default musical style (default: techno_minimal)
+- `--bpm`: Default tempo in beats per minute (default: 126)
+- `--key`: Default musical key (default: C minor)
+- `--sample-rate`: Audio sample rate in Hz (default: 44100)
+
+### Interactive Commands
+
+Once the client is running, you can use these commands:
+
+- **[Enter]**: Generate a new loop with default settings
+- **Any text**: Generate a loop based on this text description
+- **s drums,bass**: Specify stems to extract (separates instruments)
+- **b 130**: Change BPM to 130
+- **k F minor**: Change key to F minor
+- **y ambient**: Change musical style to ambient
+- **q**: Quit the application
+
+### Routing to Your DAW
+
+To route audio to your DAW:
+
+1. Install virtual audio routing software (Blackhole, VB-Cable, JACK Audio, etc.)
+2. Configure your system audio output to use this virtual device
+3. In your DAW, configure an audio track to receive input from this device
+
+### Note About VST Development
+
+We are currently working on a VST version of the DJ-IA system that would integrate directly with your DAW. However, we're experiencing some issues with audio rendering, particularly with buffer management causing clicks and pops in the audio output. We're actively addressing these issues and will release the VST when it reaches a stable state.
+
+For now, the client.py approach offers the most reliable way to use DJ-IA with your DAW via virtual audio routing.
+
 ## 🔧 Troubleshooting
 
 ### Known Issues

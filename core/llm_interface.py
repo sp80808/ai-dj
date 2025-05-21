@@ -15,7 +15,6 @@ class DJAILL:
             profile_name (str): Nom du profil DJ à utiliser
             config (dict): Configuration globale
         """
-
         if override_prompt:
             self.system_prompt = override_prompt
             self.profile = None
@@ -24,15 +23,8 @@ class DJAILL:
 
             self.profile = DJ_PROFILES[profile_name]
             self.system_prompt = self.profile["system_prompt"]
-
-        # Initialiser le modèle LLM
-        self.model = Llama(
-            model_path=model_path,
-            n_ctx=4096,  # Contexte suffisamment grand
-            n_gpu_layers=-1,  # Utiliser tous les layers GPU disponibles
-            n_threads=4,  # Ajuster selon CPU
-            verbose=False,
-        )
+        self.model_path = model_path
+        self._init_model()
         if config:
             self.session_state = config
         else:
@@ -52,9 +44,34 @@ class DJAILL:
                 "history": [],
             }
 
+    def _init_model(self):
+        """Initialise ou réinitialise le modèle LLM"""
+        print(f"⚡ Initialisation du modèle LLM depuis {self.model_path}...")
+
+        # Si un modèle existe déjà, le détruire explicitement
+        if hasattr(self, "model"):
+            try:
+                del self.model
+                import gc
+
+                gc.collect()  # Force la libération de mémoire
+                print("🧹 Ancien modèle détruit")
+            except Exception as e:
+                print(f"⚠️ Erreur lors de la destruction du modèle: {e}")
+
+        # Initialiser un nouveau modèle LLM
+        self.model = Llama(
+            model_path=self.model_path,
+            n_ctx=4096,  # Contexte suffisamment grand
+            n_gpu_layers=-1,  # Utiliser tous les layers GPU disponibles
+            n_threads=4,  # Ajuster selon CPU
+            verbose=False,
+        )
+        print("✅ Nouveau modèle LLM initialisé")
+
     def _build_prompt(self):
         """Construit le prompt pour le LLM basé sur l'état actuel"""
-        if self.session_state.get("mode") == "live":
+        if self.session_state.get("mode") in ["live", "vst"]:
             return self._build_live_prompt()
         # Historique des dernières actions (limité)
         history_text = "\n".join(
@@ -177,7 +194,6 @@ class DJAILL:
 
     def _build_live_prompt(self):
         """Construit le prompt pour le mode live"""
-
         # Informations temporelles
         time_elapsed = self.session_state.get("time_elapsed", 0)
         time_to_next_sample = self.session_state.get("time_to_next_sample", 30)
@@ -199,28 +215,40 @@ class DJAILL:
                     params = decision.get("parameters", {}).get("sample_details", {})
                     history_text += f"- Sample #{sample.get('id')}: {params.get('type')} ({params.get('key', 'unknown')})\n"
 
+        # Récupérer l'instruction spéciale si elle existe, et la mettre en évidence
+        special_instruction = self.session_state.get("special_instruction", "")
+        special_instruction_text = ""
+
+        if special_instruction:
+            special_instruction_text = f"""
+    ⚠️⚠️⚠️ INSTRUCTION SPÉCIALE UTILISATEUR ⚠️⚠️⚠️
+    {special_instruction}
+    ⚠️⚠️⚠️ TU DOIS ABSOLUMENT RESPECTER CETTE INSTRUCTION ⚠️⚠️⚠️
+
+    """
+
         # Construction du prompt utilisateur pour le mode live
-        user_prompt = f"""
-        ÉTAT ACTUEL DU MIX LIVE:
-        - Temps écoulé: {time_elapsed:.1f} secondes
-        - Prochain sample généré dans: {time_to_next_sample:.1f} secondes
-        - Samples générés jusqu'à présent: {samples_generated}
-        - Temps moyen de génération: {average_generation_time:.1f} secondes
+        user_prompt = f"""{special_instruction_text}ÉTAT ACTUEL DU MIX LIVE:
+    - Temps écoulé: {time_elapsed:.1f} secondes
+    - Prochain sample généré dans: {time_to_next_sample:.1f} secondes
+    - Samples générés jusqu'à présent: {samples_generated}
+    - Temps moyen de génération: {average_generation_time:.1f} secondes
 
-        Dernier sample généré:
-        - Type: {last_sample_type}
-        - Tonalité: {last_sample_key}
+    Dernier sample généré:
+    - Type: {last_sample_type}
+    - Tonalité: {last_sample_key}
 
-        Historique récent:
-        {history_text}
+    Historique récent:
+    {history_text}
 
-        Tempo actuel: {self.session_state.get('current_tempo', 126)} BPM
-        Tonalité actuelle: {self.session_state.get('current_key', 'C minor')}
-        Phase actuelle: {self.session_state.get('current_phase', 'intro')}
+    Tempo actuel: {self.session_state.get('current_tempo', 126)} BPM
+    Tonalité actuelle: {self.session_state.get('current_key', 'C minor')}
+    Phase actuelle: {self.session_state.get('current_phase', 'intro')}
 
-        Génère maintenant un NOUVEAU sample qui s'intégrera bien avec le dernier sample généré.
-        Pense à l'évolution naturelle du morceau en fonction de la phase actuelle et du temps écoulé.
+    Génère maintenant un NOUVEAU sample qui s'intégrera bien avec le dernier sample généré.
+    Pense à l'évolution naturelle du morceau en fonction de la phase actuelle et du temps écoulé.
 
-        Réponds UNIQUEMENT en format JSON comme spécifié.
-        """
+    RAPPEL: Si une instruction spéciale a été donnée par l'utilisateur, tu DOIS absolument la respecter, 
+    et l'intégrer dans ta génération JSON. Réponds UNIQUEMENT en format JSON comme spécifié.
+    """
         return user_prompt

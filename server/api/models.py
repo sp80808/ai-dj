@@ -12,11 +12,13 @@ class GenerateRequest(BaseModel):
 
 
 class GenerateResponse(BaseModel):
-    file_path: str
+    audio_data: str
     duration: float
     bpm: float
     key: str
-    stems_used: Optional[List[str]]
+    stems_used: Optional[List[str]] = None
+    llm_reasoning: Optional[str] = None
+    sample_rate: int
 
 
 class InitConfig(BaseModel):

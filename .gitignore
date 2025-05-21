@@ -2,3 +2,8 @@ output
 env
 __pycache__
 .env
+vst/JUCE
+vst/build
+.vscode
+server/api/generated_loops
+server/api/temp_loops

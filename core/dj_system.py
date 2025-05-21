@@ -17,8 +17,22 @@ BEATS_PER_BAR = 4
 
 
 class DJSystem:
+    _instance = None
+
+    @classmethod
+    def get_instance(cls, *args, **kwargs):
+        """Implémentation du pattern Singleton pour éviter les doubles initialisations"""
+        if cls._instance is None:
+            print("✨ Première initialisation du système DJ-IA (Singleton)...")
+            cls._instance = cls(*args, **kwargs)
+        else:
+            print("♻️ Réutilisation de l'instance DJ-IA existante (Singleton)...")
+        return cls._instance
+
     def __init__(self, args):
-        # ... (début de ton __init__ inchangé) ...
+        if hasattr(self, "initialized") and self.initialized:
+            print("⚠️ Tentative de réinitialisation ignorée - instance déjà initialisée")
+            return
         self.model_path = args.model_path
         self.profile_name = args.profile
         self.output_dir_base = args.output_dir
@@ -69,6 +83,18 @@ class DJSystem:
         # Créer le répertoire de sortie principal s'il n'existe pas
         if not os.path.exists(self.output_dir_base):
             os.makedirs(self.output_dir_base)
+
+        self.initialized = True
+        print("✅ Système DJ-IA initialisé avec succès (Singleton)")
+
+    def reset_llm(self):
+        """Réinitialise uniquement le LLM sans recréer tout le système"""
+        if hasattr(self, "dj_brain"):
+            print("🔄 Réinitialisation ciblée du LLM uniquement...")
+            self.dj_brain._init_model()
+            print("✅ LLM réinitialisé avec succès")
+        else:
+            print("⚠️ Impossible de réinitialiser le LLM - DJ Brain non initialisé")
 
     def _get_new_layer_id(self, prefix="layer") -> str:
         self.layer_id_counter += 1
