@@ -287,12 +287,13 @@ class MusicGenerator:
                     generate_diffusion_cond,
                 )
 
+                seconds_total = 8
                 # Créer le format de conditionnement attendu par Stable Audio
                 conditioning = [
                     {
                         "prompt": prompt,
                         "seconds_start": 0,
-                        "seconds_total": params["duration"],
+                        "seconds_total": seconds_total,
                     }
                 ]
                 intensity = 5 if intensity is None else intensity
@@ -320,7 +321,7 @@ class MusicGenerator:
                 )
 
                 # Calculer le nombre d'échantillons cible
-                target_samples = int(params["duration"] * self.sample_rate)
+                target_samples = int(seconds_total * self.sample_rate)
 
                 # Formater l'audio
                 output = rearrange(output, "b d n -> d (b n)")
@@ -352,7 +353,7 @@ class MusicGenerator:
                 "tempo": tempo,
                 "key": key,
                 "intensity": intensity,
-                "duration": params["duration"],
+                "duration": seconds_total,
                 "prompt": prompt,
                 "should_start_with_kick": params["should_start_with_kick"],
                 "keywords": musicgen_prompt_keywords,
