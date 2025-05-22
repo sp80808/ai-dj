@@ -149,7 +149,7 @@ class DJIAClient:
                 f"{self.api_url}/generate",
                 headers=self.headers,
                 json=request_data,
-                timeout=120,  # 2 minutes max
+                timeout=240,
             )
 
             generation_time = time.time() - start_time
