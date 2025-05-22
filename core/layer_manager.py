@@ -182,7 +182,11 @@ class LayerManager:
         return None
 
     def _prepare_sample_for_loop(
-        self, original_audio_path: str, layer_id: str, measures: int
+        self,
+        original_audio_path: str,
+        layer_id: str,
+        measures: int,
+        model_name="musicgen",
     ) -> Optional[str]:
         """Prépare un sample pour qu'il boucle (détection d'onset, calage, crossfade)."""
         try:
@@ -271,11 +275,14 @@ class LayerManager:
         sf.write(temp_path, audio, sr)
 
         try:
-            stretched_audio = self.match_sample_to_tempo(
-                temp_path,  # Le chemin du fichier temporaire
-                target_tempo=self.master_tempo,
-                sr=self.sample_rate,
-            )
+            if "stable-audio" in model_name:
+                stretched_audio = audio
+            else:
+                stretched_audio = self.match_sample_to_tempo(
+                    temp_path,  # Le chemin du fichier temporaire
+                    target_tempo=self.master_tempo,
+                    sr=self.sample_rate,
+                )
 
             if isinstance(stretched_audio, np.ndarray):
                 # Si le résultat est un array, l'utiliser pour la sauvegarde finale
@@ -404,6 +411,7 @@ class LayerManager:
         playback_params: Optional[Dict[str, Any]] = None,
         effects: Optional[List[Dict[str, Any]]] = None,
         stop_behavior: str = "next_bar",
+        model_name="musicgen",
     ):
         """Gère un layer: ajout/remplacement, modification, suppression."""
 
@@ -457,7 +465,7 @@ class LayerManager:
 
             # 1. Préparer le sample pour la boucle (trim, calage en durée)
             looped_sample_path = self._prepare_sample_for_loop(
-                original_file_path, layer_id, measures
+                original_file_path, layer_id, measures, model_name=model_name
             )
             if not looped_sample_path:
                 print(f"Échec de la préparation de la boucle pour {layer_id}.")
@@ -736,6 +744,7 @@ class LayerManager:
             np.array: Audio adapté au nouveau tempo
         """
         try:
+
             import numpy as np
             import librosa
 

@@ -773,6 +773,7 @@ class DJSystem:
                         sample_details_for_manager,
                         playback_params_from_llm,
                         adjusted_effects,
+                        model_name=self.audio_model,
                     )
 
                     # Mise à jour des états et informations du layer

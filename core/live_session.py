@@ -31,7 +31,6 @@ class LiveSession:
         self.sample_rate = 44100
         self.audio_model = args.audio_model
         self.generation_duration = args.generation_duration
-
         self.current_layer_id = "current_loop"
         self.next_layer_id = "next_loop"
         self.is_using_current = True
@@ -651,35 +650,43 @@ class LiveSession:
             # Appliquer le time-stretching pour être sûr que le tempo est exact
             # Ceci utilise la fonction existante de layer_manager si disponible
             try:
-                # Version simplified du code de layermanager.match_sample_to_tempo
-                from librosa.effects import time_stretch
-
-                # Estimer le tempo actuel
-                estimated_tempo = librosa.beat.tempo(onset_envelope=onset_env, sr=sr)[0]
-                print(f"🎵 Tempo estimé du sample: {estimated_tempo:.1f} BPM")
-
-                # Si les tempos sont très proches, pas besoin de time stretching
-                tempo_ratio = abs(estimated_tempo - tempo) / tempo
-                if tempo_ratio < 0.02:  # Moins de 2% de différence
+                if "stable-audio" in self.audio_model:
                     print(
-                        f"Tempos similaires ({estimated_tempo:.1f} vs {tempo:.1f} BPM), pas de stretching"
+                        f"🚀 Stable Audio : on fait confiance au BPM du prompt ({tempo} BPM)"
                     )
                     stretched_audio = audio
                 else:
-                    # Calculer le ratio de time stretching et l'appliquer
-                    stretch_ratio = estimated_tempo / tempo
-                    print(
-                        f"Time stretching: {estimated_tempo:.1f} → {tempo:.1f} BPM (ratio: {stretch_ratio:.2f})"
-                    )
-                    stretched_audio = time_stretch(audio, rate=stretch_ratio)
+                    # Version simplified du code de layermanager.match_sample_to_tempo
+                    from librosa.effects import time_stretch
 
-                    # Ajuster à la longueur exacte si nécessaire
-                    if len(stretched_audio) != target_total_samples:
-                        x_original = np.linspace(0, 1, len(stretched_audio))
-                        x_target = np.linspace(0, 1, target_total_samples)
-                        stretched_audio = np.interp(
-                            x_target, x_original, stretched_audio
+                    # Estimer le tempo actuel
+                    estimated_tempo = librosa.beat.tempo(
+                        onset_envelope=onset_env, sr=sr
+                    )[0]
+                    print(f"🎵 Tempo estimé du sample: {estimated_tempo:.1f} BPM")
+
+                    # Si les tempos sont très proches, pas besoin de time stretching
+                    tempo_ratio = abs(estimated_tempo - tempo) / tempo
+                    if tempo_ratio < 0.02:  # Moins de 2% de différence
+                        print(
+                            f"Tempos similaires ({estimated_tempo:.1f} vs {tempo:.1f} BPM), pas de stretching"
                         )
+                        stretched_audio = audio
+                    else:
+                        # Calculer le ratio de time stretching et l'appliquer
+                        stretch_ratio = estimated_tempo / tempo
+                        print(
+                            f"Time stretching: {estimated_tempo:.1f} → {tempo:.1f} BPM (ratio: {stretch_ratio:.2f})"
+                        )
+                        stretched_audio = time_stretch(audio, rate=stretch_ratio)
+
+                        # Ajuster à la longueur exacte si nécessaire
+                        if len(stretched_audio) != target_total_samples:
+                            x_original = np.linspace(0, 1, len(stretched_audio))
+                            x_target = np.linspace(0, 1, target_total_samples)
+                            stretched_audio = np.interp(
+                                x_target, x_original, stretched_audio
+                            )
                 stretched_audio = self._normalize_audio(
                     stretched_audio, target_level=-3.0
                 )

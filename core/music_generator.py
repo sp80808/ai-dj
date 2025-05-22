@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import tempfile
 import os
+import gc
 from config.music_prompts import MUSICGEN_TEMPLATES, SAMPLE_PARAMS
 
 
@@ -344,6 +345,10 @@ class MusicGenerator:
                     if output_normalized.shape[0] > 1
                     else output_normalized
                 )
+                del output, output_normalized
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                gc.collect()
 
             print(f"✅ Génération terminée !\n")
 
