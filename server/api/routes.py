@@ -233,6 +233,7 @@ async def generate_loop(
             original_audio_path=temp_path,
             layer_id=f"vst_loop_{int(time.time())}",
             measures=sample_details.get("measures", request.measures),
+            model_name=dj_system.audio_model,
         )
 
         if not processed_path:
