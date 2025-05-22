@@ -23,6 +23,7 @@ class DJIAClient:
         bpm=DEFAULT_BPM,
         key=DEFAULT_KEY,
         sample_rate=44100,
+        adjust_bpm=False,
     ):
         """
         Initialise le client DJ-IA
@@ -42,7 +43,9 @@ class DJIAClient:
         self.key = key
         self.running = False
         self.headers = {"X-API-Key": api_key}
-        self.audio_player = AudioLoopPlayer(sample_rate=sample_rate)
+        self.audio_player = AudioLoopPlayer(
+            sample_rate=sample_rate, adjust_bpm=adjust_bpm
+        )
         self.generation_active = False
         self.generation_thread = None
 
@@ -217,7 +220,7 @@ class DJIAClient:
         print("   - s [nom]: Spécifier des stems (ex: s drums,bass)")
         print("   - b [bpm]: Changer le BPM (ex: b 130)")
         print("   - k [key]: Changer la tonalité (ex: k F minor)")
-        print("   - y [style]: Changer le style (ex: s ambient)")
+        print("   - y [style]: Changer le style (ex: y ambient)")
         print("   - q: Quitter l'application")
         print("=" * 60)
 

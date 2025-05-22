@@ -8,7 +8,7 @@ from core.layer_manager import LayerManager
 class AudioLoopPlayer:
     """Système de lecture de boucles audio avec transitions douces basé sur LayerManager"""
 
-    def __init__(self, sample_rate=48000, output_device=None):
+    def __init__(self, sample_rate=48000, output_device=None, adjust_bpm=False):
         """
         Initialise le lecteur de boucles audio
 
@@ -19,6 +19,7 @@ class AudioLoopPlayer:
         self.sample_rate = sample_rate
         self.output_device = output_device
         self.playing = False
+        self.adjust_bpm = adjust_bpm
 
         # Créer un répertoire temporaire pour les boucles
         self.temp_dir = os.path.join(
@@ -138,6 +139,7 @@ class AudioLoopPlayer:
                 sample_details,
                 playback_params,
                 [],  # Pas d'effets
+                model_name="musicgen" if self.adjust_bpm else "stable-audio",
             )
 
             print(f"🎵 Nouvelle boucle chargée et synchronisée")

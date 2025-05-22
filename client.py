@@ -61,6 +61,11 @@ def main():
     parser.add_argument(
         "--sample-rate", type=int, default=44100, help="Taux d'échantillonnage (Hz)"
     )
+    parser.add_argument(
+        "--adjust-bpm",
+        action="store_true",
+        help="Ajuster automatiquement le BPM des samples",
+    )
 
     args = parser.parse_args()
 
@@ -80,6 +85,7 @@ def main():
         bpm=args.bpm,
         key=args.key,
         sample_rate=args.sample_rate,
+        adjust_bpm=args.adjust_bpm,
     )
 
     # Configurer le gestionnaire de signal pour l'arrêt propre
