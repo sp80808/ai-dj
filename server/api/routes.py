@@ -370,7 +370,7 @@ async def initialize(
 
         return {
             "status": "initialized",
-            "config": config.dict(),
+            "config": config.model_dump(),
             "updates": updates,
             "system_info": {
                 "current_model": dj_system.music_gen.model_name,
