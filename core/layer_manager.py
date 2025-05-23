@@ -604,7 +604,7 @@ class LayerManager:
                 new_layer = AudioLayerSync(
                     layer_id,
                     final_sample_path,
-                    channel,
+                    channel_id=channel,
                     volume=adjusted_volume,  # Volume ajusté selon le stem
                     pan=playback_params.get("pan", 0.0),
                     midi_manager=midi_clock_manager,
