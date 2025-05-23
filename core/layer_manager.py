@@ -3,6 +3,8 @@ import time
 import random
 import pygame
 import librosa
+import subprocess
+import tempfile
 import numpy as np
 import soundfile as sf
 from typing import Dict, List, Optional, Any
@@ -187,6 +189,7 @@ class LayerManager:
         layer_id: str,
         measures: int,
         model_name="musicgen",
+        time_stretch=True,
     ) -> Optional[str]:
         """Prépare un sample pour qu'il boucle (détection d'onset, calage, crossfade)."""
         try:
@@ -275,7 +278,7 @@ class LayerManager:
         sf.write(temp_path, audio, sr)
 
         try:
-            if "stable-audio" in model_name:
+            if not time_stretch:
                 stretched_audio = audio
             else:
                 stretched_audio = self.match_sample_to_tempo(
@@ -412,6 +415,7 @@ class LayerManager:
         effects: Optional[List[Dict[str, Any]]] = None,
         stop_behavior: str = "next_bar",
         model_name="musicgen",
+        prepare_sample_for_loop=True,
     ):
         """Gère un layer: ajout/remplacement, modification, suppression."""
 
@@ -464,9 +468,15 @@ class LayerManager:
                     )
 
             # 1. Préparer le sample pour la boucle (trim, calage en durée)
-            looped_sample_path = self._prepare_sample_for_loop(
-                original_file_path, layer_id, measures, model_name=model_name
-            )
+            if prepare_sample_for_loop:
+                looped_sample_path = self._prepare_sample_for_loop(
+                    original_file_path,
+                    layer_id,
+                    measures,
+                    model_name=model_name,
+                )
+            else:
+                looped_sample_path = original_file_path
             if not looped_sample_path:
                 print(f"Échec de la préparation de la boucle pour {layer_id}.")
                 return
@@ -732,6 +742,7 @@ class LayerManager:
     ):
         """
         Détecte le tempo d'un sample audio et l'adapte au tempo cible sans modifier sa hauteur.
+        Utilise Rubber Band pour un time stretch de qualité professionnelle.
 
         Args:
             audio: Audio à adapter (numpy array ou tout objet convertible)
@@ -744,9 +755,12 @@ class LayerManager:
             np.array: Audio adapté au nouveau tempo
         """
         try:
-
             import numpy as np
             import librosa
+            import tempfile
+            import subprocess
+            import soundfile as sf
+            import os
 
             if isinstance(audio, str):
                 print(f"📂 Chargement du fichier audio: {audio}")
@@ -807,8 +821,22 @@ class LayerManager:
             # Calculer le ratio de time stretching
             stretch_ratio = estimated_tempo / target_tempo
 
-            # Time stretching avec phase vocoder pour préserver la qualité
-            stretched_audio = librosa.effects.time_stretch(audio, rate=stretch_ratio)
+            # === TIME STRETCHING AVEC RUBBER BAND ===
+            print(f"🔧 Utilisation de Rubber Band pour le time stretch...")
+
+            try:
+                stretched_audio = self._time_stretch_rubberband(
+                    audio, stretch_ratio, sr
+                )
+                print(f"✅ Rubber Band time stretch réussi")
+            except Exception as rb_error:
+                print(f"⚠️  Erreur Rubber Band: {rb_error}")
+                print("🔄 Fallback vers librosa time stretch...")
+                # Fallback vers librosa si Rubber Band échoue
+                stretched_audio = librosa.effects.time_stretch(
+                    audio, rate=stretch_ratio
+                )
+
             stretched_length = len(stretched_audio)
 
             # Si on veut préserver le nombre de mesures musicales
@@ -837,10 +865,22 @@ class LayerManager:
                         f"✂️  Ajustement à un nombre exact de mesures: {target_duration:.2f}s ({whole_measures} mesures)"
                     )
 
-                    # Utiliser l'interpolation pour atteindre exactement la longueur cible
-                    x_original = np.linspace(0, 1, stretched_length)
-                    x_target = np.linspace(0, 1, target_length)
-                    stretched_audio = np.interp(x_target, x_original, stretched_audio)
+                    # Utiliser scipy pour une interpolation de meilleure qualité si disponible
+                    try:
+                        from scipy import signal
+
+                        stretched_audio = signal.resample(
+                            stretched_audio, target_length
+                        )
+                        print("🔬 Interpolation haute qualité avec scipy")
+                    except ImportError:
+                        # Fallback vers numpy interpolation
+                        x_original = np.linspace(0, 1, stretched_length)
+                        x_target = np.linspace(0, 1, target_length)
+                        stretched_audio = np.interp(
+                            x_target, x_original, stretched_audio
+                        )
+                        print("📐 Interpolation standard avec numpy")
 
             print(
                 f"⏩ Time stretching appliqué : {estimated_tempo:.1f} → {target_tempo:.1f} BPM (ratio: {stretch_ratio:.2f})"
@@ -859,3 +899,111 @@ class LayerManager:
             traceback.print_exc()
             print("⚠️  Retour de l'audio original sans modification")
             return audio
+
+    def _time_stretch_rubberband(self, audio, stretch_ratio, sr):
+        """
+        Time stretch avec Rubber Band CLI - qualité professionnelle
+
+        Args:
+            audio: Signal audio (numpy array)
+            stretch_ratio: Ratio de stretch (estimated_tempo / target_tempo)
+            sr: Sample rate
+
+        Returns:
+            np.array: Audio étiré temporellement
+        """
+        import tempfile
+        import subprocess
+        import soundfile as sf
+        import librosa
+        import os
+
+        temp_files = []
+
+        try:
+            # Créer des fichiers temporaires
+            temp_in = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+            temp_out = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+            temp_files = [temp_in.name, temp_out.name]
+
+            # Sauvegarder l'audio d'entrée
+            sf.write(temp_in.name, audio, sr)
+            temp_in.close()
+
+            # Construire la commande Rubber Band
+            cmd = [
+                "rubberband",
+                "-t",
+                str(stretch_ratio),  # Juste le time stretch
+                temp_in.name,
+                temp_out.name,
+            ]
+
+            print(f"🎛️  Commande Rubber Band: {' '.join(cmd)}")
+
+            # Exécuter Rubber Band
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,  # Timeout de 30 secondes
+            )
+
+            if result.returncode != 0:
+                raise Exception(
+                    f"Rubber Band failed with code {result.returncode}: {result.stderr}"
+                )
+
+            temp_out.close()
+
+            # Charger le résultat
+            stretched_audio, _ = librosa.load(temp_out.name, sr=sr)
+
+            print(f"🎯 Rubber Band: {len(audio)} → {len(stretched_audio)} samples")
+
+            return stretched_audio
+
+        except subprocess.TimeoutExpired:
+            raise Exception("Rubber Band timeout (>30s)")
+        except FileNotFoundError:
+            raise Exception(
+                "Rubber Band non trouvé. Installez-le : apt install rubberband-cli"
+            )
+        except Exception as e:
+            raise Exception(f"Erreur Rubber Band: {str(e)}")
+        finally:
+            # Nettoyer les fichiers temporaires
+            for temp_file in temp_files:
+                try:
+                    if os.path.exists(temp_file):
+                        os.unlink(temp_file)
+                except Exception as cleanup_error:
+                    print(f"⚠️  Erreur nettoyage fichier {temp_file}: {cleanup_error}")
+
+    def _time_stretch_pyrubberband(self, audio, stretch_ratio, sr):
+        """
+        Alternative avec pyrubberband (Python binding) - plus efficace
+
+        Installé avec: pip install pyrubberband
+        """
+        try:
+            import pyrubberband as pyrb
+
+            # Options de qualité élevée
+            options = (
+                pyrb.RubberBandOption.OptionProcessingOffline
+                | pyrb.RubberBandOption.OptionStretchHighQuality
+                | pyrb.RubberBandOption.OptionTransientsCrisp  # Bon pour les drums
+            )
+
+            stretched_audio = pyrb.time_stretch(
+                audio, sr, stretch_ratio, rbargs=options
+            )
+
+            print(f"🎯 PyRubberBand: {len(audio)} → {len(stretched_audio)} samples")
+            return stretched_audio
+
+        except ImportError:
+            raise Exception(
+                "pyrubberband non disponible. Installez avec: pip install pyrubberband"
+            )

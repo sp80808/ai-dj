@@ -1,181 +1,111 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+//==============================================================================
+// CONSTRUCTEUR ET DESTRUCTEUR
+//==============================================================================
+
 DjIaVstProcessor::DjIaVstProcessor()
-    : AudioProcessor(BusesProperties()
-                         .withOutput("Output", juce::AudioChannelSet::stereo(), true))
+    : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true))
 {
-    // Initialisation des variables clés
+    // État de base
     hasLoop = false;
     isNotePlaying = false;
     readPosition = 0.0;
     masterVolume = 0.8f;
     currentNoteNumber = -1;
-    hasPendingAudioData = false;
-    sampleRate = 44100.0;      // Default, sera mis à jour dans prepareToPlay
-    audioSampleRate = 44100.0; // Default, sera mis à jour à partir du fichier audio
-    playbackSpeedRatio = 1.0;  // Ratio par défaut, sera recalculé si nécessaire
 
-    // Initialisation du système ping-pong
-    pingBuffer.setSize(2, 0); // Taille initiale, sera redimensionnée plus tard
+    // Sample rates - initialisées à 0, seront définies dans prepareToPlay
+    hostSampleRate = 0.0;
+    audioSampleRate = 0.0;
+    playbackSpeedRatio = 1.0;
+
+    // Système ping-pong
+    pingBuffer.setSize(2, 0);
     pongBuffer.setSize(2, 0);
-    activeBuffer = &pingBuffer;  // Buffer actif par défaut
-    loadingBuffer = &pongBuffer; // Buffer de chargement par défaut
+    activeBuffer = &pingBuffer;
+    loadingBuffer = &pongBuffer;
     isBufferSwitchPending = false;
 
-    // Réinitialisation des filtres
+    // Audio en attente
+    hasPendingAudioData = false;
+
+    // Filtres
     resetFilters();
 
-    writeToLog("DjIaVstProcessor initialized with enhanced audio processing");
+    writeToLog("=== DJ-IA VST INITIALIZED ===");
 }
 
 DjIaVstProcessor::~DjIaVstProcessor()
 {
-    // Nettoyage si nécessaire
+    writeToLog("=== DJ-IA VST DESTROYED ===");
 }
 
-void DjIaVstProcessor::prepareToPlay(double newSampleRate, int /*samplesPerBlock*/)
+//==============================================================================
+// CYCLE DE VIE DE L'AUDIO
+//==============================================================================
+
+void DjIaVstProcessor::prepareToPlay(double newSampleRate, int samplesPerBlock)
 {
-    this->sampleRate = newSampleRate; // Sauvegarde de la fréquence d'échantillonnage de la DAW
-    readPosition = 0;
-    playbackSpeedRatio = 1.0; // Sera recalculé plus tard
+    hostSampleRate = newSampleRate;
 
-    writeToLog("prepareToPlay - DAW sample rate: " + juce::String(this->sampleRate) + " Hz");
+    writeToLog("=== PREPARE TO PLAY ===");
+    writeToLog("Host sample rate: " + juce::String(hostSampleRate) + " Hz");
+    writeToLog("Samples per block: " + juce::String(samplesPerBlock));
 
-    // Initialisation des buffers ping-pong avec une taille prudente
+    // Redimensionner les buffers (10 secondes de cache)
     const juce::ScopedLock lock(bufferLock);
-    pingBuffer.setSize(2, static_cast<int>(newSampleRate * 10.0), false, true, true); // 10 secondes de buffer
-    pongBuffer.setSize(2, static_cast<int>(newSampleRate * 10.0), false, true, true);
+    int bufferSize = static_cast<int>(newSampleRate * 10.0);
+    pingBuffer.setSize(2, bufferSize, false, true, true);
+    pongBuffer.setSize(2, bufferSize, false, true, true);
     pingBuffer.clear();
     pongBuffer.clear();
 
-    // Réinitialisation des filtres
+    // Reset de l'état
+    readPosition = 0.0;
+    playbackSpeedRatio = 1.0;
     resetFilters();
 }
 
 void DjIaVstProcessor::releaseResources()
 {
-    // Libération des ressources
+    writeToLog("=== RELEASE RESOURCES ===");
     const juce::ScopedLock lock(bufferLock);
     pingBuffer.setSize(0, 0);
     pongBuffer.setSize(0, 0);
     hasLoop = false;
 }
 
+//==============================================================================
+// TRAITEMENT AUDIO PRINCIPAL
+//==============================================================================
+
 void DjIaVstProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::MidiBuffer &midiMessages)
 {
-    // Nettoyer les canaux de sortie qui n'ont pas de données d'entrée
+    // Nettoyer les canaux de sortie inutilisés
     for (auto i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 
-    // Traiter les données audio en attente si nécessaire
+    // Traiter l'audio en attente
     processIncomingAudio();
 
-    // Vérifier si on doit changer de buffer (système ping-pong)
-    if (isBufferSwitchPending)
-    {
-        const juce::ScopedLock lock(bufferLock);
-        activeBuffer = (activeBuffer == &pingBuffer) ? &pongBuffer : &pingBuffer;
-        isBufferSwitchPending = false;
-        writeToLog("Switched active buffer for playback");
-    }
+    // Gérer le changement de buffer (système ping-pong)
+    handleBufferSwitch();
 
-    // Vérifier si nous avons une boucle à jouer
-    if (!hasLoop || activeBuffer->getNumSamples() == 0)
+    // Si pas de loop, sortir en silence
+    if (!hasValidLoop())
     {
         buffer.clear();
         return;
     }
 
-    // Traiter le MIDI
-    for (const auto metadata : midiMessages)
-    {
-        const auto message = metadata.getMessage();
-        if (message.isNoteOn())
-        {
-            writeToLog("MIDI Note On: " + juce::String(message.getNoteNumber()) +
-                       " velocity=" + juce::String(message.getVelocity()));
-            isNotePlaying = true;
-            currentNoteNumber = message.getNoteNumber();
-            readPosition = 0; // Réinitialiser la position de lecture pour une nouvelle note
-            resetFilters();   // Réinitialiser les filtres pour éviter les artefacts
-        }
-        else if (message.isNoteOff() && message.getNoteNumber() == currentNoteNumber)
-        {
-            writeToLog("MIDI Note Off: " + juce::String(message.getNoteNumber()));
-            isNotePlaying = false;
-        }
-    }
+    // Traiter les messages MIDI
+    processMidiMessages(midiMessages);
 
+    // Générer l'audio si on joue
     if (isNotePlaying)
     {
-        const juce::ScopedLock lock(bufferLock);
-
-        // Vérifier à nouveau la taille du buffer après avoir acquis le lock
-        if (activeBuffer->getNumChannels() == 0 || activeBuffer->getNumSamples() == 0)
-        {
-            writeToLog("Warning: Empty activeBuffer while trying to play.");
-            buffer.clear();
-            return;
-        }
-
-        // Calculer le ratio de vitesse de lecture en fonction des fréquences d'échantillonnage
-        if (this->sampleRate > 0.001 && this->audioSampleRate > 0.001)
-        {
-            playbackSpeedRatio = this->audioSampleRate / this->sampleRate;
-        }
-        else
-        {
-            // En cas d'erreur, utiliser le ratio par défaut
-            writeToLog("Warning: Invalid sample rate(s). Using default playback speed ratio 1.0.");
-            playbackSpeedRatio = 1.0;
-        }
-
-        const int numOutChannels = buffer.getNumChannels();
-        const int numInChannels = activeBuffer->getNumChannels();
-        const int numSamplesToProcess = buffer.getNumSamples();
-        const int sourceBufferSize = activeBuffer->getNumSamples();
-
-        // Calculer le coefficient du filtre en fonction du ratio de vitesse
-        float filterCoeff = juce::jmin(0.7f, juce::jmax(0.1f,
-                                                        static_cast<float>(playbackSpeedRatio * 0.25f)));
-
-        for (int channel = 0; channel < numOutChannels; ++channel)
-        {
-            float *outputData = buffer.getWritePointer(channel);
-            // Utiliser le canal source 0 pour la sortie mono si activeBuffer est mono, ou le canal correspondant
-            const float *inputData = activeBuffer->getReadPointer(juce::jmin(channel, numInChannels - 1));
-
-            if (inputData == nullptr)
-            {
-                writeToLog("Warning: Null input data for channel " + juce::String(channel));
-                buffer.clear(channel, 0, numSamplesToProcess);
-                continue;
-            }
-
-            // Sélectionner les tableaux de filtres en fonction du canal
-            float *prevInputs = (channel == 0) ? prevInputL : prevInputR;
-            float *prevOutputs = (channel == 0) ? prevOutputL : prevOutputR;
-
-            for (int sample = 0; sample < numSamplesToProcess; ++sample)
-            {
-                // Interpolation cubique améliorée
-                float interpolatedValue = interpolateCubic(inputData, readPosition, sourceBufferSize);
-
-                // Appliquer le filtre anti-aliasing amélioré
-                applyFilter(interpolatedValue, outputData[sample], prevInputs, prevOutputs, filterCoeff);
-
-                // Appliquer le volume
-                outputData[sample] *= masterVolume;
-
-                // Avancer la position de lecture
-                readPosition += playbackSpeedRatio;
-
-                // S'assurer que readPosition est toujours dans les limites du buffer
-                while (readPosition >= sourceBufferSize)
-                    readPosition -= sourceBufferSize;
-            }
-        }
+        generateAudioOutput(buffer);
     }
     else
     {
@@ -183,65 +113,264 @@ void DjIaVstProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::Midi
     }
 }
 
-float DjIaVstProcessor::interpolateCubic(const float *buffer, double position, int bufferSize)
+//==============================================================================
+// GESTION DES BUFFERS
+//==============================================================================
+
+void DjIaVstProcessor::handleBufferSwitch()
 {
-    int index1 = static_cast<int>(position);
-    float fraction = static_cast<float>(position - index1);
-
-    int index0 = index1 - 1;
-    int index2 = index1 + 1;
-    int index3 = index1 + 2;
-
-    // Gérer les conditions aux limites par wrapping
-    if (index0 < 0)
-        index0 += bufferSize;
-    if (index2 >= bufferSize)
-        index2 -= bufferSize;
-    if (index3 >= bufferSize)
-        index3 -= bufferSize;
-
-    // S'assurer que tous les indices sont valides après le wrapping
-    if (index0 >= 0 && index0 < bufferSize &&
-        index1 >= 0 && index1 < bufferSize &&
-        index2 >= 0 && index2 < bufferSize &&
-        index3 >= 0 && index3 < bufferSize)
+    if (isBufferSwitchPending)
     {
-        float y0 = buffer[index0];
-        float y1 = buffer[index1];
-        float y2 = buffer[index2];
-        float y3 = buffer[index3];
-
-        // Interpolation cubique Catmull-Rom correcte
-        float c0 = y1;
-        float c1 = 0.5f * (y2 - y0);
-        float c2 = y0 - 2.5f * y1 + 2.0f * y2 - 0.5f * y3;
-        float c3 = -0.5f * y0 + 1.5f * y1 - 1.5f * y2 + 0.5f * y3;
-
-        return ((c3 * fraction + c2) * fraction + c1) * fraction + c0;
-    }
-    else
-    {
-        // Fallback si les indices sont hors limites (ne devrait pas arriver)
-        return 0.0f;
+        const juce::ScopedLock lock(bufferLock);
+        activeBuffer = (activeBuffer == &pingBuffer) ? &pongBuffer : &pingBuffer;
+        isBufferSwitchPending = false;
+        writeToLog("✅ Buffer switched for playback");
     }
 }
 
-void DjIaVstProcessor::applyFilter(float &input, float &output, float *prevInputs, float *prevOutputs, float filterCoeff)
+bool DjIaVstProcessor::hasValidLoop()
 {
-    // Filtre Butterworth d'ordre 2
+    const juce::ScopedLock lock(bufferLock);
+    return hasLoop && activeBuffer && activeBuffer->getNumSamples() > 0;
+}
+
+//==============================================================================
+// TRAITEMENT MIDI
+//==============================================================================
+
+void DjIaVstProcessor::processMidiMessages(juce::MidiBuffer &midiMessages)
+{
+    for (const auto metadata : midiMessages)
+    {
+        const auto message = metadata.getMessage();
+
+        if (message.isNoteOn())
+        {
+            writeToLog("🎹 MIDI Note On: " + juce::String(message.getNoteNumber()) +
+                       " velocity=" + juce::String(message.getVelocity()));
+            startNotePlayback(message.getNoteNumber());
+        }
+        else if (message.isNoteOff() && message.getNoteNumber() == currentNoteNumber)
+        {
+            writeToLog("🎹 MIDI Note Off: " + juce::String(message.getNoteNumber()));
+            stopNotePlayback();
+        }
+    }
+}
+
+void DjIaVstProcessor::startNotePlayback(int noteNumber)
+{
+    isNotePlaying = true;
+    currentNoteNumber = noteNumber;
+    readPosition = 0.0;
+    resetFilters();
+    writeToLog("▶️ Playback started from note");
+}
+
+void DjIaVstProcessor::stopNotePlayback()
+{
+    isNotePlaying = false;
+    writeToLog("⏹️ Playback stopped from note");
+}
+
+//==============================================================================
+// GÉNÉRATION AUDIO
+//==============================================================================
+
+void DjIaVstProcessor::generateAudioOutput(juce::AudioBuffer<float> &buffer)
+{
+    const juce::ScopedLock lock(bufferLock);
+
+    // Vérification de sécurité
+    if (!activeBuffer || activeBuffer->getNumSamples() == 0)
+    {
+        writeToLog("⚠️ Empty activeBuffer during playback");
+        buffer.clear();
+        return;
+    }
+
+    // Calculer le ratio de lecture
+    calculatePlaybackRatio();
+
+    const int numOutChannels = buffer.getNumChannels();
+    const int numInChannels = activeBuffer->getNumChannels();
+    const int numSamplesToProcess = buffer.getNumSamples();
+    const int sourceBufferSize = activeBuffer->getNumSamples();
+
+    // Calculer le coefficient de filtrage anti-aliasing
+    float filterCoeff = calculateFilterCoeff();
+
+    // Traiter chaque canal
+    for (int channel = 0; channel < numOutChannels; ++channel)
+    {
+        processAudioChannel(buffer, channel, numInChannels, numSamplesToProcess,
+                            sourceBufferSize, filterCoeff);
+    }
+}
+
+void DjIaVstProcessor::calculatePlaybackRatio()
+{
+    if (hostSampleRate > 0.0 && audioSampleRate > 0.0)
+    {
+        // CORRECTION : ratio pour convertir de l'audio vers l'host
+        playbackSpeedRatio = audioSampleRate / hostSampleRate;
+
+        // Log seulement si le ratio change significativement
+        static double lastRatio = 0.0;
+        if (std::abs(playbackSpeedRatio - lastRatio) > 0.01)
+        {
+            writeToLog("🎛️ Sample rates - Audio: " + juce::String(audioSampleRate) +
+                       " Hz, Host: " + juce::String(hostSampleRate) +
+                       " Hz, Ratio: " + juce::String(playbackSpeedRatio, 3));
+            lastRatio = playbackSpeedRatio;
+        }
+    }
+    else
+    {
+        writeToLog("⚠️ Invalid sample rates, using ratio 1.0");
+        playbackSpeedRatio = 1.0;
+    }
+}
+
+float DjIaVstProcessor::calculateFilterCoeff()
+{
+    // Coefficient de filtre adaptatif selon le ratio
+    float filterCoeff = 0.7f; // Valeur par défaut conservative
+
+    if (playbackSpeedRatio > 1.0f) // On ralentit = besoin de plus de filtrage
+    {
+        filterCoeff = juce::jmin(0.9f, 0.5f / static_cast<float>(playbackSpeedRatio));
+    }
+    else if (playbackSpeedRatio < 1.0f) // On accélère = moins de filtrage
+    {
+        filterCoeff = juce::jmax(0.3f, static_cast<float>(playbackSpeedRatio) * 0.8f);
+    }
+
+    return filterCoeff;
+}
+
+void DjIaVstProcessor::processAudioChannel(juce::AudioBuffer<float> &buffer,
+                                           int channel, int numInChannels,
+                                           int numSamplesToProcess, int sourceBufferSize,
+                                           float filterCoeff)
+{
+    float *outputData = buffer.getWritePointer(channel);
+    const float *inputData = activeBuffer->getReadPointer(juce::jmin(channel, numInChannels - 1));
+
+    if (!inputData)
+    {
+        writeToLog("⚠️ Null input data for channel " + juce::String(channel));
+        buffer.clear(channel, 0, numSamplesToProcess);
+        return;
+    }
+
+    // Sélectionner les filtres pour ce canal
+    float *prevInputs = (channel == 0) ? prevInputL : prevInputR;
+    float *prevOutputs = (channel == 0) ? prevOutputL : prevOutputR;
+
+    // Traiter chaque échantillon
+    for (int sample = 0; sample < numSamplesToProcess; ++sample)
+    {
+        // Interpolation sécurisée
+        float interpolatedValue = interpolateCubicSafe(inputData, readPosition, sourceBufferSize);
+
+        // Filtrage anti-aliasing
+        float filteredOutput;
+        applyAntiAliasingFilter(interpolatedValue, filteredOutput, prevInputs, prevOutputs, filterCoeff);
+
+        // Limitation et volume
+        outputData[sample] = juce::jlimit(-1.0f, 1.0f, filteredOutput * masterVolume);
+
+        // Avancer la position avec bouclage sécurisé
+        advanceReadPosition(sourceBufferSize);
+    }
+}
+
+void DjIaVstProcessor::advanceReadPosition(int sourceBufferSize)
+{
+    readPosition += playbackSpeedRatio;
+
+    // Bouclage sécurisé
+    if (sourceBufferSize > 0)
+    {
+        while (readPosition >= sourceBufferSize)
+            readPosition -= sourceBufferSize;
+        while (readPosition < 0.0)
+            readPosition += sourceBufferSize;
+    }
+}
+
+//==============================================================================
+// INTERPOLATION ET FILTRAGE
+//==============================================================================
+
+float DjIaVstProcessor::interpolateCubicSafe(const float *buffer, double position, int bufferSize)
+{
+    if (!buffer || bufferSize <= 0)
+        return 0.0f;
+
+    // Pour des buffers très petits, interpolation linéaire
+    if (bufferSize < 4)
+    {
+        int index = static_cast<int>(position);
+        float fraction = static_cast<float>(position - index);
+
+        index = juce::jlimit(0, bufferSize - 1, index);
+        int nextIndex = juce::jlimit(0, bufferSize - 1, index + 1);
+
+        return buffer[index] * (1.0f - fraction) + buffer[nextIndex] * fraction;
+    }
+
+    // Interpolation cubique sécurisée
+    int index1 = static_cast<int>(position);
+    float fraction = static_cast<float>(position - index1);
+
+    // Assurer que l'index principal est valide
+    index1 = index1 % bufferSize;
+    if (index1 < 0)
+        index1 += bufferSize;
+
+    // Calculer les indices avec wrapping sécurisé
+    int index0 = (index1 - 1 + bufferSize) % bufferSize;
+    int index2 = (index1 + 1) % bufferSize;
+    int index3 = (index1 + 2) % bufferSize;
+
+    // Échantillons pour interpolation
+    float y0 = buffer[index0];
+    float y1 = buffer[index1];
+    float y2 = buffer[index2];
+    float y3 = buffer[index3];
+
+    // Interpolation cubique Catmull-Rom
+    float c0 = y1;
+    float c1 = 0.5f * (y2 - y0);
+    float c2 = y0 - 2.5f * y1 + 2.0f * y2 - 0.5f * y3;
+    float c3 = -0.5f * y0 + 1.5f * y1 - 1.5f * y2 + 0.5f * y3;
+
+    float result = ((c3 * fraction + c2) * fraction + c1) * fraction + c0;
+
+    // Limitation pour éviter les explosions
+    return juce::jlimit(-2.0f, 2.0f, result);
+}
+
+void DjIaVstProcessor::applyAntiAliasingFilter(float input, float &output,
+                                               float *prevInputs, float *prevOutputs,
+                                               float filterCoeff)
+{
+    // Filtre Butterworth passe-bas d'ordre 2 adaptatif
     float a0 = 1.0f;
-    float a1 = -1.85f * (1.0f - filterCoeff);
-    float a2 = 0.85f * (1.0f - filterCoeff);
-    float b0 = filterCoeff * filterCoeff;
+    float a1 = -1.8f * filterCoeff;
+    float a2 = 0.8f * filterCoeff * filterCoeff;
+    float b0 = (1.0f - filterCoeff) * (1.0f - filterCoeff);
     float b1 = 2.0f * b0;
     float b2 = b0;
 
-    // Appliquer le filtre
+    // Application du filtre
     output = (b0 * input + b1 * prevInputs[0] + b2 * prevInputs[1] -
               a1 * prevOutputs[0] - a2 * prevOutputs[1]) /
              a0;
 
-    // Mettre à jour les valeurs précédentes
+    // Mise à jour de l'historique
     prevInputs[1] = prevInputs[0];
     prevInputs[0] = input;
     prevOutputs[1] = prevOutputs[0];
@@ -259,176 +388,212 @@ void DjIaVstProcessor::resetFilters()
     }
 }
 
+//==============================================================================
+// CHARGEMENT AUDIO
+//==============================================================================
+
 void DjIaVstProcessor::processIncomingAudio()
 {
-    if (hasPendingAudioData)
+    if (!hasPendingAudioData)
+        return;
+
+    writeToLog("📥 Processing pending audio data...");
+
+    juce::AudioFormatManager formatManager;
+    formatManager.registerBasicFormats();
+
+    std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(
+        std::make_unique<juce::MemoryInputStream>(pendingAudioData, false)));
+
+    if (!reader)
     {
-        writeToLog("Processing pending audio data...");
-        juce::AudioFormatManager formatManager;
-        formatManager.registerBasicFormats();
-
-        std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(
-            std::make_unique<juce::MemoryInputStream>(pendingAudioData, false)));
-
-        if (reader != nullptr)
-        {
-            try
-            {
-                double reportedSampleRateByServer = this->audioSampleRate; // Valeur de la réponse API
-                double actualSampleRateInWav = reader->sampleRate;
-
-                writeToLog("Sample rate from API response: " + juce::String(reportedSampleRateByServer) + " Hz");
-                writeToLog("Actual sample rate in WAV data: " + juce::String(actualSampleRateInWav) + " Hz");
-                writeToLog("DAW sample rate: " + juce::String(this->sampleRate) + " Hz");
-
-                if (std::abs(reportedSampleRateByServer - actualSampleRateInWav) > 0.1 && reportedSampleRateByServer > 0)
-                {
-                    writeToLog("WARNING: Sample rate mismatch. Using WAV metadata.");
-                }
-
-                // Utiliser la fréquence d'échantillonnage du fichier audio
-                this->audioSampleRate = actualSampleRateInWav;
-                if (this->audioSampleRate < 1.0)
-                {
-                    writeToLog("ERROR: Invalid sample rate. Defaulting to 44100 Hz.");
-                    this->audioSampleRate = 44100.0;
-                }
-
-                int numSourceSamples = static_cast<int>(reader->lengthInSamples);
-                int numSourceChannels = reader->numChannels;
-
-                writeToLog("WAV info: " + juce::String(numSourceChannels) + " channels, " +
-                           juce::String(numSourceSamples) + " samples, " +
-                           juce::String(this->audioSampleRate) + " Hz");
-
-                // Choisir le buffer de chargement (opposé au buffer actif)
-                loadingBuffer = (activeBuffer == &pingBuffer) ? &pongBuffer : &pingBuffer;
-
-                // Utiliser au moins 2 canaux pour le buffer si la sortie est stéréo
-                int bufferChannels = juce::jmax(2, numSourceChannels);
-
-                // Protéger l'accès aux buffers
-                {
-                    const juce::ScopedLock lock(bufferLock);
-
-                    // Conserver l'ancien buffer pour le crossfade si nécessaire
-                    juce::AudioSampleBuffer oldBuffer;
-                    if (hasLoop)
-                    {
-                        oldBuffer = *activeBuffer; // Sauvegarder l'ancien buffer
-                    }
-
-                    // Redimensionner et nettoyer le buffer de chargement
-                    loadingBuffer->setSize(bufferChannels, numSourceSamples, false, false, true);
-                    loadingBuffer->clear();
-
-                    // Lire les données audio dans le buffer de chargement
-                    reader->read(loadingBuffer, 0, numSourceSamples, 0, true, (bufferChannels > numSourceChannels));
-
-                    // Si la source est mono et le buffer est stéréo, copier le canal 0 vers le canal 1
-                    if (numSourceChannels == 1 && bufferChannels > 1)
-                    {
-                        loadingBuffer->copyFrom(1, 0, *loadingBuffer, 0, 0, numSourceSamples);
-                    }
-
-                    // Appliquer un crossfade si nécessaire
-                    if (hasLoop && oldBuffer.getNumSamples() > 0)
-                    {
-                        crossfadeBuffers(*loadingBuffer, oldBuffer);
-                    }
-
-                    // Marquer le changement de buffer comme en attente
-                    isBufferSwitchPending = true;
-                }
-
-                readPosition = 0.0;
-                resetFilters();
-                hasLoop = true;
-
-                writeToLog("Audio loaded successfully into buffer. Ready for playback.");
-            }
-            catch (const std::exception &e)
-            {
-                writeToLog("Error processing audio: " + juce::String(e.what()));
-                hasLoop = false;
-            }
-        }
-        else
-        {
-            writeToLog("Failed to create audio reader from pendingAudioData.");
-            hasLoop = false;
-        }
-
-        // Nettoyer les données en attente
-        const juce::ScopedLock lock(apiLock);
-        pendingAudioData.reset();
-        hasPendingAudioData = false;
-        writeToLog("Pending audio data processed and cleared.");
+        writeToLog("❌ Failed to create audio reader");
+        clearPendingAudio();
+        return;
     }
+
+    try
+    {
+        loadAudioFromReader(*reader);
+    }
+    catch (const std::exception &e)
+    {
+        writeToLog("❌ Error loading audio: " + juce::String(e.what()));
+        hasLoop = false;
+    }
+
+    clearPendingAudio();
 }
 
-void DjIaVstProcessor::crossfadeBuffers(juce::AudioSampleBuffer &newBuffer, const juce::AudioSampleBuffer &oldBuffer)
+void DjIaVstProcessor::loadAudioFromReader(juce::AudioFormatReader &reader)
 {
-    // Appliquer un crossfade entre l'ancien et le nouveau buffer
+    // Récupérer les infos du fichier
+    audioSampleRate = reader.sampleRate;
+    int numSourceSamples = static_cast<int>(reader.lengthInSamples);
+    int numSourceChannels = reader.numChannels;
+
+    writeToLog("📊 Audio file info:");
+    writeToLog("  Sample rate: " + juce::String(audioSampleRate) + " Hz");
+    writeToLog("  Channels: " + juce::String(numSourceChannels));
+    writeToLog("  Samples: " + juce::String(numSourceSamples));
+    writeToLog("  Duration: " + juce::String(numSourceSamples / audioSampleRate, 2) + "s");
+
+    // Validation du sample rate
+    if (audioSampleRate <= 0.0 || audioSampleRate > 192000.0)
+    {
+        writeToLog("⚠️ Invalid sample rate, defaulting to 44100 Hz");
+        audioSampleRate = 44100.0;
+    }
+
+    // Choisir le buffer de chargement
+    loadingBuffer = (activeBuffer == &pingBuffer) ? &pongBuffer : &pingBuffer;
+    int bufferChannels = juce::jmax(2, numSourceChannels);
+
+    // Charger l'audio dans le buffer
+    {
+        const juce::ScopedLock lock(bufferLock);
+
+        // Sauvegarder l'ancien buffer pour crossfade
+        juce::AudioSampleBuffer oldBuffer;
+        if (hasLoop && activeBuffer->getNumSamples() > 0)
+        {
+            oldBuffer = *activeBuffer;
+        }
+
+        // Redimensionner et charger
+        loadingBuffer->setSize(bufferChannels, numSourceSamples, false, false, true);
+        loadingBuffer->clear();
+
+        reader.read(loadingBuffer, 0, numSourceSamples, 0, true,
+                    (bufferChannels > numSourceChannels));
+
+        // Dupliquer mono vers stéréo si nécessaire
+        if (numSourceChannels == 1 && bufferChannels > 1)
+        {
+            loadingBuffer->copyFrom(1, 0, *loadingBuffer, 0, 0, numSourceSamples);
+        }
+
+        // Crossfade avec l'ancien buffer si nécessaire
+        if (hasLoop && oldBuffer.getNumSamples() > 0)
+        {
+            applyCrossfade(*loadingBuffer, oldBuffer);
+        }
+
+        // Marquer pour changement de buffer
+        isBufferSwitchPending = true;
+    }
+
+    // Réinitialiser l'état
+    readPosition = 0.0;
+    resetFilters();
+    hasLoop = true;
+
+    writeToLog("✅ Audio loaded successfully and ready for playback");
+}
+
+void DjIaVstProcessor::applyCrossfade(juce::AudioSampleBuffer &newBuffer,
+                                      const juce::AudioSampleBuffer &oldBuffer)
+{
     int fadeLength = juce::jmin(2048, newBuffer.getNumSamples(), oldBuffer.getNumSamples());
 
     for (int ch = 0; ch < newBuffer.getNumChannels(); ++ch)
     {
-        int validChannel = juce::jmin(ch, oldBuffer.getNumChannels() - 1);
+        int validOldChannel = juce::jmin(ch, oldBuffer.getNumChannels() - 1);
 
         for (int i = 0; i < fadeLength; ++i)
         {
             float fadeIn = static_cast<float>(i) / fadeLength;
             float fadeOut = 1.0f - fadeIn;
 
-            if (i < oldBuffer.getNumSamples())
-            {
-                float newSample = newBuffer.getSample(ch, i);
-                float oldSample = oldBuffer.getSample(validChannel, i % oldBuffer.getNumSamples());
-                newBuffer.setSample(ch, i, newSample * fadeIn + oldSample * fadeOut);
-            }
+            float newSample = newBuffer.getSample(ch, i);
+            float oldSample = oldBuffer.getSample(validOldChannel, i);
+
+            newBuffer.setSample(ch, i, newSample * fadeIn + oldSample * fadeOut);
         }
     }
 
-    writeToLog("Applied crossfade between buffers over " + juce::String(fadeLength) + " samples");
+    writeToLog("🔄 Applied crossfade over " + juce::String(fadeLength) + " samples");
 }
+
+void DjIaVstProcessor::clearPendingAudio()
+{
+    const juce::ScopedLock lock(apiLock);
+    pendingAudioData.reset();
+    hasPendingAudioData = false;
+}
+
+//==============================================================================
+// API ET CONTRÔLE
+//==============================================================================
 
 void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest &request)
 {
     try
     {
-        writeToLog("Starting generateLoop (API call)...");
+        writeToLog("🚀 Starting API call for loop generation...");
 
-        // Appel à l'API
         auto response = apiClient.generateLoop(request);
 
-        writeToLog("API response received. Audio data size: " + juce::String(response.audioData.getSize()));
-        writeToLog("Reported sample rate from server: " + juce::String(response.sampleRate) + " Hz");
+        writeToLog("📦 API response received:");
+        writeToLog("  Audio data size: " + juce::String(response.audioData.getSize()) + " bytes");
+        writeToLog("  Reported sample rate: " + juce::String(response.sampleRate) + " Hz");
 
+        // Stocker les données pour traitement
         {
             const juce::ScopedLock lock(apiLock);
             pendingAudioData = response.audioData;
-            this->audioSampleRate = response.sampleRate;
+            audioSampleRate = response.sampleRate;
             hasPendingAudioData = true;
         }
 
-        writeToLog("Audio data queued for processing.");
+        writeToLog("✅ Audio data queued for processing");
     }
     catch (const std::exception &e)
     {
-        writeToLog("Error in generateLoop: " + juce::String(e.what()));
-        const juce::ScopedLock lock(apiLock);
-        hasPendingAudioData = false;
-        hasLoop = false;
-    }
-    catch (...)
-    {
-        writeToLog("Unknown error in generateLoop");
+        writeToLog("❌ Error in generateLoop: " + juce::String(e.what()));
         const juce::ScopedLock lock(apiLock);
         hasPendingAudioData = false;
         hasLoop = false;
     }
 }
+
+void DjIaVstProcessor::startPlayback()
+{
+    const juce::ScopedLock lock(bufferLock);
+    isNotePlaying = true;
+    readPosition = 0.0;
+    resetFilters();
+    writeToLog("▶️ Manual playback started");
+}
+
+void DjIaVstProcessor::stopPlayback()
+{
+    const juce::ScopedLock lock(bufferLock);
+    isNotePlaying = false;
+    writeToLog("⏹️ Manual playback stopped");
+}
+
+//==============================================================================
+// CONFIGURATION
+//==============================================================================
+
+void DjIaVstProcessor::setApiKey(const juce::String &key)
+{
+    apiKey = key;
+    apiClient = DjIaClient(apiKey, serverUrl);
+    writeToLog("🔑 API key updated");
+}
+
+void DjIaVstProcessor::setServerUrl(const juce::String &url)
+{
+    serverUrl = url;
+    apiClient = DjIaClient(apiKey, serverUrl);
+    writeToLog("🌐 Server URL updated: " + url);
+}
+
+//==============================================================================
+// ÉTAT ET SÉRIALISATION
+//==============================================================================
 
 juce::AudioProcessorEditor *DjIaVstProcessor::createEditor()
 {
@@ -442,7 +607,6 @@ void DjIaVstProcessor::getStateInformation(juce::MemoryBlock &destData)
     state.setProperty("key", currentKey, nullptr);
     state.setProperty("style", currentStyle, nullptr);
     state.setProperty("serverUrl", serverUrl, nullptr);
-    // L'API key est sensible, ne pas la sauvegarder
 
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
@@ -451,7 +615,7 @@ void DjIaVstProcessor::getStateInformation(juce::MemoryBlock &destData)
 void DjIaVstProcessor::setStateInformation(const void *data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xml(getXmlFromBinary(data, sizeInBytes));
-    if (xml.get() != nullptr && xml->hasTagName("DjIaVstState"))
+    if (xml && xml->hasTagName("DjIaVstState"))
     {
         juce::ValueTree state = juce::ValueTree::fromXml(*xml);
         currentBPM = state.getProperty("bpm", 126.0);
@@ -464,33 +628,4 @@ void DjIaVstProcessor::setStateInformation(const void *data, int sizeInBytes)
             setServerUrl(newServerUrl);
         }
     }
-}
-
-void DjIaVstProcessor::setApiKey(const juce::String &key)
-{
-    apiKey = key;
-    apiClient = DjIaClient(apiKey, serverUrl);
-}
-
-void DjIaVstProcessor::setServerUrl(const juce::String &url)
-{
-    serverUrl = url;
-    writeToLog("Setting Server URL: [" + url + "]");
-    apiClient = DjIaClient(apiKey, serverUrl);
-}
-
-void DjIaVstProcessor::startPlayback()
-{
-    const juce::ScopedLock lock(bufferLock);
-    isNotePlaying = true;
-    readPosition = 0;
-    resetFilters();
-    writeToLog("Playback started. isNotePlaying=true, readPosition=0");
-}
-
-void DjIaVstProcessor::stopPlayback()
-{
-    const juce::ScopedLock lock(bufferLock);
-    isNotePlaying = false;
-    writeToLog("Playback stopped. isNotePlaying=false");
 }

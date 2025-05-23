@@ -139,7 +139,7 @@ class AudioLoopPlayer:
                 sample_details,
                 playback_params,
                 [],  # Pas d'effets
-                model_name="musicgen" if self.adjust_bpm else "stable-audio",
+                prepare_sample_for_loop=False,
             )
 
             print(f"🎵 Nouvelle boucle chargée et synchronisée")

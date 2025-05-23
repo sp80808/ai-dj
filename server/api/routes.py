@@ -287,7 +287,7 @@ async def generate_loop(
             "bpm": request.bpm,
             "key": request.key,
             "stems_used": used_stems,
-            "sample_rate": layer_manager.sample_rate,
+            "sample_rate": dj_system.music_gen.sample_rate,
         }
 
     except Exception as e:

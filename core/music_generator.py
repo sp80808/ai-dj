@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import tempfile
 import os
+import random
 import gc
 from config.music_prompts import MUSICGEN_TEMPLATES, SAMPLE_PARAMS
 
@@ -288,7 +289,7 @@ class MusicGenerator:
                     generate_diffusion_cond,
                 )
 
-                seconds_total = 8
+                seconds_total = 12
                 # Créer le format de conditionnement attendu par Stable Audio
                 conditioning = [
                     {
@@ -301,7 +302,7 @@ class MusicGenerator:
                 # Paramètres ajustés selon l'intensité
                 cfg_scale = min(5.0 + (intensity * 0.5), 9.0)  # 5.0-9.0
                 steps_value = int(50 + (intensity * 5))  # 50-100 steps
-                seed_value = 42  # Valeur fixe dans les limites
+                seed_value = random.randint(0, 2**31 - 1)
 
                 print(
                     f"⚙️  Génération Stable Audio: steps={steps_value}, cfg_scale={cfg_scale}, seed={seed_value}"
@@ -373,7 +374,7 @@ class MusicGenerator:
             error_info = {"type": sample_type, "tempo": tempo, "error": str(e)}
             return silence, error_info
 
-    def save_sample(self, sample_audio, filename, sample_rate=32000):
+    def save_sample(self, sample_audio, filename):
         """Sauvegarde un sample généré sur disque"""
         try:
             # Sauvegarder l'audio en tant que WAV
@@ -393,7 +394,7 @@ class MusicGenerator:
                 sample_audio = sample_audio / max_val * 0.9
             import soundfile as sf
 
-            sf.write(path, sample_audio, sample_rate)
+            sf.write(path, sample_audio, self.sample_rate)
 
             return path
         except Exception as e:
