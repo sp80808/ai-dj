@@ -93,28 +93,25 @@ class AudioLayerSync:
                     print(f"Impossible de supprimer {self.file_path}: {e}")
 
     def on_midi_event(self, event_type: str, measure: int = None):
-        """Callback des events MIDI Clock"""
+        """Callback des events MIDI Clock - Boucle 1 mesure relancée à chaque mesure"""
 
         if event_type == "measure_start" and self.is_armed:
-            # Jouer seulement si on n'a pas déjà joué sur cette mesure
-            # ET si on est dans le bon cycle
-            if measure != self.last_played_measure:
-                # Vérifier si c'est le bon moment selon self.measures
-                if (
-                    measure - 1
-                ) % self.measures == 0:  # Beat 1, 5, 9, 13... pour measures=4
-                    try:
-                        self.channel.play(self.sound_object, loops=0)
-                        self.is_playing = True
-                        self.last_played_measure = measure
-                    except pygame.error as e:
-                        print(f"❌ Erreur lecture {self.layer_id}: {e}")
+            
+            try:
+                # Stop immédiat pour éviter l'overlap
+                self.channel.stop()
+                
+                # Relancer le sample (1 mesure de long, pas de loops)
+                self.channel.play(self.sound_object, loops=0)
+                self.is_playing = True
+                
+            except pygame.error as e:
+                print(f"❌ Erreur lecture {self.layer_id}: {e}")
 
         elif event_type == "stop":
             # Arrêter si Bitwig s'arrête
             self.channel.stop()
             self.is_playing = False
-            self.last_played_measure = 0
 
     def set_volume(self, volume: float):
         """Ajuste le volume"""

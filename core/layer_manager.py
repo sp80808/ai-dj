@@ -31,7 +31,7 @@ class LayerManager:
 
         try:
             pygame.mixer.init(
-                frequency=self.sample_rate, channels=2, buffer=2048
+                frequency=self.sample_rate, channels=2, buffer=4096  
             )  # Initialiser avec buffer plus grand
             pygame.mixer.set_num_channels(num_channels)
             print(
@@ -50,13 +50,18 @@ class LayerManager:
         self.num_channels = num_channels
 
     def _get_available_channel(self) -> Optional[pygame.mixer.Channel]:
-        """Trouve un canal Pygame non utilisé."""
+        """Trouve un canal vraiment libre"""
         for i in range(self.num_channels):
             channel = pygame.mixer.Channel(i)
             if not channel.get_busy():
+                # Force le stop pour être sûr
+                channel.stop()
                 return channel
-        print("Attention: Plus de canaux disponibles.")
-        return None
+        
+        # Si aucun canal libre, forcer l'arrêt du premier
+        print("⚠️ Forçage libération canal 0")
+        pygame.mixer.Channel(0).stop()
+        return pygame.mixer.Channel(0)
 
     def find_kick_attack_start(self, audio, sr, onset_position, layer_id):
         """Trouve le vrai début de l'attaque du kick pour le préserver complètement"""
@@ -471,13 +476,14 @@ class LayerManager:
 
             # Si le layer existe déjà, l'arrêter avant de le remplacer
             if layer_id in self.layers:
-                self.layers[layer_id].stop(
-                    fadeout_ms=50, cleanup=True
-                )  # Petit fade pour éviter clic
-                print(f"⏹️  Layer '{layer_id}' existant arrêté pour remplacement.")
-                # Important: libérer le canal? Ou réutiliser le même?
-                # Pour l'instant, on réutilise le canal si possible, sinon on en prend un nouveau.
                 channel = self.layers[layer_id].channel
+                self.layers[layer_id].stop(fadeout_ms=20, cleanup=True)
+                time.sleep(0.025) 
+                channel.stop()
+                del self.layers[layer_id]
+                
+                print(f"⏹️  Layer '{layer_id}' arrêté et nettoyé pour remplacement.")
+                
             else:
                 channel = self._get_available_channel()
 
@@ -486,6 +492,9 @@ class LayerManager:
                     f"Impossible d'ajouter/remplacer le layer '{layer_id}', aucun canal disponible."
                 )
                 return
+            
+            import gc
+            gc.collect()
 
             max_active_layers = 3
             if len(self.layers) >= max_active_layers and layer_id not in self.layers:
