@@ -37,6 +37,7 @@ def clean_dir():
     os.makedirs(temp_dir, exist_ok=True)
     os.makedirs(layers_dir, exist_ok=True)
     os.makedirs(speech_dir, exist_ok=True)
+    print("")
 
 
 def main():

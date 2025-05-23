@@ -3,6 +3,7 @@ import time
 import numpy as np
 import soundfile as sf
 from core.layer_manager import LayerManager
+from core.midi_clock_manager import MidiClockManager
 
 
 class AudioLoopPlayer:
@@ -20,7 +21,8 @@ class AudioLoopPlayer:
         self.output_device = output_device
         self.playing = False
         self.adjust_bpm = adjust_bpm
-
+        self.midi_clock_manager = MidiClockManager()
+        self.midi_clock_manager.start()
         # Créer un répertoire temporaire pour les boucles
         self.temp_dir = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "temp_loops"
@@ -76,7 +78,7 @@ class AudioLoopPlayer:
 
         try:
             # Appliquer un léger fade-in/fade-out pour éviter les clics
-            fade_ms = 5
+            fade_ms = 2
             fade_samples = int(sample_rate * fade_ms / 1000)
 
             # S'assurer que l'audio est assez long pour le fade
@@ -140,6 +142,8 @@ class AudioLoopPlayer:
                 playback_params,
                 [],  # Pas d'effets
                 prepare_sample_for_loop=False,
+                use_sync=True,
+                midi_clock_manager=self.midi_clock_manager,
             )
 
             print(f"🎵 Nouvelle boucle chargée et synchronisée")

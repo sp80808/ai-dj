@@ -1,0 +1,1 @@
+BEATS_PER_BAR = 4

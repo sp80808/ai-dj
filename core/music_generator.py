@@ -289,6 +289,7 @@ class MusicGenerator:
                     generate_diffusion_cond,
                 )
 
+                params = {"should_start_with_kick": True}
                 seconds_total = 12
                 # Créer le format de conditionnement attendu par Stable Audio
                 conditioning = [

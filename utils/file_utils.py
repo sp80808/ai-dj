@@ -6,7 +6,7 @@ def cleanup_output_directory(directory_path, max_age_minutes=60):
     """Nettoie les fichiers temporaires du répertoire de sortie."""
     if not os.path.exists(directory_path):
         os.makedirs(directory_path, exist_ok=True)
-        print(f"Répertoire créé: {directory_path}")
+        print(f"✅ Répertoire créé: {directory_path}")
         return
 
     print(f"Nettoyage du répertoire de sortie: {directory_path}")

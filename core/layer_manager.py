@@ -3,139 +3,13 @@ import time
 import random
 import pygame
 import librosa
-import subprocess
-import tempfile
 import numpy as np
 import soundfile as sf
 from typing import Dict, List, Optional, Any
+from core.audio_layer_sync import AudioLayerSync
+from core.audio_layer import AudioLayer
 from config.music_prompts import rhythm_keywords, rhythm_types
-
-# Constantes
-BEATS_PER_BAR = 4
-
-
-class AudioLayer:
-    """Représente un layer audio individuel dans le mix."""
-
-    def __init__(
-        self,
-        layer_id: str,
-        file_path: str,
-        channel: pygame.mixer.Channel,
-        volume: float = 0.9,
-        pan: float = 0.0,
-    ):
-        self.layer_id = layer_id
-        self.file_path = file_path  # Chemin vers le sample bouclé et traité
-        self.sound_object: Optional[pygame.mixer.Sound] = None
-        self.channel = channel
-        self.master_volume = 0.8
-        self.volume = volume * self.master_volume
-        self.pan = pan  # -1.0 (gauche) à 1.0 (droite), 0.0 (centre)
-        self.is_playing = False
-        self.length_seconds = 0.0
-
-        try:
-            self.sound_object = pygame.mixer.Sound(self.file_path)
-            self.length_seconds = self.sound_object.get_length()
-            self.channel.set_volume(self.volume)
-            # La gestion du pan avec set_volume((L, R)) est plus flexible que set_pan
-            left_vol = self.volume * (1.0 - max(0, self.pan))
-            right_vol = self.volume * (1.0 + min(0, self.pan))
-            self.channel.set_volume(left_vol, right_vol)
-
-        except pygame.error as e:
-            print(
-                f"Erreur Pygame lors de la création du Layer {self.layer_id} avec {self.file_path}: {e}"
-            )
-            self.sound_object = None  # Indiquer que le son n'a pas pu être chargé
-
-    def play(self, loops=-1):
-        """Joue le sample sur son canal."""
-        if self.sound_object and not self.is_playing:
-            try:
-                self.channel.play(self.sound_object, loops=loops)
-                self.is_playing = True
-                print(
-                    f"\n▶️  Layer '{self.layer_id}' démarré sur le canal {self.channel}."
-                )
-            except pygame.error as e:
-                print(f"Erreur Pygame lors de la lecture du layer {self.layer_id}: {e}")
-        elif not self.sound_object:
-            print(
-                f"Impossible de jouer le layer '{self.layer_id}', sound_object non chargé."
-            )
-        elif self.is_playing:
-            print(f"Layer '{self.layer_id}' est déjà en cours de lecture.")
-
-    def stop(self, fadeout_ms: int = 0, cleanup: bool = True):
-        """
-        Arrête le sample sur son canal, avec un fadeout optionnel.
-
-        Args:
-            fadeout_ms: Durée du fadeout en millisecondes
-            cleanup: Si True, nettoie le fichier audio du disque après l'arrêt
-        """
-        if self.is_playing:
-            if fadeout_ms > 0 and self.sound_object:
-                self.channel.fadeout(fadeout_ms)
-            else:
-                self.channel.stop()
-
-            self.is_playing = False
-            print(f"⏹️  Layer '{self.layer_id}' arrêté.")
-
-            # Nettoyer les ressources
-            if cleanup:
-                # Attendre que le fadeout soit terminé avant de nettoyer
-                if fadeout_ms > 0:
-                    time.sleep(fadeout_ms / 1000.0)
-
-                # Libérer le son de la mémoire
-                if self.sound_object:
-                    # Supprimer la référence à l'objet son pour que le GC puisse le collecter
-                    self.sound_object = None
-
-                # Si c'est un fichier temporaire, le supprimer du disque
-                if self.file_path and os.path.exists(self.file_path):
-                    # Vérifier si c'est un fichier temporaire (par exemple, contient "_loop_" ou "_fx_")
-                    is_temp_file = any(
-                        marker in self.file_path
-                        for marker in ["_loop_", "_fx_", "temp_", "_orig_"]
-                    )
-
-                    if is_temp_file:
-                        try:
-                            os.remove(self.file_path)
-                            print(
-                                f"🗑️  Fichier audio temporaire supprimé: {self.file_path}"
-                            )
-                        except (PermissionError, OSError) as e:
-                            # Ignorer l'erreur si le fichier est encore utilisé
-                            print(
-                                f"Impossible de supprimer le fichier {self.file_path}: {e}"
-                            )
-
-    def set_volume(self, volume: float):
-        """Ajuste le volume du layer."""
-        self.volume = np.clip(volume, 0.0, 1.0)
-        if (
-            self.channel and self.sound_object
-        ):  # Vérifier si le canal est toujours valide
-            # Recalculer L/R avec le nouveau volume et le pan existant
-            left_vol = self.volume * (1.0 - max(0, self.pan))
-            right_vol = self.volume * (1.0 + min(0, self.pan))
-            self.channel.set_volume(left_vol, right_vol)
-
-    def set_pan(self, pan: float):
-        """Ajuste le panoramique du layer."""
-        self.pan = np.clip(pan, -1.0, 1.0)
-        if (
-            self.channel and self.sound_object
-        ):  # Vérifier si le canal est toujours valide
-            left_vol = self.volume * (1.0 - max(0, self.pan))  # Si pan > 0, L diminue
-            right_vol = self.volume * (1.0 + min(0, self.pan))  # Si pan < 0, R diminue
-            self.channel.set_volume(left_vol, right_vol)
+from config.config import BEATS_PER_BAR
 
 
 class LayerManager:
@@ -151,6 +25,7 @@ class LayerManager:
         self.sample_rate = sample_rate
         self.output_dir = output_dir
         self.on_max_layers_reached = on_max_layers_reached
+
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
 
@@ -160,7 +35,7 @@ class LayerManager:
             )  # Initialiser avec buffer plus grand
             pygame.mixer.set_num_channels(num_channels)
             print(
-                f"Pygame Mixer initialisé avec {pygame.mixer.get_num_channels()} canaux."
+                f"🎵 Pygame Mixer initialisé avec {pygame.mixer.get_num_channels()} canaux.\n"
             )
         except pygame.error as e:
             print(f"Erreur d'initialisation de Pygame Mixer: {e}")
@@ -182,6 +57,56 @@ class LayerManager:
                 return channel
         print("Attention: Plus de canaux disponibles.")
         return None
+
+    def find_kick_attack_start(self, audio, sr, onset_position, layer_id):
+        """Trouve le vrai début de l'attaque du kick pour le préserver complètement"""
+
+        # Chercher dans une fenêtre avant l'onset détecté
+        search_window = int(sr * 0.15)  # 150ms avant l'onset
+        search_start = max(0, onset_position - search_window)
+        search_end = min(len(audio), onset_position + int(sr * 0.05))  # +50ms après
+        search_segment = audio[search_start:search_end]
+
+        if len(search_segment) < 100:  # Segment trop court
+            return max(0, onset_position - int(sr * 0.02))  # Fallback 20ms avant
+
+        # Calculer l'enveloppe d'énergie avec une résolution fine
+        hop_length = 64  # Plus fin pour détecter précisément l'attaque
+        rms = librosa.feature.rms(y=search_segment, hop_length=hop_length)[0]
+
+        # Seuil adaptatif pour détecter le début de l'attaque
+        max_energy = np.max(rms)
+        baseline_energy = np.mean(
+            rms[: len(rms) // 4]
+        )  # Énergie de base (premier quart)
+        threshold = (
+            baseline_energy + (max_energy - baseline_energy) * 0.1
+        )  # 10% au-dessus du baseline
+
+        # Trouver le premier point où l'énergie dépasse le seuil
+        attack_candidates = np.where(rms > threshold)[0]
+
+        if len(attack_candidates) > 0:
+            # Prendre le premier dépassement du seuil
+            attack_start_frame = attack_candidates[0]
+
+            # Convertir en samples absolus
+            relative_sample = attack_start_frame * hop_length
+            absolute_sample = search_start + relative_sample
+
+            kick_duration_margin = int(sr * 0.3)
+            final_start = max(0, absolute_sample - kick_duration_margin)
+
+            print(
+                f"🎯 Attaque kick détectée à {absolute_sample/sr:.3f}s, démarrage pour kick complet à {final_start/sr:.3f}s ('{layer_id}')"
+            )
+            return final_start
+
+        conservative_start = max(0, onset_position - int(sr * 0.3))
+        print(
+            f"🤔 Attaque kick non détectée, démarrage conservateur à {conservative_start/sr:.3f}s ('{layer_id}')"
+        )
+        return conservative_start
 
     def _prepare_sample_for_loop(
         self,
@@ -219,26 +144,44 @@ class LayerManager:
         )
 
         start_offset_samples = 0
-        if len(onsets_samples) > 0:
-            # Heuristique simple: prendre le premier onset, ou un proche du début.
-            # Pour un kick, on s'attend à ce qu'il soit très tôt.
-            # Pour d'autres, c'est moins critique, mais on veut éviter un long silence.
-            potential_starts = [
-                o for o in onsets_samples if o < sr * 0.1
-            ]  # Cherche un onset dans les 100 premières ms
-            if potential_starts:
-                start_offset_samples = potential_starts[0]
-            else:
-                start_offset_samples = onsets_samples[0]  # Sinon, le premier détecté
 
+        if len(onsets_samples) > 0:
+            # Chercher un onset dans les premières 200ms
+            early_onsets = [o for o in onsets_samples if o < sr * 0.2]
+
+            if early_onsets:
+                detected_onset = early_onsets[0]
+            else:
+                detected_onset = onsets_samples[0]
+
+            # Trouver l'attaque du kick
+            start_offset_samples = self.find_kick_attack_start(
+                audio, sr, detected_onset, layer_id
+            )
+
+            # Si le kick est vraiment tout au début (dans les 10ms), ne pas trimmer
+            if start_offset_samples < sr * 0.01:  # 10ms
+                print(
+                    f"✅ Kick immédiat détecté ('{layer_id}'), pas de trim nécessaire"
+                )
+                start_offset_samples = 0
+
+        else:
+            print(f"⚠️  Aucun onset détecté pour '{layer_id}', démarrage sans trim")
+            start_offset_samples = 0
+
+        # Appliquer le trim intelligent
+        if start_offset_samples > 0:
             print(
-                f"\n✂️  Layer '{layer_id}': Premier onset (trim) à {start_offset_samples / sr:.3f}s."
+                f"✂️  Trim appliqué: {start_offset_samples/sr:.3f}s supprimées ('{layer_id}')"
             )
             audio = audio[start_offset_samples:]
         else:
-            print(
-                f"Layer '{layer_id}': Aucun onset détecté, le sample commence tel quel."
-            )
+            print(f"🎵 Aucun trim nécessaire pour '{layer_id}'")
+
+        current_length = len(audio)
+        if current_length == 0:
+            print(f"❌ Erreur: Layer '{layer_id}' vide après trim.")
 
         current_length = len(audio)
         if current_length == 0:
@@ -416,6 +359,8 @@ class LayerManager:
         stop_behavior: str = "next_bar",
         model_name="musicgen",
         prepare_sample_for_loop=True,
+        use_sync=False,
+        midi_clock_manager=None,
     ):
         """Gère un layer: ajout/remplacement, modification, suppression."""
 
@@ -481,10 +426,13 @@ class LayerManager:
                 print(f"Échec de la préparation de la boucle pour {layer_id}.")
                 return
 
-            # 2. Appliquer les effets (si demandé)
-            final_sample_path = self._apply_effects_to_sample(
-                looped_sample_path, effects or [], layer_id
-            )
+            if prepare_sample_for_loop:
+                # 2. Appliquer les effets (si demandé)
+                final_sample_path = self._apply_effects_to_sample(
+                    looped_sample_path, effects or [], layer_id
+                )
+            else:
+                final_sample_path = looped_sample_path
             if not final_sample_path:
                 print(f"Échec de l'application des effets pour {layer_id}.")
                 # On pourrait décider de jouer le sample non-effecté ou d'annuler
@@ -618,27 +566,36 @@ class LayerManager:
                 print(f"🎛️  Volume du mix complet ajusté à {adjusted_volume:.2f}")
 
             # Ensuite création du layer avec le volume ajusté
-            new_layer = AudioLayer(
-                layer_id,
-                final_sample_path,
-                channel,
-                volume=adjusted_volume,  # Volume ajusté selon le stem
-                pan=playback_params.get("pan", 0.0),
-            )
+            if use_sync:
+                new_layer = AudioLayerSync(
+                    layer_id,
+                    final_sample_path,
+                    channel,
+                    volume=adjusted_volume,  # Volume ajusté selon le stem
+                    pan=playback_params.get("pan", 0.0),
+                    midi_manager=midi_clock_manager,
+                )
+            else:
+                new_layer = AudioLayer(
+                    layer_id,
+                    final_sample_path,
+                    channel,
+                    volume=adjusted_volume,  # Volume ajusté selon le stem
+                    pan=playback_params.get("pan", 0.0),
+                )
 
             if new_layer.sound_object:  # Vérifier si le son a bien été chargé
                 self.layers[layer_id] = new_layer
-                new_layer.play()
-                if (
-                    not self.is_master_clock_running or len(self.layers) == 1
-                ):  # Si c'est le premier layer à jouer
-                    self.global_playback_start_time = time.time() - (
-                        (time.time() - self.global_playback_start_time)
-                        % ((60.0 / self.master_tempo) * BEATS_PER_BAR)
-                        if self.global_playback_start_time
-                        else 0
-                    )  # Recalibrer l'heure de début si on a attendu
+                if not self.is_master_clock_running:
+                    self.global_playback_start_time = time.time()
                     self.is_master_clock_running = True
+                if use_sync:
+                    new_layer.play()
+                else:
+                    new_layer.play(
+                        grid_start_time=self.global_playback_start_time,
+                        tempo=self.master_tempo,
+                    )
             else:
                 print(
                     f"Layer '{layer_id}' n'a pas pu être créé car le son n'a pas été chargé."
