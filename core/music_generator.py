@@ -4,7 +4,7 @@ import tempfile
 import os
 import random
 import gc
-from config.music_prompts import MUSICGEN_TEMPLATES, SAMPLE_PARAMS
+from config.music_prompts import SAMPLE_PARAMS
 
 
 class MusicGenerator:
@@ -91,225 +91,60 @@ class MusicGenerator:
         # Stockage des samples générés
         self.sample_cache = {}
 
-    def generate_sample(
-        self,
-        sample_type,
-        tempo,
-        key=None,
-        intensity=5,
-        style_tag=None,
-        musicgen_prompt_keywords=None,
-        genre=None,
-    ):
+    def generate_sample(self, musicgen_prompt, tempo, sample_type="custom"):
         """
-        Génère un sample audio basé sur les paramètres fournis
-
-        Args:
-            sample_type (str): Type de sample (ex: techno_kick, techno_bass)
-            tempo (int): Tempo en BPM
-            key (str, optional): Tonalité (ex: C minor, A major)
-            intensity (int): Intensité/énergie de 1 à 10
-            style_tag (str, optional): Tag de style spécifique
-            musicgen_prompt_keywords (list, optional): Liste de mots-clés pour affiner le prompt
-
-        Returns:
-            tuple: (sample_audio, sample_info)
+        Version simplifiée qui prend juste un prompt MusicGen tout fait
+        (remplace l'ancienne méthode compliquée)
         """
         try:
-            custom_prompt = None
-            if musicgen_prompt_keywords and isinstance(musicgen_prompt_keywords, list):
-                # Détecter si c'est une demande utilisateur complète
-                if (
-                    any(len(kw.split()) > 2 for kw in musicgen_prompt_keywords)
-                    or len(musicgen_prompt_keywords) > 5
-                ):
-                    # Si c'est un prompt utilisateur complet, l'utiliser directement
-                    full_text = " ".join(musicgen_prompt_keywords)
-                    if len(full_text) > 15:  # Une phrase complète, probablement
-                        custom_prompt = f"Generate this: {full_text}, at {tempo} BPM"
-                        if key:
-                            custom_prompt += f", in {key}"
-                        print(
-                            f"🔄 Utilisation du prompt utilisateur complet: '{custom_prompt}'"
-                        )
-            # Récupérer les paramètres pour ce type de sample
-            if custom_prompt:
-                prompt = custom_prompt
-            else:
-                params = SAMPLE_PARAMS.get(
-                    sample_type,
-                    {
-                        "duration": 8,
-                        "should_start_with_kick": False,
-                        "key_sensitive": False,
-                    },
-                )
+            print(f"🔮 Génération directe avec prompt: '{musicgen_prompt}'")
 
-                # Définir la durée de génération
-                if self.model_type == "musicgen":
-                    self.model.set_generation_params(duration=params["duration"])
+            # Paramètres par défaut
+            params = SAMPLE_PARAMS.get(
+                sample_type,
+                {
+                    "duration": 8,
+                    "should_start_with_kick": False,
+                    "key_sensitive": False,
+                },
+            )
 
-                if not genre:
-                    # Déduire le genre du type de sample
-                    if sample_type.startswith("techno_"):
-                        genre = "techno"
-                    elif sample_type.startswith("hiphop_") or sample_type.startswith(
-                        "hip_hop_"
-                    ):
-                        genre = "hip-hop"
-                    elif sample_type.startswith("rock_"):
-                        genre = "rock"
-                    elif sample_type.startswith("classical_") or sample_type.startswith(
-                        "orchestral_"
-                    ):
-                        genre = "classical"
-                    elif sample_type.startswith("ambient_") or sample_type.startswith(
-                        "downtempo_"
-                    ):
-                        genre = "ambient"
-                    elif sample_type.startswith("dub_") or sample_type.startswith(
-                        "reggae_"
-                    ):
-                        genre = "dub"
-                    elif sample_type.startswith("jungle_") or sample_type.startswith(
-                        "dnb_"
-                    ):
-                        genre = "jungle_dnb"
-                    elif sample_type.startswith("house_") or sample_type.startswith(
-                        "deep_house_"
-                    ):
-                        genre = "deep_house"
-                    elif sample_type.startswith("triphop_"):
-                        genre = "trip-hop"
-                    else:
-                        genre = "electronic"
-
-                if genre == "hip-hop":
-                    template = "A {style_tag} hip-hop sound at {tempo} BPM, {key}"
-                elif genre == "rock":
-                    template = "A {style_tag} rock sound at {tempo} BPM, {key}"
-                elif genre == "classical":
-                    template = "A {style_tag} orchestral sound at {tempo} BPM, {key}"
-                elif genre == "ambient":
-                    template = "A {style_tag} ambient atmosphere at {tempo} BPM, {key}"
-                elif genre == "dub":
-                    template = "A {style_tag} dub reggae sound at {tempo} BPM, {key}"
-                elif genre == "jungle_dnb":
-                    template = "A {style_tag} drum and bass sound at {tempo} BPM, {key}"
-                elif genre == "deep_house":
-                    template = "A {style_tag} deep house sound at {tempo} BPM, {key}"
-                elif genre == "trip-hop":
-                    template = "A {style_tag} trip-hop sound at {tempo} BPM, {key}"
-                else:
-                    template = MUSICGEN_TEMPLATES.get(
-                        sample_type, "A {style_tag} sound at {tempo} BPM, {key}"
-                    )
-
-                if not style_tag:
-                    if genre == "hip-hop":
-                        style_tag = "boom bap beats"
-                    elif genre == "rock":
-                        style_tag = "guitar rock"
-                    elif genre == "classical":
-                        style_tag = "orchestral cinematic"
-                    elif genre == "ambient":
-                        style_tag = "atmospheric ethereal"
-                    elif genre == "dub":
-                        style_tag = "deep reggae dub"
-                    elif genre == "jungle_dnb":
-                        style_tag = "breakbeat jungle"
-                    elif genre == "deep_house":
-                        style_tag = "soulful jazzy house"
-                    elif genre == "trip-hop":
-                        style_tag = "cinematic melancholic downtempo"
-                    else:
-                        style_tag = "minimal techno"
-
-                # Ajuster l'intensité
-                intensity_words = [
-                    "very soft",
-                    "soft",
-                    "gentle",
-                    "moderate",
-                    "medium",
-                    "energetic",
-                    "driving",
-                    "powerful",
-                    "intense",
-                    "very intense",
-                ]
-                intensity_desc = intensity_words[
-                    min(intensity - 1, len(intensity_words) - 1)
-                ]
-
-                # Traiter les mots-clés supplémentaires
-                keyword_str = ""
-                if musicgen_prompt_keywords and isinstance(
-                    musicgen_prompt_keywords, list
-                ):
-                    keyword_str = ", ".join(musicgen_prompt_keywords)
-
-                # Construire le prompt final
-                base_prompt = template.format(
-                    tempo=tempo,
-                    key=key if key and params["key_sensitive"] else "",
-                    style_tag=f"{intensity_desc} {style_tag}",
-                )
-
-                # Ajouter les mots-clés si présents
-                if keyword_str:
-                    prompt = f"{base_prompt} {keyword_str}"
-                else:
-                    prompt = base_prompt
-
-            print(f"🔮 Génération sample avec prompt: '{prompt}'")
-            print("\n🎵 Génération audio en cours...")
             if self.model_type == "musicgen":
-                # Paramètres spécifiques à MusicGen
                 self.model.set_generation_params(
                     duration=params["duration"],
-                    temperature=0.7
-                    + (intensity * 0.03),  # Plus d'intensité = plus de randomité
+                    temperature=0.8,  # Température fixe, plus besoin de calculer
                 )
 
-                # Génération avec MusicGen
-                wav = self.model.generate([prompt])
+                # Génération directe avec le prompt fourni
+                wav = self.model.generate([musicgen_prompt])
 
-                # Convertir en numpy array
                 with torch.no_grad():
                     wav_np = wav.cpu().detach().numpy()
 
-                # Extraire le premier sample du batch
-                sample_audio = wav_np[0, 0]  # [batch, channel, sample]
+                sample_audio = wav_np[0, 0]
 
             elif self.model_type == "stable-audio":
-                # Importer les modules nécessaires pour Stable Audio
                 from einops import rearrange
                 from stable_audio_tools.inference.generation import (
                     generate_diffusion_cond,
                 )
 
-                params = {"should_start_with_kick": True}
                 seconds_total = 12
-                # Créer le format de conditionnement attendu par Stable Audio
                 conditioning = [
                     {
-                        "prompt": prompt,
+                        "prompt": musicgen_prompt,
                         "seconds_start": 0,
                         "seconds_total": seconds_total,
                     }
                 ]
-                intensity = 5 if intensity is None else intensity
-                # Paramètres ajustés selon l'intensité
-                cfg_scale = min(5.0 + (intensity * 0.5), 9.0)  # 5.0-9.0
-                steps_value = int(50 + (intensity * 5))  # 50-100 steps
+
+                # Paramètres fixes pour Stable Audio
+                cfg_scale = 7.0
+                steps_value = 75
                 seed_value = random.randint(0, 2**31 - 1)
 
-                print(
-                    f"⚙️  Génération Stable Audio: steps={steps_value}, cfg_scale={cfg_scale}, seed={seed_value}"
-                )
+                print(f"⚙️  Stable Audio: steps={steps_value}, cfg_scale={cfg_scale}")
 
-                # Générer l'audio
                 output = generate_diffusion_cond(
                     self.model,
                     steps=steps_value,
@@ -323,17 +158,12 @@ class MusicGenerator:
                     seed=seed_value,
                 )
 
-                # Calculer le nombre d'échantillons cible
                 target_samples = int(seconds_total * self.sample_rate)
-
-                # Formater l'audio
                 output = rearrange(output, "b d n -> d (b n)")
 
-                # Tronquer si nécessaire
                 if output.shape[1] > target_samples:
                     output = output[:, :target_samples]
 
-                # Normaliser en audio PCM standard
                 output_normalized = (
                     output.to(torch.float32)
                     .div(torch.max(torch.abs(output) + 1e-8))
@@ -341,37 +171,31 @@ class MusicGenerator:
                     .numpy()
                 )
 
-                # Prendre le premier canal si stéréo
                 sample_audio = (
                     output_normalized[0]
                     if output_normalized.shape[0] > 1
                     else output_normalized
                 )
+
                 del output, output_normalized
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
                 gc.collect()
 
-            print(f"✅ Génération terminée !\n")
+            print(f"✅ Génération terminée !")
 
-            # Créer les métadonnées du sample
             sample_info = {
                 "type": sample_type,
                 "tempo": tempo,
-                "key": key,
-                "intensity": intensity,
-                "duration": seconds_total,
-                "prompt": prompt,
+                "prompt": musicgen_prompt,
                 "should_start_with_kick": params["should_start_with_kick"],
-                "keywords": musicgen_prompt_keywords,
             }
 
             return sample_audio, sample_info
 
         except Exception as e:
-            print(f"❌ Erreur lors de la génération du sample: {str(e)}")
-            # En cas d'erreur, retourner un silence et des infos de base
-            silence = np.zeros(44100 * 4)  # 4 secondes de silence
+            print(f"❌ Erreur génération: {str(e)}")
+            silence = np.zeros(44100 * 4)
             error_info = {"type": sample_type, "tempo": tempo, "error": str(e)}
             return silence, error_info
 

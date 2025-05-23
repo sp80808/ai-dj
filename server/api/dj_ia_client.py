@@ -59,7 +59,9 @@ class DJIAClient:
         """Démarre le client DJ-IA"""
         try:
             # Vérifier la connexion à l'API
-            response = requests.post(f"{self.api_url}/verify_key", headers=self.headers)
+            response = requests.post(
+                f"{self.api_url}/verify_key", headers=self.headers, verify=False
+            )
             if response.status_code != 200:
                 print(f"❌ Erreur de connexion à l'API: {response.status_code}")
                 print(response.text)
@@ -106,6 +108,7 @@ class DJIAClient:
             stems: Liste des stems à extraire (optionnel)
             measures: Nombre de mesures (optionnel)
         """
+        print("🎹 Génération en cours...")
         if self.generation_active:
             print("⚠️ Génération déjà en cours, veuillez patienter...")
             return
@@ -153,6 +156,7 @@ class DJIAClient:
                 headers=self.headers,
                 json=request_data,
                 timeout=240,
+                verify=False,
             )
 
             generation_time = time.time() - start_time

@@ -138,46 +138,47 @@ class LayerManager:
         target_total_samples = samples_per_bar * measures
 
         # Détection d'onset
-        onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
-        onsets_samples = librosa.onset.onset_detect(
-            onset_envelope=onset_env, sr=sr, units="samples", backtrack=False
-        )
-
-        start_offset_samples = 0
-
-        if len(onsets_samples) > 0:
-            # Chercher un onset dans les premières 200ms
-            early_onsets = [o for o in onsets_samples if o < sr * 0.2]
-
-            if early_onsets:
-                detected_onset = early_onsets[0]
-            else:
-                detected_onset = onsets_samples[0]
-
-            # Trouver l'attaque du kick
-            start_offset_samples = self.find_kick_attack_start(
-                audio, sr, detected_onset, layer_id
+        if model_name in "musicgen":
+            onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
+            onsets_samples = librosa.onset.onset_detect(
+                onset_envelope=onset_env, sr=sr, units="samples", backtrack=False
             )
 
-            # Si le kick est vraiment tout au début (dans les 10ms), ne pas trimmer
-            if start_offset_samples < sr * 0.01:  # 10ms
-                print(
-                    f"✅ Kick immédiat détecté ('{layer_id}'), pas de trim nécessaire"
-                )
-                start_offset_samples = 0
-
-        else:
-            print(f"⚠️  Aucun onset détecté pour '{layer_id}', démarrage sans trim")
             start_offset_samples = 0
 
-        # Appliquer le trim intelligent
-        if start_offset_samples > 0:
-            print(
-                f"✂️  Trim appliqué: {start_offset_samples/sr:.3f}s supprimées ('{layer_id}')"
-            )
-            audio = audio[start_offset_samples:]
-        else:
-            print(f"🎵 Aucun trim nécessaire pour '{layer_id}'")
+            if len(onsets_samples) > 0:
+                # Chercher un onset dans les premières 200ms
+                early_onsets = [o for o in onsets_samples if o < sr * 0.2]
+
+                if early_onsets:
+                    detected_onset = early_onsets[0]
+                else:
+                    detected_onset = onsets_samples[0]
+
+                # Trouver l'attaque du kick
+                start_offset_samples = self.find_kick_attack_start(
+                    audio, sr, detected_onset, layer_id
+                )
+
+                # Si le kick est vraiment tout au début (dans les 10ms), ne pas trimmer
+                if start_offset_samples < sr * 0.01:  # 10ms
+                    print(
+                        f"✅ Kick immédiat détecté ('{layer_id}'), pas de trim nécessaire"
+                    )
+                    start_offset_samples = 0
+
+            else:
+                print(f"⚠️  Aucun onset détecté pour '{layer_id}', démarrage sans trim")
+                start_offset_samples = 0
+
+            # Appliquer le trim intelligent
+            if start_offset_samples > 0:
+                print(
+                    f"✂️  Trim appliqué: {start_offset_samples/sr:.3f}s supprimées ('{layer_id}')"
+                )
+                audio = audio[start_offset_samples:]
+            else:
+                print(f"🎵 Aucun trim nécessaire pour '{layer_id}'")
 
         current_length = len(audio)
         if current_length == 0:

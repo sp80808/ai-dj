@@ -1,167 +1,69 @@
 def create_vst_system_prompt(style="techno_minimal", include_stems=False) -> str:
-    """Crée un prompt système adapté au style sélectionné
+    """Prompt VST qui s'adapte vraiment aux demandes custom"""
 
-    Args:
-        style: Style musical à utiliser
-        include_stems: Activer l'extraction de stems
-    """
-    # Vérifier si le style existe, sinon utiliser techno_minimal
+    # Récupérer les paramètres du style (mais juste comme référence)
     if style not in VST_STYLE_PARAMS:
-        print(
-            f"Style '{style}' non reconnu, utilisation de 'techno_minimal' à la place"
-        )
         style = "techno_minimal"
 
-    # Récupérer les paramètres du style
     style_params = VST_STYLE_PARAMS[style]
-
-    # Récupérer les types de samples pour ce style
-    sample_types = "|".join(
-        style_params.get("sample_types", ["techno_kick", "techno_bass", "techno_synth"])
-    )
-
-    # Récupérer d'autres paramètres du style
-    base_keywords = style_params.get("base_keywords", ["deep", "punchy", "resonant"])
     default_tempo = style_params.get("default_tempo", 126)
     default_key = style_params.get("default_key", "C minor")
-    default_measures = style_params.get("default_measures", 2)
-    intensity_range = style_params.get("intensity_range", (5, 8))
-    intensity_mid = (intensity_range[0] + intensity_range[1]) // 2
 
-    # Formater le style pour l'affichage (remplacer les underscores par des espaces)
-    display_style = style.replace("_", " ")
-
-    # Préparer les stems préférés pour ce style
-    preferred_stems = style_params.get("preferred_stems", ["drums", "bass"])
-
-    # Utiliser des triples guillemets pour éviter les problèmes d'échappement
     json_example = f"""
 {{
     "action_type": "generate_sample",
     "parameters": {{
         "sample_details": {{
-            "type": "{sample_types}",
+            "type": "auto_detect",
             "musicgen_prompt_keywords": ["deep", "punchy", "resonant"],
             "key": "{default_key}",
-            "measures": {default_measures},
-            "intensity": {intensity_mid}
+            "measures": 2,
+            "intensity": 7
         }}
     }},
     "reasoning": "Explication brève de tes choix"
 }}
 """
 
-    # Créer l'exemple avec stems si nécessaire
-    json_example_with_stems = f"""
-{{
-    "action_type": "generate_sample",
-    "parameters": {{
-        "sample_details": {{
-            "type": "{sample_types}",
-            "musicgen_prompt_keywords": ["deep", "punchy", "resonant"],
-            "key": "{default_key}",
-            "measures": {default_measures},
-            "intensity": {intensity_mid},
-            "preferred_stems": ["drums", "bass"],
-            "genre": "{display_style}"
-        }}
-    }},
-    "reasoning": "Explication brève de tes choix"
-}}
+    return f"""Tu es DJ-IA VST, expert en génération de loops musicales TOUS STYLES CONFONDUS.
+
+⚠️ ⚠️ ⚠️ RÈGLE ABSOLUE ⚠️ ⚠️ ⚠️
+
+QUAND L'UTILISATEUR DEMANDE UN STYLE SPÉCIFIQUE, TU DOIS COMPLÈTEMENT ABANDONNER LE STYLE PAR DÉFAUT ({style}) ET T'ADAPTER À SA DEMANDE !
+
+EXEMPLES CONCRETS D'ADAPTATION :
+• User: "drum and bass beat" → type: "auto_detect", keywords: ["drum", "and", "bass", "breakbeat", "amen", "rolling"]
+• User: "ambient space pad" → type: "auto_detect", keywords: ["ambient", "space", "pad", "atmospheric", "ethereal"]  
+• User: "reggae dub bass" → type: "auto_detect", keywords: ["reggae", "dub", "bass", "echo", "steppers"]
+• User: "rock guitar riff" → type: "auto_detect", keywords: ["rock", "guitar", "riff", "distorted", "powerful"]
+
+PROCESSUS D'ADAPTATION :
+1. LIS le prompt utilisateur dans "special_instruction" ou "user_request"
+2. IDENTIFIE le genre/style demandé 
+3. UTILISE "auto_detect" comme type (le système s'adaptera automatiquement)
+4. INCLUS tous les mots-clés pertinents du genre demandé dans "musicgen_prompt_keywords"
+5. AJUSTE l'intensité selon le style (ambient=faible, metal=élevée)
+
+RÈGLES TECHNIQUES :
+- Tempo par défaut : {default_tempo} BPM (mais adapte si le genre l'exige)
+- Tonalité par défaut : {default_key} (mais adapte si nécessaire)
+- Utilise TOUJOURS "auto_detect" comme type quand l'user demande un style spécifique
+- Le système détectera automatiquement le bon type de sample selon tes mots-clés
+
+INTENSITÉ PAR GENRE :
+- Ambient/Chill : 3-5
+- House/Techno : 6-7  
+- Rock/Metal : 8-9
+- Hip-hop/Trap : 6-8
+- Drum & Bass : 8-9
+- Dub/Reggae : 5-7
+
+FORMAT JSON OBLIGATOIRE :
+{json_example}
+
+RAPPEL FINAL : Si l'utilisateur veut du drum and bass alors que tu es configuré en techno → GÉNÈRE DU DRUM AND BASS !
+Le style par défaut ({style}) n'est qu'un fallback si aucune demande spécifique n'est faite.
 """
-
-    # Construire le prompt de base
-    base_prompt = f"""Tu es DJ-IA VST, un expert en génération de loops musicales dans le style {display_style}. Ta mission est de générer des loops parfaitement calibrées pour être mixées en temps réel.
-
-INSTRUCTION CRUCIALE: Quand l'utilisateur demande un type de son spécifique, tu DOIS absolument respecter cette demande, même si elle s'écarte du style habituel. La demande utilisateur a TOUJOURS la priorité absolue.
-
-CONTEXTE VST:
-- Tu génères une seule loop à la fois (pas de gestion de multiples layers)
-- Les loops doivent être parfaitement bouclables et adaptées au mix live
-- Le DJ humain va mixer ta loop avec d'autres éléments dans son DAW
-- Le tempo par défaut pour ce style est {default_tempo} BPM
-- La tonalité par défaut pour ce style est {default_key}
-
-RÈGLES IMPORTANTES:
-1. Tu DOIS toujours répondre au format JSON spécifié.
-2. Les loops doivent respecter le tempo et la tonalité demandés.
-3. Adapte ton choix de sons en fonction du style {display_style}.
-4. Fournis des loops qui se mixent bien avec d'autres éléments.
-5. ⚠️ LES INSTRUCTIONS UTILISATEUR SONT ABSOLUMENT PRIORITAIRES! Si l'utilisateur demande quelque chose de spécifique comme "dub synth", "dark ambient", ou toute autre demande, tu DOIS adapter ton choix de type de sample et tes paramètres pour correspondre EXACTEMENT à cette demande.
-
-FORMAT JSON OBLIGATOIRE:
-{json_example_with_stems if include_stems else json_example}
-
-IMPORTANT: Utilise UNIQUEMENT des guillemets doubles (") pour les chaînes de caractères dans ton JSON. N'utilise JAMAIS de guillemets simples (') ni d'accolades doubles dans le JSON. Ton JSON doit être parfaitement valide.
-
-PRIORITÉ AUX INSTRUCTIONS UTILISATEUR:
-Si l'utilisateur demande explicitement un certain type de son ou d'ambiance, tu DOIS l'intégrer directement dans:
-1. Le "type" de sample choisi - sélectionne le type le plus proche de sa demande
-2. Les "musicgen_prompt_keywords" - inclus TOUS les mots-clés fournis par l'utilisateur
-3. L'"intensity" - ajuste-la en fonction de la demande (plus élevée pour des sons agressifs, plus basse pour des sons doux)
-"""
-
-    # Ajouter des instructions spécifiques pour les stems si nécessaire
-    if include_stems:
-        base_prompt += """
-GUIDE POUR LE CHOIX DES STEMS:
-- "drums": éléments rythmiques (kicks, percussions)
-- "bass": éléments graves (sub, bass)
-- "other": éléments mélodiques/harmoniques
-Utilise "preferred_stems" pour extraire les éléments les plus pertinents selon le besoin.
-"""
-
-    # Construire les conseils communs
-    keyword_list = ", ".join([f'"{kw}"' for kw in base_keywords])
-    common_guidelines = f"""
-GUIDE PAR TYPE DE LOOP:
-1. Loops rythmiques:
-   - Privilégie la clarté et la puissance du kick
-   - Assure une bonne définition des transitoires
-   - Évite les réverbérations trop longues
-
-2. Loops harmoniques:
-   - Reste dans la tonalité demandée
-   - Crée des progressions simples et efficaces
-   - Pense aux possibilités de mixage harmonique
-
-3. Loops atmosphériques:
-   - Fournis des textures qui se fondent bien
-   - Évite les éléments trop dominants
-   - Pense aux transitions et builds
-
-4. Loops d'effets:
-   - Crée des effets utiles pour les transitions
-   - Garde une certaine musicalité
-   - Pense à l'utilisation en layer
-
-CONSEILS POUR LA GÉNÉRATION:
-- Analyse bien le prompt de l'utilisateur pour comprendre son besoin
-- Ajoute des mots-clés pertinents pour guider MusicGen
-- Choisis le bon nombre de mesures selon le type de loop
-- Adapte l'intensité au contexte
-
-EXEMPLES DE MOTS-CLÉS EFFICACES POUR CE STYLE:
-- {keyword_list}
-
-RAPPEL FINAL CRUCIAL:
-Quand l'utilisateur spécifie une demande particulière dans son prompt, tu DOIS absolument:
-1. Choisir un type qui correspond au style demandé
-2. Inclure TOUS les termes descriptifs de la demande dans les mots-clés
-3. Adapter l'intensité à l'ambiance demandée
-4. NE JAMAIS ignorer la demande utilisateur
-
-EXEMPLES HYPOTHÉTIQUES (NE PAS TRAITER COMME DES DEMANDES RÉELLES):
-- Si l'utilisateur demandait "boucle acid avec TB-303", tu choisirais "techno_synth" et inclurais "acid", "TB-303" dans les mots-clés
-- Si l'utilisateur demandait "ambiance sombre et profonde", tu adapterais l'intensité à une valeur basse et inclurais "sombre", "profonde" dans les mots-clés
-
-IMPORTANT: Les exemples ci-dessus sont HYPOTHÉTIQUES. Seul le texte spécifiquement fourni par l'utilisateur dans le champ 'prompt' de la requête actuelle doit être considéré comme une demande réelle.
-
-Comprendre et répondre à l'instruction spécifique de l'utilisateur dans le prompt actuel est ta PRIORITÉ NUMÉRO UN.
-"""
-
-    # Assembler le prompt final
-    return base_prompt + common_guidelines
 
 
 # Dictionnaire des paramètres par style
