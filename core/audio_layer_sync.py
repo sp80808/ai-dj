@@ -3,7 +3,6 @@ import soundfile as sf
 import os
 import numpy as np
 
-
 class AudioLayerSync:
     """AudioLayer ultra-simple : MIDI trigger + sounddevice one-shot"""
 
@@ -103,22 +102,26 @@ class AudioLayerSync:
                     print(f"Impossible de supprimer {self.file_path}: {e}")
 
     def on_midi_event(self, event_type: str, measure: int = None):
-        """Callback MIDI - Simplicité ultime"""
-        
         if event_type == "measure_start" and self.is_armed:
             
             try:
-                # STOP tout ce qui joue (évite overlap)
                 sd.stop()
-                
-                # PLAY one-shot
                 sd.play(self.audio_data, samplerate=self.sample_rate)
                 
             except Exception as e:
-                print(f"❌ Erreur play {self.layer_id}: {e}")
-
+                print(f"❌ Erreur: {e}")
+        
         elif event_type == "stop":
-            sd.stop()
+            sd.stop() 
+
+    def _play_callback(self, outdata, frames, time, status):
+        """Debug callback pour sounddevice"""
+        if status:
+            print(f"⚠️ sounddevice status: {status}")
+        
+        # Vérifier si on arrive à la fin
+        if frames < len(outdata):
+            print(f"🔚 Fin de sample détectée - frames: {frames}")
 
     def set_volume(self, volume: float):
         """Ajuste le volume"""

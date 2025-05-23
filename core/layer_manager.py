@@ -167,8 +167,6 @@ class LayerManager:
         else:
             print(f"🎵 Aucun trim nécessaire pour '{layer_id}'")
 
-        print(f"🎯 Application de la quantization rythmique pour '{layer_id}'")
-
         current_length = len(audio)
         if current_length == 0:
             print(f"❌ Erreur: Layer '{layer_id}' vide après trim.")
