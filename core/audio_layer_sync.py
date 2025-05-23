@@ -2,15 +2,24 @@ import sounddevice as sd
 import soundfile as sf
 import os
 import numpy as np
+import threading
+import time
+import gc
+
 
 class AudioLayerSync:
-    """AudioLayer ultra-simple : MIDI trigger + sounddevice one-shot"""
+    """AudioLayer avec sounddevice + nettoyage automatique"""
+
+    # Nettoyage automatique
+    _cleanup_thread = None
+    _cleanup_running = False
+    _last_cleanup = time.time()
 
     def __init__(
         self,
         layer_id: str,
         file_path: str,
-        channel_id: int,  # Pas utilisé mais gardé pour compatibilité
+        channel_id: int,
         midi_manager,
         volume: float = 0.9,
         pan: float = 0.0,
@@ -19,7 +28,7 @@ class AudioLayerSync:
         self.layer_id = layer_id
         self.file_path = file_path
         self.midi_manager = midi_manager
-        self.volume = volume * 0.8  # Master volume
+        self.volume = volume * 0.8
         self.pan = pan
 
         # Audio data
@@ -29,6 +38,10 @@ class AudioLayerSync:
 
         # État simple
         self.is_armed = False
+
+        # Démarrer le nettoyage auto si pas encore fait
+        if not AudioLayerSync._cleanup_running:
+            AudioLayerSync._start_cleanup_thread()
 
         # Charger l'audio
         try:
@@ -50,6 +63,36 @@ class AudioLayerSync:
             
         # Compatibilité avec LayerManager
         self.sound_object = True if self.audio_data is not None else None
+
+    @classmethod
+    def _start_cleanup_thread(cls):
+        """Démarre le thread de nettoyage automatique"""
+        cls._cleanup_running = True
+        cls._cleanup_thread = threading.Thread(target=cls._cleanup_loop, daemon=True)
+        cls._cleanup_thread.start()
+        print("🧹 Thread de nettoyage automatique démarré")
+
+    @classmethod 
+    def _cleanup_loop(cls):
+        """Boucle de nettoyage - Juste GC, pas de reset audio"""
+        while cls._cleanup_running:
+            time.sleep(30)  # Nettoyage toutes les 30 secondes
+            
+            try:
+                gc.collect()
+                
+                current_time = time.time()
+                if current_time - cls._last_cleanup > 60:
+                    cls._last_cleanup = current_time
+                
+            except Exception as e:
+                print(f"⚠️ Erreur nettoyage: {e}")
+
+    @classmethod
+    def _stop_cleanup(cls):
+        """Arrête le nettoyage (pour shutdown propre)"""
+        cls._cleanup_running = False
+
 
     def _apply_volume_and_pan(self):
         """Applique volume et pan directement sur les données"""
@@ -102,26 +145,27 @@ class AudioLayerSync:
                     print(f"Impossible de supprimer {self.file_path}: {e}")
 
     def on_midi_event(self, event_type: str, measure: int = None):
+        """Callback MIDI - Simplicité + nettoyage occasionnel"""
+        
         if event_type == "measure_start" and self.is_armed:
+            
+            # Debug + nettoyage manuel occasionnel
+            if measure and measure % 100 == 0:  # Toutes les 100 mesures
+                print(f"🧹 Nettoyage manuel mesure {measure}")
+                gc.collect()
+                sd.stop()
+                time.sleep(0.05)
             
             try:
                 sd.stop()
+                sd.wait()
                 sd.play(self.audio_data, samplerate=self.sample_rate)
                 
             except Exception as e:
-                print(f"❌ Erreur: {e}")
-        
-        elif event_type == "stop":
-            sd.stop() 
+                print(f"❌ Erreur play {self.layer_id}: {e}")
 
-    def _play_callback(self, outdata, frames, time, status):
-        """Debug callback pour sounddevice"""
-        if status:
-            print(f"⚠️ sounddevice status: {status}")
-        
-        # Vérifier si on arrive à la fin
-        if frames < len(outdata):
-            print(f"🔚 Fin de sample détectée - frames: {frames}")
+        elif event_type == "stop":
+            sd.stop()
 
     def set_volume(self, volume: float):
         """Ajuste le volume"""
