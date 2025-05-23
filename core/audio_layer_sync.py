@@ -28,7 +28,7 @@ class AudioLayerSync:
         self.volume = volume * self.master_volume
         self.pan = pan
         self.measures = measures
-
+        
         # État de lecture
         self.is_armed = False  # Prêt à jouer au prochain beat 1
         self.is_playing = False

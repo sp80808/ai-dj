@@ -25,7 +25,8 @@ class LayerManager:
         self.sample_rate = sample_rate
         self.output_dir = output_dir
         self.on_max_layers_reached = on_max_layers_reached
-
+        self.operation_count = 0
+        self.max_operations_before_reset = 4
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
 
@@ -62,7 +63,20 @@ class LayerManager:
         print("⚠️ Forçage libération canal 0")
         pygame.mixer.Channel(0).stop()
         return pygame.mixer.Channel(0)
-
+    
+    def _reset_mixer(self):
+        """Reset complet de pygame.mixer pour éviter l'accumulation"""
+        sample_rate = self.sample_rate
+        num_channels = self.num_channels
+        
+        pygame.mixer.stop()
+        pygame.mixer.quit()
+        time.sleep(0.1)
+        
+        pygame.mixer.init(frequency=sample_rate, channels=2, buffer=4096)
+        pygame.mixer.set_num_channels(num_channels)
+    
+    print("✅ Pygame mixer réinitialisé")
     def find_kick_attack_start(self, audio, sr, onset_position, layer_id):
         """Trouve le vrai début de l'attaque du kick pour le préserver complètement"""
 
@@ -143,47 +157,46 @@ class LayerManager:
         target_total_samples = samples_per_bar * measures
 
         # Détection d'onset
-        if model_name in "musicgen":
-            onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
-            onsets_samples = librosa.onset.onset_detect(
-                onset_envelope=onset_env, sr=sr, units="samples", backtrack=False
+        onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
+        onsets_samples = librosa.onset.onset_detect(
+            onset_envelope=onset_env, sr=sr, units="samples", backtrack=False
+        )
+
+        start_offset_samples = 0
+
+        if len(onsets_samples) > 0:
+            # Chercher un onset dans les premières 200ms
+            early_onsets = [o for o in onsets_samples if o < sr * 0.2]
+
+            if early_onsets:
+                detected_onset = early_onsets[0]
+            else:
+                detected_onset = onsets_samples[0]
+
+            # Trouver l'attaque du kick
+            start_offset_samples = self.find_kick_attack_start(
+                audio, sr, detected_onset, layer_id
             )
 
-            start_offset_samples = 0
-
-            if len(onsets_samples) > 0:
-                # Chercher un onset dans les premières 200ms
-                early_onsets = [o for o in onsets_samples if o < sr * 0.2]
-
-                if early_onsets:
-                    detected_onset = early_onsets[0]
-                else:
-                    detected_onset = onsets_samples[0]
-
-                # Trouver l'attaque du kick
-                start_offset_samples = self.find_kick_attack_start(
-                    audio, sr, detected_onset, layer_id
+            # Si le kick est vraiment tout au début (dans les 10ms), ne pas trimmer
+            if start_offset_samples < sr * 0.01:  # 10ms
+                print(
+                    f"✅ Kick immédiat détecté ('{layer_id}'), pas de trim nécessaire"
                 )
-
-                # Si le kick est vraiment tout au début (dans les 10ms), ne pas trimmer
-                if start_offset_samples < sr * 0.01:  # 10ms
-                    print(
-                        f"✅ Kick immédiat détecté ('{layer_id}'), pas de trim nécessaire"
-                    )
-                    start_offset_samples = 0
-
-            else:
-                print(f"⚠️  Aucun onset détecté pour '{layer_id}', démarrage sans trim")
                 start_offset_samples = 0
 
-            # Appliquer le trim intelligent
-            if start_offset_samples > 0:
-                print(
-                    f"✂️  Trim appliqué: {start_offset_samples/sr:.3f}s supprimées ('{layer_id}')"
-                )
-                audio = audio[start_offset_samples:]
-            else:
-                print(f"🎵 Aucun trim nécessaire pour '{layer_id}'")
+        else:
+            print(f"⚠️  Aucun onset détecté pour '{layer_id}', démarrage sans trim")
+            start_offset_samples = 0
+
+        # Appliquer le trim intelligent
+        if start_offset_samples > 0:
+            print(
+                f"✂️  Trim appliqué: {start_offset_samples/sr:.3f}s supprimées ('{layer_id}')"
+            )
+            audio = audio[start_offset_samples:]
+        else:
+            print(f"🎵 Aucun trim nécessaire pour '{layer_id}'")
 
         current_length = len(audio)
         if current_length == 0:
@@ -478,9 +491,20 @@ class LayerManager:
             if layer_id in self.layers:
                 channel = self.layers[layer_id].channel
                 self.layers[layer_id].stop(fadeout_ms=20, cleanup=True)
-                time.sleep(0.025) 
+                time.sleep(0.025)
                 channel.stop()
                 del self.layers[layer_id]
+                
+                # Compteur de maintenance
+                self.operation_count += 1
+                if self.operation_count >= self.max_operations_before_reset:
+                    print("🔄 Maintenance pygame mixer...")
+                    self._reset_mixer()
+                    self.operation_count = 0
+                
+                # Force le nettoyage mémoire
+                import gc
+                gc.collect()
                 
                 print(f"⏹️  Layer '{layer_id}' arrêté et nettoyé pour remplacement.")
                 
