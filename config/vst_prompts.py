@@ -71,7 +71,7 @@ VST_STYLE_PARAMS = {
     "techno_minimal": {
         "default_measures": 1,
         "preferred_stems": ["drums", "bass"],
-        "base_keywords": ["minimal", "deep", "driving", "analog", "hypnotic", "berlin"],
+        "base_keywords": ["minimal", "deep", "driving", "analog", "hypnotic", "berlin", "kick"],
         "intensity_range": (6, 9),
         "sample_types": [
             "techno_kick",

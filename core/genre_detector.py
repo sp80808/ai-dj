@@ -111,7 +111,7 @@ class GenreDetector:
                 "on",
                 "floor",
             ],
-            "techno_bass": ["bass", "sub", "bassline", "deep", "analog"],
+            "techno_bass": ["bass", "sub", "bassline", "deep", "analog", "kick", "rhythm","four-on-the-floor"],
             "techno_synth": ["synth", "lead", "acid", "303", "melody", "keys"],
             "techno_percussion": [
                 "percussion",
