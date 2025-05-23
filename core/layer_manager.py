@@ -31,19 +31,9 @@ class LayerManager:
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
 
-        try:
-            pygame.mixer.init(
-                frequency=self.sample_rate, channels=2, buffer=4096  
-            )  # Initialiser avec buffer plus grand
-            pygame.mixer.set_num_channels(num_channels)
-            print(
-                f"🎵 Pygame Mixer initialisé avec {pygame.mixer.get_num_channels()} canaux.\n"
-            )
-        except pygame.error as e:
-            print(f"Erreur d'initialisation de Pygame Mixer: {e}")
-            raise  # Relancer l'exception car c'est critique
 
-        self.layers: Dict[str, AudioLayer] = {}
+        self.layers = {}
+        self.channel_id_counter = 0
         self.master_tempo: float = 126.0  # BPM
         self.global_playback_start_time: Optional[float] = (
             None  # Heure de démarrage du tout premier sample
@@ -51,33 +41,7 @@ class LayerManager:
         self.is_master_clock_running: bool = False
         self.num_channels = num_channels
 
-    def _get_available_channel(self) -> Optional[pygame.mixer.Channel]:
-        """Trouve un canal vraiment libre"""
-        for i in range(self.num_channels):
-            channel = pygame.mixer.Channel(i)
-            if not channel.get_busy():
-                # Force le stop pour être sûr
-                channel.stop()
-                return channel
-        
-        # Si aucun canal libre, forcer l'arrêt du premier
-        print("⚠️ Forçage libération canal 0")
-        pygame.mixer.Channel(0).stop()
-        return pygame.mixer.Channel(0)
-    
-    def _reset_mixer(self):
-        """Reset complet de pygame.mixer pour éviter l'accumulation"""
-        sample_rate = self.sample_rate
-        num_channels = self.num_channels
-        
-        pygame.mixer.stop()
-        pygame.mixer.quit()
-        time.sleep(0.1)
-        
-        pygame.mixer.init(frequency=sample_rate, channels=2, buffer=4096)
-        pygame.mixer.set_num_channels(num_channels)
-    
-    print("✅ Pygame mixer réinitialisé")
+
     def find_kick_attack_start(self, audio, sr, onset_position, layer_id):
         """Trouve le vrai début de l'attaque du kick pour le préserver complètement"""
 
@@ -158,6 +122,8 @@ class LayerManager:
         samples_per_beat = int(seconds_per_beat * sr)
         samples_per_bar = samples_per_beat * BEATS_PER_BAR
         target_total_samples = samples_per_bar * measures
+        target_total_samples = int(target_total_samples * 1.2)
+
 
         # Détection d'onset
         onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
