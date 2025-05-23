@@ -219,7 +219,7 @@ class LayerManager:
                 stretched_audio = self.match_sample_to_tempo(
                     temp_path,  # Le chemin du fichier temporaire
                     target_tempo=self.master_tempo,
-                    sr=self.sample_rate,
+                    sr=self.sample_rate,preserve_measures=False
                 )
 
             if isinstance(stretched_audio, np.ndarray):
@@ -710,15 +710,17 @@ class LayerManager:
         try:
             import numpy as np
             import librosa
-            import tempfile
-            import subprocess
-            import soundfile as sf
-            import os
 
             if isinstance(audio, str):
                 print(f"📂 Chargement du fichier audio: {audio}")
                 try:
-                    audio, file_sr = librosa.load(audio, sr=sr)
+                    # ✅ soundfile au lieu de librosa
+                    audio, file_sr = sf.read(audio, always_2d=False)
+                    
+                    # Resampler si nécessaire
+                    if file_sr != sr:
+                        audio = librosa.resample(audio, orig_sr=file_sr, target_sr=sr)
+                        
                     print(f"✅ Fichier audio chargé: {audio.shape}, sr={file_sr}")
                 except Exception as e:
                     print(f"❌ Échec du chargement du fichier: {e}")
@@ -804,6 +806,7 @@ class LayerManager:
                 # Calculer la durée idéale en nombre entier de mesures au nouveau tempo
                 target_beats = whole_measures * beats_per_measure
                 target_duration = (target_beats / target_tempo) * 60.0
+                target_duration *= 1.2 
                 target_length = int(target_duration * sr)
 
                 # Redimensionner l'audio adapté pour avoir un nombre exact de mesures
