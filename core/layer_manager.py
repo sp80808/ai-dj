@@ -618,7 +618,14 @@ class LayerManager:
                     pan=playback_params.get("pan", 0.0),
                 )
 
-            if new_layer.sound_object:  # Vérifier si le son a bien été chargé
+            if hasattr(new_layer, 'audio_data') and new_layer.audio_data is not None:
+                sound_loaded = True
+            elif hasattr(new_layer, 'sound_object') and new_layer.sound_object is not None:
+                sound_loaded = True
+            else:
+                sound_loaded = False
+
+            if sound_loaded:
                 self.layers[layer_id] = new_layer
                 if not self.is_master_clock_running:
                     self.global_playback_start_time = time.time()

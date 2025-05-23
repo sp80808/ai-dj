@@ -78,7 +78,7 @@ class AudioLoopPlayer:
 
         try:
             # Appliquer un léger fade-in/fade-out pour éviter les clics
-            fade_ms = 2
+            fade_ms = 10
             fade_samples = int(sample_rate * fade_ms / 1000)
 
             # S'assurer que l'audio est assez long pour le fade
