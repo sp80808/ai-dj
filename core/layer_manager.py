@@ -179,6 +179,8 @@ class LayerManager:
             return None
 
         if current_length > target_total_samples:
+            fade_samples = int(sr * 0.1)  # 100ms
+            audio[target_total_samples - fade_samples:target_total_samples] *= np.linspace(1.0, 0.0, fade_samples)
             audio = audio[:target_total_samples]
         elif current_length < target_total_samples:
             num_repeats = int(np.ceil(target_total_samples / current_length))
@@ -248,7 +250,9 @@ class LayerManager:
             return audio_path  # Pas d'effets à appliquer
 
         try:
-            audio, sr = librosa.load(audio_path, sr=self.sample_rate)
+            audio, sr = sf.read(audio_path, always_2d=False)
+            if sr != self.sample_rate:
+                audio = librosa.resample(audio, orig_sr=sr, target_sr=self.sample_rate)
         except Exception as e:
             print(f"Erreur chargement pour effets (Layer {layer_id}): {e}")
             return None
@@ -738,10 +742,6 @@ class LayerManager:
 
             print(f"ℹ️  Audio shape: {audio.shape}, dtype: {audio.dtype}")
 
-            # Si l'audio est stéréo, le convertir en mono
-            if len(audio.shape) > 1 and audio.shape[1] > 1:
-                print("⚠️  Audio stéréo détecté, conversion en mono...")
-                audio = np.mean(audio, axis=1)
 
             # Longueur originale en échantillons et en secondes
             original_length = len(audio)
@@ -906,7 +906,7 @@ class LayerManager:
             temp_out.close()
 
             # Charger le résultat
-            stretched_audio, _ = librosa.load(temp_out.name, sr=sr)
+            stretched_audio, _ = sf.read(temp_out.name, always_2d=False)
 
             print(f"🎯 Rubber Band: {len(audio)} → {len(stretched_audio)} samples")
 
