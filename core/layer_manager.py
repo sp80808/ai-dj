@@ -3,6 +3,7 @@ import time
 import random
 import pygame
 import librosa
+import gc
 import numpy as np
 import soundfile as sf
 from typing import Dict, List, Optional, Any
@@ -487,38 +488,18 @@ class LayerManager:
             )  # Par défaut, sur la prochaine mesure
             self._wait_for_sync_point(beats_to_wait=start_sync_beats)
 
-            # Si le layer existe déjà, l'arrêter avant de le remplacer
             if layer_id in self.layers:
-                channel = self.layers[layer_id].channel
+                # Plus besoin de récupérer le canal, PyAudio gère ça
                 self.layers[layer_id].stop(fadeout_ms=20, cleanup=True)
                 time.sleep(0.025)
-                channel.stop()
                 del self.layers[layer_id]
                 
-                # Compteur de maintenance
-                self.operation_count += 1
-                if self.operation_count >= self.max_operations_before_reset:
-                    print("🔄 Maintenance pygame mixer...")
-                    self._reset_mixer()
-                    self.operation_count = 0
-                
-                # Force le nettoyage mémoire
-                import gc
                 gc.collect()
                 
                 print(f"⏹️  Layer '{layer_id}' arrêté et nettoyé pour remplacement.")
-                
-            else:
-                channel = self._get_available_channel()
 
-            if channel is None:
-                print(
-                    f"Impossible d'ajouter/remplacer le layer '{layer_id}', aucun canal disponible."
-                )
-                return
-            
-            import gc
-            gc.collect()
+            channel_id = getattr(self, 'channel_id_counter', 0)
+            self.channel_id_counter = channel_id + 1
 
             max_active_layers = 3
             if len(self.layers) >= max_active_layers and layer_id not in self.layers:
@@ -604,7 +585,7 @@ class LayerManager:
                 new_layer = AudioLayerSync(
                     layer_id,
                     final_sample_path,
-                    channel_id=channel,
+                    channel_id=channel_id,
                     volume=adjusted_volume,  # Volume ajusté selon le stem
                     pan=playback_params.get("pan", 0.0),
                     midi_manager=midi_clock_manager,
@@ -613,7 +594,7 @@ class LayerManager:
                 new_layer = AudioLayer(
                     layer_id,
                     final_sample_path,
-                    channel,
+                    channel_id,
                     volume=adjusted_volume,  # Volume ajusté selon le stem
                     pan=playback_params.get("pan", 0.0),
                 )

@@ -199,7 +199,7 @@ class AudioLayerSync:
 class PyAudioMixer:
     """Mixer PyAudio qui gère tous les layers"""
     
-    def __init__(self, sample_rate=48000, chunk_size=1024):
+    def __init__(self, sample_rate=48000, chunk_size=8192):
         self.sample_rate = sample_rate
         self.chunk_size = chunk_size
         self.is_running = False
@@ -227,6 +227,17 @@ class PyAudioMixer:
             print(f"❌ Erreur PyAudio stream: {e}")
             self.pa.terminate()
             raise
+        if os.name == 'nt':  # Windows
+            try:
+                import ctypes
+                # Priorité temps réel pour le thread audio
+                ctypes.windll.kernel32.SetThreadPriority(
+                    ctypes.windll.kernel32.GetCurrentThread(), 
+                    15  # THREAD_PRIORITY_TIME_CRITICAL
+                )
+                print("🚀 Priorité thread audio élevée")
+            except:
+                pass
 
     def _audio_callback(self, in_data, frame_count, time_info, status):
         """Callback audio PyAudio - Mixe tous les layers"""
