@@ -38,7 +38,12 @@ class AudioLayerSync:
 
         # État simple
         self.is_armed = False
-
+        
+        sd.default.device = None  # Device système
+        sd.default.latency = 'low'
+        sd.default.blocksize = 256
+        sd.default.samplerate = 48000 
+        
         # Démarrer le nettoyage auto si pas encore fait
         if not AudioLayerSync._cleanup_running:
             AudioLayerSync._start_cleanup_thread()
@@ -46,6 +51,18 @@ class AudioLayerSync:
         # Charger l'audio
         try:
             self.audio_data, self.sample_rate = sf.read(self.file_path, always_2d=True)
+            
+            # 🔄 CONVERSION 48kHz si nécessaire
+            if self.sample_rate != 48000:
+                import librosa
+                self.audio_data = librosa.resample(
+                    self.audio_data.T, 
+                    orig_sr=self.sample_rate, 
+                    target_sr=48000
+                ).T
+                self.sample_rate = 48000
+                print(f"🔄 Audio converti en 48kHz")
+            
             self.length_seconds = len(self.audio_data) / self.sample_rate
             
             # Convertir en stéréo si nécessaire
@@ -55,7 +72,7 @@ class AudioLayerSync:
             # Appliquer volume et pan une fois pour toutes
             self._apply_volume_and_pan()
             
-            print(f"🎵 Layer '{self.layer_id}' chargé ({self.length_seconds:.2f}s)")
+            print(f"🎵 Layer '{self.layer_id}' chargé ({self.length_seconds:.2f}s, 48kHz)")
 
         except Exception as e:
             print(f"❌ Erreur chargement {self.layer_id}: {e}")
@@ -145,21 +162,18 @@ class AudioLayerSync:
                     print(f"Impossible de supprimer {self.file_path}: {e}")
 
     def on_midi_event(self, event_type: str, measure: int = None):
-        """Callback MIDI - Simplicité + nettoyage occasionnel"""
-        
         if event_type == "measure_start" and self.is_armed:
             
-            # Debug + nettoyage manuel occasionnel
-            if measure and measure % 100 == 0:  # Toutes les 100 mesures
+            if measure and measure % 100 == 0:
                 print(f"🧹 Nettoyage manuel mesure {measure}")
                 gc.collect()
                 sd.stop()
                 time.sleep(0.05)
             
             try:
-                sd.stop()
-                sd.wait()
-                sd.play(self.audio_data, samplerate=self.sample_rate)
+                # 🎯 DIRECT vers device système (celui qui marche !)
+                sd.default.device = None  # Device par défaut
+                sd.play(self.audio_data, samplerate=self.sample_rate)  # Sample rate original
                 
             except Exception as e:
                 print(f"❌ Erreur play {self.layer_id}: {e}")

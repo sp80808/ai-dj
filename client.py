@@ -1,5 +1,6 @@
 import argparse
 import os
+import psutil
 import signal
 import shutil
 import sys
@@ -10,6 +11,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def boost_audio_priority():
+    try:
+        p = psutil.Process(os.getpid())
+        p.nice(psutil.HIGH_PRIORITY_CLASS)
+        print("🚀 Priorité audio boostée")
+    except:
+        print("⚠️ Impossible de booster la priorité")
 
 def clean_dir():
     output_dir = os.path.join("server", "api", "generated_loops")
@@ -78,6 +87,7 @@ def main():
         return
 
     clean_dir()
+    boost_audio_priority()
     # Créer et démarrer le client
     client = DJIAClient(
         api_url=args.api_url,
