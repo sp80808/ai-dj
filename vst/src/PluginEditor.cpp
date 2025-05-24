@@ -1,6 +1,5 @@
 #include "./PluginProcessor.h"
 #include "PluginEditor.h"
-#include "DjIaClient.h"
 
 DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor &p)
     : AudioProcessorEditor(&p), audioProcessor(p)
@@ -27,6 +26,8 @@ void DjIaVstEditor::setupUI()
     styleSelector.addItem("House", 2);
     styleSelector.addItem("Ambient", 3);
     styleSelector.addItem("Experimental", 4);
+    styleSelector.addItem("Drum & Bass", 5);
+    styleSelector.addItem("Minimal", 6);
     styleSelector.setSelectedId(1);
 
     // BPM slider and label
@@ -43,44 +44,39 @@ void DjIaVstEditor::setupUI()
     addAndMakeVisible(keySelector);
     keySelector.addItem("C minor", 1);
     keySelector.addItem("C major", 2);
-    // ... ajouter d'autres tonalités ...
+    keySelector.addItem("G minor", 3);
+    keySelector.addItem("F major", 4);
+    keySelector.addItem("A minor", 5);
+    keySelector.addItem("D minor", 6);
     keySelector.setSelectedId(1);
 
     // Generate button
     addAndMakeVisible(generateButton);
     generateButton.setButtonText("Generate Loop");
-    generateButton.onClick = [this]
-    { onGenerateButtonClicked(); };
+    generateButton.onClick = [this] { onGenerateButtonClicked(); };
 
-    // Bouton de lecture MIDI
-    // Dans setupUI(), modifie la configuration du bouton de lecture comme ceci:
+    // Play button optimisé
     addAndMakeVisible(playButton);
     playButton.setButtonText("Play Loop");
-    playButton.setClickingTogglesState(true); // Utilise cette méthode au lieu de setToggleable
+    playButton.setClickingTogglesState(true);
     playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::green);
     playButton.onClick = [this]()
     {
         if (playButton.getToggleState())
         {
-            // Bouton actif = lecture
             audioProcessor.startPlayback();
             playButton.setButtonText("Stop Loop");
             statusLabel.setText("Playing loop", juce::dontSendNotification);
         }
         else
         {
-            // Bouton inactif = arrêt
             audioProcessor.stopPlayback();
             playButton.setButtonText("Play Loop");
             statusLabel.setText("Loop stopped", juce::dontSendNotification);
         }
     };
-    playButton.onStateChange = [this]()
-    {
-        audioProcessor.writeToLog("Button state changed: " +
-                                  juce::String(playButton.getToggleState() ? "ON" : "OFF"));
-    };
 
+    // Configuration serveur
     addAndMakeVisible(serverUrlLabel);
     serverUrlLabel.setText("Server URL:", juce::dontSendNotification);
 
@@ -89,128 +85,163 @@ void DjIaVstEditor::setupUI()
     serverUrlInput.onReturnKey = [this]
     {
         audioProcessor.setServerUrl(serverUrlInput.getText());
+        statusLabel.setText("Server URL updated", juce::dontSendNotification);
     };
 
     addAndMakeVisible(apiKeyLabel);
     apiKeyLabel.setText("API Key:", juce::dontSendNotification);
 
     addAndMakeVisible(apiKeyInput);
-    apiKeyInput.setPasswordCharacter('•'); // Utilise des points pour cacher la clé
+    apiKeyInput.setPasswordCharacter('•');
     apiKeyInput.onReturnKey = [this]
     {
         audioProcessor.setApiKey(apiKeyInput.getText());
+        statusLabel.setText("API Key updated", juce::dontSendNotification);
     };
 
+    // Stems selection
     addAndMakeVisible(stemsLabel);
     stemsLabel.setText("Stems:", juce::dontSendNotification);
 
     addAndMakeVisible(drumsButton);
     drumsButton.setButtonText("Drums");
-    drumsButton.setToggleState(false, juce::dontSendNotification);
+    drumsButton.setClickingTogglesState(true);
 
     addAndMakeVisible(bassButton);
     bassButton.setButtonText("Bass");
-    bassButton.setToggleState(false, juce::dontSendNotification);
+    bassButton.setClickingTogglesState(true);
 
     addAndMakeVisible(otherButton);
     otherButton.setButtonText("Other");
-    otherButton.setToggleState(false, juce::dontSendNotification);
+    otherButton.setClickingTogglesState(true);
 
     // Status label
     addAndMakeVisible(statusLabel);
     statusLabel.setText("Ready", juce::dontSendNotification);
+    statusLabel.setColour(juce::Label::textColourId, juce::Colours::white);
 }
 
 void DjIaVstEditor::paint(juce::Graphics &g)
 {
-    g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
+    // Gradient background moderne
+    g.fillAll(juce::Colour(0xff1a1a1a));
+    
+    auto area = getLocalBounds();
+    juce::ColourGradient gradient(juce::Colour(0xff2a2a2a), 0, 0,
+                                  juce::Colour(0xff1a1a1a), 0, (float)getHeight(), false);
+    g.setGradientFill(gradient);
+    g.fillRect(area);
+    
+    // Titre
+    g.setColour(juce::Colours::white);
+    g.setFont(juce::Font(18.0f, juce::Font::bold));
+    g.drawText("DJ-IA VST", area.removeFromTop(30), juce::Justification::centred);
 }
 
 void DjIaVstEditor::resized()
 {
-    auto area = getLocalBounds().reduced(10);
+    auto area = getLocalBounds().reduced(15);
+    
+    // Titre
+    area.removeFromTop(35);
 
     // Section configuration serveur
     auto configArea = area.removeFromTop(80);
+    
+    // Server URL
+    auto serverRow = configArea.removeFromTop(35);
+    serverUrlLabel.setBounds(serverRow.removeFromLeft(90));
+    serverUrlInput.setBounds(serverRow.reduced(5, 0));
 
-    // Première ligne : Server URL
-    auto configRow = configArea.removeFromTop(30);
-    serverUrlLabel.setBounds(configRow.removeFromLeft(80));
-    serverUrlInput.setBounds(configRow.reduced(5, 0));
+    // API Key  
+    auto keyRow = configArea.removeFromTop(35);
+    apiKeyLabel.setBounds(keyRow.removeFromLeft(90));
+    apiKeyInput.setBounds(keyRow.reduced(5, 0));
 
-    // Deuxième ligne : API Key
-    configRow = configArea.removeFromTop(30);
-    apiKeyLabel.setBounds(configRow.removeFromLeft(80));
-    apiKeyInput.setBounds(configRow.reduced(5, 0));
-
-    area.removeFromTop(10); // Espacement
+    area.removeFromTop(15); // Espacement
 
     // Section contrôles principaux
-    promptInput.setBounds(area.removeFromTop(40));
-
-    area.removeFromTop(10); // Spacing
+    promptInput.setBounds(area.removeFromTop(35));
+    area.removeFromTop(10);
 
     // Ligne des contrôles musicaux
-    auto controlRow = area.removeFromTop(30);
-    styleSelector.setBounds(controlRow.removeFromLeft(controlRow.getWidth() / 3).reduced(2));
-    keySelector.setBounds(controlRow.removeFromLeft(controlRow.getWidth() / 2).reduced(2));
-    bpmSlider.setBounds(controlRow.reduced(2));
+    auto controlRow = area.removeFromTop(35);
+    auto styleWidth = controlRow.getWidth() / 3;
+    styleSelector.setBounds(controlRow.removeFromLeft(styleWidth).reduced(3));
+    keySelector.setBounds(controlRow.removeFromLeft(styleWidth).reduced(3));
+    bpmSlider.setBounds(controlRow.reduced(3));
 
-    area.removeFromTop(10);
+    area.removeFromTop(15);
 
     // Section stems
-    auto stemsRow = area.removeFromTop(30);
-    stemsLabel.setBounds(stemsRow.removeFromLeft(80));
+    auto stemsRow = area.removeFromTop(35);
+    stemsLabel.setBounds(stemsRow.removeFromLeft(90));
     auto stemsArea = stemsRow.reduced(5, 0);
-    auto buttonWidth = stemsArea.getWidth() / 3;
-    drumsButton.setBounds(stemsArea.removeFromLeft(buttonWidth));
-    bassButton.setBounds(stemsArea.removeFromLeft(buttonWidth));
-    otherButton.setBounds(stemsArea);
+    auto stemWidth = stemsArea.getWidth() / 3;
+    drumsButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(2));
+    bassButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(2));
+    otherButton.setBounds(stemsArea.reduced(2));
+
+    area.removeFromTop(15);
+
+    // Boutons principaux
+    auto buttonsRow = area.removeFromTop(45);
+    auto buttonWidth = buttonsRow.getWidth() / 2;
+    generateButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
+    playButton.setBounds(buttonsRow.reduced(5));
 
     area.removeFromTop(10);
-
-    // Boutons et status
-    auto buttonsRow = area.removeFromTop(40);
-    generateButton.setBounds(buttonsRow.removeFromLeft(buttonsRow.getWidth() / 2).reduced(2, 0));
-    playButton.setBounds(buttonsRow.reduced(2, 0));
-
-    area.removeFromTop(10);
+    
+    // Status en bas
     statusLabel.setBounds(area.removeFromTop(30));
 }
 
 void DjIaVstEditor::onGenerateButtonClicked()
 {
+    // Validation des inputs
+    if (serverUrlInput.getText().isEmpty())
+    {
+        statusLabel.setText("Error: Server URL is required", juce::dontSendNotification);
+        return;
+    }
+
+    if (apiKeyInput.getText().isEmpty())
+    {
+        statusLabel.setText("Error: API Key is required", juce::dontSendNotification);
+        return;
+    }
+
+    if (promptInput.getText().isEmpty())
+    {
+        statusLabel.setText("Error: Prompt is required", juce::dontSendNotification);
+        return;
+    }
+
+    // Désactiver le bouton pendant la génération
+    generateButton.setEnabled(false);
     statusLabel.setText("Connecting to server...", juce::dontSendNotification);
 
     // Lancer la génération dans un thread séparé
     juce::Thread::launch([this]()
-                         {
+    {
         try
         {
+            // Mettre à jour le status
             juce::MessageManager::callAsync([this]() {
                 statusLabel.setText("Generating loop (this may take a few minutes)...", 
                     juce::dontSendNotification);
             });
-            // IMPORTANT: D'abord configurer le serveur et l'API key
-            if (serverUrlInput.getText().isEmpty())
-            {
-                throw std::runtime_error("Server URL is required");
-            }
-            if (apiKeyInput.getText().isEmpty())
-            {
-                throw std::runtime_error("API Key is required");
-            }
 
-            // Mettre à jour la configuration serveur AVANT de créer la requête
+            // Configurer le client API
             audioProcessor.setServerUrl(serverUrlInput.getText());
             audioProcessor.setApiKey(apiKeyInput.getText());
 
-            // Attendre un peu que la configuration soit appliquée
+            // Attendre un peu pour la configuration
             juce::Thread::sleep(100);
 
-            // ENSUITE créer la requête avec le vrai prompt
+            // Créer la requête
             DjIaClient::LoopRequest request;
-            request.prompt = promptInput.getText();  // Le vrai prompt de l'utilisateur
+            request.prompt = promptInput.getText();
             request.style = styleSelector.getText();
             request.bpm = (float)bpmSlider.getValue();
             request.key = keySelector.getText();
@@ -227,21 +258,26 @@ void DjIaVstEditor::onGenerateButtonClicked()
             // Générer la loop
             audioProcessor.generateLoop(request);
             
-            // Mettre à jour l'UI dans le thread principal
+            // Succès - mettre à jour l'UI
             juce::MessageManager::callAsync([this]() {
-                statusLabel.setText("Loop generated successfully!", juce::dontSendNotification);
+                statusLabel.setText("Loop generated successfully! Press Play to listen.", 
+                    juce::dontSendNotification);
+                generateButton.setEnabled(true);
                 
-                // Réinitialiser le bouton de lecture s'il était actif
+                // Réinitialiser le bouton de lecture
                 if (playButton.getToggleState()) {
-                    playButton.setToggleState(false, juce::sendNotification);
+                    playButton.setToggleState(false, juce::dontSendNotification);
                     playButton.setButtonText("Play Loop");
                 }
             });
         }
         catch (const std::exception& e)
         {
+            // Erreur - mettre à jour l'UI
             juce::MessageManager::callAsync([this, error = juce::String(e.what())]() {
                 statusLabel.setText("Error: " + error, juce::dontSendNotification);
+                generateButton.setEnabled(true);
             });
-        } });
+        }
+    });
 }

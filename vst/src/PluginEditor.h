@@ -42,11 +42,4 @@ private:
     juce::Label statusLabel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstEditor)
-
-private:
-    DjIaClient apiClient;
-    juce::CriticalSection apiLock;
-
-    // Méthode pour générer une loop
-    void generateLoop(const juce::String &prompt);
 };

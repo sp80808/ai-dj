@@ -65,16 +65,16 @@ private:
     //==============================================================================
 
     // État de lecture
-    bool hasLoop = false;
-    bool isNotePlaying = false;
-    int currentNoteNumber = -1;
-    double readPosition = 0.0;
-    float masterVolume = 0.8f;
+    std::atomic<bool> hasLoop{false};
+    std::atomic<bool> isNotePlaying{false};
+    std::atomic<int> currentNoteNumber{-1};
+    std::atomic<double> readPosition{0.0};
+    std::atomic<float> masterVolume{0.8f};
 
     // Sample rates et timing
-    double hostSampleRate = 0.0;     // Fréquence de la DAW
-    double audioSampleRate = 0.0;    // Fréquence du fichier audio chargé
-    double playbackSpeedRatio = 1.0; // Ratio de lecture calculé
+    double hostSampleRate = 0.0;
+    double audioSampleRate = 0.0;
+    double playbackSpeedRatio = 1.0;
 
     // État de configuration
     double currentBPM = 126.0;
@@ -84,25 +84,15 @@ private:
     juce::String apiKey;
 
     //==============================================================================
-    // SYSTÈME DE BUFFERS PING-PONG
+    // SYSTÈME DE BUFFERS SIMPLIFIÉ
     //==============================================================================
 
-    juce::AudioSampleBuffer pingBuffer;     // Buffer A
-    juce::AudioSampleBuffer pongBuffer;     // Buffer B
-    juce::AudioSampleBuffer *activeBuffer;  // Buffer en cours de lecture
-    juce::AudioSampleBuffer *loadingBuffer; // Buffer en cours de chargement
-    bool isBufferSwitchPending = false;
-    juce::CriticalSection bufferLock; // Protection des opérations sur les buffers
+    juce::AudioSampleBuffer audioBuffer;
+    juce::CriticalSection bufferLock;
 
-    //==============================================================================
-    // FILTRAGE AUDIO
-    //==============================================================================
-
-    // Historique pour filtres anti-aliasing (par canal)
-    float prevInputL[4] = {0.0f};
-    float prevInputR[4] = {0.0f};
-    float prevOutputL[4] = {0.0f};
-    float prevOutputR[4] = {0.0f};
+    // Variables pour éviter les allocations dans processBlock
+    int bufferNumSamples = 0;
+    int bufferNumChannels = 0;
 
     //==============================================================================
     // SYSTÈME D'API
@@ -111,40 +101,26 @@ private:
     DjIaClient apiClient;
     juce::CriticalSection apiLock;
     juce::MemoryBlock pendingAudioData;
-    bool hasPendingAudioData = false;
+    std::atomic<bool> hasPendingAudioData{false};
 
     //==============================================================================
-    // MÉTHODES PRIVÉES - TRAITEMENT AUDIO
+    // MÉTHODES PRIVÉES - TRAITEMENT AUDIO OPTIMISÉ
     //==============================================================================
-
-    // Gestion des buffers
-    void handleBufferSwitch();
-    bool hasValidLoop();
 
     // Traitement MIDI
     void processMidiMessages(juce::MidiBuffer &midiMessages);
     void startNotePlayback(int noteNumber);
     void stopNotePlayback();
 
-    // Génération audio
+    // Génération audio simplifiée
     void generateAudioOutput(juce::AudioBuffer<float> &buffer);
-    void calculatePlaybackRatio();
-    float calculateFilterCoeff();
-    void processAudioChannel(juce::AudioBuffer<float> &buffer, int channel,
-                             int numInChannels, int numSamplesToProcess,
-                             int sourceBufferSize, float filterCoeff);
-    void advanceReadPosition(int sourceBufferSize);
 
-    // Interpolation et filtrage
-    float interpolateCubicSafe(const float *buffer, double position, int bufferSize);
-    void applyAntiAliasingFilter(float input, float &output,
-                                 float *prevInputs, float *prevOutputs, float filterCoeff);
-    void resetFilters();
+    // Interpolation linéaire rapide
+    inline float interpolateLinear(const float *buffer, double position, int bufferSize);
 
     // Chargement audio
     void processIncomingAudio();
     void loadAudioFromReader(juce::AudioFormatReader &reader);
-    void applyCrossfade(juce::AudioSampleBuffer &newBuffer, const juce::AudioSampleBuffer &oldBuffer);
     void clearPendingAudio();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor)

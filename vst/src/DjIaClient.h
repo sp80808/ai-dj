@@ -25,25 +25,31 @@ public:
         double sampleRate;
     };
 
-    DjIaClient::DjIaClient(const juce::String &apiKey = "", const juce::String &baseUrl = "http://localhost:8000")
+    DjIaClient(const juce::String &apiKey = "", const juce::String &baseUrl = "http://localhost:8000")
         : apiKey(apiKey), baseUrl(baseUrl + "/api/v1")
     {
     }
 
     bool isServerHealthy()
     {
-        auto url = juce::URL(baseUrl + "/health");
-
-        // Créer les options en une seule expression
-        if (auto response = url.createInputStream(
-                juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inPostData)
-                    .withConnectionTimeoutMs(120000)
-                    .withExtraHeaders(apiKey.isNotEmpty() ? "X-API-Key: " + apiKey + "\n" : juce::String())))
+        try
         {
-            auto jsonResponse = juce::JSON::parse(response->readEntireStreamAsString());
-            return jsonResponse.getProperty("status", "unhealthy") == "healthy";
+            auto url = juce::URL(baseUrl + "/health");
+            
+            if (auto response = url.createInputStream(
+                    juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inPostData)
+                        .withConnectionTimeoutMs(5000) // Timeout plus court
+                        .withExtraHeaders(apiKey.isNotEmpty() ? "X-API-Key: " + apiKey + "\n" : juce::String())))
+            {
+                auto jsonResponse = juce::JSON::parse(response->readEntireStreamAsString());
+                return jsonResponse.getProperty("status", "unhealthy") == "healthy";
+            }
         }
-
+        catch (...)
+        {
+            return false;
+        }
+        
         return false;
     }
 
@@ -51,13 +57,7 @@ public:
     {
         try
         {
-            // Debug info
-            writeToLog("Generating loop with parameters:");
-            writeToLog("  Prompt: " + request.prompt);
-            writeToLog("  Style: " + request.style);
-            writeToLog("  BPM: " + juce::String(request.bpm));
-            writeToLog("  Key: " + request.key);
-            writeToLog("  API Key present: " + juce::String(apiKey.isNotEmpty() ? "yes" : "no"));
+            writeToLog("🚀 Generating loop with prompt: " + request.prompt);
 
             // Créer le JSON de la requête
             juce::var jsonRequest(new juce::DynamicObject());
@@ -74,59 +74,30 @@ public:
                 for (const auto &stem : request.preferredStems)
                     stems.add(stem);
                 jsonRequest.getDynamicObject()->setProperty("preferred_stems", stems);
-                writeToLog("Adding stems to request: " + juce::JSON::toString(stems));
-            }
-            else
-            {
-                writeToLog("No stems selected, skipping preferred_stems in request");
             }
 
-            // Convertir en string JSON
             auto jsonString = juce::JSON::toString(jsonRequest);
-            writeToLog("Request JSON: " + jsonString);
 
-            // Construire les headers dans le bon ordre
-            juce::StringPairArray headers;
-            headers.set("Content-Type", "application/json");
-
+            // Headers simplifiés
+            juce::String headerString = "Content-Type: application/json\n";
             if (apiKey.isNotEmpty())
             {
-                headers.set("X-API-Key", apiKey);
-                writeToLog("Added API Key to headers");
-            }
-            else
-            {
-                writeToLog("WARNING: No API Key provided!");
+                headerString += "X-API-Key: " + apiKey + "\n";
             }
 
-            // Convertir les headers en string
-            juce::String headerString;
-            for (auto &key : headers.getAllKeys())
-            {
-                headerString += key + ": " + headers[key] + "\n";
-            }
-            writeToLog("Request headers: " + headerString);
-
-            // Créer l'URL avec les données POST
-            auto url = juce::URL(baseUrl + "/generate")
-                           .withPOSTData(jsonString);
-
-            writeToLog("Sending request to: " + url.toString(false));
-
-            // Créer la requête avec toutes les options
+            // Créer la requête
+            auto url = juce::URL(baseUrl + "/generate").withPOSTData(jsonString);
+            
             auto options = juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inPostData)
-                               .withConnectionTimeoutMs(1200000)
+                               .withConnectionTimeoutMs(120000)
                                .withExtraHeaders(headerString);
 
-            // Dans DjIaClient.h, dans la méthode generateLoop
             if (auto response = url.createInputStream(options))
             {
                 auto responseString = response->readEntireStreamAsString();
-                writeToLog("Received response: " + responseString);
-
                 auto jsonResponse = juce::JSON::parse(responseString);
 
-                // Vérifier si la réponse contient une erreur
+                // Vérifier les erreurs
                 if (jsonResponse.hasProperty("detail"))
                 {
                     throw std::runtime_error(jsonResponse["detail"].toString().toStdString());
@@ -134,34 +105,20 @@ public:
 
                 LoopResponse result;
 
-                // Décoder le base64 en données audio
+                // Décoder le base64
                 juce::String audioBase64 = jsonResponse.getProperty("audio_data", "").toString();
                 if (audioBase64.isNotEmpty())
                 {
                     juce::MemoryOutputStream decoded;
                     juce::Base64::convertFromBase64(decoded, audioBase64);
                     result.audioData = decoded.getMemoryBlock();
-                    writeToLog("Decoded audio data size: " + juce::String(result.audioData.getSize()));
-                }
-                else
-                {
-                    writeToLog("No audio data received in response");
                 }
 
                 result.duration = jsonResponse.getProperty("duration", 0.0);
                 result.bpm = jsonResponse.getProperty("bpm", 120.0);
                 result.key = jsonResponse.getProperty("key", "");
                 result.llmReasoning = jsonResponse.getProperty("llm_reasoning", "");
-                if (jsonResponse.hasProperty("sample_rate"))
-                {
-                    result.sampleRate = static_cast<double>(jsonResponse.getProperty("sample_rate", 44100.0));
-                    writeToLog("Extracted sample_rate from JSON: " + juce::String(result.sampleRate) + " Hz");
-                }
-                else
-                {
-                    result.sampleRate = 44100.0; // Valeur par défaut
-                    writeToLog("WARNING: No sample_rate field in JSON response, using default 44100 Hz");
-                }
+                result.sampleRate = static_cast<double>(jsonResponse.getProperty("sample_rate", 44100.0));
 
                 // Parser les stems utilisés
                 if (auto stemsArray = jsonResponse.getProperty("stems_used", juce::var()).getArray())
@@ -170,12 +127,17 @@ public:
                         result.stemsUsed.push_back(stem.toString());
                 }
 
+                writeToLog("✅ Loop generated successfully");
                 return result;
+            }
+            else
+            {
+                throw std::runtime_error("Failed to connect to server");
             }
         }
         catch (const std::exception &e)
         {
-            writeToLog("Error in generateLoop: " + juce::String(e.what()));
+            writeToLog("❌ Error in generateLoop: " + juce::String(e.what()));
             throw;
         }
     }
