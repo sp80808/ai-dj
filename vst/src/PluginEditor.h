@@ -2,7 +2,7 @@
 #include "PluginProcessor.h"
 #include "TrackComponent.h"
 
-class DjIaVstEditor : public juce::AudioProcessorEditor, public juce::MenuBarModel
+class DjIaVstEditor : public juce::AudioProcessorEditor, public juce::MenuBarModel, public juce::Timer
 {
 public:
     explicit DjIaVstEditor(DjIaVstProcessor &);
@@ -10,14 +10,17 @@ public:
 
     void paint(juce::Graphics &) override;
     void resized() override;
+    void timerCallback() override;
+    void refreshTrackComponents();
     void updateUIFromProcessor();
+
     juce::StringArray getMenuBarNames() override;
     juce::PopupMenu getMenuForIndex(int topLevelMenuIndex, const juce::String &menuName) override;
     void menuItemSelected(int menuItemID, int topLevelMenuIndex) override;
 
 private:
     DjIaVstProcessor &audioProcessor;
-
+    juce::Image logoImage;
     void setupUI();
     void onGenerateButtonClicked();
     void loadPromptPresets();
@@ -28,7 +31,6 @@ private:
     void onLoadSampleClicked();
     void updateLoadButtonState();
     void updateMidiIndicator(const juce::String &noteInfo);
-    void refreshTrackComponents();
     void onAddTrack();
     void updateSelectedTrack();
     void onSaveSession();
@@ -111,7 +113,7 @@ private:
     juce::Label bpmLabel;
     juce::ComboBox keySelector;
     juce::TextButton generateButton;
-
+    juce::TextButton debugRefreshButton;
     // Configuration serveur
     juce::Label serverUrlLabel;
     juce::TextEditor serverUrlInput;
@@ -131,7 +133,7 @@ private:
     juce::TextButton loadSampleButton;
     // Status
     juce::Label statusLabel;
-
+    juce::Label midiInstructionLabel;
     juce::Label midiIndicator;
     juce::String lastMidiNote;
 

@@ -1,10 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 project(DjIaVst VERSION 1.0.0)
 
-# Ajouter JUCE
 add_subdirectory(JUCE)
+add_subdirectory(soundtouch)
 
-# Configuration du plugin avec defines EXPLICITES
 juce_add_plugin(DjIaVst
     VERSION "1.0.0"
     PLUGIN_MANUFACTURER_CODE "DJIA"
@@ -16,26 +15,25 @@ juce_add_plugin(DjIaVst
     PRODUCES_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE)
 
-# Ajouter les fichiers sources
 target_sources(DjIaVst
     PRIVATE
         src/PluginProcessor.cpp
         src/PluginEditor.cpp
+        src/BinaryData.cpp  
         src/PluginEntry.cpp)
 
-# Ajouter le dossier src aux chemins d'inclusion
 target_include_directories(DjIaVst
     PRIVATE
-        ${CMAKE_SOURCE_DIR}/src)
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/soundtouch/include)
 
-# FORCER LES DEFINES (CRUCIAL !)
 target_compile_definitions(DjIaVst
     PRIVATE
-        JucePlugin_IsSynth=1                    # INSTRUMENT !
-        JucePlugin_WantsMidiInput=1             # MIDI INPUT !
-        JucePlugin_ProducesMidiOutput=0         # PAS MIDI OUTPUT
-        JucePlugin_IsMidiEffect=0               # PAS EFFET MIDI
-        JucePlugin_VSTNumMidiInputs=16          # MIDI INPUTS
+        JucePlugin_IsSynth=1
+        JucePlugin_WantsMidiInput=1
+        JucePlugin_ProducesMidiOutput=0
+        JucePlugin_IsMidiEffect=0
+        JucePlugin_VSTNumMidiInputs=16
     PUBLIC
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=1
@@ -47,6 +45,7 @@ target_link_libraries(DjIaVst
         juce::juce_audio_utils
         juce::juce_audio_processors
         juce::juce_gui_extra
+        SoundTouch 
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
