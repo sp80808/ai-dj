@@ -2,11 +2,32 @@
 #include "PluginEditor.h"
 
 //==============================================================================
+// CONFIGURATION DU BUS LAYOUT
+//==============================================================================
+
+juce::AudioProcessor::BusesProperties DjIaVstProcessor::createBusLayout()
+{
+    auto layout = juce::AudioProcessor::BusesProperties();
+
+    // Sortie principale (mix)
+    layout = layout.withOutput("Main", juce::AudioChannelSet::stereo(), true);
+
+    // Sorties individuelles pour chaque piste
+    for (int i = 0; i < MAX_TRACKS; ++i)
+    {
+        layout = layout.withOutput("Track " + juce::String(i + 1),
+                                   juce::AudioChannelSet::stereo(), false);
+    }
+
+    return layout;
+}
+
+//==============================================================================
 // CONSTRUCTEUR ET DESTRUCTEUR
 //==============================================================================
 
 DjIaVstProcessor::DjIaVstProcessor()
-    : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
+    : AudioProcessor(createBusLayout()),
       parameters(*this, nullptr, "Parameters", {std::make_unique<juce::AudioParameterBool>("generate", "Generate Loop", false), std::make_unique<juce::AudioParameterBool>("play", "Play Loop", false), std::make_unique<juce::AudioParameterBool>("autoload", "Auto-Load", true), std::make_unique<juce::AudioParameterFloat>("bpm", "BPM", 60.0f, 200.0f, 126.0f), std::make_unique<juce::AudioParameterChoice>("style", "Style", juce::StringArray{"Techno", "House", "Ambient", "Experimental"}, 0)})
 {
     // Récupérer les pointeurs vers les paramètres
@@ -19,15 +40,23 @@ DjIaVstProcessor::DjIaVstProcessor()
     parameters.addParameterListener("play", this);
     parameters.addParameterListener("autoload", this);
 
-    // Synthesiser factice
+    selectedTrackId = trackManager.createTrack("Track 1");
+
+    // Initialiser buffers individuels
+    individualOutputBuffers.resize(MAX_TRACKS);
+    for (auto &buffer : individualOutputBuffers)
+    {
+        buffer.setSize(2, 512); // Sera redimensionné dans prepareToPlay
+    }
+
+    // Synthesiser factice pour compatibilité MIDI
     for (int i = 0; i < 4; ++i)
         synth.addVoice(new DummyVoice());
     synth.addSound(new DummySound());
 
-    writeToLog("=== DJ-IA VST INITIALIZED ===");
+    writeToLog("=== DJ-IA VST MULTI-TRACK INITIALIZED ===");
 }
 
-// Dans PluginProcessor.cpp - destructeur mis à jour :
 DjIaVstProcessor::~DjIaVstProcessor()
 {
     writeToLog("=== DJ-IA VST DESTRUCTOR START ===");
@@ -41,24 +70,20 @@ DjIaVstProcessor::~DjIaVstProcessor()
 
         // Arrêter tout immédiatement
         isNotePlaying = false;
-        hasLoop = false;
         hasPendingAudioData = false;
+        hasUnloadedSample = false;
 
         // Vider les callbacks dangereux
         midiIndicatorCallback = nullptr;
 
-        // Nettoyer les buffers
-        {
-            juce::ScopedLock lock(bufferLock);
-            audioBuffer.setSize(0, 0);
-            bufferNumSamples = 0;
-        }
+        // Nettoyer les buffers individuels
+        individualOutputBuffers.clear();
 
         // Nettoyer le synthesiser factice
         synth.clearVoices();
         synth.clearSounds();
 
-        writeToLog("✅ All resources cleaned up");
+        writeToLog("✅ All multi-track resources cleaned up");
     }
     catch (const std::exception &e)
     {
@@ -80,75 +105,75 @@ void DjIaVstProcessor::prepareToPlay(double newSampleRate, int samplesPerBlock)
 {
     hostSampleRate = newSampleRate;
 
-    writeToLog("=== PREPARE TO PLAY ===");
+    writeToLog("=== PREPARE TO PLAY (MULTI-TRACK) ===");
     writeToLog("Host sample rate: " + juce::String(hostSampleRate) + " Hz");
     writeToLog("Samples per block: " + juce::String(samplesPerBlock));
-
-    // DEBUG MIDI CAPABILITIES
-    writeToLog("🎹 MIDI Debug Info:");
-    writeToLog("  acceptsMidi(): " + juce::String(acceptsMidi() ? "TRUE" : "FALSE"));
-    writeToLog("  producesMidi(): " + juce::String(producesMidi() ? "TRUE" : "FALSE"));
-    writeToLog("  isMidiEffect(): " + juce::String(isMidiEffect() ? "TRUE" : "FALSE"));
-    writeToLog("  Total input channels: " + juce::String(getTotalNumInputChannels()));
-    writeToLog("  Total output channels: " + juce::String(getTotalNumOutputChannels()));
+    writeToLog("Output buses: " + juce::String(getTotalNumOutputChannels() / 2));
 
     // Configurer le synthesiser factice
     synth.setCurrentPlaybackSampleRate(newSampleRate);
 
-    // Buffer simple de 10 secondes max
-    juce::ScopedLock lock(bufferLock);
-    int maxBufferSize = static_cast<int>(newSampleRate * 10.0);
-    audioBuffer.setSize(2, maxBufferSize, false, true, true);
-    audioBuffer.clear();
-
-    bufferNumSamples = 0;
-    bufferNumChannels = 2;
-
-    readPosition = 0.0;
-    playbackSpeedRatio = 1.0;
+    // Redimensionner buffers individuels
+    for (auto &buffer : individualOutputBuffers)
+    {
+        buffer.setSize(2, samplesPerBlock);
+        buffer.clear();
+    }
 }
 
 void DjIaVstProcessor::releaseResources()
 {
-    writeToLog("=== RELEASE RESOURCES ===");
-    juce::ScopedLock lock(bufferLock);
-    audioBuffer.setSize(0, 0);
-    hasLoop = false;
-    bufferNumSamples = 0;
+    writeToLog("=== RELEASE RESOURCES (MULTI-TRACK) ===");
+
+    // Clear tous les buffers individuels
+    for (auto &buffer : individualOutputBuffers)
+    {
+        buffer.setSize(0, 0);
+    }
+}
+
+bool DjIaVstProcessor::isBusesLayoutSupported(const BusesLayout &layouts) const
+{
+    writeToLog("🔌 isBusesLayoutSupported called (Multi-Track)");
+    writeToLog("  Input buses: " + juce::String(layouts.inputBuses.size()));
+    writeToLog("  Output buses: " + juce::String(layouts.outputBuses.size()));
+
+    // Vérifier que la sortie principale est présente
+    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+    {
+        writeToLog("❌ Main output must be stereo");
+        return false;
+    }
+
+    // Les sorties individuelles peuvent être activées/désactivées
+    for (int i = 1; i < layouts.outputBuses.size(); ++i)
+    {
+        if (!layouts.outputBuses[i].isDisabled() &&
+            layouts.outputBuses[i] != juce::AudioChannelSet::stereo())
+        {
+            writeToLog("❌ Individual outputs must be stereo or disabled");
+            return false;
+        }
+    }
+
+    writeToLog("✅ Layout accepted: Main stereo + individual stereo outputs");
+    return true;
 }
 
 //==============================================================================
-// TRAITEMENT AUDIO PRINCIPAL - VERSION ULTRA-OPTIMISÉE
+// TRAITEMENT AUDIO PRINCIPAL MULTI-TRACK
 //==============================================================================
 
 void DjIaVstProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::MidiBuffer &midiMessages)
 {
-    // COMPTEUR DE DEBUG
+    // DEBUG MIDI
     static int totalBlocks = 0;
-    static int midiBlocks = 0;
     totalBlocks++;
 
-    // DEBUG MIDI RECEPTION
     int midiEventCount = midiMessages.getNumEvents();
-
     if (midiEventCount > 0)
     {
-        midiBlocks++;
         writeToLog("📨 BLOCK " + juce::String(totalBlocks) + " - MIDI events: " + juce::String(midiEventCount));
-
-        for (const auto metadata : midiMessages)
-        {
-            auto message = metadata.getMessage();
-            writeToLog("🎵 MIDI: " + message.getDescription() + " at sample " + juce::String(metadata.samplePosition));
-        }
-    }
-
-    // DEBUG PERIODIQUE
-    if (totalBlocks % 2000 == 0) // Chaque ~40 secondes à 48kHz/256
-    {
-        writeToLog("📊 Stats: " + juce::String(totalBlocks) + " total blocks, " +
-                   juce::String(midiBlocks) + " with MIDI (" +
-                   juce::String((float)midiBlocks / totalBlocks * 100, 1) + "%)");
     }
 
     // Nettoyer les canaux inutilisés
@@ -158,7 +183,7 @@ void DjIaVstProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::Midi
     // Traiter le MIDI AVANT tout le reste
     processMidiMessages(midiMessages);
 
-    // Laisser le DummySynthesiser traiter (pour Bitwig)
+    // Laisser le DummySynthesiser traiter (pour compatibilité)
     juce::AudioBuffer<float> synthBuffer(buffer.getNumChannels(), buffer.getNumSamples());
     synthBuffer.clear();
     synth.renderNextBlock(synthBuffer, midiMessages, 0, buffer.getNumSamples());
@@ -169,33 +194,55 @@ void DjIaVstProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::Midi
         processIncomingAudio();
     }
 
-    // Si pas de loop OU si on ne joue pas, sortir en silence
-    if (!hasLoop.load() || bufferNumSamples == 0 || !isNotePlaying.load())
+    // Redimensionner buffers individuels si nécessaire
+    for (auto &indivBuffer : individualOutputBuffers)
     {
-        buffer.clear();
+        if (indivBuffer.getNumSamples() != buffer.getNumSamples())
+        {
+            indivBuffer.setSize(2, buffer.getNumSamples(), false, false, true);
+        }
+        indivBuffer.clear();
+    }
+
+    // Clear tous les buffers de sortie
+    for (int busIndex = 0; busIndex < getTotalNumOutputChannels() / 2; ++busIndex)
+    {
+        if (busIndex * 2 + 1 < getTotalNumOutputChannels() && busIndex <= MAX_TRACKS)
+        {
+            auto busBuffer = getBusBuffer(buffer, false, busIndex);
+            busBuffer.clear();
+        }
+    }
+
+    // Si on ne joue pas, sortir en silence
+    if (!isNotePlaying.load())
+    {
         return;
     }
 
-    // Générer l'audio seulement si on a un loop ET qu'on joue
-    generateAudioOutput(buffer);
-}
+    // Render toutes les pistes
+    auto mainOutput = getBusBuffer(buffer, false, 0);
+    mainOutput.clear();
+    trackManager.renderAllTracks(mainOutput, individualOutputBuffers, hostSampleRate);
 
-bool DjIaVstProcessor::isBusesLayoutSupported(const BusesLayout &layouts) const
-{
-    writeToLog("🔌 isBusesLayoutSupported called");
-    writeToLog("  Input buses: " + juce::String(layouts.inputBuses.size()));
-    writeToLog("  Output buses: " + juce::String(layouts.outputBuses.size()));
-
-    // Accepter : 0 inputs audio, 2 outputs audio (instrument typique)
-    if (layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo() &&
-        layouts.getMainInputChannelSet() == juce::AudioChannelSet())
+    // Copier vers les sorties individuelles activées
+    for (int busIndex = 1; busIndex < getTotalNumOutputChannels() / 2; ++busIndex)
     {
-        writeToLog("✅ Layout accepted: 0 inputs, stereo output");
-        return true;
-    }
+        if (busIndex * 2 + 1 < getTotalNumOutputChannels())
+        {
+            auto busBuffer = getBusBuffer(buffer, false, busIndex);
 
-    writeToLog("❌ Layout rejected");
-    return false;
+            int trackIndex = busIndex - 1;
+            if (trackIndex < individualOutputBuffers.size())
+            {
+                for (int ch = 0; ch < std::min(busBuffer.getNumChannels(), 2); ++ch)
+                {
+                    busBuffer.copyFrom(ch, 0, individualOutputBuffers[trackIndex], ch, 0,
+                                       buffer.getNumSamples());
+                }
+            }
+        }
+    }
 }
 
 //==============================================================================
@@ -210,29 +257,38 @@ void DjIaVstProcessor::processMidiMessages(juce::MidiBuffer &midiMessages)
 
         if (message.isNoteOn())
         {
-            // Convertir numéro de note en nom
-            juce::String noteName = juce::MidiMessage::getMidiNoteName(message.getNoteNumber(), true, true, 3);
-            juce::String noteInfo = "Note ON: " + noteName + " (vel:" + juce::String(message.getVelocity()) + ")";
+            int noteNumber = message.getNoteNumber();
+            juce::String noteName = juce::MidiMessage::getMidiNoteName(noteNumber, true, true, 3);
 
-            writeToLog("🎹 " + noteInfo);
+            // Trouver la track correspondant à cette note
+            bool trackFound = false;
+            auto trackIds = trackManager.getAllTrackIds();
+            for (const auto &trackId : trackIds)
+            {
+                TrackData *track = trackManager.getTrack(trackId);
+                if (track && track->midiNote == noteNumber)
+                {
+                    // Jouer SEULEMENT cette track
+                    startNotePlaybackForTrack(trackId, noteNumber);
+                    trackFound = true;
 
-            // Notifier l'interface
-            if (midiIndicatorCallback)
-                midiIndicatorCallback(noteInfo);
+                    if (midiIndicatorCallback)
+                    {
+                        midiIndicatorCallback("Track: " + track->trackName + " (" + noteName + ")");
+                    }
+                    break;
+                }
+            }
 
-            startNotePlayback(message.getNoteNumber());
+            if (!trackFound)
+            {
+                writeToLog("🎹 No track assigned to note: " + noteName);
+            }
         }
         else if (message.isNoteOff())
         {
-            juce::String noteName = juce::MidiMessage::getMidiNoteName(message.getNoteNumber(), true, true, 3);
-            juce::String noteInfo = "Note OFF: " + noteName;
-
-            writeToLog("🎹 " + noteInfo);
-
-            if (midiIndicatorCallback)
-                midiIndicatorCallback(noteInfo);
-
-            stopNotePlayback();
+            int noteNumber = message.getNoteNumber();
+            stopNotePlaybackForTrack(noteNumber);
         }
     }
 }
@@ -241,257 +297,273 @@ void DjIaVstProcessor::startNotePlayback(int noteNumber)
 {
     isNotePlaying = true;
     currentNoteNumber = noteNumber;
-    readPosition = 0.0;
-    writeToLog("▶️ Playback started from note " + juce::String(noteNumber));
+
+    // Reset read position pour toutes les pistes
+    auto trackIds = trackManager.getAllTrackIds();
+    for (const auto &trackId : trackIds)
+    {
+        if (TrackData *track = trackManager.getTrack(trackId))
+        {
+            track->readPosition = 0.0;
+        }
+    }
+
+    writeToLog("▶️ Multi-track playback started from note " + juce::String(noteNumber));
 }
 
 void DjIaVstProcessor::stopNotePlayback()
 {
     isNotePlaying = false;
-    writeToLog("⏹️ Playback stopped");
+    writeToLog("⏹️ Multi-track playback stopped");
 }
 
 //==============================================================================
-// GÉNÉRATION AUDIO OPTIMISÉE
+// API MULTI-TRACK
 //==============================================================================
 
-void DjIaVstProcessor::generateAudioOutput(juce::AudioBuffer<float> &buffer)
+juce::String DjIaVstProcessor::createNewTrack(const juce::String &name)
 {
-    // Pas de lock dans le cas critique - utilisation d'atomics
-    if (bufferNumSamples == 0)
-        return;
-
-    const int numSamplesToProcess = buffer.getNumSamples();
-    const int numOutputChannels = buffer.getNumChannels();
-
-    // Calculer le ratio une seule fois
-    if (hostSampleRate > 0.0 && audioSampleRate > 0.0)
+    auto trackIds = trackManager.getAllTrackIds();
+    if (trackIds.size() >= MAX_TRACKS)
     {
-        playbackSpeedRatio = audioSampleRate / hostSampleRate;
+        throw std::runtime_error("Maximum number of tracks reached (" + std::to_string(MAX_TRACKS) + ")");
     }
 
-    double currentPosition = readPosition.load();
-    const float volume = masterVolume.load();
-
-    // Traitement optimisé pour stéréo
-    float *leftOut = buffer.getWritePointer(0);
-    float *rightOut = numOutputChannels > 1 ? buffer.getWritePointer(1) : leftOut;
-
-    // Pointeurs vers les données source (lecture atomique des pointeurs)
-    const float *leftIn = audioBuffer.getReadPointer(0);
-    const float *rightIn = audioBuffer.getNumChannels() > 1 ? audioBuffer.getReadPointer(1) : leftIn;
-
-    // Boucle optimisée
-    for (int i = 0; i < numSamplesToProcess; ++i)
-    {
-        // Interpolation linéaire ultra-rapide
-        float leftSample = interpolateLinear(leftIn, currentPosition, bufferNumSamples);
-        float rightSample = interpolateLinear(rightIn, currentPosition, bufferNumSamples);
-
-        // Application du volume et limitation
-        leftOut[i] = juce::jlimit(-1.0f, 1.0f, leftSample * volume);
-        rightOut[i] = juce::jlimit(-1.0f, 1.0f, rightSample * volume);
-
-        // Avancer la position avec bouclage
-        currentPosition += playbackSpeedRatio;
-        if (currentPosition >= bufferNumSamples)
-            currentPosition -= bufferNumSamples;
-    }
-
-    // Sauvegarder la position
-    readPosition = currentPosition;
+    juce::String trackId = trackManager.createTrack(name);
+    writeToLog("✅ New track created: " + trackId);
+    return trackId;
 }
 
-//==============================================================================
-// INTERPOLATION LINÉAIRE ULTRA-RAPIDE
-//==============================================================================
-
-inline float DjIaVstProcessor::interpolateLinear(const float *buffer, double position, int bufferSize)
+void DjIaVstProcessor::reorderTracks(const juce::String &fromTrackId, const juce::String &toTrackId)
 {
-    if (bufferSize <= 0)
-        return 0.0f;
-
-    // Conversion rapide sans modulo
-    int index = static_cast<int>(position);
-    float fraction = static_cast<float>(position - index);
-
-    // Wrapping simple
-    if (index >= bufferSize)
-        index -= bufferSize;
-    if (index < 0)
-        index += bufferSize;
-
-    int nextIndex = index + 1;
-    if (nextIndex >= bufferSize)
-        nextIndex = 0;
-
-    // Interpolation linéaire
-    return buffer[index] + fraction * (buffer[nextIndex] - buffer[index]);
+    trackManager.reorderTracks(fromTrackId, toTrackId);
+    writeToLog("🔄 Tracks reordered: " + fromTrackId + " -> " + toTrackId);
 }
 
-//==============================================================================
-// CHARGEMENT AUDIO SIMPLIFIÉ
-//==============================================================================
-
-void DjIaVstProcessor::processIncomingAudio()
+void DjIaVstProcessor::deleteTrack(const juce::String &trackId)
 {
-    if (!hasPendingAudioData.load())
-        return;
-
-    writeToLog("📥 Processing pending audio data...");
-
-    // Si auto-load activé, charger immédiatement
-    if (autoLoadEnabled.load())
+    if (trackId == selectedTrackId)
     {
-        writeToLog("🔄 Auto-loading sample...");
-        loadAudioData();
+        // Sélectionner une autre piste ou créer une nouvelle
+        auto trackIds = trackManager.getAllTrackIds();
+        if (trackIds.size() > 1)
+        {
+            for (const auto &id : trackIds)
+            {
+                if (id != trackId)
+                {
+                    selectedTrackId = id;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            selectedTrackId = trackManager.createTrack("Main");
+        }
     }
-    else
+
+    trackManager.removeTrack(trackId);
+    writeToLog("🗑️ Track deleted: " + trackId);
+}
+
+void DjIaVstProcessor::selectTrack(const juce::String &trackId)
+{
+    if (trackManager.getTrack(trackId))
     {
-        writeToLog("⏸️ Sample ready - waiting for manual load");
-        hasUnloadedSample = true; // Marquer qu'un sample attend
+        selectedTrackId = trackId;
+        writeToLog("🎯 Track selected: " + trackId);
     }
 }
 
-void DjIaVstProcessor::loadAudioData()
+void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest &request, const juce::String &targetTrackId)
 {
-    juce::AudioFormatManager formatManager;
-    formatManager.registerBasicFormats();
-
-    std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(
-        std::make_unique<juce::MemoryInputStream>(pendingAudioData, false)));
-
-    if (!reader)
-    {
-        writeToLog("❌ Failed to create audio reader");
-        clearPendingAudio();
-        return;
-    }
+    juce::String trackId = targetTrackId.isEmpty() ? selectedTrackId : targetTrackId;
 
     try
     {
-        loadAudioFromReader(*reader);
-    }
-    catch (const std::exception &e)
-    {
-        writeToLog("❌ Error loading audio: " + juce::String(e.what()));
-        hasLoop = false;
-    }
-
-    clearPendingAudio();
-    hasUnloadedSample = false;
-}
-
-void DjIaVstProcessor::setAutoLoadEnabled(bool enabled)
-{
-    autoLoadEnabled = enabled;
-    writeToLog(enabled ? "🔄 Auto-load enabled" : "⏸️ Auto-load disabled - manual mode");
-}
-
-void DjIaVstProcessor::loadPendingSample()
-{
-    if (hasUnloadedSample.load())
-    {
-        writeToLog("📂 Loading sample manually...");
-        loadAudioData();
-    }
-}
-
-void DjIaVstProcessor::loadAudioFromReader(juce::AudioFormatReader &reader)
-{
-    // Récupérer les infos du fichier
-    audioSampleRate = reader.sampleRate;
-    int numSourceSamples = static_cast<int>(reader.lengthInSamples);
-    int numSourceChannels = reader.numChannels;
-
-    writeToLog("📊 Loading audio:");
-    writeToLog("  Sample rate: " + juce::String(audioSampleRate) + " Hz");
-    writeToLog("  Channels: " + juce::String(numSourceChannels));
-    writeToLog("  Samples: " + juce::String(numSourceSamples));
-
-    // Validation du sample rate
-    if (audioSampleRate <= 0.0 || audioSampleRate > 192000.0)
-    {
-        writeToLog("⚠️ Invalid sample rate, defaulting to 44100 Hz");
-        audioSampleRate = 44100.0;
-    }
-
-    // Lock pour modifier le buffer
-    juce::ScopedLock lock(bufferLock);
-
-    // Redimensionner le buffer principal
-    audioBuffer.setSize(2, numSourceSamples, false, false, true);
-    audioBuffer.clear();
-
-    // Charger l'audio
-    reader.read(&audioBuffer, 0, numSourceSamples, 0, true, numSourceChannels == 1);
-
-    // Dupliquer mono vers stéréo si nécessaire
-    if (numSourceChannels == 1 && audioBuffer.getNumChannels() > 1)
-    {
-        audioBuffer.copyFrom(1, 0, audioBuffer, 0, 0, numSourceSamples);
-    }
-
-    // Mettre à jour les variables atomiques
-    bufferNumSamples = numSourceSamples;
-    readPosition = 0.0;
-    hasLoop = true;
-
-    writeToLog("✅ Audio loaded successfully");
-}
-
-void DjIaVstProcessor::clearPendingAudio()
-{
-    const juce::ScopedLock lock(apiLock);
-    pendingAudioData.reset();
-    hasPendingAudioData = false;
-}
-
-//==============================================================================
-// API ET CONTRÔLE
-//==============================================================================
-
-void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest &request)
-{
-    try
-    {
-        writeToLog("🚀 Starting API call for loop generation...");
+        writeToLog("🚀 Starting API call for track: " + trackId);
 
         auto response = apiClient.generateLoop(request);
 
-        writeToLog("📦 API response received:");
+        writeToLog("📦 API response received for track: " + trackId);
         writeToLog("  Audio data size: " + juce::String(response.audioData.getSize()) + " bytes");
         writeToLog("  Sample rate: " + juce::String(response.sampleRate) + " Hz");
 
-        // Stocker les données pour traitement
+        // Stocker pour la piste spécifique
         {
             const juce::ScopedLock lock(apiLock);
+            pendingTrackId = trackId;
             pendingAudioData = response.audioData;
             audioSampleRate = response.sampleRate;
             hasPendingAudioData = true;
         }
 
-        writeToLog("✅ Audio data queued for processing");
+        // Stocker les métadonnées de génération
+        if (TrackData *track = trackManager.getTrack(trackId))
+        {
+            track->prompt = request.prompt;
+            track->style = request.style;
+            track->bpm = request.bpm;
+
+            juce::String stems;
+            for (const auto &stem : request.preferredStems)
+            {
+                if (!stems.isEmpty())
+                    stems += ", ";
+                stems += stem;
+            }
+            track->stems = stems;
+        }
+
+        writeToLog("✅ Audio data queued for track: " + trackId);
     }
     catch (const std::exception &e)
     {
-        writeToLog("❌ Error in generateLoop: " + juce::String(e.what()));
+        writeToLog("❌ Error in generateLoop for track " + trackId + ": " + juce::String(e.what()));
         hasPendingAudioData = false;
-        hasLoop = false;
     }
 }
 
 void DjIaVstProcessor::startPlayback()
 {
     isNotePlaying = true;
-    readPosition = 0.0;
-    writeToLog("▶️ Manual playback started");
+
+    // Reset toutes les pistes
+    auto trackIds = trackManager.getAllTrackIds();
+    for (const auto &trackId : trackIds)
+    {
+        if (TrackData *track = trackManager.getTrack(trackId))
+        {
+            track->readPosition = 0.0;
+        }
+    }
+
+    writeToLog("▶️ Manual multi-track playback started");
 }
 
 void DjIaVstProcessor::stopPlayback()
 {
     isNotePlaying = false;
-    writeToLog("⏹️ Manual playback stopped");
+    writeToLog("⏹️ Manual multi-track playback stopped");
+}
+
+//==============================================================================
+// CHARGEMENT AUDIO
+//==============================================================================
+
+void DjIaVstProcessor::processIncomingAudio()
+{
+    if (!hasPendingAudioData.load() || pendingTrackId.isEmpty())
+        return;
+
+    writeToLog("📥 Processing pending audio data for track: " + pendingTrackId);
+
+    // Si auto-load activé, charger immédiatement
+    if (autoLoadEnabled.load())
+    {
+        writeToLog("🔄 Auto-loading sample to track: " + pendingTrackId);
+        loadAudioDataToTrack(pendingTrackId);
+    }
+    else
+    {
+        writeToLog("⏸️ Sample ready for track " + pendingTrackId + " - waiting for manual load");
+        hasUnloadedSample = true;
+    }
+}
+
+void DjIaVstProcessor::loadAudioDataToTrack(const juce::String &trackId)
+{
+    TrackData *track = trackManager.getTrack(trackId);
+    if (!track)
+    {
+        writeToLog("❌ Track not found: " + trackId);
+        clearPendingAudio();
+        return;
+    }
+
+    juce::AudioFormatManager formatManager;
+    formatManager.registerBasicFormats();
+
+    std::unique_ptr<juce::AudioFormatReader> reader(
+        formatManager.createReaderFor(
+            std::make_unique<juce::MemoryInputStream>(pendingAudioData, false)));
+
+    if (!reader)
+    {
+        writeToLog("❌ Failed to create audio reader for track: " + trackId);
+        clearPendingAudio();
+        return;
+    }
+
+    try
+    {
+        // Récupérer les infos du fichier
+        track->sampleRate = reader->sampleRate;
+        track->numSamples = static_cast<int>(reader->lengthInSamples);
+        int numSourceChannels = reader->numChannels;
+
+        writeToLog("📊 Loading audio to track " + track->trackName + ":");
+        writeToLog("  Sample rate: " + juce::String(track->sampleRate) + " Hz");
+        writeToLog("  Channels: " + juce::String(numSourceChannels));
+        writeToLog("  Samples: " + juce::String(track->numSamples));
+
+        // Validation du sample rate
+        if (track->sampleRate <= 0.0 || track->sampleRate > 192000.0)
+        {
+            writeToLog("⚠️ Invalid sample rate, defaulting to 44100 Hz");
+            track->sampleRate = 44100.0;
+        }
+
+        // Redimensionner le buffer de la piste
+        track->audioBuffer.setSize(2, track->numSamples, false, false, true);
+        track->audioBuffer.clear();
+
+        // Charger l'audio
+        reader->read(&track->audioBuffer, 0, track->numSamples, 0, true, numSourceChannels == 1);
+
+        // Dupliquer mono vers stéréo si nécessaire
+        if (numSourceChannels == 1 && track->audioBuffer.getNumChannels() > 1)
+        {
+            track->audioBuffer.copyFrom(1, 0, track->audioBuffer, 0, 0, track->numSamples);
+        }
+
+        // Reset position de lecture
+        track->readPosition = 0.0;
+
+        writeToLog("✅ Audio loaded successfully to track: " + track->trackName);
+    }
+    catch (const std::exception &e)
+    {
+        writeToLog("❌ Error loading audio to track " + trackId + ": " + juce::String(e.what()));
+        track->reset();
+    }
+
+    clearPendingAudio();
+    hasUnloadedSample = false;
+}
+
+void DjIaVstProcessor::loadPendingSample()
+{
+    if (hasUnloadedSample.load() && !pendingTrackId.isEmpty())
+    {
+        writeToLog("📂 Loading sample manually to track: " + pendingTrackId);
+        loadAudioDataToTrack(pendingTrackId);
+    }
+}
+
+void DjIaVstProcessor::clearPendingAudio()
+{
+    const juce::ScopedLock lock(apiLock);
+    pendingAudioData.reset();
+    pendingTrackId.clear();
+    hasPendingAudioData = false;
+}
+
+void DjIaVstProcessor::setAutoLoadEnabled(bool enabled)
+{
+    autoLoadEnabled = enabled;
+    writeToLog(enabled ? "🔄 Auto-load enabled" : "⏸️ Auto-load disabled - manual mode");
 }
 
 //==============================================================================
@@ -512,6 +584,25 @@ void DjIaVstProcessor::setServerUrl(const juce::String &url)
     writeToLog("🌐 Server URL updated: " + url);
 }
 
+double DjIaVstProcessor::getHostBpm() const
+{
+    if (auto playHead = getPlayHead())
+    {
+        if (auto positionInfo = playHead->getPosition())
+        {
+            if (positionInfo->getBpm().hasValue())
+            {
+                double bpm = *positionInfo->getBpm();
+                writeToLog("🎵 Host BPM detected: " + juce::String(bpm));
+                return bpm;
+            }
+        }
+    }
+
+    writeToLog("⚠️ No host BPM available");
+    return 0.0;
+}
+
 //==============================================================================
 // ÉTAT ET SÉRIALISATION
 //==============================================================================
@@ -524,9 +615,8 @@ juce::AudioProcessorEditor *DjIaVstProcessor::createEditor()
 void DjIaVstProcessor::getStateInformation(juce::MemoryBlock &destData)
 {
     juce::ValueTree state("DjIaVstState");
-    state.setProperty("bpm", currentBPM, nullptr);
-    state.setProperty("key", currentKey, nullptr);
-    state.setProperty("style", currentStyle, nullptr);
+
+    // État basique
     state.setProperty("serverUrl", serverUrl, nullptr);
     state.setProperty("apiKey", apiKey, nullptr);
     state.setProperty("lastPrompt", lastPrompt, nullptr);
@@ -536,7 +626,13 @@ void DjIaVstProcessor::getStateInformation(juce::MemoryBlock &destData)
     state.setProperty("lastPresetIndex", lastPresetIndex, nullptr);
     state.setProperty("hostBpmEnabled", hostBpmEnabled, nullptr);
 
-    writeToLog("💾 Saving state - URL: " + serverUrl + ", API Key: " + (apiKey.isNotEmpty() ? "***SET***" : "EMPTY"));
+    // État multi-track
+    state.setProperty("selectedTrackId", selectedTrackId, nullptr);
+
+    // Sauvegarder toutes les pistes
+    state.appendChild(trackManager.saveState(), nullptr);
+
+    writeToLog("💾 Saving multi-track state - " + juce::String(trackManager.getAllTrackIds().size()) + " tracks");
 
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
@@ -548,9 +644,8 @@ void DjIaVstProcessor::setStateInformation(const void *data, int sizeInBytes)
     if (xml && xml->hasTagName("DjIaVstState"))
     {
         juce::ValueTree state = juce::ValueTree::fromXml(*xml);
-        currentBPM = state.getProperty("bpm", 126.0);
-        currentKey = state.getProperty("key", "C minor");
-        currentStyle = state.getProperty("style", "techno");
+
+        // Charger état basique
         lastPrompt = state.getProperty("lastPrompt", "").toString();
         lastStyle = state.getProperty("lastStyle", "Techno").toString();
         lastKey = state.getProperty("lastKey", "C minor").toString();
@@ -571,28 +666,35 @@ void DjIaVstProcessor::setStateInformation(const void *data, int sizeInBytes)
             setApiKey(newApiKey);
         }
 
-        writeToLog("📂 Loading state - URL: " + serverUrl + ", API Key: " + (apiKey.isNotEmpty() ? "***LOADED***" : "EMPTY"));
-    }
-}
-
-double DjIaVstProcessor::getHostBpm() const
-{
-    if (auto playHead = getPlayHead())
-    {
-        if (auto positionInfo = playHead->getPosition())
+        // Charger les pistes
+        auto tracksState = state.getChildWithName("TrackManager");
+        if (tracksState.isValid())
         {
-            if (positionInfo->getBpm().hasValue())
+            trackManager.loadState(tracksState);
+        }
+
+        // Restaurer piste sélectionnée
+        selectedTrackId = state.getProperty("selectedTrackId", "").toString();
+        if (selectedTrackId.isEmpty() || !trackManager.getTrack(selectedTrackId))
+        {
+            auto trackIds = trackManager.getAllTrackIds();
+            if (!trackIds.empty())
             {
-                double bpm = *positionInfo->getBpm();
-                writeToLog("🎵 Host BPM detected: " + juce::String(bpm));
-                return bpm;
+                selectedTrackId = trackIds[0];
+            }
+            else
+            {
+                selectedTrackId = trackManager.createTrack("Main");
             }
         }
-    }
 
-    writeToLog("⚠️ No host BPM available");
-    return 0.0; // Pas de BPM disponible
+        writeToLog("📂 Loading multi-track state - " + juce::String(trackManager.getAllTrackIds().size()) + " tracks loaded");
+    }
 }
+
+//==============================================================================
+// PARAMÈTRES AUTOMATISABLES
+//==============================================================================
 
 void DjIaVstProcessor::parameterChanged(const juce::String &parameterID, float newValue)
 {
@@ -600,9 +702,7 @@ void DjIaVstProcessor::parameterChanged(const juce::String &parameterID, float n
 
     if (parameterID == "generate" && newValue > 0.5f)
     {
-        writeToLog("🚀 Generate triggered from Device Panel");
-        // Déclencher generation avec paramètres par défaut
-        // Tu peux ajouter la logique de génération ici
+        writeToLog("🚀 Generate triggered from Device Panel for track: " + selectedTrackId);
 
         // Reset le paramètre (bouton momentané)
         juce::MessageManager::callAsync([this]()
@@ -626,5 +726,46 @@ void DjIaVstProcessor::parameterChanged(const juce::String &parameterID, float n
         bool enabled = newValue > 0.5f;
         setAutoLoadEnabled(enabled);
         writeToLog("🔄 Auto-load " + juce::String(enabled ? "enabled" : "disabled") + " from Device Panel");
+    }
+}
+
+//==============================================================================
+// LOGGING
+//==============================================================================
+
+void DjIaVstProcessor::writeToLog(const juce::String &message)
+{
+    auto file = juce::File::getSpecialLocation(juce::File::userDesktopDirectory)
+                    .getChildFile("dj_ia_vst_multitrack.log");
+
+    auto time = juce::Time::getCurrentTime().toString(true, true, true, true);
+    file.appendText(time + ": " + message + "\n");
+}
+
+void DjIaVstProcessor::startNotePlaybackForTrack(const juce::String &trackId, int noteNumber)
+{
+
+    TrackData *track = trackManager.getTrack(trackId);
+    if (!track || track->numSamples == 0)
+        return;
+
+    track->readPosition = 0.0;
+    track->isPlaying = true;
+
+    playingTracks[noteNumber] = trackId;
+}
+
+void DjIaVstProcessor::stopNotePlaybackForTrack(int noteNumber)
+{
+    auto it = playingTracks.find(noteNumber);
+    if (it != playingTracks.end())
+    {
+        TrackData *track = trackManager.getTrack(it->second);
+        if (track)
+        {
+            track->isPlaying = false;
+        }
+        playingTracks.erase(it);
+        writeToLog("⏹️ Stopped track for note " + juce::String(noteNumber));
     }
 }

@@ -1,7 +1,8 @@
 #pragma once
 #include "PluginProcessor.h"
+#include "TrackComponent.h"
 
-class DjIaVstEditor : public juce::AudioProcessorEditor
+class DjIaVstEditor : public juce::AudioProcessorEditor, public juce::MenuBarModel
 {
 public:
     explicit DjIaVstEditor(DjIaVstProcessor &);
@@ -10,6 +11,9 @@ public:
     void paint(juce::Graphics &) override;
     void resized() override;
     void updateUIFromProcessor();
+    juce::StringArray getMenuBarNames() override;
+    juce::PopupMenu getMenuForIndex(int topLevelMenuIndex, const juce::String &menuName) override;
+    void menuItemSelected(int menuItemID, int topLevelMenuIndex) override;
 
 private:
     DjIaVstProcessor &audioProcessor;
@@ -24,6 +28,15 @@ private:
     void onLoadSampleClicked();
     void updateLoadButtonState();
     void updateMidiIndicator(const juce::String &noteInfo);
+    void refreshTrackComponents();
+    void onAddTrack();
+    void updateSelectedTrack();
+    void onSaveSession();
+    void onLoadSession();
+    void loadSessionList();
+    void saveCurrentSession(const juce::String &sessionName);
+    void loadSession(const juce::String &sessionName);
+    juce::File getSessionsDirectory();
 
     // Presets de prompts
     juce::StringArray promptPresets = {
@@ -123,6 +136,35 @@ private:
     juce::String lastMidiNote;
 
     juce::TextButton testMidiButton;
+
+    juce::Viewport tracksViewport;
+    juce::Component tracksContainer;
+    std::vector<std::unique_ptr<TrackComponent>> trackComponents;
+    juce::TextButton addTrackButton;
+    juce::Label tracksLabel;
+
+    // Session management
+    juce::TextButton saveSessionButton;
+    juce::TextButton loadSessionButton;
+    juce::ComboBox sessionSelector;
+
+    std::unique_ptr<juce::MenuBarComponent> menuBar;
+
+    enum MenuIDs
+    {
+        newSession = 1,
+        saveSession,
+        saveSessionAs,
+        loadSessionMenu,
+        exportSession,
+
+        aboutDjIa = 100,
+        showHelp,
+
+        addTrack = 200,
+        deleteAllTracks,
+        resetTracks
+    };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstEditor)
 };
