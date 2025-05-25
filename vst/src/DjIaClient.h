@@ -35,7 +35,7 @@ public:
         try
         {
             auto url = juce::URL(baseUrl + "/health");
-            
+
             if (auto response = url.createInputStream(
                     juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inPostData)
                         .withConnectionTimeoutMs(5000) // Timeout plus court
@@ -49,7 +49,7 @@ public:
         {
             return false;
         }
-        
+
         return false;
     }
 
@@ -87,7 +87,7 @@ public:
 
             // Créer la requête
             auto url = juce::URL(baseUrl + "/generate").withPOSTData(jsonString);
-            
+
             auto options = juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inPostData)
                                .withConnectionTimeoutMs(120000)
                                .withExtraHeaders(headerString);

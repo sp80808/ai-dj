@@ -6,13 +6,69 @@
 //==============================================================================
 
 DjIaVstProcessor::DjIaVstProcessor()
-    : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true))
+    : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
+      parameters(*this, nullptr, "Parameters", {std::make_unique<juce::AudioParameterBool>("generate", "Generate Loop", false), std::make_unique<juce::AudioParameterBool>("play", "Play Loop", false), std::make_unique<juce::AudioParameterBool>("autoload", "Auto-Load", true), std::make_unique<juce::AudioParameterFloat>("bpm", "BPM", 60.0f, 200.0f, 126.0f), std::make_unique<juce::AudioParameterChoice>("style", "Style", juce::StringArray{"Techno", "House", "Ambient", "Experimental"}, 0)})
 {
+    // Récupérer les pointeurs vers les paramètres
+    generateParam = parameters.getRawParameterValue("generate");
+    playParam = parameters.getRawParameterValue("play");
+    autoLoadParam = parameters.getRawParameterValue("autoload");
+
+    // Ajouter callbacks pour les changements de paramètres
+    parameters.addParameterListener("generate", this);
+    parameters.addParameterListener("play", this);
+    parameters.addParameterListener("autoload", this);
+
+    // Synthesiser factice
+    for (int i = 0; i < 4; ++i)
+        synth.addVoice(new DummyVoice());
+    synth.addSound(new DummySound());
+
     writeToLog("=== DJ-IA VST INITIALIZED ===");
 }
 
+// Dans PluginProcessor.cpp - destructeur mis à jour :
 DjIaVstProcessor::~DjIaVstProcessor()
 {
+    writeToLog("=== DJ-IA VST DESTRUCTOR START ===");
+
+    try
+    {
+        // Arrêter les listeners AVANT tout
+        parameters.removeParameterListener("generate", this);
+        parameters.removeParameterListener("play", this);
+        parameters.removeParameterListener("autoload", this);
+
+        // Arrêter tout immédiatement
+        isNotePlaying = false;
+        hasLoop = false;
+        hasPendingAudioData = false;
+
+        // Vider les callbacks dangereux
+        midiIndicatorCallback = nullptr;
+
+        // Nettoyer les buffers
+        {
+            juce::ScopedLock lock(bufferLock);
+            audioBuffer.setSize(0, 0);
+            bufferNumSamples = 0;
+        }
+
+        // Nettoyer le synthesiser factice
+        synth.clearVoices();
+        synth.clearSounds();
+
+        writeToLog("✅ All resources cleaned up");
+    }
+    catch (const std::exception &e)
+    {
+        writeToLog("❌ Exception in destructor: " + juce::String(e.what()));
+    }
+    catch (...)
+    {
+        writeToLog("❌ Unknown exception in destructor");
+    }
+
     writeToLog("=== DJ-IA VST DESTROYED ===");
 }
 
@@ -27,6 +83,17 @@ void DjIaVstProcessor::prepareToPlay(double newSampleRate, int samplesPerBlock)
     writeToLog("=== PREPARE TO PLAY ===");
     writeToLog("Host sample rate: " + juce::String(hostSampleRate) + " Hz");
     writeToLog("Samples per block: " + juce::String(samplesPerBlock));
+
+    // DEBUG MIDI CAPABILITIES
+    writeToLog("🎹 MIDI Debug Info:");
+    writeToLog("  acceptsMidi(): " + juce::String(acceptsMidi() ? "TRUE" : "FALSE"));
+    writeToLog("  producesMidi(): " + juce::String(producesMidi() ? "TRUE" : "FALSE"));
+    writeToLog("  isMidiEffect(): " + juce::String(isMidiEffect() ? "TRUE" : "FALSE"));
+    writeToLog("  Total input channels: " + juce::String(getTotalNumInputChannels()));
+    writeToLog("  Total output channels: " + juce::String(getTotalNumOutputChannels()));
+
+    // Configurer le synthesiser factice
+    synth.setCurrentPlaybackSampleRate(newSampleRate);
 
     // Buffer simple de 10 secondes max
     juce::ScopedLock lock(bufferLock);
@@ -56,35 +123,79 @@ void DjIaVstProcessor::releaseResources()
 
 void DjIaVstProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::MidiBuffer &midiMessages)
 {
+    // COMPTEUR DE DEBUG
+    static int totalBlocks = 0;
+    static int midiBlocks = 0;
+    totalBlocks++;
+
+    // DEBUG MIDI RECEPTION
+    int midiEventCount = midiMessages.getNumEvents();
+
+    if (midiEventCount > 0)
+    {
+        midiBlocks++;
+        writeToLog("📨 BLOCK " + juce::String(totalBlocks) + " - MIDI events: " + juce::String(midiEventCount));
+
+        for (const auto metadata : midiMessages)
+        {
+            auto message = metadata.getMessage();
+            writeToLog("🎵 MIDI: " + message.getDescription() + " at sample " + juce::String(metadata.samplePosition));
+        }
+    }
+
+    // DEBUG PERIODIQUE
+    if (totalBlocks % 2000 == 0) // Chaque ~40 secondes à 48kHz/256
+    {
+        writeToLog("📊 Stats: " + juce::String(totalBlocks) + " total blocks, " +
+                   juce::String(midiBlocks) + " with MIDI (" +
+                   juce::String((float)midiBlocks / totalBlocks * 100, 1) + "%)");
+    }
+
     // Nettoyer les canaux inutilisés
     for (auto i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 
-    // Traiter l'audio en attente (pas dans le thread audio critique)
+    // Traiter le MIDI AVANT tout le reste
+    processMidiMessages(midiMessages);
+
+    // Laisser le DummySynthesiser traiter (pour Bitwig)
+    juce::AudioBuffer<float> synthBuffer(buffer.getNumChannels(), buffer.getNumSamples());
+    synthBuffer.clear();
+    synth.renderNextBlock(synthBuffer, midiMessages, 0, buffer.getNumSamples());
+
+    // Traiter l'audio en attente
     if (hasPendingAudioData.load())
     {
         processIncomingAudio();
     }
 
-    // Si pas de loop, sortir en silence
-    if (!hasLoop.load() || bufferNumSamples == 0)
+    // Si pas de loop OU si on ne joue pas, sortir en silence
+    if (!hasLoop.load() || bufferNumSamples == 0 || !isNotePlaying.load())
     {
         buffer.clear();
         return;
     }
 
-    // Traiter les messages MIDI
-    processMidiMessages(midiMessages);
+    // Générer l'audio seulement si on a un loop ET qu'on joue
+    generateAudioOutput(buffer);
+}
 
-    // Générer l'audio si on joue
-    if (isNotePlaying.load())
+bool DjIaVstProcessor::isBusesLayoutSupported(const BusesLayout &layouts) const
+{
+    writeToLog("🔌 isBusesLayoutSupported called");
+    writeToLog("  Input buses: " + juce::String(layouts.inputBuses.size()));
+    writeToLog("  Output buses: " + juce::String(layouts.outputBuses.size()));
+
+    // Accepter : 0 inputs audio, 2 outputs audio (instrument typique)
+    if (layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo() &&
+        layouts.getMainInputChannelSet() == juce::AudioChannelSet())
     {
-        generateAudioOutput(buffer);
+        writeToLog("✅ Layout accepted: 0 inputs, stereo output");
+        return true;
     }
-    else
-    {
-        buffer.clear();
-    }
+
+    writeToLog("❌ Layout rejected");
+    return false;
 }
 
 //==============================================================================
@@ -99,10 +210,28 @@ void DjIaVstProcessor::processMidiMessages(juce::MidiBuffer &midiMessages)
 
         if (message.isNoteOn())
         {
+            // Convertir numéro de note en nom
+            juce::String noteName = juce::MidiMessage::getMidiNoteName(message.getNoteNumber(), true, true, 3);
+            juce::String noteInfo = "Note ON: " + noteName + " (vel:" + juce::String(message.getVelocity()) + ")";
+
+            writeToLog("🎹 " + noteInfo);
+
+            // Notifier l'interface
+            if (midiIndicatorCallback)
+                midiIndicatorCallback(noteInfo);
+
             startNotePlayback(message.getNoteNumber());
         }
-        else if (message.isNoteOff() && message.getNoteNumber() == currentNoteNumber.load())
+        else if (message.isNoteOff())
         {
+            juce::String noteName = juce::MidiMessage::getMidiNoteName(message.getNoteNumber(), true, true, 3);
+            juce::String noteInfo = "Note OFF: " + noteName;
+
+            writeToLog("🎹 " + noteInfo);
+
+            if (midiIndicatorCallback)
+                midiIndicatorCallback(noteInfo);
+
             stopNotePlayback();
         }
     }
@@ -211,6 +340,21 @@ void DjIaVstProcessor::processIncomingAudio()
 
     writeToLog("📥 Processing pending audio data...");
 
+    // Si auto-load activé, charger immédiatement
+    if (autoLoadEnabled.load())
+    {
+        writeToLog("🔄 Auto-loading sample...");
+        loadAudioData();
+    }
+    else
+    {
+        writeToLog("⏸️ Sample ready - waiting for manual load");
+        hasUnloadedSample = true; // Marquer qu'un sample attend
+    }
+}
+
+void DjIaVstProcessor::loadAudioData()
+{
     juce::AudioFormatManager formatManager;
     formatManager.registerBasicFormats();
 
@@ -235,6 +379,22 @@ void DjIaVstProcessor::processIncomingAudio()
     }
 
     clearPendingAudio();
+    hasUnloadedSample = false;
+}
+
+void DjIaVstProcessor::setAutoLoadEnabled(bool enabled)
+{
+    autoLoadEnabled = enabled;
+    writeToLog(enabled ? "🔄 Auto-load enabled" : "⏸️ Auto-load disabled - manual mode");
+}
+
+void DjIaVstProcessor::loadPendingSample()
+{
+    if (hasUnloadedSample.load())
+    {
+        writeToLog("📂 Loading sample manually...");
+        loadAudioData();
+    }
 }
 
 void DjIaVstProcessor::loadAudioFromReader(juce::AudioFormatReader &reader)
@@ -368,6 +528,15 @@ void DjIaVstProcessor::getStateInformation(juce::MemoryBlock &destData)
     state.setProperty("key", currentKey, nullptr);
     state.setProperty("style", currentStyle, nullptr);
     state.setProperty("serverUrl", serverUrl, nullptr);
+    state.setProperty("apiKey", apiKey, nullptr);
+    state.setProperty("lastPrompt", lastPrompt, nullptr);
+    state.setProperty("lastStyle", lastStyle, nullptr);
+    state.setProperty("lastKey", lastKey, nullptr);
+    state.setProperty("lastBpm", lastBpm, nullptr);
+    state.setProperty("lastPresetIndex", lastPresetIndex, nullptr);
+    state.setProperty("hostBpmEnabled", hostBpmEnabled, nullptr);
+
+    writeToLog("💾 Saving state - URL: " + serverUrl + ", API Key: " + (apiKey.isNotEmpty() ? "***SET***" : "EMPTY"));
 
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
@@ -382,11 +551,80 @@ void DjIaVstProcessor::setStateInformation(const void *data, int sizeInBytes)
         currentBPM = state.getProperty("bpm", 126.0);
         currentKey = state.getProperty("key", "C minor");
         currentStyle = state.getProperty("style", "techno");
+        lastPrompt = state.getProperty("lastPrompt", "").toString();
+        lastStyle = state.getProperty("lastStyle", "Techno").toString();
+        lastKey = state.getProperty("lastKey", "C minor").toString();
+        lastBpm = state.getProperty("lastBpm", 126.0);
+        lastPresetIndex = state.getProperty("lastPresetIndex", -1);
+        hostBpmEnabled = state.getProperty("hostBpmEnabled", false);
 
         juce::String newServerUrl = state.getProperty("serverUrl", "http://localhost:8000").toString();
+        juce::String newApiKey = state.getProperty("apiKey", "").toString();
+
         if (newServerUrl != serverUrl)
         {
             setServerUrl(newServerUrl);
         }
+
+        if (newApiKey != apiKey)
+        {
+            setApiKey(newApiKey);
+        }
+
+        writeToLog("📂 Loading state - URL: " + serverUrl + ", API Key: " + (apiKey.isNotEmpty() ? "***LOADED***" : "EMPTY"));
+    }
+}
+
+double DjIaVstProcessor::getHostBpm() const
+{
+    if (auto playHead = getPlayHead())
+    {
+        if (auto positionInfo = playHead->getPosition())
+        {
+            if (positionInfo->getBpm().hasValue())
+            {
+                double bpm = *positionInfo->getBpm();
+                writeToLog("🎵 Host BPM detected: " + juce::String(bpm));
+                return bpm;
+            }
+        }
+    }
+
+    writeToLog("⚠️ No host BPM available");
+    return 0.0; // Pas de BPM disponible
+}
+
+void DjIaVstProcessor::parameterChanged(const juce::String &parameterID, float newValue)
+{
+    writeToLog("🎛️ Parameter changed: " + parameterID + " = " + juce::String(newValue));
+
+    if (parameterID == "generate" && newValue > 0.5f)
+    {
+        writeToLog("🚀 Generate triggered from Device Panel");
+        // Déclencher generation avec paramètres par défaut
+        // Tu peux ajouter la logique de génération ici
+
+        // Reset le paramètre (bouton momentané)
+        juce::MessageManager::callAsync([this]()
+                                        { parameters.getParameter("generate")->setValueNotifyingHost(0.0f); });
+    }
+    else if (parameterID == "play")
+    {
+        if (newValue > 0.5f)
+        {
+            writeToLog("▶️ Play triggered from Device Panel");
+            startPlayback();
+        }
+        else
+        {
+            writeToLog("⏹️ Stop triggered from Device Panel");
+            stopPlayback();
+        }
+    }
+    else if (parameterID == "autoload")
+    {
+        bool enabled = newValue > 0.5f;
+        setAutoLoadEnabled(enabled);
+        writeToLog("🔄 Auto-load " + juce::String(enabled ? "enabled" : "disabled") + " from Device Panel");
     }
 }

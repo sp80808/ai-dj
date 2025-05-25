@@ -1,19 +1,15 @@
 #pragma once
 
+// Laisser CMake définir les flags principaux (IsSynth, WantsMidiInput, etc.)
+// Mais définir les infos basiques
+
 #define JucePlugin_Name "DJ-IA VST"
-#define JucePlugin_Desc "DJ-IA VST Plugin"
-#define JucePlugin_Manufacturer "DJ-IA"
-#define JucePlugin_ManufacturerWebsite ""
-#define JucePlugin_ManufacturerEmail ""
+#define JucePlugin_Desc "AI Loop Generator Instrument"
+#define JucePlugin_Manufacturer "Anthony"
 #define JucePlugin_ManufacturerCode 0x4D616E75
-#define JucePlugin_PluginCode 0x44656D6F
-#define JucePlugin_IsSynth 1
-#define JucePlugin_WantsMidiInput 1
-#define JucePlugin_ProducesMidiOutput 0
-#define JucePlugin_IsMidiEffect 0
-#define JucePlugin_EditorRequiresKeyboardFocus 0
+#define JucePlugin_PluginCode 0x44656D80
 #define JucePlugin_VSTUniqueID JucePlugin_PluginCode
-#define JucePlugin_VSTCategory kPlugCategSynth
+#define JucePlugin_Vst3Category "Instrument"
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_devices/juce_audio_devices.h>

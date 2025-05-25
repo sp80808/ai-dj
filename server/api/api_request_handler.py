@@ -6,7 +6,7 @@ from config.vst_prompts import (
     VST_STYLE_PARAMS,
     create_vst_system_prompt,
 )
-
+from server.api.models import GenerateRequest
 
 class APIRequestHandler:
     """Gestionnaire propre pour les requêtes API"""
@@ -148,14 +148,14 @@ class APIRequestHandler:
 
         return audio, sample_info, adaptation
 
-    def process_audio_pipeline(self, audio, request, request_id, adaptation):
+    def process_audio_pipeline(self, audio, request: GenerateRequest, request_id, adaptation):
         """Pipeline de traitement audio complet"""
         # 1. Sauvegarde temporaire
         temp_path = os.path.join(
             self.dj_system.output_dir_base, f"temp_raw_{request_id}.wav"
         )
         self.dj_system.music_gen.save_sample(audio, temp_path)
-
+        self.dj_system.layer_manager.master_tempo = request.bpm if hasattr(request, "bpm") else 126
         # 2. Préparation loop
         processed_path = self.dj_system.layer_manager._prepare_sample_for_loop(
             original_audio_path=temp_path,
