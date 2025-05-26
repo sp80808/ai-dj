@@ -11,6 +11,11 @@ public:
         startTimerHz(30); // Pour les animations et couleurs
     }
 
+    ~MixerChannel() override
+    {
+        stopTimer();
+    }
+
     void setTrackData(TrackData *trackData)
     {
         track = trackData;
