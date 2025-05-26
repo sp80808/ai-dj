@@ -175,5 +175,5 @@ private:
         resetTracks
     };
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstEditor)
+    JUCE_DECLARE_WEAK_REFERENCEABLE(DjIaVstEditor)
 };

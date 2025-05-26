@@ -13,8 +13,12 @@ DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor &p)
     setupUI();
 
     // Connecter le callback MIDI
-    audioProcessor.setMidiIndicatorCallback([this](const juce::String &noteInfo)
-                                            { updateMidiIndicator(noteInfo); });
+    juce::WeakReference<DjIaVstEditor> weakThis(this);
+    audioProcessor.setMidiIndicatorCallback([weakThis](const juce::String &noteInfo)
+                                            {
+        if (weakThis != nullptr) { // Vérifier que l'éditeur existe encore
+            weakThis->updateMidiIndicator(noteInfo);
+        } });
     refreshTracks();
     startTimerHz(30);
 }
