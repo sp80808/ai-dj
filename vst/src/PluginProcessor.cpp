@@ -54,14 +54,14 @@ DjIaVstProcessor::DjIaVstProcessor()
     for (int i = 0; i < 4; ++i)
         synth.addVoice(new DummyVoice());
     synth.addSound(new DummySound());
-
+    startTimerHz(30);
     writeToLog("=== DJ-IA VST MULTI-TRACK INITIALIZED ===");
 }
 
 DjIaVstProcessor::~DjIaVstProcessor()
 {
     writeToLog("=== DJ-IA VST DESTRUCTOR START ===");
-
+    stopTimer();
     try
     {
         // Arrêter les listeners AVANT tout
@@ -96,6 +96,21 @@ DjIaVstProcessor::~DjIaVstProcessor()
     }
 
     writeToLog("=== DJ-IA VST DESTROYED ===");
+}
+
+void DjIaVstProcessor::timerCallback()
+{
+    // Seulement si nécessaire
+    if (!needsUIUpdate.load())
+        return;
+
+    // Notifier l'UI
+    if (onUIUpdateNeeded)
+    {
+        onUIUpdateNeeded();
+    }
+
+    needsUIUpdate = false;
 }
 
 //==============================================================================
@@ -165,8 +180,6 @@ bool DjIaVstProcessor::isBusesLayoutSupported(const BusesLayout &layouts) const
 //==============================================================================
 // TRAITEMENT AUDIO PRINCIPAL MULTI-TRACK
 //==============================================================================
-
-// Dans PluginProcessor.cpp - Modifier la méthode processBlock()
 
 void DjIaVstProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::MidiBuffer &midiMessages)
 {
@@ -271,6 +284,22 @@ void DjIaVstProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::Midi
             mainOutput.applyGain(0, 0, mainOutput.getNumSamples(), 1.0f - masterPanVal);
         }
     }
+    bool anyTrackPlaying = false;
+    auto trackIds = trackManager.getAllTrackIds();
+    for (const auto &trackId : trackIds)
+    {
+        TrackData *track = trackManager.getTrack(trackId);
+        if (track && track->isPlaying.load())
+        {
+            anyTrackPlaying = true;
+            break;
+        }
+    }
+
+    if (anyTrackPlaying || midiMessages.getNumEvents() > 0)
+    {
+        needsUIUpdate = true;
+    }
 }
 
 void DjIaVstProcessor::updateMasterEQ()
@@ -289,6 +318,7 @@ void DjIaVstProcessor::processMidiMessages(juce::MidiBuffer &midiMessages, bool 
     int midiEventCount = midiMessages.getNumEvents();
     if (midiEventCount > 0)
     {
+        needsUIUpdate = true;
         writeToLog("📨 MIDI events: " + juce::String(midiEventCount) +
                    " (Host playing: " + juce::String(hostIsPlaying ? "YES" : "NO") +
                    ", BPM: " + juce::String(hostBpm, 1) + ")");
@@ -389,7 +419,7 @@ void DjIaVstProcessor::updateTimeStretchRatios(double hostBpm)
 
         // Limiter le ratio pour éviter les extrêmes
         ratio = juce::jlimit(0.25, 4.0, ratio); // Entre 1/4x et 4x la vitesse
-        track->timeStretchRatio = ratio;
+        track->cachedPlaybackRatio = ratio;
     }
 }
 
@@ -399,14 +429,14 @@ void DjIaVstProcessor::startNotePlaybackForTrack(const juce::String &trackId, in
     if (!track || track->numSamples == 0)
         return;
 
-    // NOUVEAU : Vérifier si la track est armée
+    // Vérifier si la track est armée
     if (!track->isArmed.load())
     {
         writeToLog("🎹 Track " + track->trackName + " not armed - ignoring MIDI");
         return;
     }
 
-    // NOUVEAU : Si déjà en cours de lecture, ignorer
+    // Si déjà en cours de lecture, ignorer
     if (track->isPlaying.load())
     {
         writeToLog("🎹 Track " + track->trackName + " already playing - ignoring MIDI");
@@ -561,7 +591,7 @@ void DjIaVstProcessor::processIncomingAudio()
     {
         writeToLog("🔄 Starting ASYNC loading for track: " + pendingTrackId);
 
-        // NOUVEAU : Lancer dans un thread séparé
+        // Lancer dans un thread séparé
         juce::Thread::launch([this, trackId = pendingTrackId, audioData = pendingAudioData]()
                              { loadAudioDataAsync(trackId, audioData); });
 
@@ -628,8 +658,27 @@ void DjIaVstProcessor::performAtomicSwap(TrackData *track, const juce::String &t
     // Clear staging
     track->hasStagingData = false;
     track->stagingBuffer.setSize(0, 0); // Libérer mémoire
-
+    juce::MessageManager::callAsync([this, trackId = juce::String(/* track ID */)]()
+                                    {
+        // Refresh waveform display si visible
+        updateWaveformDisplay(trackId); });
     writeToLog("✅ Atomic swap complete for: " + trackId);
+}
+
+void DjIaVstProcessor::updateWaveformDisplay(const juce::String &trackId)
+{
+    if (auto *editor = dynamic_cast<DjIaVstEditor *>(getActiveEditor()))
+    {
+        // Trouver le TrackComponent correspondant
+        for (auto &trackComp : editor->getTrackComponents())
+        {
+            if (trackComp->getTrackId() == trackId)
+            {
+                trackComp->refreshWaveformDisplay(); // Méthode à créer
+                break;
+            }
+        }
+    }
 }
 
 void DjIaVstProcessor::loadAudioDataAsync(const juce::String &trackId, const juce::MemoryBlock &audioData)

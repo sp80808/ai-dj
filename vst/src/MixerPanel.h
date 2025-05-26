@@ -3,13 +3,12 @@
 #include "MixerChannel.h"
 #include "PluginProcessor.h"
 
-class MasterChannel : public juce::Component, public juce::Timer
+class MasterChannel : public juce::Component
 {
 public:
     MasterChannel()
     {
         setupUI();
-        startTimerHz(30); // Pour les VU meters
     }
 
     void setupUI()
@@ -189,13 +188,6 @@ public:
         masterPanKnob.setBounds(knobZone.reduced(2));
     }
 
-    void timerCallback() override
-    {
-        // Calculer le niveau master (somme de toutes les tracks)
-        updateMasterLevels();
-        repaint(); // Pour les VU meters
-    }
-
     void drawMasterVUMeter(juce::Graphics &g, juce::Rectangle<int> bounds)
     {
         auto vuArea = juce::Rectangle<float>(bounds.getWidth() - 15, 40, 10, bounds.getHeight() - 80);
@@ -351,7 +343,7 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MasterChannel)
 };
 
-class MixerPanel : public juce::Component, public juce::Timer
+class MixerPanel : public juce::Component
 {
 public:
     MixerPanel(DjIaVstProcessor &processor) : audioProcessor(processor)
@@ -384,8 +376,20 @@ public:
 
         // Rafraîchir les channels
         refreshMixerChannels();
+        audioProcessor.onUIUpdateNeeded = [this]()
+        {
+            updateAllMixerComponents();
+        };
+    }
 
-        startTimerHz(30); // Pour les VU meters
+    void updateAllMixerComponents()
+    {
+        for (auto &channel : mixerChannels)
+        {
+            channel->updateVUMeters();
+        }
+        calculateMasterLevel();
+        masterChannel->updateMasterLevels();
     }
 
     float getMasterVolume() const { return masterVolume; }
@@ -420,7 +424,7 @@ public:
             // Appliquer le volume master
             finalLevel *= masterVolume;
 
-            // NOUVEAU : Envoyer au master channel
+            // Envoyer au master channel
             masterChannel->setRealAudioLevel(finalLevel);
         }
         else
@@ -605,18 +609,6 @@ public:
             channel->setBounds(xPos, 0, channelWidth, containerHeight);
             xPos += channelWidth + channelSpacing;
         }
-    }
-
-    void timerCallback() override
-    {
-        // Mettre à jour tous les VU meters
-        for (auto &channel : mixerChannels)
-        {
-            // Les channels se mettent à jour eux-mêmes via leur timer
-        }
-
-        // Calculer le niveau master total
-        calculateMasterLevel();
     }
 
     // Interface publique

@@ -19,7 +19,7 @@ struct TrackData
     std::atomic<bool> isPlaying{false};
     std::atomic<bool> isArmed{false};
     float fineOffset = 0.0f;
-
+    std::atomic<double> cachedPlaybackRatio{1.0};
     juce::AudioSampleBuffer stagingBuffer;
     std::atomic<bool> hasStagingData{false};
     std::atomic<bool> swapRequested{false};
@@ -377,7 +377,7 @@ private:
         double currentPosition = track.readPosition.load();
 
         // CALCUL DU RATIO selon le mode time-stretch
-        double playbackRatio = 1.0;
+        double playbackRatio = track.cachedPlaybackRatio.load();
 
         switch (track.timeStretchMode)
         {
@@ -460,8 +460,14 @@ private:
             for (int ch = 0; ch < std::min(2, track.audioBuffer.getNumChannels()); ++ch)
             {
                 // Interpolation linéaire pour une lecture smooth
-                float sample = interpolateLinear(track.audioBuffer.getReadPointer(ch),
-                                                 absolutePosition, track.numSamples);
+                int sampleIndex = static_cast<int>(absolutePosition);
+                if (sampleIndex >= track.audioBuffer.getNumSamples())
+                {
+                    track.isPlaying = false;
+                    break;
+                }
+
+                float sample = track.audioBuffer.getSample(ch, sampleIndex);
                 sample *= volume;
                 if (ch == 0)
                 {
@@ -491,18 +497,12 @@ private:
 
     float interpolateLinear(const float *buffer, double position, int bufferSize)
     {
-        if (bufferSize <= 0)
-            return 0.0f;
-
-        // S'assurer que position est dans les bornes
-        position = juce::jlimit(0.0, (double)(bufferSize - 1), position);
-
         int index = static_cast<int>(position);
-        float fraction = static_cast<float>(position - std::floor(position));
+        if (index >= bufferSize - 1)
+            return buffer[bufferSize - 1];
 
-        int nextIndex = std::min(index + 1, bufferSize - 1);
-
-        return buffer[index] + fraction * (buffer[nextIndex] - buffer[index]);
+        float fraction = static_cast<float>(position - index);
+        return buffer[index] + fraction * (buffer[index + 1] - buffer[index]);
     }
 };
 
@@ -545,9 +545,12 @@ public:
 // PLUGIN PROCESSOR PRINCIPAL
 //==============================================================================
 class DjIaVstProcessor : public juce::AudioProcessor,
-                         public juce::AudioProcessorValueTreeState::Listener
+                         public juce::AudioProcessorValueTreeState::Listener,
+                         public juce::Timer
 {
 public:
+    void timerCallback() override;
+    std::function<void()> onUIUpdateNeeded;
     //==============================================================================
     // CONSTRUCTEUR ET INTERFACE STANDARD
     //==============================================================================
@@ -662,6 +665,8 @@ private:
     //==============================================================================
     // CONFIGURATION DU BUS LAYOUT MULTI-OUTPUT
     //==============================================================================
+    std::atomic<bool> needsUIUpdate{false};
+
     static juce::AudioProcessor::BusesProperties createBusLayout();
     static const int MAX_TRACKS = 8;
     void updateMasterEQ();
@@ -669,7 +674,7 @@ private:
     void loadAudioDataAsync(const juce::String &trackId, const juce::MemoryBlock &audioData);
     void checkAndSwapStagingBuffers();
     void performAtomicSwap(TrackData *track, const juce::String &trackId);
-
+    void updateWaveformDisplay(const juce::String &trackId);
     std::unordered_map<int, juce::String> playingTracks;
     //==============================================================================
     // ÉTAT DU PLUGIN

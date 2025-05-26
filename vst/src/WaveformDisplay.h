@@ -1,19 +1,65 @@
-// WaveformDisplay.h - Version améliorée
 #pragma once
 #include "JuceHeader.h"
 
-class WaveformDisplay : public juce::Component, public juce::Timer
+class WaveformDisplay : public juce::Component
 {
 public:
     WaveformDisplay()
     {
         setSize(400, 80);
         // Ne PAS démarrer le timer ici - seulement quand nécessaire
+
+        zoomFactor = 1.0;
+        viewStartTime = 0.0;
+        sampleRate = 48000.0;
     }
 
     ~WaveformDisplay()
     {
-        stopTimer(); // Sécurité: s'assurer que le timer s'arrête
+    }
+
+    void setTrackBpm(float bpm)
+    {
+        trackBpm = bpm;
+        calculateTimeStretchRatio();
+        repaint();
+    }
+
+    void setOriginalBpm(float bpm)
+    {
+        originalBpm = bpm;
+        calculateTimeStretchRatio();
+        repaint();
+    }
+
+    void updateDisplay(double timeInSeconds, bool isPlaying)
+    {
+        bool needsRepaint = false;
+
+        if (playbackPosition != timeInSeconds || isCurrentlyPlaying != isPlaying)
+        {
+            playbackPosition = timeInSeconds;
+            isCurrentlyPlaying = isPlaying;
+            needsRepaint = true;
+
+            if (isPlaying && zoomFactor > 1.0)
+            {
+                double viewDuration = getTotalDuration() / zoomFactor;
+                double viewEndTime = viewStartTime + viewDuration;
+
+                if (playbackPosition < viewStartTime || playbackPosition > viewEndTime)
+                {
+                    viewStartTime = juce::jlimit(0.0, getTotalDuration() - viewDuration,
+                                                 playbackPosition - viewDuration * 0.5);
+                    generateThumbnail();
+                    needsRepaint = true;
+                }
+            }
+        }
+        if (needsRepaint)
+        {
+            repaint();
+        }
     }
 
     void setAudioData(const juce::AudioBuffer<float> &audioBuffer, double sampleRate)
@@ -45,7 +91,6 @@ public:
         repaint();
     }
 
-    // NOUVEAU : Mettre à jour la position de lecture
     void setPlaybackPosition(double timeInSeconds, bool isPlaying)
     {
         playbackPosition = timeInSeconds;
@@ -57,7 +102,6 @@ public:
             double viewDuration = getTotalDuration() / zoomFactor;
             double viewEndTime = viewStartTime + viewDuration;
 
-            // Si la tête de lecture sort de la vue, centrer dessus
             if (playbackPosition < viewStartTime || playbackPosition > viewEndTime)
             {
                 viewStartTime = juce::jlimit(0.0, getTotalDuration() - viewDuration,
@@ -65,8 +109,7 @@ public:
                 generateThumbnail();
             }
         }
-
-        repaint(); // Redessiner pour mettre à jour la tête de lecture
+        repaint();
     }
 
     std::function<void(double, double)> onLoopPointsChanged;
@@ -99,7 +142,8 @@ public:
         // Dessiner markers de loop
         drawLoopMarkers(g);
 
-        // NOUVEAU : Dessiner la tête de lecture - APRÈS les loop markers
+        drawBeatMarkers(g);
+        // Dessiner la tête de lecture - APRÈS les loop markers
         drawPlaybackHead(g);
 
         // Indicateur de zoom
@@ -119,52 +163,79 @@ public:
         }
     }
 
-    void timerCallback() override
-    {
-        // Rafraîchir uniquement si on est en cours de lecture
-        if (isCurrentlyPlaying)
-        {
-            repaint();
-        }
-    }
-
     void mouseDown(const juce::MouseEvent &e) override
     {
         if (e.mods.isRightButtonDown())
         {
-            // Clic droit = verrouiller/déverrouiller
             loopPointsLocked = !loopPointsLocked;
             repaint();
             return;
         }
 
         if (loopPointsLocked)
-        {
-            return; // Pas d'interaction si verrouillé
-        }
+            return;
 
         float startX = timeToX(loopStart);
         float endX = timeToX(loopEnd);
 
-        if (std::abs(e.x - startX) < 10)
+        // Zone de tolérance pour grabber les handles
+        float tolerance = 15.0f; // pixels
+
+        if (std::abs(e.x - startX) < tolerance)
         {
             draggingStart = true;
+            DBG("🎯 Dragging START marker");
         }
-        else if (std::abs(e.x - endX) < 10)
+        else if (std::abs(e.x - endX) < tolerance)
         {
             draggingEnd = true;
+            DBG("🎯 Dragging END marker");
+        }
+        else
+        {
+            double clickTime = xToTime(e.x);
+
+            // Déplacer le marker le plus proche
+            double distToStart = std::abs(clickTime - loopStart);
+            double distToEnd = std::abs(clickTime - loopEnd);
+
+            if (distToStart < distToEnd)
+            {
+                loopStart = clickTime;
+                // S'assurer que start < end
+                if (loopStart >= loopEnd)
+                {
+                    loopStart = loopEnd - getMinLoopDuration();
+                }
+            }
+            else
+            {
+                loopEnd = clickTime;
+                // S'assurer que end > start
+                if (loopEnd <= loopStart)
+                {
+                    loopEnd = loopStart + getMinLoopDuration();
+                }
+            }
+
+            if (onLoopPointsChanged)
+            {
+                onLoopPointsChanged(loopStart, loopEnd);
+            }
+            repaint();
         }
     }
 
     void mouseDrag(const juce::MouseEvent &e) override
     {
-        if (loopPointsLocked)
+        if (loopPointsLocked || trackBpm <= 0.0f)
             return;
 
         if (draggingStart)
         {
             double newStart = xToTime(e.x);
-            loopStart = juce::jlimit(getViewStartTime(), loopEnd - 0.1, newStart);
+
+            loopStart = juce::jlimit(getViewStartTime(), loopEnd - getMinLoopDuration(), newStart);
             repaint();
 
             if (onLoopPointsChanged)
@@ -175,7 +246,8 @@ public:
         else if (draggingEnd)
         {
             double newEnd = xToTime(e.x);
-            loopEnd = juce::jlimit(loopStart + 0.1, getViewEndTime(), newEnd);
+
+            loopEnd = juce::jlimit(loopStart + getMinLoopDuration(), getViewEndTime(), newEnd);
             repaint();
 
             if (onLoopPointsChanged)
@@ -185,6 +257,30 @@ public:
         }
     }
 
+    double quantizeToGrid(double time)
+    {
+        if (trackBpm <= 0.0f)
+            return time;
+
+        // Calculer la durée d'une mesure
+        double beatDuration = 60.0 / trackBpm;
+        double barDuration = beatDuration * 4.0; // 1 mesure = 4 beats
+
+        // Quantifier sur les mesures entières
+        double bars = time / barDuration;
+        double quantizedBars = std::round(bars); // Arrondir à la mesure la plus proche
+
+        return quantizedBars * barDuration;
+    }
+
+    double getMinLoopDuration()
+    {
+        if (trackBpm <= 0.0f)
+            return 1.0; // 1 seconde par défaut
+
+        double beatDuration = 60.0 / trackBpm;
+        return beatDuration * 4.0; // Minimum 1 mesure
+    }
     void mouseUp(const juce::MouseEvent &e) override
     {
         draggingStart = false;
@@ -195,8 +291,16 @@ public:
     {
         if (e.mods.isCtrlDown())
         {
+            if (getTotalDuration() <= 0.0)
+            {
+                DBG("❌ Cannot zoom: invalid total duration");
+                return;
+            }
+
             // Ctrl + molette = zoom horizontal
             double mouseTime = xToTime(e.x);
+            mouseTime = juce::jlimit(0.0, getTotalDuration(), mouseTime);
+            double oldZoomFactor = zoomFactor;
 
             if (wheel.deltaY > 0)
             {
@@ -209,6 +313,13 @@ public:
 
             // Ajuster viewStartTime pour garder la souris au même endroit
             double newViewDuration = getTotalDuration() / zoomFactor;
+            if (newViewDuration <= 0.0)
+            {
+                DBG("❌ Invalid newViewDuration, reverting zoom");
+                zoomFactor = oldZoomFactor;
+                return;
+            }
+
             viewStartTime = mouseTime - (e.x / (double)getWidth()) * newViewDuration;
             viewStartTime = juce::jlimit(0.0, getTotalDuration() - newViewDuration, viewStartTime);
 
@@ -237,15 +348,18 @@ private:
     double loopStart = 0.0;
     double loopEnd = 4.0;
     bool loopPointsLocked = false;
-
+    float trackBpm = 126.0f;
     bool draggingStart = false;
     bool draggingEnd = false;
+
+    float originalBpm = 126.0f;
+    float timeStretchRatio = 1.0f;
 
     // Variables de zoom
     double zoomFactor = 1.0;    // 1.0 = vue complète, >1.0 = zoomé
     double viewStartTime = 0.0; // Début de la vue actuelle
 
-    // NOUVEAU : Variables de tête de lecture
+    // Variables de tête de lecture
     double playbackPosition = 0.0; // Position actuelle en secondes
     bool isCurrentlyPlaying = false;
 
@@ -262,6 +376,9 @@ private:
 
         int startSample = (int)(viewStartTime * sampleRate);
         int endSample = (int)(viewEndTime * sampleRate);
+        startSample = juce::jlimit(0, audioBuffer.getNumSamples() - 1, startSample);
+        endSample = juce::jlimit(startSample + 1, audioBuffer.getNumSamples(), endSample);
+
         int viewSamples = endSample - startSample;
 
         if (viewSamples <= 0)
@@ -270,12 +387,18 @@ private:
         // HAUTE RÉSOLUTION : Plus de points que de pixels pour lisser
         int targetPoints = getWidth() * 4; // 4x plus de points que de pixels
         int samplesPerPoint = std::max(1, viewSamples / targetPoints);
+        targetPoints = juce::jlimit(10, 10000, getWidth() * 4); // Entre 10 et 10000 points
+        samplesPerPoint = juce::jlimit(1, viewSamples, viewSamples / targetPoints);
 
         for (int point = 0; point < targetPoints; ++point)
         {
             int sampleStart = startSample + (point * samplesPerPoint);
             int sampleEnd = std::min(sampleStart + samplesPerPoint, audioBuffer.getNumSamples());
-
+            if (sampleStart >= audioBuffer.getNumSamples())
+            {
+                DBG("⚠️ Breaking thumbnail generation at point " + juce::String(point));
+                break;
+            }
             // Calculer RMS (plus musical que peak) + peak pour les transitoires
             float rmsSum = 0.0f;
             float peak = 0.0f;
@@ -283,6 +406,13 @@ private:
 
             for (int sample = sampleStart; sample < sampleEnd; ++sample)
             {
+
+                if (sample >= audioBuffer.getNumSamples())
+                {
+                    DBG("❌ Sample " + juce::String(sample) + " >= buffer size " +
+                        juce::String(audioBuffer.getNumSamples()));
+                    break;
+                }
                 for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
                 {
                     float val = audioBuffer.getSample(ch, sample);
@@ -307,7 +437,21 @@ private:
             return;
 
         // RENDU LISSÉ avec antialiasing
-        g.setColour(juce::Colours::lightblue);
+        juce::Colour waveformColor;
+        if (timeStretchRatio > 1.1f)
+        {
+            waveformColor = juce::Colours::orange;
+        }
+        else if (timeStretchRatio < 0.9f)
+        {
+            waveformColor = juce::Colours::lightblue;
+        }
+        else
+        {
+            waveformColor = juce::Colours::lightgreen;
+        }
+
+        g.setColour(waveformColor);
 
         // Créer un path smooth
         juce::Path waveformPath;
@@ -404,19 +548,45 @@ private:
         g.setColour(loopColour.withAlpha(0.2f));
         g.fillRect(startX, 0.0f, endX - startX, (float)getHeight());
 
-        // Markers
+        // Markers avec épaisseur selon le lock
+        float lineWidth = loopPointsLocked ? 3.0f : 2.0f;
         g.setColour(loopColour);
-        g.drawLine(startX, 0, startX, getHeight(), loopPointsLocked ? 3.0f : 2.0f);
-        g.drawLine(endX, 0, endX, getHeight(), loopPointsLocked ? 3.0f : 2.0f);
+        g.drawLine(startX, 0, startX, getHeight(), lineWidth);
+        g.drawLine(endX, 0, endX, getHeight(), lineWidth);
 
-        // Labels
-        g.setColour(juce::Colours::white);
-        g.setFont(10.0f);
-        g.drawText(juce::String(loopStart, 2) + "s", startX + 2, 2, 50, 15, juce::Justification::left);
-        g.drawText(juce::String(loopEnd, 2) + "s", endX - 50, 2, 48, 15, juce::Justification::right);
+        if (trackBpm > 0.0f)
+        {
+            double beatDuration = 60.0 / trackBpm;
+            double barDuration = beatDuration * 4.0;
+
+            int startBar = (int)(loopStart / barDuration) + 1;
+            int endBar = (int)(loopEnd / barDuration);
+            int totalBars = endBar - startBar + 1;
+
+            g.setColour(juce::Colours::white);
+            g.setFont(10.0f);
+
+            // Label start : "Bar 1"
+            g.drawText("Bar " + juce::String(startBar), startX + 2, 2, 50, 15,
+                       juce::Justification::left);
+
+            // Label end : "Bar 4 (4 bars)"
+            g.drawText("Bar " + juce::String(endBar) + " (" + juce::String(totalBars) + " bars)",
+                       endX - 80, 2, 78, 15, juce::Justification::right);
+        }
+        else
+        {
+            // Fallback sans BPM
+            g.setColour(juce::Colours::white);
+            g.setFont(10.0f);
+            g.drawText(juce::String(loopStart, 2) + "s", startX + 2, 2, 50, 15,
+                       juce::Justification::left);
+            g.drawText(juce::String(loopEnd, 2) + "s", endX - 50, 2, 48, 15,
+                       juce::Justification::right);
+        }
     }
 
-    // NOUVEAU : Dessiner la tête de lecture
+    // Dessiner la tête de lecture
     void drawPlaybackHead(juce::Graphics &g)
     {
         // DEBUG - toujours afficher quelque chose pour tester
@@ -480,29 +650,112 @@ private:
 
     float timeToX(double time)
     {
-        double viewDuration = getTotalDuration() / zoomFactor;
+        double totalDuration = getTotalDuration();
+        if (totalDuration <= 0.0)
+        {
+            DBG("❌ timeToX: invalid total duration");
+            return 0.0f;
+        }
+
+        double viewDuration = totalDuration / zoomFactor;
+        if (viewDuration <= 0.0)
+        {
+            DBG("❌ timeToX: invalid view duration");
+            return 0.0f;
+        }
+
         double relativeTime = time - viewStartTime;
         float result = juce::jmap(relativeTime, 0.0, viewDuration, 0.0, (double)getWidth());
 
-        // DEBUG pour timeToX
-        DBG("timeToX: time=" + juce::String(time, 3) +
-            ", viewDuration=" + juce::String(viewDuration, 3) +
-            ", relativeTime=" + juce::String(relativeTime, 3) +
-            ", result=" + juce::String(result, 1));
+        // Protection contre les valeurs extrêmes
+        result = juce::jlimit(-1000.0f, (float)getWidth() + 1000.0f, result);
 
         return result;
     }
 
+    // Dans WaveformDisplay.h, modifier drawBeatMarkers() :
+    void drawBeatMarkers(juce::Graphics &g)
+    {
+        if (thumbnail.empty() || trackBpm <= 0.0f)
+            return;
+
+        float totalDuration = getTotalDuration();
+        float viewDuration = totalDuration / zoomFactor;
+        float viewEndTime = getViewEndTime();
+
+        // 🎯 C'EST ÇA : L'espacement des barres change selon le BPM !
+        float beatDuration = 60.0f / trackBpm;   // ← Plus le BPM est élevé, plus c'est court !
+        float barDuration = beatDuration * 4.0f; // ← Donc les barres se rapprochent !
+
+        // Dessiner les mesures - L'ESPACEMENT CHANGE !
+        g.setColour(juce::Colours::white.withAlpha(0.8f));
+        for (float time = 0.0f; time <= viewEndTime; time += barDuration)
+        {
+            if (time >= viewStartTime)
+            {
+                float x = timeToX(time);
+                if (x >= 0 && x <= getWidth())
+                {
+                    g.drawLine(x, 0, x, getHeight(), 2.0f);
+
+                    // Numéro de mesure
+                    int measureNumber = (int)(time / barDuration) + 1;
+                    g.setFont(10.0f);
+                    g.drawText(juce::String(measureNumber), x + 2, 2, 30, 15,
+                               juce::Justification::left);
+                }
+            }
+        }
+
+        // Beats aussi
+        if (zoomFactor > 2.0)
+        {
+            g.setColour(juce::Colours::white.withAlpha(0.4f));
+            for (float time = beatDuration; time <= viewEndTime; time += beatDuration)
+            {
+                if (fmod(time, barDuration) < 0.01f)
+                    continue;
+
+                if (time >= viewStartTime)
+                {
+                    float x = timeToX(time);
+                    if (x >= 0 && x <= getWidth())
+                    {
+                        g.drawLine(x, 0, x, getHeight(), 1.0f);
+                    }
+                }
+            }
+        }
+    }
+
     double xToTime(float x)
     {
-        double viewDuration = getTotalDuration() / zoomFactor;
+        double totalDuration = getTotalDuration();
+        if (totalDuration <= 0.0)
+        {
+            return 0.0;
+        }
+
+        double viewDuration = totalDuration / zoomFactor;
+        if (viewDuration <= 0.0)
+        {
+            return 0.0;
+        }
+
         double relativeTime = juce::jmap((double)x, 0.0, (double)getWidth(), 0.0, viewDuration);
-        return viewStartTime + relativeTime;
+        double result = viewStartTime + relativeTime;
+
+        return juce::jlimit(0.0, totalDuration, result);
     }
 
     double getTotalDuration() const
     {
-        return audioBuffer.getNumSamples() / sampleRate;
+        if (audioBuffer.getNumSamples() == 0 || sampleRate <= 0)
+            return 0.0;
+
+        double originalDuration = audioBuffer.getNumSamples() / sampleRate;
+
+        return originalDuration / timeStretchRatio;
     }
 
     double getViewStartTime() const
@@ -514,5 +767,19 @@ private:
     {
         return juce::jlimit(viewStartTime, getTotalDuration(),
                             viewStartTime + (getTotalDuration() / zoomFactor));
+    }
+
+    void calculateTimeStretchRatio()
+    {
+        if (originalBpm > 0.0f && trackBpm > 0.0f)
+        {
+            timeStretchRatio = trackBpm / originalBpm;
+            DBG("🎵 Visual stretch ratio: " + juce::String(timeStretchRatio, 3) +
+                " (" + juce::String(originalBpm, 1) + " → " + juce::String(trackBpm, 1) + " BPM)");
+        }
+        else
+        {
+            timeStretchRatio = 1.0f;
+        }
     }
 };

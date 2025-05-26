@@ -2,18 +2,23 @@
 #include "JuceHeader.h"
 #include "PluginProcessor.h"
 
-class MixerChannel : public juce::Component, public juce::Timer
+class MixerChannel : public juce::Component
 {
 public:
     MixerChannel(const juce::String &trackId) : trackId(trackId), track(nullptr)
     {
         setupUI();
-        startTimerHz(30); // Pour les animations et couleurs
     }
 
     ~MixerChannel() override
     {
-        stopTimer();
+    }
+
+    void updateVUMeters()
+    {
+        updateVUMeter();
+        updateButtonColors();
+        repaint();
     }
 
     void setTrackData(TrackData *trackData)
@@ -266,17 +271,6 @@ public:
         }
     }
 
-    void timerCallback() override
-    {
-        updateButtonColors();
-        updateVUMeter();
-        if (bypassMidiFrames > 0)
-        {
-            bypassMidiFrames--;
-        }
-        repaint(); // For VU meter animation
-    }
-
     void updateVUMeter()
     {
         if (!track || !track->isPlaying.load())
@@ -361,14 +355,14 @@ public:
     float getCurrentAudioLevel() const { return currentAudioLevel; }
     float getPeakLevel() const { return peakHold; }
 
-    // NOUVEAU : Méthode pour highlight la channel sélectionnée
+    // Méthode pour highlight la channel sélectionnée
     void setSelected(bool selected)
     {
         isSelected = selected;
         repaint();
     }
 
-    // NOUVEAU : Méthode pour définir le niveau depuis l'extérieur
+    // Méthode pour définir le niveau depuis l'extérieur
     void setCurrentLevel(float level)
     {
         currentAudioLevel = level;
@@ -633,7 +627,7 @@ private:
         muteButton.setColour(juce::TextButton::buttonColourId,
                              isMuted ? juce::Colour(0xffaa0000) : juce::Colour(0xff404040));
 
-        // NOUVEAU : Solo button avec couleurs différentes
+        // Solo button avec couleurs différentes
         if (isSolo)
         {
             soloButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffffff00)); // Jaune vif

@@ -20,6 +20,11 @@ public:
     juce::PopupMenu getMenuForIndex(int topLevelMenuIndex, const juce::String &menuName) override;
     void menuItemSelected(int menuItemID, int topLevelMenuIndex) override;
 
+    std::vector<std::unique_ptr<TrackComponent>> &getTrackComponents()
+    {
+        return trackComponents;
+    }
+
 private:
     DjIaVstProcessor &audioProcessor;
     juce::Image logoImage;
@@ -42,6 +47,7 @@ private:
     void loadSession(const juce::String &sessionName);
     void toggleMixer();
     void onDeleteTrack(const juce::String &trackId);
+    void updateUIComponents();
 
     juce::File getSessionsDirectory();
     std::unique_ptr<MixerPanel> mixerPanel;

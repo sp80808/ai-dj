@@ -20,12 +20,88 @@ DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor &p)
             weakThis->updateMidiIndicator(noteInfo);
         } });
     refreshTracks();
-    startTimerHz(30);
+    audioProcessor.onUIUpdateNeeded = [this]()
+    {
+        updateUIComponents();
+    };
 }
 
 DjIaVstEditor::~DjIaVstEditor()
 {
-    stopTimer(); // Arrêter le timer avant destruction
+    audioProcessor.onUIUpdateNeeded = nullptr;
+}
+
+void DjIaVstEditor::updateUIComponents()
+{
+    // 1. Mettre à jour les tracks qui jouent
+    for (auto &trackComp : trackComponents)
+    {
+        if (trackComp->isShowing())
+        {
+            TrackData *track = audioProcessor.getTrack(trackComp->getTrackId());
+            if (track && track->isPlaying.load())
+            {
+                trackComp->updateFromTrackData();
+            }
+        }
+    }
+
+    // 2. Mettre à jour l'indicateur MIDI (clignotement)
+    if (!lastMidiNote.isEmpty())
+    {
+        // Reset la couleur après un court délai
+        static int midiBlinkCounter = 0;
+        if (++midiBlinkCounter > 6) // ~200ms à 30fps
+        {
+            midiIndicator.setColour(juce::Label::backgroundColourId, juce::Colours::black);
+            lastMidiNote.clear();
+            midiBlinkCounter = 0;
+        }
+    }
+
+    // 3. Mettre à jour le BPM host si activé
+    if (hostBpmButton.getToggleState())
+    {
+        double currentHostBpm = audioProcessor.getHostBpm();
+        if (currentHostBpm > 0.0 && std::abs(currentHostBpm - bpmSlider.getValue()) > 0.1)
+        {
+            bpmSlider.setValue(currentHostBpm, juce::dontSendNotification);
+        }
+    }
+
+    // 4. Mettre à jour le bouton Load Sample si en mode manuel
+    if (!autoLoadButton.getToggleState())
+    {
+        updateLoadButtonState();
+    }
+
+    // 5. Mettre à jour les waveforms en temps réel pour les tracks qui jouent
+    for (auto &trackComp : trackComponents)
+    {
+        TrackData *track = audioProcessor.getTrack(trackComp->getTrackId());
+        if (track && track->isPlaying.load() && track->numSamples > 0)
+        {
+            // Calculer la position actuelle pour la waveform
+            double startSample = track->loopStart * track->sampleRate;
+            double currentTimeInSection = (startSample + track->readPosition.load()) / track->sampleRate;
+
+            // Mettre à jour la position de lecture dans la waveform
+            trackComp->updatePlaybackPosition(currentTimeInSection);
+        }
+    }
+
+    // 6. Vérifier si une génération vient de se terminer
+    static bool wasGenerating = false;
+    bool isCurrentlyGenerating = generateButton.isEnabled() == false;
+    if (wasGenerating && !isCurrentlyGenerating)
+    {
+        // Une génération vient de se terminer, refresh les waveforms
+        for (auto &trackComp : trackComponents)
+        {
+            trackComp->refreshWaveformIfNeeded();
+        }
+    }
+    wasGenerating = isCurrentlyGenerating;
 }
 
 void DjIaVstEditor::refreshTracks()
@@ -65,6 +141,24 @@ void DjIaVstEditor::timerCallback()
         if (skipFrames < 10)
             return; // Skip 9 frames sur 10 si rien ne joue
         skipFrames = 0;
+    }
+
+    static double lastHostBpm = 0.0;
+    double currentHostBpm = audioProcessor.getHostBpm();
+
+    if (std::abs(currentHostBpm - lastHostBpm) > 0.1)
+    { // BPM host a changé
+        lastHostBpm = currentHostBpm;
+
+        // Mettre à jour toutes les waveforms qui utilisent Host BPM
+        for (auto &trackComp : trackComponents)
+        {
+            TrackData *track = audioProcessor.getTrack(trackComp->getTrackId());
+            if (track && (track->timeStretchMode == 3 || track->timeStretchMode == 4))
+            {
+                trackComp->updateWaveformWithTimeStretch();
+            }
+        }
     }
 }
 
@@ -363,7 +457,7 @@ void DjIaVstEditor::updateUIFromProcessor()
 
 void DjIaVstEditor::paint(juce::Graphics &g)
 {
-    // NOUVEAU : Thème dark pro au lieu du violet dégueulasse
+    // Thème dark pro au lieu du violet dégueulasse
     auto bounds = getLocalBounds();
 
     // Gradient dark moderne
@@ -848,7 +942,7 @@ void DjIaVstEditor::refreshTrackComponents()
         if (!trackData)
             continue;
 
-        auto trackComp = std::make_unique<TrackComponent>(trackId);
+        auto trackComp = std::make_unique<TrackComponent>(trackId, audioProcessor);
         trackComp->setTrackData(trackData);
 
         // Callbacks (identiques)
@@ -947,7 +1041,7 @@ void DjIaVstEditor::onDeleteTrack(const juce::String &trackId)
     {
         audioProcessor.deleteTrack(trackId);
 
-        // NOUVEAU : Notifier le mixer
+        // Notifier le mixer
         if (mixerPanel)
         {
             mixerPanel->trackRemoved(trackId);
