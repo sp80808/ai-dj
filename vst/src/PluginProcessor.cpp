@@ -171,6 +171,7 @@ bool DjIaVstProcessor::isBusesLayoutSupported(const BusesLayout &layouts) const
 void DjIaVstProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::MidiBuffer &midiMessages)
 {
     // Nettoyer les canaux inutilisés
+    checkAndSwapStagingBuffers();
     for (auto i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 
@@ -556,16 +557,146 @@ void DjIaVstProcessor::processIncomingAudio()
 
     writeToLog("📥 Processing pending audio data for track: " + pendingTrackId);
 
-    // Si auto-load activé, charger immédiatement
     if (autoLoadEnabled.load())
     {
-        writeToLog("🔄 Auto-loading sample to track: " + pendingTrackId);
-        loadAudioDataToTrack(pendingTrackId);
+        writeToLog("🔄 Starting ASYNC loading for track: " + pendingTrackId);
+
+        // NOUVEAU : Lancer dans un thread séparé
+        juce::Thread::launch([this, trackId = pendingTrackId, audioData = pendingAudioData]()
+                             { loadAudioDataAsync(trackId, audioData); });
+
+        // Clear pending immédiatement pour éviter les doublons
+        clearPendingAudio();
     }
     else
     {
         writeToLog("⏸️ Sample ready for track " + pendingTrackId + " - waiting for manual load");
         hasUnloadedSample = true;
+    }
+}
+
+void DjIaVstProcessor::checkAndSwapStagingBuffers()
+{
+    auto trackIds = trackManager.getAllTrackIds();
+
+    for (const auto &trackId : trackIds)
+    {
+        TrackData *track = trackManager.getTrack(trackId);
+        if (!track)
+            continue;
+
+        // Check si swap demandé
+        if (track->swapRequested.exchange(false))
+        {
+            if (track->hasStagingData.load())
+            {
+                performAtomicSwap(track, trackId);
+                writeToLog("🔄 Buffer swapped for track: " + trackId);
+            }
+        }
+    }
+}
+
+void DjIaVstProcessor::performAtomicSwap(TrackData *track, const juce::String &trackId)
+{
+    // Swap ultra-rapide des buffers
+    std::swap(track->audioBuffer, track->stagingBuffer);
+
+    // Copier métadonnées
+    track->numSamples = track->stagingNumSamples.load();
+    track->sampleRate = track->stagingSampleRate.load();
+    track->originalBpm = track->stagingOriginalBpm;
+
+    // Reset loop points selon nouvelle durée
+    double sampleDuration = track->numSamples / track->sampleRate;
+    if (sampleDuration <= 8.0)
+    {
+        track->loopStart = 0.0;
+        track->loopEnd = sampleDuration;
+    }
+    else
+    {
+        double beatDuration = 60.0 / track->originalBpm;
+        double fourBars = beatDuration * 16.0; // 4 mesures
+        track->loopStart = 0.0;
+        track->loopEnd = std::min(fourBars, sampleDuration);
+    }
+
+    // Reset lecture
+    track->readPosition = 0.0;
+
+    // Clear staging
+    track->hasStagingData = false;
+    track->stagingBuffer.setSize(0, 0); // Libérer mémoire
+
+    writeToLog("✅ Atomic swap complete for: " + trackId);
+}
+
+void DjIaVstProcessor::loadAudioDataAsync(const juce::String &trackId, const juce::MemoryBlock &audioData)
+{
+    writeToLog("🔄 [ASYNC THREAD] Processing audio for track: " + trackId);
+
+    TrackData *track = trackManager.getTrack(trackId);
+    if (!track)
+    {
+        writeToLog("❌ [ASYNC] Track not found: " + trackId);
+        return;
+    }
+
+    try
+    {
+        juce::AudioFormatManager formatManager;
+        formatManager.registerBasicFormats();
+
+        std::unique_ptr<juce::AudioFormatReader> reader(
+            formatManager.createReaderFor(
+                std::make_unique<juce::MemoryInputStream>(audioData, false)));
+
+        if (!reader)
+        {
+            writeToLog("❌ [ASYNC] Failed to create audio reader");
+            return;
+        }
+
+        // Préparer dans le staging buffer (thread-safe)
+        int numChannels = reader->numChannels;
+        int numSamples = static_cast<int>(reader->lengthInSamples);
+        double sampleRate = reader->sampleRate;
+
+        writeToLog("📊 [ASYNC] Staging audio: " + juce::String(numSamples) + " samples");
+
+        // Redimensionner staging buffer
+        track->stagingBuffer.setSize(2, numSamples, false, false, true);
+        track->stagingBuffer.clear();
+
+        // Charger dans staging (pas le buffer principal !)
+        reader->read(&track->stagingBuffer, 0, numSamples, 0, true, numChannels == 1);
+
+        // Dupliquer mono vers stéréo si nécessaire
+        if (numChannels == 1 && track->stagingBuffer.getNumChannels() > 1)
+        {
+            track->stagingBuffer.copyFrom(1, 0, track->stagingBuffer, 0, 0, numSamples);
+        }
+
+        // Détecter BPM dans le thread de fond (pas de rush)
+        float detectedBPM = AudioAnalyzer::detectBPM(track->stagingBuffer, sampleRate);
+        track->stagingOriginalBpm = (detectedBPM > 60.0f && detectedBPM < 200.0f) ? detectedBPM : track->bpm;
+
+        // Préparer métadonnées staging
+        track->stagingNumSamples = numSamples;
+        track->stagingSampleRate = sampleRate;
+
+        // SIGNAL : Prêt pour swap atomique
+        track->hasStagingData = true;
+        track->swapRequested = true;
+
+        writeToLog("✅ [ASYNC] Audio staging complete, ready for swap");
+    }
+    catch (const std::exception &e)
+    {
+        writeToLog("❌ [ASYNC] Error: " + juce::String(e.what()));
+        track->hasStagingData = false;
+        track->swapRequested = false;
     }
 }
 

@@ -20,6 +20,15 @@ struct TrackData
     std::atomic<bool> isArmed{false};
     float fineOffset = 0.0f;
 
+    juce::AudioSampleBuffer stagingBuffer;
+    std::atomic<bool> hasStagingData{false};
+    std::atomic<bool> swapRequested{false};
+
+    // Métadonnées staging
+    std::atomic<int> stagingNumSamples{0};
+    std::atomic<double> stagingSampleRate{44100.0};
+    float stagingOriginalBpm = 126.0f;
+
     double loopStart = 0.0;
     double loopEnd = 4.0;
     float originalBpm = 126.0f;
@@ -656,6 +665,10 @@ private:
     static juce::AudioProcessor::BusesProperties createBusLayout();
     static const int MAX_TRACKS = 8;
     void updateMasterEQ();
+
+    void loadAudioDataAsync(const juce::String &trackId, const juce::MemoryBlock &audioData);
+    void checkAndSwapStagingBuffers();
+    void performAtomicSwap(TrackData *track, const juce::String &trackId);
 
     std::unordered_map<int, juce::String> playingTracks;
     //==============================================================================
