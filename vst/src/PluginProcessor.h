@@ -381,42 +381,12 @@ private:
         if (track.numSamples == 0 || !track.isPlaying.load())
             return;
 
-        static bool debugLogged = false;
-        if (!debugLogged)
-        {
-            writeToLog("🎵 === TRACK PLAYING DEBUG ===");
-            writeToLog("  Track name: " + track.trackName);
-            writeToLog("  Original BPM: " + juce::String(track.originalBpm, 1));
-            writeToLog("  Time stretch mode: " + juce::String(track.timeStretchMode));
-            writeToLog("  Cached playback ratio: " + juce::String(track.cachedPlaybackRatio.load(), 3));
-            debugLogged = true;
-        }
-
         const float volume = juce::jlimit(0.0f, 1.0f, track.volume.load());
         const float pan = juce::jlimit(-1.0f, 1.0f, track.pan.load());
         double currentPosition = track.readPosition.load();
 
         // CALCUL DU RATIO selon le mode time-stretch
         double playbackRatio = 1.0;
-
-        static bool fundamentalDebug = false;
-        if (!fundamentalDebug && track.numSamples > 0)
-        {
-            writeToLog("🔍 === FUNDAMENTAL DEBUG ===");
-            writeToLog("  Track sample rate: " + juce::String(track.sampleRate));
-            writeToLog("  Host sample rate: " + juce::String(hostSampleRate));
-            writeToLog("  Track numSamples: " + juce::String(track.numSamples));
-            writeToLog("  Track duration (calculated): " + juce::String(track.numSamples / track.sampleRate, 3) + "s");
-            writeToLog("  Original BPM: " + juce::String(track.originalBpm, 1));
-            writeToLog("  Time stretch mode: " + juce::String(track.timeStretchMode));
-            writeToLog("  playbackRatio: " + juce::String(playbackRatio, 3));
-
-            double samplesPerSecondWithRatio = track.sampleRate * playbackRatio;
-            writeToLog("  Samples/sec with ratio: " + juce::String(samplesPerSecondWithRatio));
-            writeToLog("  Expected playback rate: " + juce::String(samplesPerSecondWithRatio / hostSampleRate, 3) + "x");
-
-            fundamentalDebug = true;
-        }
 
         switch (track.timeStretchMode)
         {
