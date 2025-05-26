@@ -314,7 +314,7 @@ public:
 
 private:
     juce::AudioBuffer<float> audioBuffer;
-    double sampleRate = 44100.0;
+    double sampleRate = 48000.0;
     std::vector<float> thumbnail;
     double loopStart = 0.0;
     double loopEnd = 4.0;

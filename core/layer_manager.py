@@ -18,7 +18,7 @@ class LayerManager:
 
     def __init__(
         self,
-        sample_rate: int = 44100,
+        sample_rate: int = 48000,
         num_channels: int = 16,
         output_dir: str = "./dj_layers_output",
         on_max_layers_reached=None,

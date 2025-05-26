@@ -26,7 +26,7 @@ struct TrackData
 
     // Métadonnées staging
     std::atomic<int> stagingNumSamples{0};
-    std::atomic<double> stagingSampleRate{44100.0};
+    std::atomic<double> stagingSampleRate{48000.0};
     float stagingOriginalBpm = 126.0f;
 
     double loopStart = 0.0;
@@ -41,7 +41,7 @@ struct TrackData
 
     // Audio data
     juce::AudioSampleBuffer audioBuffer;
-    double sampleRate = 44100.0;
+    double sampleRate = 48000.0;
     int numSamples = 0;
 
     // État de lecture

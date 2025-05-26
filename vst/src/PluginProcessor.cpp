@@ -806,8 +806,8 @@ void DjIaVstProcessor::loadAudioDataToTrack(const juce::String &trackId)
         // Validation du sample rate
         if (track->sampleRate <= 0.0 || track->sampleRate > 192000.0)
         {
-            writeToLog("⚠️ Invalid sample rate, defaulting to 44100 Hz");
-            track->sampleRate = 44100.0;
+            writeToLog("⚠️ Invalid sample rate, defaulting to 48000 Hz");
+            track->sampleRate = 48000.0;
         }
 
         // Redimensionner le buffer de la piste

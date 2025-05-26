@@ -108,7 +108,7 @@ public:
     }
 
 private:
-    double sampleRate = 44100.0;
+    double sampleRate = 48000.0;
 
     // Gains en dB
     float highGain = 0.0f; // Aigus

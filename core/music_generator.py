@@ -195,7 +195,7 @@ class MusicGenerator:
 
         except Exception as e:
             print(f"❌ Erreur génération: {str(e)}")
-            silence = np.zeros(44100 * 4)
+            silence = np.zeros(48000 * 4)
             error_info = {"type": sample_type, "tempo": tempo, "error": str(e)}
             return silence, error_info
 

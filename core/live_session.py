@@ -28,7 +28,7 @@ class LiveSession:
         self.model_path = args.model_path
         self.profile_name = args.profile
         self.output_dir_base = args.output_dir
-        self.sample_rate = 44100
+        self.sample_rate = 48000
         self.audio_model = args.audio_model
         self.generation_duration = args.generation_duration
         self.current_layer_id = "current_loop"

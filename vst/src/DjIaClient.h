@@ -118,7 +118,7 @@ public:
                 result.bpm = jsonResponse.getProperty("bpm", 120.0);
                 result.key = jsonResponse.getProperty("key", "");
                 result.llmReasoning = jsonResponse.getProperty("llm_reasoning", "");
-                result.sampleRate = static_cast<double>(jsonResponse.getProperty("sample_rate", 44100.0));
+                result.sampleRate = static_cast<double>(jsonResponse.getProperty("sample_rate", 48000.0));
 
                 // Parser les stems utilisés
                 if (auto stemsArray = jsonResponse.getProperty("stems_used", juce::var()).getArray())

@@ -177,6 +177,10 @@ class StemsManager:
 
                 # Charger l'audio
                 audio, sr_curr = librosa.load(str(stem_path), sr=None)
+                if sr_curr != 48000:
+                    audio = librosa.resample(audio, orig_sr=sr_curr, target_sr=48000)
+                    sr_curr = 48000
+                    print(f"🔄 Stem {stem} resample: {sr_curr} → 48000 Hz")
 
                 # Traitement spécifique selon le type de stem (comme avant)
                 if stem == "drums":

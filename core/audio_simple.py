@@ -10,7 +10,7 @@ import os
 class SimpleAudioPlayer:
     """Système audio simplifié pour une lecture fluide"""
 
-    def __init__(self, sample_rate=44100):
+    def __init__(self, sample_rate=48000):
         self.sample_rate = sample_rate
         self.playing = False
         self.audio_queue = queue.Queue(maxsize=10)
