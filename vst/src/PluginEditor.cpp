@@ -5,7 +5,7 @@
 DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor &p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
-    setSize(1000, 800);
+    setSize(1300, 800);
     logoImage = juce::ImageCache::getFromMemory(BinaryData::logo_png,
                                                 BinaryData::logo_pngSize);
     DjIaVstProcessor::writeToLog("Logo size in binary: " + juce::String(BinaryData::logo_pngSize));
@@ -15,7 +15,7 @@ DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor &p)
     // Connecter le callback MIDI
     audioProcessor.setMidiIndicatorCallback([this](const juce::String &noteInfo)
                                             { updateMidiIndicator(noteInfo); });
-
+    refreshTracks();
     startTimerHz(30);
 }
 
@@ -24,7 +24,16 @@ DjIaVstEditor::~DjIaVstEditor()
     stopTimer(); // Arrêter le timer avant destruction
 }
 
-// NOUVEAU : Timer callback pour les têtes de lecture
+void DjIaVstEditor::refreshTracks()
+{
+    trackComponents.clear();
+    tracksContainer.removeAllChildren();
+
+    refreshTrackComponents();
+    updateSelectedTrack();
+    repaint();
+}
+
 void DjIaVstEditor::timerCallback()
 {
     // Mettre à jour seulement les tracks qui jouent
@@ -95,12 +104,7 @@ void DjIaVstEditor::setupUI()
         DjIaVstProcessor::writeToLog("=== MANUAL REFRESH CLICKED ===");
 
         // FORCER la recréation complète
-        trackComponents.clear();
-        tracksContainer.removeAllChildren();
-
-        refreshTrackComponents();
-        updateSelectedTrack();
-        repaint();
+        refreshTracks();
     };
 
     // Style selector
@@ -244,6 +248,9 @@ void DjIaVstEditor::setupUI()
     loadSessionButton.setButtonText("Load Session");
     loadSessionButton.onClick = [this]()
     { onLoadSession(); };
+
+    mixerPanel = std::make_unique<MixerPanel>(audioProcessor);
+    addAndMakeVisible(*mixerPanel);
 
     refreshTrackComponents();
 
@@ -459,15 +466,27 @@ void DjIaVstEditor::resized()
     area.removeFromTop(8);
 
     auto tracksHeaderArea = area.removeFromTop(30);
-    tracksLabel.setBounds(tracksHeaderArea.removeFromLeft(80));
     addTrackButton.setBounds(tracksHeaderArea.removeFromRight(100));
-    tracksHeaderArea.removeFromRight(10);
+    tracksHeaderArea.removeFromRight(5);
     debugRefreshButton.setBounds(tracksHeaderArea.removeFromRight(150));
 
-    area.removeFromTop(15);
-    // NOUVEAU : Plus d'espace pour les tracks (au lieu de 200px fixe)
-    auto tracksArea = area.removeFromTop(area.getHeight() - 80);
-    tracksViewport.setBounds(tracksArea);
+    area.removeFromTop(10);
+
+    auto tracksAndMixerArea = area.removeFromTop(area.getHeight() - 80);
+
+    // Diviser : 65% tracks, 35% mixer
+    auto tracksMainArea = tracksAndMixerArea.removeFromLeft(tracksAndMixerArea.getWidth() * 0.65f);
+
+    // TRACKS : occupent leur zone à 100%
+    tracksViewport.setBounds(tracksMainArea);
+
+    // MIXER : prend le reste
+    tracksAndMixerArea.removeFromLeft(5); // Petit espace
+    if (mixerPanel)
+    {
+        mixerPanel->setBounds(tracksAndMixerArea);
+        mixerPanel->setVisible(true);
+    }
 
     // Boutons en bas - GARDÉS
     auto buttonsRow = area.removeFromTop(35);
@@ -487,6 +506,25 @@ void DjIaVstEditor::resized()
     midiIndicator.setBounds(area.removeFromTop(20));
 
     resizing = false;
+}
+
+void DjIaVstEditor::toggleMixer()
+{
+    mixerVisible = !mixerVisible;
+    showMixerButton.setToggleState(mixerVisible, juce::dontSendNotification);
+
+    if (mixerVisible)
+    {
+        showMixerButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff00aa44)); // Vert
+        statusLabel.setText("Mixer panel opened", juce::dontSendNotification);
+    }
+    else
+    {
+        showMixerButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff4a4a4a)); // Gris
+        statusLabel.setText("Mixer panel closed", juce::dontSendNotification);
+    }
+
+    resized(); // Refaire le layout
 }
 
 void DjIaVstEditor::updateMidiIndicator(const juce::String &noteInfo)
@@ -847,8 +885,8 @@ void DjIaVstEditor::refreshTrackComponents()
                                         { refreshTrackComponents(); });
         };
 
-        // Positionner AVANT d'ajouter
-        trackComp->setBounds(2, yPos, tracksContainer.getWidth() - 4, 80);
+        int fullWidth = tracksContainer.getWidth() - 4;
+        trackComp->setBounds(2, yPos, fullWidth, 80);
 
         if (trackId == audioProcessor.getSelectedTrackId())
         {
@@ -866,8 +904,16 @@ void DjIaVstEditor::refreshTrackComponents()
 
     DjIaVstProcessor::writeToLog("trackComponents created: " + juce::String(trackComponents.size()));
     DjIaVstProcessor::writeToLog("tracksContainer size: " + juce::String(tracksContainer.getWidth()) + "x" + juce::String(tracksContainer.getHeight()));
-    // Réactiver et forcer UN SEUL repaint
+    if (mixerPanel)
+    {
+        mixerPanel->refreshMixerChannels();
+    }
+
     setEnabled(true);
+    juce::MessageManager::callAsync([this]()
+                                    {
+        resized();
+        repaint(); });
     tracksContainer.repaint();
 }
 
@@ -875,13 +921,36 @@ void DjIaVstEditor::onAddTrack()
 {
     try
     {
-        audioProcessor.createNewTrack();
+        juce::String newTrackId = audioProcessor.createNewTrack();
         refreshTrackComponents();
+
+        if (mixerPanel)
+        {
+            mixerPanel->trackAdded(newTrackId);
+        }
+
         statusLabel.setText("New track created", juce::dontSendNotification);
     }
     catch (const std::exception &e)
     {
         statusLabel.setText("Error: " + juce::String(e.what()), juce::dontSendNotification);
+    }
+}
+
+void DjIaVstEditor::onDeleteTrack(const juce::String &trackId)
+{
+    if (audioProcessor.getAllTrackIds().size() > 1)
+    {
+        audioProcessor.deleteTrack(trackId);
+
+        // NOUVEAU : Notifier le mixer
+        if (mixerPanel)
+        {
+            mixerPanel->trackRemoved(trackId);
+        }
+
+        juce::Timer::callAfterDelay(10, [this]()
+                                    { refreshTrackComponents(); });
     }
 }
 
@@ -901,6 +970,10 @@ void DjIaVstEditor::updateSelectedTrack()
             trackComponents[i]->setSelected(true);
             break;
         }
+    }
+    if (mixerPanel)
+    {
+        mixerPanel->trackSelected(selectedId);
     }
 }
 

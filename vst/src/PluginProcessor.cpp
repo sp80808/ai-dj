@@ -120,6 +120,7 @@ void DjIaVstProcessor::prepareToPlay(double newSampleRate, int samplesPerBlock)
         buffer.setSize(2, samplesPerBlock);
         buffer.clear();
     }
+    masterEQ.prepare(newSampleRate, samplesPerBlock);
 }
 
 void DjIaVstProcessor::releaseResources()
@@ -251,6 +252,31 @@ void DjIaVstProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::Midi
             }
         }
     }
+    updateMasterEQ();
+    masterEQ.processBlock(mainOutput);
+    float masterVol = masterVolume.load();
+    mainOutput.applyGain(masterVol);
+
+    // Appliquer pan master
+    float masterPanVal = masterPan.load();
+    if (mainOutput.getNumChannels() >= 2 && std::abs(masterPanVal) > 0.01f)
+    {
+        if (masterPanVal < 0.0f)
+        { // Pan gauche
+            mainOutput.applyGain(1, 0, mainOutput.getNumSamples(), 1.0f + masterPanVal);
+        }
+        else
+        { // Pan droite
+            mainOutput.applyGain(0, 0, mainOutput.getNumSamples(), 1.0f - masterPanVal);
+        }
+    }
+}
+
+void DjIaVstProcessor::updateMasterEQ()
+{
+    masterEQ.setHighGain(masterHighEQ.load());
+    masterEQ.setMidGain(masterMidEQ.load());
+    masterEQ.setLowGain(masterLowEQ.load());
 }
 
 // Modifier processMidiMessages pour accepter les infos host
@@ -372,15 +398,43 @@ void DjIaVstProcessor::startNotePlaybackForTrack(const juce::String &trackId, in
     if (!track || track->numSamples == 0)
         return;
 
+    // NOUVEAU : Vérifier si la track est armée
+    if (!track->isArmed.load())
+    {
+        writeToLog("🎹 Track " + track->trackName + " not armed - ignoring MIDI");
+        return;
+    }
+
+    // NOUVEAU : Si déjà en cours de lecture, ignorer
+    if (track->isPlaying.load())
+    {
+        writeToLog("🎹 Track " + track->trackName + " already playing - ignoring MIDI");
+        return;
+    }
+
+    // Démarrer la lecture
     track->readPosition = 0.0;
     track->isPlaying = true;
 
-    // Stocker l'association note -> track
     playingTracks[noteNumber] = trackId;
 
-    writeToLog("▶️ Started ONE-SHOT: " + track->trackName + " (Note: " + juce::String(noteNumber) +
-               ", Range: " + juce::String(track->loopStart, 2) + "s-" + juce::String(track->loopEnd, 2) + "s" +
-               ", Ratio: " + juce::String(track->timeStretchRatio, 3) + ")");
+    writeToLog("▶️ Started playback: " + track->trackName + " (Armed -> Playing)");
+}
+
+void DjIaVstProcessor::stopNotePlaybackForTrack(int noteNumber)
+{
+    auto it = playingTracks.find(noteNumber);
+    if (it != playingTracks.end())
+    {
+        TrackData *track = trackManager.getTrack(it->second);
+        if (track)
+        {
+            track->isPlaying = false;
+            // GARDER l'ARM - ne pas désarmer automatiquement
+            writeToLog("⏹️ Stopped playback for note " + juce::String(noteNumber) + " (still armed)");
+        }
+        playingTracks.erase(it);
+    }
 }
 
 //==============================================================================
@@ -871,19 +925,4 @@ void DjIaVstProcessor::writeToLog(const juce::String &message)
 
     auto time = juce::Time::getCurrentTime().toString(true, true, true, true);
     file.appendText(time + ": " + message + "\n");
-}
-
-void DjIaVstProcessor::stopNotePlaybackForTrack(int noteNumber)
-{
-    auto it = playingTracks.find(noteNumber);
-    if (it != playingTracks.end())
-    {
-        TrackData *track = trackManager.getTrack(it->second);
-        if (track)
-        {
-            track->isPlaying = false;
-        }
-        playingTracks.erase(it);
-        writeToLog("⏹️ Stopped track for note " + juce::String(noteNumber));
-    }
 }

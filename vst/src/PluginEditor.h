@@ -1,6 +1,7 @@
 #pragma once
 #include "PluginProcessor.h"
 #include "TrackComponent.h"
+#include "MixerPanel.h"
 
 class DjIaVstEditor : public juce::AudioProcessorEditor, public juce::MenuBarModel, public juce::Timer
 {
@@ -13,6 +14,7 @@ public:
     void timerCallback() override;
     void refreshTrackComponents();
     void updateUIFromProcessor();
+    void refreshTracks();
 
     juce::StringArray getMenuBarNames() override;
     juce::PopupMenu getMenuForIndex(int topLevelMenuIndex, const juce::String &menuName) override;
@@ -38,8 +40,13 @@ private:
     void loadSessionList();
     void saveCurrentSession(const juce::String &sessionName);
     void loadSession(const juce::String &sessionName);
-    juce::File getSessionsDirectory();
+    void toggleMixer();
+    void onDeleteTrack(const juce::String &trackId);
 
+    juce::File getSessionsDirectory();
+    std::unique_ptr<MixerPanel> mixerPanel;
+    juce::TextButton showMixerButton;
+    bool mixerVisible = false;
     // Presets de prompts
     juce::StringArray promptPresets = {
         // Drums & Percussion

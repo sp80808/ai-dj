@@ -49,10 +49,11 @@ public:
         playingIndicator.setColour(juce::Label::textColourId,
                                    isCurrentlyPlaying ? juce::Colours::green : juce::Colours::red);
 
-        // Verrouiller les loop points si la track est en cours de lecture
+        bool isMuted = track->isMuted.load();
         if (waveformDisplay)
         {
-            waveformDisplay->lockLoopPoints(isCurrentlyPlaying);
+            bool shouldLock = isCurrentlyPlaying && !isMuted;
+            waveformDisplay->lockLoopPoints(shouldLock);
 
             // Mettre à jour la position de lecture en temps réel
             if (track->numSamples > 0 && track->sampleRate > 0)
@@ -120,7 +121,7 @@ public:
 
     void resized() override
     {
-        auto area = getLocalBounds();
+        auto area = getLocalBounds().reduced(6);
 
         // === HEADER ROW ===
         auto headerArea = area.removeFromTop(25);
@@ -133,23 +134,21 @@ public:
 
         playingIndicator.setBounds(headerArea.removeFromRight(20));
         deleteButton.setBounds(headerArea.removeFromRight(35));
+        headerArea.removeFromRight(5);
         generateButton.setBounds(headerArea.removeFromRight(45));
+        headerArea.removeFromRight(5);
         showWaveformButton.setBounds(headerArea.removeFromRight(50));
+        headerArea.removeFromRight(5);
         timeStretchModeSelector.setBounds(headerArea.removeFromRight(80));
+        headerArea.removeFromRight(5);
         midiNoteSelector.setBounds(headerArea.removeFromRight(65));
 
         area.removeFromTop(5);
 
         // === CONTROLS ROW ===
         auto controlsArea = area.removeFromTop(25);
-        muteButton.setBounds(controlsArea.removeFromLeft(40));
-        soloButton.setBounds(controlsArea.removeFromLeft(40));
 
-        controlsArea.removeFromLeft(10);
-        volumeSlider.setBounds(controlsArea.removeFromLeft(90));
-        panSlider.setBounds(controlsArea.removeFromLeft(90));
-
-        // NOUVEAU : Slider BPM (seulement si visible)
+        // Slider BPM (seulement si visible)
         if (bpmOffsetSlider.isVisible())
         {
             controlsArea.removeFromLeft(5);
@@ -300,50 +299,6 @@ private:
         {
             if (onGenerateForTrack)
                 onGenerateForTrack(trackId);
-        };
-
-        // Mute/Solo
-        addAndMakeVisible(muteButton);
-        muteButton.setButtonText("M");
-        muteButton.setClickingTogglesState(true);
-        muteButton.onClick = [this]()
-        {
-            if (track)
-                track->isMuted = muteButton.getToggleState();
-        };
-
-        addAndMakeVisible(soloButton);
-        soloButton.setButtonText("S");
-        soloButton.setClickingTogglesState(true);
-        soloButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::yellow);
-        soloButton.onClick = [this]()
-        {
-            if (track)
-                track->isSolo = soloButton.getToggleState();
-        };
-
-        // Volume slider
-        addAndMakeVisible(volumeSlider);
-        volumeSlider.setRange(0.0, 1.0, 0.01);
-        volumeSlider.setValue(0.8);
-        volumeSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-        volumeSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        volumeSlider.onValueChange = [this]()
-        {
-            if (track)
-                track->volume = volumeSlider.getValue();
-        };
-
-        // Pan slider
-        addAndMakeVisible(panSlider);
-        panSlider.setRange(-1.0, 1.0, 0.01);
-        panSlider.setValue(0.0);
-        panSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-        panSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        panSlider.onValueChange = [this]()
-        {
-            if (track)
-                track->pan = panSlider.getValue();
         };
 
         addAndMakeVisible(playingIndicator);

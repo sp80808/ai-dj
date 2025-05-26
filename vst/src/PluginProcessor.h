@@ -1,6 +1,7 @@
 #pragma once
 #include "JuceHeader.h"
 #include "DjIaClient.h"
+#include "SimpleEQ.h"
 #include <memory>
 #include <unordered_map>
 #include <vector>
@@ -16,6 +17,8 @@ struct TrackData
     juce::String trackId;
     juce::String trackName;
     std::atomic<bool> isPlaying{false};
+    std::atomic<bool> isArmed{false};
+    float fineOffset = 0.0f;
 
     double loopStart = 0.0;
     double loopEnd = 4.0;
@@ -148,17 +151,13 @@ public:
         }
         return ids;
     }
-
-    // Audio processing pour toutes les pistes
     void renderAllTracks(juce::AudioBuffer<float> &outputBuffer,
                          std::vector<juce::AudioBuffer<float>> &individualOutputs,
                          double hostSampleRate)
     {
-
         const int numSamples = outputBuffer.getNumSamples();
         bool anyTrackSolo = false;
 
-        // Vérifier s'il y a des pistes en solo
         {
             juce::ScopedLock lock(tracksLock);
             for (const auto &pair : tracks)
@@ -171,7 +170,6 @@ public:
             }
         }
 
-        // Clear tous les buffers
         outputBuffer.clear();
         for (auto &buffer : individualOutputs)
         {
@@ -188,19 +186,37 @@ public:
 
             auto *track = pair.second.get();
 
-            // Skip si muted ou si solo mode et pas solo
-            if (track->isMuted.load() ||
-                (anyTrackSolo && !track->isSolo.load()) ||
-                !track->isEnabled.load() ||
-                track->numSamples == 0)
+            if (track->isEnabled.load() && track->numSamples > 0)
             {
-                trackIndex++;
-                continue;
-            }
+                juce::AudioBuffer<float> tempMixBuffer(outputBuffer.getNumChannels(), numSamples);
+                juce::AudioBuffer<float> tempIndividualBuffer(2, numSamples);
+                tempMixBuffer.clear();
+                tempIndividualBuffer.clear();
 
-            // Render cette piste
-            renderSingleTrack(*track, outputBuffer, individualOutputs[trackIndex],
-                              numSamples, hostSampleRate);
+                renderSingleTrack(*track, tempMixBuffer, tempIndividualBuffer,
+                                  numSamples, hostSampleRate);
+
+                bool shouldHearTrack = !track->isMuted.load() &&
+                                       (!anyTrackSolo || track->isSolo.load());
+
+                if (shouldHearTrack)
+                {
+                    for (int ch = 0; ch < outputBuffer.getNumChannels(); ++ch)
+                    {
+                        outputBuffer.addFrom(ch, 0, tempMixBuffer, ch, 0, numSamples);
+                    }
+                }
+
+                for (int ch = 0; ch < std::min(2, individualOutputs[trackIndex].getNumChannels()); ++ch)
+                {
+                    individualOutputs[trackIndex].copyFrom(ch, 0, tempIndividualBuffer, ch, 0, numSamples);
+
+                    if (!shouldHearTrack)
+                    {
+                        individualOutputs[trackIndex].applyGain(ch, 0, numSamples, 0.0f);
+                    }
+                }
+            }
 
             trackIndex++;
         }
@@ -348,6 +364,7 @@ private:
             return;
 
         const float volume = juce::jlimit(0.0f, 1.0f, track.volume.load());
+        const float pan = juce::jlimit(-1.0f, 1.0f, track.pan.load());
         double currentPosition = track.readPosition.load();
 
         // CALCUL DU RATIO selon le mode time-stretch
@@ -361,7 +378,8 @@ private:
         case 2: // Manual BPM (slider)
             if (track.originalBpm > 0.0f)
             {
-                playbackRatio = track.bpm / track.originalBpm;
+                float adjustedBpm = track.originalBpm + track.bpmOffset + (track.fineOffset / 100.0f);
+                playbackRatio = adjustedBpm / track.originalBpm;
             }
             break;
 
@@ -372,12 +390,13 @@ private:
         case 4: // Both (Host + Manual offset)
             if (track.originalBpm > 0.0f)
             {
-                playbackRatio = track.timeStretchRatio * (track.bpm / track.originalBpm);
+                float adjustedBpm = track.originalBpm + track.bpmOffset + (track.fineOffset / 100.0f);
+                playbackRatio = track.timeStretchRatio * (adjustedBpm / track.originalBpm);
             }
             break;
         }
 
-        // NOUVEAU : Convertir les temps en samples pour ONE-SHOT
+        // Convertir les temps en samples pour ONE-SHOT
         double startSample = track.loopStart * track.sampleRate;
         double endSample = track.loopEnd * track.sampleRate;
 
@@ -400,6 +419,19 @@ private:
         {
             // Position absolue dans le sample
             double absolutePosition = startSample + currentPosition;
+            float leftGain = 1.0f;
+            float rightGain = 1.0f;
+
+            if (pan < 0.0f)
+            {
+                // Pan vers la gauche : réduire le canal droit
+                rightGain = 1.0f + pan; // pan est négatif, donc rightGain diminue
+            }
+            else if (pan > 0.0f)
+            {
+                // Pan vers la droite : réduire le canal gauche
+                leftGain = 1.0f - pan;
+            }
 
             // ARRÊTER si on dépasse la fin de la section
             if (absolutePosition >= endSample)
@@ -422,6 +454,18 @@ private:
                 float sample = interpolateLinear(track.audioBuffer.getReadPointer(ch),
                                                  absolutePosition, track.numSamples);
                 sample *= volume;
+                if (ch == 0)
+                {
+                    sample *= leftGain;
+                }
+                else
+                {
+                    sample *= rightGain;
+                }
+
+                // Mixage
+                mixOutput.addSample(ch, i, sample);
+                individualOutput.setSample(ch, i, sample);
 
                 // Mixage
                 mixOutput.addSample(ch, i, sample);
@@ -532,6 +576,19 @@ public:
     void getStateInformation(juce::MemoryBlock &destData) override;
     void setStateInformation(const void *data, int sizeInBytes) override;
 
+    void setMasterVolume(float volume) { masterVolume = volume; }
+    void setMasterPan(float pan) { masterPan = pan; }
+    void setMasterEQ(float high, float mid, float low)
+    {
+        masterHighEQ = high;
+        masterMidEQ = mid;
+        masterLowEQ = low;
+    }
+
+    // Getters pour l'UI
+    float getMasterVolume() const { return masterVolume.load(); }
+    float getMasterPan() const { return masterPan.load(); }
+
     //==============================================================================
     // API MULTI-TRACK
     //==============================================================================
@@ -598,6 +655,7 @@ private:
     //==============================================================================
     static juce::AudioProcessor::BusesProperties createBusLayout();
     static const int MAX_TRACKS = 8;
+    void updateMasterEQ();
 
     std::unordered_map<int, juce::String> playingTracks;
     //==============================================================================
@@ -653,6 +711,12 @@ private:
     std::atomic<float> *generateParam = nullptr;
     std::atomic<float> *playParam = nullptr;
     std::atomic<float> *autoLoadParam = nullptr;
+    SimpleEQ masterEQ;
+    std::atomic<float> masterVolume{0.8f};
+    std::atomic<float> masterPan{0.0f};
+    std::atomic<float> masterHighEQ{0.0f};
+    std::atomic<float> masterMidEQ{0.0f};
+    std::atomic<float> masterLowEQ{0.0f};
 
     //==============================================================================
     // MÉTHODES PRIVÉES
