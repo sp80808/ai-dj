@@ -46,6 +46,11 @@ void DjIaVstEditor::updateUIComponents()
         }
     }
 
+    if (mixerPanel)
+    {
+        mixerPanel->updateAllMixerComponents();
+    }
+
     // 2. Mettre à jour l'indicateur MIDI (clignotement)
     if (!lastMidiNote.isEmpty())
     {

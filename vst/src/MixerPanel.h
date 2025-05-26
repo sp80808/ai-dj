@@ -316,6 +316,8 @@ public:
 
         // Détecter clipping
         isClipping = (masterPeakHold >= 0.95f);
+
+        repaint();
     }
 
     // Interface publique pour contrôler le master
