@@ -106,7 +106,7 @@ async def generate_loop(
             "bpm": request.bpm,
             "key": request.key,
             "stems_used": used_stems,
-            "sample_rate": dj_system.music_gen.sample_rate,
+            "sample_rate": 48000,
             "detected_genre": adaptation["genre"],
             "llm_reasoning": llm_decision.get("reasoning", ""),
         }

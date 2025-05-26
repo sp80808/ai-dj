@@ -2,7 +2,7 @@
 #include "JuceHeader.h"
 #include "WaveformDisplay.h"
 
-class TrackComponent : public juce::Component, public juce::DragAndDropContainer, public juce::DragAndDropTarget, public juce::Timer
+class TrackComponent : public juce::Component, public juce::Timer
 {
 public:
     TrackComponent(const juce::String &trackId, DjIaVstProcessor &processor)
@@ -15,6 +15,34 @@ public:
     {
         track = trackData;
         updateFromTrackData();
+    }
+
+    void updateWaveformWithTimeStretch()
+    {
+        calculateHostBasedDisplay();
+    }
+
+    void writeToLog(const juce::String &message)
+    {
+        auto file = juce::File::getSpecialLocation(juce::File::userDesktopDirectory)
+                        .getChildFile("dj_ia_vst_multitrack.log");
+
+        auto time = juce::Time::getCurrentTime().toString(true, true, true, true);
+        file.appendText(time + ": " + message + "\n");
+    }
+
+    void calculateHostBasedDisplay()
+    {
+        if (!track || track->numSamples == 0)
+            return;
+
+        float effectiveBpm = calculateEffectiveBpm();
+
+        if (waveformDisplay)
+        {
+            waveformDisplay->setOriginalBpm(track->originalBpm);
+            waveformDisplay->setSampleBpm(effectiveBpm);
+        }
     }
 
     void TrackComponent::updateRealTimeDisplay()
@@ -89,7 +117,7 @@ public:
         timeStretchModeSelector.setSelectedId(track->timeStretchMode, juce::dontSendNotification);
         updateBpmSliderVisibility();
 
-        updateWaveformWithTimeStretch();
+        calculateHostBasedDisplay();
         bool isCurrentlyPlaying = track->isPlaying.load();
         playingIndicator.setColour(juce::Label::textColourId,
                                    isCurrentlyPlaying ? juce::Colours::green : juce::Colours::red);
@@ -113,23 +141,6 @@ public:
         updateTrackInfo();
     }
 
-    void updateWaveformWithTimeStretch()
-    {
-        if (!waveformDisplay || !track || track->numSamples == 0)
-            return;
-
-        float effectiveBpm = calculateEffectiveBpm();
-
-        waveformDisplay->setOriginalBpm(track->originalBpm);
-        waveformDisplay->setTrackBpm(effectiveBpm);
-
-        // La waveform va automatiquement se re-stretch visuellement !
-        waveformDisplay->repaint();
-
-        DBG("🎵 Waveform visual stretch: " + juce::String(track->originalBpm, 1) +
-            " → " + juce::String(effectiveBpm, 1) + " BPM");
-    }
-
     float calculateEffectiveBpm()
     {
         if (!track)
@@ -147,22 +158,26 @@ public:
             effectiveBpm = track->originalBpm + track->bpmOffset;
             break;
 
-        case 3: // Host BPM - récupérer depuis le processeur
+        case 3: // Host BPM - ratio appliqué au BPM original
         {
-            double hostBpm = audioProcessor.getHostBpm(); // ← Direct !
-            if (hostBpm > 0.0)
+            double hostBpm = audioProcessor.getHostBpm();
+            if (hostBpm > 0.0 && track->originalBpm > 0.0)
             {
-                effectiveBpm = (float)hostBpm;
+                // ✅ Calculer le ratio et l'appliquer au BPM original
+                float ratio = (float)hostBpm / track->originalBpm;
+                effectiveBpm = track->originalBpm * ratio;
             }
         }
         break;
 
-        case 4: // Host + Manual offset
+        case 4: // Host + Manual offset - ratio + offset
         {
-            double hostBpm = audioProcessor.getHostBpm(); // ← Direct !
-            if (hostBpm > 0.0)
+            double hostBpm = audioProcessor.getHostBpm();
+            if (hostBpm > 0.0 && track->originalBpm > 0.0)
             {
-                effectiveBpm = (float)hostBpm + track->bpmOffset;
+                // ✅ Ratio + ton offset manuel
+                float ratio = (float)hostBpm / track->originalBpm;
+                effectiveBpm = track->originalBpm * ratio + track->bpmOffset;
             }
         }
         break;
@@ -256,7 +271,7 @@ public:
         {
             controlsArea.removeFromLeft(5);
             bpmOffsetLabel.setBounds(controlsArea.removeFromLeft(30));
-            bpmOffsetSlider.setBounds(controlsArea.removeFromLeft(110));
+            bpmOffsetSlider.setBounds(controlsArea.removeFromLeft(300));
         }
 
         area.removeFromTop(5);
@@ -275,28 +290,6 @@ public:
         else if (waveformDisplay)
         {
             waveformDisplay->setVisible(false);
-        }
-    }
-
-    void mouseDrag(const juce::MouseEvent &e) override
-    {
-        if (e.getDistanceFromDragStart() > 10)
-        {
-            startDragging("track_" + trackId, this);
-        }
-    }
-
-    bool isInterestedInDragSource(const SourceDetails &details) override
-    {
-        return details.description.toString().startsWith("track_");
-    }
-
-    void itemDropped(const SourceDetails &details) override
-    {
-        juce::String droppedTrackId = details.description.toString().substring(6);
-        if (onReorderTrack)
-        {
-            onReorderTrack(droppedTrackId, trackId);
         }
     }
 
@@ -343,8 +336,7 @@ public:
         {
             waveformDisplay->setAudioData(track->audioBuffer, track->sampleRate);
             waveformDisplay->setLoopPoints(track->loopStart, track->loopEnd);
-            waveformDisplay->setTrackBpm(track->originalBpm);
-            waveformDisplay->repaint();
+            calculateHostBasedDisplay();
         }
     }
 
@@ -472,14 +464,14 @@ private:
             if (track)
             {
                 track->timeStretchMode = timeStretchModeSelector.getSelectedId();
-                updateBpmSliderVisibility(); // Mettre à jour visibilité
+                updateBpmSliderVisibility();
+                calculateHostBasedDisplay();
                 adjustLoopPointsToTempo();
-                updateWaveformWithTimeStretch();
             }
         };
 
         addAndMakeVisible(bpmOffsetSlider);
-        bpmOffsetSlider.setRange(-50.0, 50.0, 0.1);
+        bpmOffsetSlider.setRange(-20.0, 20.0, 00.1);
         bpmOffsetSlider.setValue(0.0);
         bpmOffsetSlider.setSliderStyle(juce::Slider::LinearHorizontal);
         bpmOffsetSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 20);
@@ -489,7 +481,7 @@ private:
             if (track)
             {
                 track->bpmOffset = bpmOffsetSlider.getValue();
-                updateWaveformWithTimeStretch();
+                calculateHostBasedDisplay();
                 updateTrackInfo();
                 adjustLoopPointsToTempo();
             }
@@ -503,7 +495,6 @@ private:
         updateBpmSliderVisibility();
     }
 
-    // Dans TrackComponent::adjustLoopPointsToTempo(), améliorer :
     void adjustLoopPointsToTempo()
     {
         if (!track || track->numSamples == 0)
@@ -539,18 +530,6 @@ private:
             maxWholeBars = std::max(1, maxWholeBars - 1);
             track->loopEnd = maxWholeBars * barDuration;
         }
-
-        DBG("🎵 QUANTIZED Loop: " + juce::String(maxWholeBars) + " bars exactly, " +
-            "start=" + juce::String(track->loopStart, 3) + "s, " +
-            "end=" + juce::String(track->loopEnd, 3) + "s");
-
-        // Mettre à jour la waveform avec les positions exactes
-        if (waveformDisplay && showWaveformButton.getToggleState())
-        {
-            waveformDisplay->setLoopPoints(track->loopStart, track->loopEnd);
-            waveformDisplay->setTrackBpm(effectiveBpm); // Important !
-            waveformDisplay->repaint();
-        }
     }
 
     void updateTrackInfo()
@@ -573,17 +552,17 @@ private:
                 bpmInfo = " | Original: " + juce::String(originalBpm, 1);
                 break;
             case 2: // Manual BPM
-                stretchIndicator = (effectiveBpm > originalBpm) ? " ⚡" : (effectiveBpm < originalBpm) ? " 🐌"
-                                                                                                       : " =";
+                stretchIndicator = (effectiveBpm > originalBpm) ? " +" : (effectiveBpm < originalBpm) ? " -"
+                                                                                                      : " =";
                 bpmInfo = " | BPM: " + juce::String(effectiveBpm, 1) + stretchIndicator;
                 break;
-            case 3:                       // Host BPM
-                stretchIndicator = " 🎵"; // Icône sync
+            case 3:                      // Host BPM
+                stretchIndicator = " ="; // Icône sync
                 bpmInfo = " | Sync: " + juce::String(effectiveBpm, 1) + stretchIndicator;
                 break;
             case 4: // Host + Manual
-                stretchIndicator = (track->bpmOffset > 0) ? " ⚡" : (track->bpmOffset < 0) ? " 🐌"
-                                                                                           : "";
+                stretchIndicator = (track->bpmOffset > 0) ? " +" : (track->bpmOffset < 0) ? " -"
+                                                                                          : "";
                 bpmInfo = " | Host+" + juce::String(track->bpmOffset, 1) + stretchIndicator;
                 break;
             }
@@ -639,9 +618,8 @@ private:
                 DBG("Loading waveform data: " + juce::String(track->numSamples) + " samples at " + juce::String(track->sampleRate) + " Hz");
 
                 waveformDisplay->setAudioData(track->audioBuffer, track->sampleRate);
-                waveformDisplay->setOriginalBpm(track->originalBpm);
-                waveformDisplay->setTrackBpm(calculateEffectiveBpm());
                 waveformDisplay->setLoopPoints(track->loopStart, track->loopEnd);
+                calculateHostBasedDisplay();
                 waveformDisplay->setVisible(true);
             }
             else

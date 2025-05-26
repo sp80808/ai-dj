@@ -359,6 +359,15 @@ public:
         DBG("loadState complete - final tracks: " + juce::String(tracks.size()));
     }
 
+    void writeToLog(const juce::String &message)
+    {
+        auto file = juce::File::getSpecialLocation(juce::File::userDesktopDirectory)
+                        .getChildFile("dj_ia_vst_multitrack.log");
+
+        auto time = juce::Time::getCurrentTime().toString(true, true, true, true);
+        file.appendText(time + ": " + message + "\n");
+    }
+
 private:
     mutable juce::CriticalSection tracksLock;
     std::unordered_map<std::string, std::unique_ptr<TrackData>> tracks;
@@ -372,16 +381,47 @@ private:
         if (track.numSamples == 0 || !track.isPlaying.load())
             return;
 
+        static bool debugLogged = false;
+        if (!debugLogged)
+        {
+            writeToLog("🎵 === TRACK PLAYING DEBUG ===");
+            writeToLog("  Track name: " + track.trackName);
+            writeToLog("  Original BPM: " + juce::String(track.originalBpm, 1));
+            writeToLog("  Time stretch mode: " + juce::String(track.timeStretchMode));
+            writeToLog("  Cached playback ratio: " + juce::String(track.cachedPlaybackRatio.load(), 3));
+            debugLogged = true;
+        }
+
         const float volume = juce::jlimit(0.0f, 1.0f, track.volume.load());
         const float pan = juce::jlimit(-1.0f, 1.0f, track.pan.load());
         double currentPosition = track.readPosition.load();
 
         // CALCUL DU RATIO selon le mode time-stretch
-        double playbackRatio = track.cachedPlaybackRatio.load();
+        double playbackRatio = 1.0;
+
+        static bool fundamentalDebug = false;
+        if (!fundamentalDebug && track.numSamples > 0)
+        {
+            writeToLog("🔍 === FUNDAMENTAL DEBUG ===");
+            writeToLog("  Track sample rate: " + juce::String(track.sampleRate));
+            writeToLog("  Host sample rate: " + juce::String(hostSampleRate));
+            writeToLog("  Track numSamples: " + juce::String(track.numSamples));
+            writeToLog("  Track duration (calculated): " + juce::String(track.numSamples / track.sampleRate, 3) + "s");
+            writeToLog("  Original BPM: " + juce::String(track.originalBpm, 1));
+            writeToLog("  Time stretch mode: " + juce::String(track.timeStretchMode));
+            writeToLog("  playbackRatio: " + juce::String(playbackRatio, 3));
+
+            double samplesPerSecondWithRatio = track.sampleRate * playbackRatio;
+            writeToLog("  Samples/sec with ratio: " + juce::String(samplesPerSecondWithRatio));
+            writeToLog("  Expected playback rate: " + juce::String(samplesPerSecondWithRatio / hostSampleRate, 3) + "x");
+
+            fundamentalDebug = true;
+        }
 
         switch (track.timeStretchMode)
         {
         case 1: // Off - garder ratio = 1.0
+            playbackRatio = 1.0;
             break;
 
         case 2: // Manual BPM (slider)
@@ -393,14 +433,14 @@ private:
             break;
 
         case 3: // Host BPM (DAW) - DEFAULT
-            playbackRatio = track.timeStretchRatio;
+            playbackRatio = 1.0;
             break;
 
         case 4: // Both (Host + Manual offset)
             if (track.originalBpm > 0.0f)
             {
-                float adjustedBpm = track.originalBpm + track.bpmOffset + (track.fineOffset / 100.0f);
-                playbackRatio = track.timeStretchRatio * (adjustedBpm / track.originalBpm);
+                float manualAdjust = track.bpmOffset + (track.fineOffset / 100.0f);
+                playbackRatio = (track.originalBpm + manualAdjust) / track.originalBpm;
             }
             break;
         }
@@ -426,7 +466,6 @@ private:
         // Process audio en ONE-SHOT (lecture linéaire)
         for (int i = 0; i < numSamples; ++i)
         {
-            // Position absolue dans le sample
             double absolutePosition = startSample + currentPosition;
             float leftGain = 1.0f;
             float rightGain = 1.0f;
@@ -666,7 +705,7 @@ private:
     // CONFIGURATION DU BUS LAYOUT MULTI-OUTPUT
     //==============================================================================
     std::atomic<bool> needsUIUpdate{false};
-
+    std::atomic<double> cachedHostBpm{126.0};
     static juce::AudioProcessor::BusesProperties createBusLayout();
     static const int MAX_TRACKS = 8;
     void updateMasterEQ();

@@ -202,6 +202,7 @@ void DjIaVstProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::Midi
             if (auto bpm = positionInfo->getBpm())
             {
                 hostBpm = *bpm;
+                cachedHostBpm = hostBpm;
             }
             if (auto ppq = positionInfo->getPpqPosition())
             {
@@ -384,41 +385,28 @@ void DjIaVstProcessor::updateTimeStretchRatios(double hostBpm)
         if (!track)
             continue;
 
-        // Calculer le ratio selon le mode AVEC bpmOffset
         double ratio = 1.0;
 
         switch (track->timeStretchMode)
         {
-        case 1: // Off - pas de time-stretch
+        case 1: // Off
+        case 3: // Host BPM (déjà pré-étiré)
             ratio = 1.0;
             break;
 
-        case 2: // Manual BPM avec offset
-            if (track->originalBpm > 0.0f)
-            {
-                double targetBpm = track->originalBpm + track->bpmOffset;
-                ratio = targetBpm / track->originalBpm;
-            }
-            break;
-
-        case 3: // Host BPM (défaut) - sync parfait DAW
+        case 2: // Manual seulement
+        case 4: // Host + Manual offset
             if (track->originalBpm > 0.0f && hostBpm > 0.0)
             {
-                ratio = hostBpm / track->originalBpm;
-            }
-            break;
-
-        case 4: // Host + Manual offset - sync DAW + correction
-            if (track->originalBpm > 0.0f && hostBpm > 0.0)
-            {
-                double adjustedHostBpm = hostBpm + track->bpmOffset;
-                ratio = adjustedHostBpm / track->originalBpm;
+                // ✅ D'ABORD le ratio host, PUIS l'offset
+                double hostRatio = hostBpm / track->originalBpm;
+                double manualAdjust = track->bpmOffset / track->originalBpm;
+                ratio = hostRatio + manualAdjust; // Host sync + correction manuelle
             }
             break;
         }
 
-        // Limiter le ratio pour éviter les extrêmes
-        ratio = juce::jlimit(0.25, 4.0, ratio); // Entre 1/4x et 4x la vitesse
+        ratio = juce::jlimit(0.25, 4.0, ratio);
         track->cachedPlaybackRatio = ratio;
     }
 }
@@ -727,9 +715,39 @@ void DjIaVstProcessor::loadAudioDataAsync(const juce::String &trackId, const juc
             track->stagingBuffer.copyFrom(1, 0, track->stagingBuffer, 0, 0, numSamples);
         }
 
-        // Détecter BPM dans le thread de fond (pas de rush)
         float detectedBPM = AudioAnalyzer::detectBPM(track->stagingBuffer, sampleRate);
+        writeToLog("🎵 === BPM ANALYZER DEBUG ===");
+        writeToLog("  Audio duration: " + juce::String(numSamples / sampleRate, 2) + " seconds");
+        writeToLog("  Sample rate: " + juce::String(sampleRate) + " Hz");
+        writeToLog("  Raw detected BPM: " + juce::String(detectedBPM, 2));
+        writeToLog("  Track requested BPM: " + juce::String(track->bpm, 1));
+        writeToLog("  BPM in valid range: " + juce::String((detectedBPM > 60.0f && detectedBPM < 200.0f) ? "YES" : "NO"));
+
         track->stagingOriginalBpm = (detectedBPM > 60.0f && detectedBPM < 200.0f) ? detectedBPM : track->bpm;
+        writeToLog("  Final stagingOriginalBpm: " + juce::String(track->stagingOriginalBpm, 2));
+
+        double hostBpm = cachedHostBpm.load();
+        writeToLog("  Host BPM: " + juce::String(hostBpm, 1));
+        writeToLog("  BPM difference: " + juce::String(std::abs(hostBpm - track->stagingOriginalBpm), 2));
+        writeToLog("  Will time-stretch: " + juce::String((std::abs(hostBpm - track->stagingOriginalBpm) > 1.0) ? "YES" : "NO"));
+
+        if (hostBpm > 0.0 && track->stagingOriginalBpm > 0.0f &&
+            std::abs(hostBpm - track->stagingOriginalBpm) > 1.0)
+        {
+            double stretchRatio = hostBpm / track->stagingOriginalBpm;
+            writeToLog("🎵 Time-stretching: " + juce::String(track->stagingOriginalBpm, 1) +
+                       " -> " + juce::String(hostBpm, 1) + " BPM (ratio: " + juce::String(stretchRatio, 3) + ")");
+
+            AudioAnalyzer::timeStretchBuffer(track->stagingBuffer, stretchRatio, sampleRate);
+            track->stagingOriginalBpm = hostBpm;
+
+            // APRÈS le time-stretch
+            writeToLog("🔍 TIME-STRETCH VERIFICATION:");
+            writeToLog("  Samples BEFORE stretch: " + juce::String(numSamples));
+            writeToLog("  Samples AFTER stretch: " + juce::String(track->stagingBuffer.getNumSamples()));
+            writeToLog("  Duration BEFORE: " + juce::String(numSamples / sampleRate, 3) + "s");
+            writeToLog("  Duration AFTER: " + juce::String(track->stagingBuffer.getNumSamples() / sampleRate, 3) + "s");
+        }
 
         // Préparer métadonnées staging
         track->stagingNumSamples = numSamples;

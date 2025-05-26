@@ -208,19 +208,33 @@ class MusicGenerator:
             else:
                 temp_dir = tempfile.gettempdir()
                 path = os.path.join(temp_dir, filename)
-
+                
             # Vérifier que sample_audio est un numpy array
             if not isinstance(sample_audio, np.ndarray):
                 sample_audio = np.array(sample_audio)
-
+            
+            # ✅ NOUVEAU : Resample vers 48kHz si nécessaire
+            if self.sample_rate != 48000:
+                print(f"🔄 Resampling {self.sample_rate}Hz → 48000Hz")
+                import librosa
+                sample_audio = librosa.resample(
+                    sample_audio, 
+                    orig_sr=self.sample_rate, 
+                    target_sr=48000
+                )
+                # Mettre à jour le sample rate pour la sauvegarde
+                save_sample_rate = 48000
+            else:
+                save_sample_rate = self.sample_rate
+                
             # Normaliser
             max_val = np.max(np.abs(sample_audio))
             if max_val > 0:
                 sample_audio = sample_audio / max_val * 0.9
+                
             import soundfile as sf
-
-            sf.write(path, sample_audio, self.sample_rate)
-
+            sf.write(path, sample_audio, save_sample_rate)  # ← Utilise le bon sample rate
+            
             return path
         except Exception as e:
             print(f"❌ Erreur lors de la sauvegarde du sample: {e}")
