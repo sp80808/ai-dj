@@ -646,10 +646,10 @@ void DjIaVstProcessor::performAtomicSwap(TrackData *track, const juce::String &t
     // Clear staging
     track->hasStagingData = false;
     track->stagingBuffer.setSize(0, 0); // Libérer mémoire
-    juce::MessageManager::callAsync([this, trackId = juce::String(/* track ID */)]()
+    juce::MessageManager::callAsync([this, trackId]()
                                     {
-        // Refresh waveform display si visible
-        updateWaveformDisplay(trackId); });
+                                        updateWaveformDisplay(trackId); // ← Utilise le vrai trackId
+                                    });
     writeToLog("✅ Atomic swap complete for: " + trackId);
 }
 
@@ -657,12 +657,15 @@ void DjIaVstProcessor::updateWaveformDisplay(const juce::String &trackId)
 {
     if (auto *editor = dynamic_cast<DjIaVstEditor *>(getActiveEditor()))
     {
-        // Trouver le TrackComponent correspondant
         for (auto &trackComp : editor->getTrackComponents())
         {
             if (trackComp->getTrackId() == trackId)
             {
-                trackComp->refreshWaveformDisplay(); // Méthode à créer
+                if (trackComp->isWaveformVisible())
+                {
+                    trackComp->refreshWaveformDisplay();
+                    writeToLog("🔄 Waveform updated for: " + trackId);
+                }
                 break;
             }
         }
@@ -940,6 +943,25 @@ juce::AudioProcessorEditor *DjIaVstProcessor::createEditor()
     return new DjIaVstEditor(*this);
 }
 
+void DjIaVstProcessor::addCustomPrompt(const juce::String &prompt)
+{
+    if (!prompt.isEmpty() && !customPrompts.contains(prompt))
+    {
+        customPrompts.add(prompt);
+        writeToLog("Custom prompt added: " + prompt);
+    }
+}
+
+juce::StringArray DjIaVstProcessor::getCustomPrompts() const
+{
+    return customPrompts;
+}
+
+void DjIaVstProcessor::clearCustomPrompts()
+{
+    customPrompts.clear();
+}
+
 void DjIaVstProcessor::getStateInformation(juce::MemoryBlock &destData)
 {
     writeToLog("=== SAVING STATE ===");
@@ -977,6 +999,14 @@ void DjIaVstProcessor::getStateInformation(juce::MemoryBlock &destData)
     state.setProperty("selectedTrackId", selectedTrackId, nullptr);
     writeToLog("Selected track being saved: " + selectedTrackId);
 
+    juce::ValueTree promptsState("CustomPrompts");
+    for (int i = 0; i < customPrompts.size(); ++i)
+    {
+        promptsState.setProperty("prompt_" + juce::String(i), customPrompts[i], nullptr);
+    }
+    state.appendChild(promptsState, nullptr);
+    writeToLog("Saved " + juce::String(customPrompts.size()) + " custom prompts");
+
     // Sauvegarder toutes les pistes
     auto tracksState = trackManager.saveState();
     state.appendChild(tracksState, nullptr);
@@ -994,97 +1024,140 @@ void DjIaVstProcessor::setStateInformation(const void *data, int sizeInBytes)
     writeToLog("=== LOADING STATE ===");
     writeToLog("Data size: " + juce::String(sizeInBytes) + " bytes");
 
+    // ✅ 1. Parser XML sur le thread audio (rapide)
     std::unique_ptr<juce::XmlElement> xml(getXmlFromBinary(data, sizeInBytes));
-    if (xml && xml->hasTagName("DjIaVstState"))
+    if (!xml || !xml->hasTagName("DjIaVstState"))
     {
-        juce::ValueTree state = juce::ValueTree::fromXml(*xml);
+        writeToLog("Failed to parse state XML!");
+        return;
+    }
 
-        // Charger état basique
-        lastPrompt = state.getProperty("lastPrompt", "").toString();
-        lastStyle = state.getProperty("lastStyle", "Techno").toString();
-        lastKey = state.getProperty("lastKey", "C minor").toString();
-        lastBpm = state.getProperty("lastBpm", 126.0);
-        lastPresetIndex = state.getProperty("lastPresetIndex", -1);
-        hostBpmEnabled = state.getProperty("hostBpmEnabled", false);
+    juce::ValueTree state = juce::ValueTree::fromXml(*xml);
 
-        juce::String newServerUrl = state.getProperty("serverUrl", "http://localhost:8000").toString();
-        juce::String newApiKey = state.getProperty("apiKey", "").toString();
+    // ✅ 2. Charger données thread-safe (atomic/simples)
+    lastPrompt = state.getProperty("lastPrompt", "").toString();
+    lastStyle = state.getProperty("lastStyle", "Techno").toString();
+    lastKey = state.getProperty("lastKey", "C minor").toString();
+    lastBpm = state.getProperty("lastBpm", 126.0);
+    lastPresetIndex = state.getProperty("lastPresetIndex", -1);
+    hostBpmEnabled = state.getProperty("hostBpmEnabled", false);
 
-        if (newServerUrl != serverUrl)
+    // ✅ 3. Charger custom prompts
+    auto promptsState = state.getChildWithName("CustomPrompts");
+    if (promptsState.isValid())
+    {
+        customPrompts.clear();
+        for (int i = 0; i < promptsState.getNumProperties(); ++i)
         {
-            setServerUrl(newServerUrl);
+            auto propertyName = promptsState.getPropertyName(i);
+            if (propertyName.toString().startsWith("prompt_"))
+            {
+                juce::String prompt = promptsState.getProperty(propertyName, "").toString();
+                if (prompt.isNotEmpty())
+                {
+                    customPrompts.add(prompt);
+                }
+            }
         }
+        writeToLog("Loaded " + juce::String(customPrompts.size()) + " custom prompts");
+    }
 
-        if (newApiKey != apiKey)
+    // ✅ 4. Config serveur (thread-safe)
+    juce::String newServerUrl = state.getProperty("serverUrl", "http://localhost:8000").toString();
+    juce::String newApiKey = state.getProperty("apiKey", "").toString();
+
+    if (newServerUrl != serverUrl)
+    {
+        setServerUrl(newServerUrl);
+    }
+    if (newApiKey != apiKey)
+    {
+        setApiKey(newApiKey);
+    }
+
+    // ✅ 5. Charger tracks (AVANT UI)
+    writeToLog("Before loading tracks: " + juce::String(trackManager.getAllTrackIds().size()) + " tracks");
+
+    auto tracksState = state.getChildWithName("TrackManager");
+    if (tracksState.isValid())
+    {
+        writeToLog("Found TrackManager state with " + juce::String(tracksState.getNumChildren()) + " children");
+        trackManager.loadState(tracksState);
+    }
+    else
+    {
+        writeToLog("No TrackManager state found!");
+    }
+
+    // ✅ 6. Valider selected track
+    selectedTrackId = state.getProperty("selectedTrackId", "").toString();
+    auto loadedTrackIds = trackManager.getAllTrackIds();
+
+    if (selectedTrackId.isEmpty() || !trackManager.getTrack(selectedTrackId))
+    {
+        if (!loadedTrackIds.empty())
         {
-            setApiKey(newApiKey);
-        }
-
-        // DEBUG: Vérifier l'état des tracks avant chargement
-        writeToLog("Before loading tracks: " + juce::String(trackManager.getAllTrackIds().size()) + " tracks");
-
-        // Charger les pistes
-        auto tracksState = state.getChildWithName("TrackManager");
-        if (tracksState.isValid())
-        {
-            writeToLog("Found TrackManager state with " + juce::String(tracksState.getNumChildren()) + " children");
-            trackManager.loadState(tracksState);
+            selectedTrackId = loadedTrackIds[0];
+            writeToLog("Using first available track: " + selectedTrackId);
         }
         else
         {
-            writeToLog("No TrackManager state found!");
+            selectedTrackId = trackManager.createTrack("Main");
+            writeToLog("Created new track: " + selectedTrackId);
         }
+    }
 
-        // DEBUG: Vérifier après chargement
-        auto loadedTrackIds = trackManager.getAllTrackIds();
-        writeToLog("After loading tracks: " + juce::String(loadedTrackIds.size()) + " tracks");
-        for (const auto &id : loadedTrackIds)
-        {
-            TrackData *track = trackManager.getTrack(id);
-            if (track)
-            {
-                writeToLog("  Track: " + track->trackName + " (ID: " + id + ")");
-            }
-        }
+    writeToLog("Loading complete - " + juce::String(loadedTrackIds.size()) + " tracks loaded");
 
-        // Restaurer piste sélectionnée
-        selectedTrackId = state.getProperty("selectedTrackId", "").toString();
-        writeToLog("Selected track ID from state: " + selectedTrackId);
-
-        if (selectedTrackId.isEmpty() || !trackManager.getTrack(selectedTrackId))
-        {
-            auto trackIds = trackManager.getAllTrackIds();
-            if (!trackIds.empty())
-            {
-                selectedTrackId = trackIds[0];
-                writeToLog("Using first available track: " + selectedTrackId);
-            }
-            else
-            {
-                selectedTrackId = trackManager.createTrack("Main");
-                writeToLog("Created new track: " + selectedTrackId);
-            }
-        }
-
-        writeToLog("Final selected track: " + selectedTrackId);
-        writeToLog("Loading complete - " + juce::String(trackManager.getAllTrackIds().size()) + " tracks loaded");
-
-        juce::MessageManager::callAsync([this]()
-                                        {
+    // ✅ 7. UPDATE UI ASYNC + ÉTALÉ pour éviter le blanc
+    juce::MessageManager::callAsync([this]()
+                                    {
         if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
         {
-            writeToLog("Notifying UI to refresh track components");
-            editor->refreshTrackComponents();
+            writeToLog("🎨 Starting async UI update...");
+            
+            // Phase 1: Update UI state SANS tracks
             editor->updateUIFromProcessor();
+            
+            // Phase 2: Refresh tracks après un petit délai
+            juce::Timer::callAfterDelay(50, [this]()
+            {
+                if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
+                {
+                    writeToLog("🎨 Refreshing track components...");
+                    editor->refreshTrackComponents();
+                    
+                    // Phase 3: Update waveforms APRÈS que tout soit créé
+                    juce::Timer::callAfterDelay(100, [this]()
+                    {
+                        writeToLog("🎨 Updating waveforms...");
+                        updateAllWaveformsAfterLoad();
+                        writeToLog("✅ UI update complete!");
+                    });
+                }
+            });
         }
         else
         {
             writeToLog("No editor available to notify");
         } });
-    }
-    else
+}
+
+// ✅ NOUVELLE MÉTHODE pour waveforms
+void DjIaVstProcessor::updateAllWaveformsAfterLoad()
+{
+    if (auto *editor = dynamic_cast<DjIaVstEditor *>(getActiveEditor()))
     {
-        writeToLog("Failed to parse state XML!");
+        auto trackIds = trackManager.getAllTrackIds();
+        for (const auto &trackId : trackIds)
+        {
+            TrackData *track = trackManager.getTrack(trackId);
+            if (track && track->numSamples > 0)
+            {
+                updateWaveformDisplay(trackId);
+            }
+        }
+        writeToLog("✅ All waveforms updated after state load");
     }
 }
 

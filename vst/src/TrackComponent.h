@@ -22,6 +22,11 @@ public:
         calculateHostBasedDisplay();
     }
 
+    bool isWaveformVisible() const
+    {
+        return showWaveformButton.getToggleState() && waveformDisplay && waveformDisplay->isVisible();
+    }
+
     void writeToLog(const juce::String &message)
     {
         auto file = juce::File::getSpecialLocation(juce::File::userDesktopDirectory)

@@ -174,11 +174,12 @@ dark atmosphere, minimal hi-hats, rolling bassline"
 
 ## ⚠️ Known Issues
 
-- **Window close crash**: Don't close plugin window, use bypass instead
-- **First generation slow**: Models need to load initially
 - **CUDA required**: CPU generation too slow for live use
 - **Character encoding**: Some special characters may display incorrectly
-- **Track display bug**: Tracks may not appear when reopening plugin window - use the "Refresh" button to force display
+- **Custom prompts not persistent**: Saved prompts reset on DAW restart (temporary limitation)
+- **Audio crackling**: May occur with 2+ simultaneous tracks (increase DAW buffer size)
+- **UI color updates**: Some button colors don't refresh immediately
+- **Minor UI glitches**: Occasional display inconsistencies
 
 ## 🎯 Live Performance Focus
 

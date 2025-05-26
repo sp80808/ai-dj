@@ -24,6 +24,7 @@ DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor &p)
     {
         updateUIComponents();
     };
+    loadPromptPresets();
 }
 
 DjIaVstEditor::~DjIaVstEditor()
@@ -769,15 +770,31 @@ void DjIaVstEditor::onGenerateButtonClicked()
         } });
 }
 
-// NOUVELLES FONCTIONS PRESETS
 void DjIaVstEditor::loadPromptPresets()
 {
     promptPresetSelector.clear();
-    for (int i = 0; i < promptPresets.size(); ++i)
+
+    // ✅ Charger les presets par défaut + custom prompts
+    juce::StringArray allPrompts = promptPresets; // Presets par défaut
+
+    // ✅ Ajouter les custom prompts du processor
+    auto customPrompts = audioProcessor.getCustomPrompts();
+    for (const auto &customPrompt : customPrompts)
     {
-        promptPresetSelector.addItem(promptPresets[i], i + 1);
+        if (!allPrompts.contains(customPrompt))
+        {
+            allPrompts.insert(-1, customPrompt); // Avant "Custom..."
+        }
     }
-    promptPresetSelector.setSelectedId(promptPresets.size()); // "Custom..." par défaut
+
+    // ✅ Populer le selector
+    for (int i = 0; i < allPrompts.size(); ++i)
+    {
+        promptPresetSelector.addItem(allPrompts[i], i + 1);
+    }
+
+    // ✅ Mettre à jour la liste locale
+    promptPresets = allPrompts;
 }
 
 void DjIaVstEditor::onPresetSelected()
@@ -801,24 +818,26 @@ void DjIaVstEditor::onSavePreset()
     juce::String currentPrompt = promptInput.getText().trim();
     if (currentPrompt.isNotEmpty())
     {
-        // Demander le nom du preset
-        juce::AlertWindow::showAsync(
-            juce::MessageBoxOptions()
-                .withIconType(juce::MessageBoxIconType::QuestionIcon)
-                .withTitle("Save Preset")
-                .withMessage("Enter name for this prompt preset:")
-                .withButton("Save")
-                .withButton("Cancel"),
-            [this, currentPrompt](int result)
-            {
-                if (result == 1) // Save clicked
-                {
-                    // Ajouter le nouveau preset (avant "Custom...")
-                    promptPresets.insert(promptPresets.size() - 1, currentPrompt);
-                    loadPromptPresets();
-                    statusLabel.setText("Preset saved: " + currentPrompt, juce::dontSendNotification);
-                }
-            });
+        // ✅ SAUVEGARDER dans le processor (persistant)
+        audioProcessor.addCustomPrompt(currentPrompt);
+
+        // ✅ AUSSI dans la liste locale pour l'UI immédiate
+        if (!promptPresets.contains(currentPrompt))
+        {
+            promptPresets.insert(promptPresets.size() - 1, currentPrompt); // Avant "Custom..."
+        }
+
+        // ✅ Refresh la liste UI
+        loadPromptPresets();
+
+        // ✅ Sélectionner le preset qu'on vient d'ajouter
+        int newPresetIndex = promptPresets.indexOf(currentPrompt);
+        if (newPresetIndex >= 0)
+        {
+            promptPresetSelector.setSelectedId(newPresetIndex + 1, juce::dontSendNotification);
+        }
+
+        statusLabel.setText("Preset saved: " + currentPrompt, juce::dontSendNotification);
     }
     else
     {

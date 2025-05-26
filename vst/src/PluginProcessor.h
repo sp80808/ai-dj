@@ -651,7 +651,7 @@ public:
     void setLastBpm(double bpm) { lastBpm = bpm; }
     void setLastPresetIndex(int index) { lastPresetIndex = index; }
     void setHostBpmEnabled(bool enabled) { hostBpmEnabled = enabled; }
-
+    void updateAllWaveformsAfterLoad();
     // Audio loading
     void setAutoLoadEnabled(bool enabled);
     bool getAutoLoadEnabled() const { return autoLoadEnabled.load(); }
@@ -669,6 +669,10 @@ public:
 
     // Logging
     static void writeToLog(const juce::String &message);
+
+    void addCustomPrompt(const juce::String &prompt);
+    juce::StringArray getCustomPrompts() const;
+    void clearCustomPrompts();
 
 private:
     //==============================================================================
@@ -688,6 +692,7 @@ private:
     //==============================================================================
     // ÉTAT DU PLUGIN
     //==============================================================================
+    juce::StringArray customPrompts;
 
     // Multi-track system
     TrackManager trackManager;
