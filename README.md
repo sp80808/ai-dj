@@ -1,5 +1,7 @@
 # 🎧 DJ-IA VST: Real-Time AI Multi-Sampler Plugin
 
+![DJ-IA VST Interface](./screenshot.png)
+
 DJ-IA VST is a live music generation plugin that uses AI to create music loops in real-time directly in your DAW. The core innovation is the **LLM-driven prompt generation** that feeds **Stable Audio Open** to create contextually intelligent music that evolves with your session.
 
 ⚠️ **Proof of Concept** - Currently in active development
