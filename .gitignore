@@ -5,6 +5,8 @@ __pycache__
 vst/JUCE
 vst/build
 vst/soundtouch
+vst/out
+vst/.vs
 .vscode
 server/api/generated_loops
 server/api/temp_loops
