@@ -594,6 +594,9 @@ void DjIaVstEditor::resized()
     auto stemWidth = stemsArea.getWidth() / 6;
     drumsButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(1));
     bassButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(1));
+    vocalsButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(1));
+    guitarButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(1));
+    pianoButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(1));
     otherButton.setBounds(stemsArea.reduced(1));
 
     area.removeFromTop(8);
