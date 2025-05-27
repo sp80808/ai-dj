@@ -18,7 +18,7 @@ DJ-IA VST is a live music generation plugin that uses AI to create music loops i
 
 ### **MIDI-Triggered Playback**
 
-- **8 independent tracks** with individual MIDI note assignments (C4-B4 by default)
+- **8 independent tracks** with individual MIDI note assignments (C3-B3 by default)
 - **One-shot playback**: Samples play from start to end points, triggered by MIDI
 - **Real-time sync**: Perfect timing with your DAW's transport
 - **Individual outputs**: Route each track to separate DAW channels for mixing
