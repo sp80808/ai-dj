@@ -141,6 +141,8 @@ class DJAILL:
         current_tempo = self.session_state.get("current_tempo", 126)
         current_key = self.session_state.get("current_key", "C minor")
 
+        print("SPECIAL INSTRUCTION: " + special_instruction)
+
         return f"""⚠️ NOUVELLE DEMANDE UTILISATEUR ⚠️
 Mots-clés: {special_instruction}
 
