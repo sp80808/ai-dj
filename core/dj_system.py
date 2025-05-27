@@ -38,6 +38,9 @@ class DJSystem:
             "active_layers": {},  # Dictionnaire pour stocker les layers actifs avec leurs infos
             "set_phase": "intro",  # ou "warmup"
             "time_elapsed_beats": 0,  # Pour aider le LLM à structurer
+            "session_duration": 0,
+            "last_action_time": 0,
+            "history": [],
         }
         self.dj_brain = DJAILL(self.model_path, initial_llm_state)
 

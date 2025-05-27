@@ -255,7 +255,6 @@ void DjIaVstEditor::setupUI()
 
     addAndMakeVisible(durationLabel);
     durationLabel.setText("Duration", juce::dontSendNotification);
-    durationLabel.attachToComponent(&durationSlider, true);
 
     // Generate button
     addAndMakeVisible(generateButton);
@@ -598,7 +597,7 @@ void DjIaVstEditor::resized()
     auto stemsRow = area.removeFromTop(30);
     stemsLabel.setBounds(stemsRow.removeFromLeft(60));
     auto stemsArea = stemsRow.reduced(2);
-    auto stemWidth = stemsArea.getWidth() / 3;
+    auto stemWidth = stemsArea.getWidth() / 6;
     drumsButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(1));
     bassButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(1));
     otherButton.setBounds(stemsArea.reduced(1));

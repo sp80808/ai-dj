@@ -1,4 +1,5 @@
 import json
+import re
 import time
 from llama_cpp import Llama
 
@@ -12,11 +13,15 @@ class DJAILL:
 
         Args:
             model_path (str): Chemin vers le modèle GMA-4B
-            profile_name (str): Nom du profil DJ à utiliser
             config (dict): Configuration globale
         """
         self.model_path = model_path
-        self.session_state = config
+        self.session_state = config or {}
+
+        # Historique de conversation pour le LLM
+        self.conversation_history = [
+            {"role": "system", "content": self.get_system_prompt()}
+        ]
 
     def _init_model(self):
         """Initialise ou réinitialise le modèle LLM"""
@@ -48,81 +53,131 @@ class DJAILL:
 
         # Mise à jour du temps de session
         current_time = time.time()
-        if self.session_state["last_action_time"] > 0:
+        if self.session_state.get("last_action_time", 0) > 0:
             elapsed = current_time - self.session_state["last_action_time"]
-            self.session_state["session_duration"] += elapsed
+            self.session_state["session_duration"] = (
+                self.session_state.get("session_duration", 0) + elapsed
+            )
         self.session_state["last_action_time"] = current_time
 
-        # Générer la réponse du LLM
+        # Construire le prompt utilisateur
         user_prompt = self._build_prompt()
-        print("\n🧠 Génération AI-DJ prompt...")
-        response = self.model.create_chat_completion(
-            [
-                {"role": "system", "content": self.get_system_prompt()},
-                {"role": "user", "content": user_prompt},
-            ]
+
+        # Ajouter à l'historique de conversation
+        self.conversation_history.append({"role": "user", "content": user_prompt})
+
+        # Garder seulement les 10 derniers échanges (system + 9 pairs user/assistant)
+        # pour éviter de dépasser le contexte
+        if len(self.conversation_history) > 19:  # system + 9*2 messages
+            # Garder le system prompt + les 8 derniers échanges
+            self.conversation_history = [
+                self.conversation_history[0]
+            ] + self.conversation_history[-16:]
+            print("🧹 Historique tronqué pour rester dans le contexte")
+
+        print(
+            f"\n🧠 Génération AI-DJ avec {len(self.conversation_history)} messages d'historique..."
         )
+
+        # Générer avec tout l'historique
+        response = self.model.create_chat_completion(self.conversation_history)
+
         print("✅ Génération terminée !")
+
         try:
             # Extraire et parser la réponse JSON
             response_text = response["choices"][0]["message"]["content"]
-            # Trouver le JSON dans la réponse (au cas où le modèle ajoute du texte autour)
-            import re
+
+            # Ajouter la réponse à l'historique AVANT de parser
+            self.conversation_history.append(
+                {"role": "assistant", "content": response_text}
+            )
 
             json_match = re.search(r"({.*})", response_text, re.DOTALL)
             if json_match:
                 json_str = json_match.group(1)
                 decision = json.loads(json_str)
             else:
-                # Fallback si pas de JSON trouvé
+                print(f"Pas de JSON dans la réponse du LLM, utilisation du fallback.")
                 decision = {
-                    "action_type": "sample",  # Action par défaut
-                    "parameters": {"type": "techno_kick", "intensity": 5},
+                    "action_type": "generate_sample",
+                    "parameters": {
+                        "sample_details": {
+                            "musicgen_prompt": "techno kick drum, driving beat",
+                            "key": self.session_state.get("current_key", "C minor"),
+                        }
+                    },
                     "reasoning": "Fallback: Pas de réponse JSON valide",
                 }
+
         except (json.JSONDecodeError, KeyError) as e:
             print(f"Erreur de parsing de la réponse: {e}")
             print(f"Réponse brute: {response_text}")
+
             # Décision par défaut en cas d'erreur
             decision = {
-                "action_type": "sample",
-                "parameters": {"type": "techno_kick", "intensity": 5},
-                "reasoning": f"Erreur: {str(e)}",
+                "action_type": "generate_sample",
+                "parameters": {
+                    "sample_details": {
+                        "musicgen_prompt": "electronic music sample",
+                        "key": self.session_state.get("current_key", "C minor"),
+                    }
+                },
+                "reasoning": f"Erreur de parsing: {str(e)}",
             }
 
-        # Enregistrer la décision dans l'historique
+        # Enregistrer aussi dans l'historique legacy (si besoin pour autres parties du code)
+        if "history" not in self.session_state:
+            self.session_state["history"] = []
         self.session_state["history"].append(decision)
 
         return decision
 
     def _build_prompt(self):
-        """Prompt user minimal"""
+        """Prompt user minimal avec contexte actuel"""
         special_instruction = self.session_state.get("special_instruction", "")
+        current_tempo = self.session_state.get("current_tempo", 126)
+        current_key = self.session_state.get("current_key", "C minor")
 
-        return f"""Mots-clés utilisateur: {special_instruction}"""
+        return f"""Mots-clés utilisateur: {special_instruction}
+
+Context:
+- Tempo: {current_tempo} BPM
+- Tonalité: {current_key}
+
+Génère un sample qui s'intègre bien avec tes générations précédentes mais apporte quelque chose de nouveau."""
 
     def get_system_prompt(self) -> str:
-        return """Tu es un générateur de samples musicaux. L'utilisateur te donne des mots-clés, tu génères un JSON simple.
+        return """Tu es un générateur de samples musicaux intelligent. L'utilisateur te donne des mots-clés, tu génères un JSON cohérent en tenant compte de l'historique de la conversation.
 
-    FORMAT OBLIGATOIRE :
-    {
-        "action_type": "generate_sample",
-        "parameters": {
-            "sample_details": {
-                "musicgen_prompt": "[prompt optimisé pour MusicGen basé sur les mots-clés]",
-                "key": "[tonalité appropriée ou garde celle fournie]"
-            }
-        },
-        "reasoning": "Explication courte"
-    }
+FORMAT OBLIGATOIRE :
+{
+    "action_type": "generate_sample",
+    "parameters": {
+        "sample_details": {
+            "musicgen_prompt": "[prompt optimisé pour MusicGen basé sur les mots-clés ET l'historique]",
+            "key": "[tonalité appropriée ou garde celle fournie]"
+        }
+    },
+    "reasoning": "Explication courte de tes choix en tenant compte de l'historique"
+}
 
-    RÈGLES :
-    - Crée un prompt MusicGen cohérent à partir des mots-clés de l'user
-    - Pour la tonalité : utilise celle fournie ou adapte si le style l'exige
-    - Réponds UNIQUEMENT en JSON
+RÈGLES :
+- Crée un prompt MusicGen cohérent à partir des mots-clés de l'user
+- TIENS COMPTE de tes générations précédentes pour créer de la variété et de la cohérence
+- Pour la tonalité : utilise celle fournie ou adapte si le style l'exige
+- Évite de répéter exactement les mêmes éléments que précédemment
+- Réponds UNIQUEMENT en JSON
 
-    EXEMPLES :
-    User: "ambient space" → musicgen_prompt: "ambient atmospheric space soundscape, ethereal pads"
-    User: "hard kick techno" → musicgen_prompt: "hard techno kick, driving 4/4 beat, industrial"
-    User: "jazzy piano" → musicgen_prompt: "jazz piano, smooth chords, melodic improvisation"
-    """
+EXEMPLES :
+User: "ambient space" → musicgen_prompt: "ambient atmospheric space soundscape, ethereal pads"
+User: "hard kick techno" → musicgen_prompt: "hard techno kick, driving 4/4 beat, industrial"
+User: "jazzy piano" → musicgen_prompt: "jazz piano, smooth chords, melodic improvisation"
+"""
+
+    def reset_conversation(self):
+        """Remet à zéro l'historique de conversation"""
+        self.conversation_history = [
+            {"role": "system", "content": self.get_system_prompt()}
+        ]
+        print("🔄 Historique de conversation remis à zéro")
