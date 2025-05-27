@@ -16,7 +16,7 @@ class APIRequestHandler:
         print(f"[{request_id}] 🔄 Setup LLM minimal...")
 
         # Réinitialiser le modèle
-        self.dj_system.dj_brain._init_model()
+        self.dj_system.dj_brain.init_model()
 
         # État minimal
         self.dj_system.dj_brain.session_state = {
@@ -39,6 +39,8 @@ class APIRequestHandler:
 
         print(f"[{request_id}] 💭 LLM Reasoning: {reasoning}")
         print(f"[{request_id}] 🎵 MusicGen Prompt: '{musicgen_prompt}'")
+
+        self.dj_system.dj_brain.destroy_model()
 
         return llm_decision
 
