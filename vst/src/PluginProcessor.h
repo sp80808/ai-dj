@@ -35,7 +35,7 @@ struct TrackData
     int timeStretchMode = 4;
     double timeStretchRatio = 1.0;
 
-    double bpmOffset = -12.0;
+    double bpmOffset = 0.0;
 
     int midiNote = 60;
 
@@ -65,7 +65,7 @@ struct TrackData
         volume = 0.8f;
         pan = 0.0f;
         readPosition = 0.0;
-        bpmOffset = -12.0;
+        bpmOffset = 0.0;
     }
 
     void reset()
@@ -97,7 +97,7 @@ public:
 
         auto track = std::make_unique<TrackData>();
         track->trackName = name + " " + juce::String(tracks.size() + 1);
-        track->bpmOffset = -12.0;
+        track->bpmOffset = 0.0;
         track->midiNote = 60 + tracks.size();
         juce::String trackId = track->trackId;
         std::string stdId = trackId.toStdString();
@@ -314,7 +314,7 @@ public:
             track->bpm = trackState.getProperty("bpm", 126.0f);
             track->originalBpm = trackState.getProperty("originalBpm", 126.0f);
             track->timeStretchMode = trackState.getProperty("timeStretchMode", 4);
-            track->bpmOffset = trackState.getProperty("bpmOffset", -12.0); // NOUVEAU
+            track->bpmOffset = trackState.getProperty("bpmOffset", 0.0); // NOUVEAU
             track->midiNote = trackState.getProperty("midiNote", 60);
             track->loopStart = trackState.getProperty("loopStart", 0.0);
             track->loopEnd = trackState.getProperty("loopEnd", 4.0);

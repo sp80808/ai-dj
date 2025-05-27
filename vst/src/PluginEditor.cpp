@@ -352,7 +352,6 @@ void DjIaVstEditor::setupUI()
                                  juce::dontSendNotification);
     midiInstructionLabel.setColour(juce::Label::textColourId, juce::Colours::lightgreen);
     midiInstructionLabel.setFont(juce::Font(12.0f, juce::Font::bold));
-    midiInstructionLabel.setJustificationType(juce::Justification::centred);
 
     addAndMakeVisible(tracksLabel);
     tracksLabel.setText("Tracks:", juce::dontSendNotification);
@@ -497,35 +496,27 @@ void DjIaVstEditor::updateUIFromProcessor()
 
 void DjIaVstEditor::paint(juce::Graphics &g)
 {
-    // Thème dark pro au lieu du violet dégueulasse
     auto bounds = getLocalBounds();
 
     // Gradient dark moderne
     juce::ColourGradient gradient(
-        juce::Colour(0xff1a1a1a), 0, 0,           // Noir foncé en haut
-        juce::Colour(0xff2d2d2d), 0, getHeight(), // Gris anthracite en bas
+        juce::Colour(0xff1a1a1a), 0, 0,
+        juce::Colour(0xff2d2d2d), 0, getHeight(),
         false);
     g.setGradientFill(gradient);
     g.fillAll();
 
-    // Ajout de texture subtile (optionnel)
-    g.setColour(juce::Colour(0xff404040));
-    for (int i = 0; i < getWidth(); i += 3)
-    {
-        g.drawVerticalLine(i, 0, getHeight());
-        g.setOpacity(0.02f); // Très subtil
-    }
+    // Logo sans texture qui interfère
     if (logoImage.isValid())
     {
-        auto logoArea = juce::Rectangle<int>(getWidth() - 150, 10, 130, 50);
+        auto logoArea = juce::Rectangle<int>(getWidth() - 110, 35, 100, 30);
         g.drawImage(logoImage, logoArea.toFloat(),
                     juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize);
     }
     else
     {
-        // FALLBACK pour voir si c'est un problème d'image ou de zone
-        auto logoArea = juce::Rectangle<int>(getWidth() - 150, 10, 130, 50);
-        g.setColour(juce::Colours::red);
+        auto logoArea = juce::Rectangle<int>(getWidth() - 110, 35, 100, 30);
+        g.setColour(juce::Colours::yellow); // Plus visible pour debug
         g.drawRect(logoArea, 2);
         g.setColour(juce::Colours::white);
         g.setFont(16.0f);
@@ -549,21 +540,24 @@ void DjIaVstEditor::resized()
 
     area = area.reduced(10);
 
-    // Configuration (80px) - IDENTIQUE
-    auto configArea = area.removeFromTop(80);
+    auto configArea = area.removeFromTop(40);
 
-    auto serverRow = configArea.removeFromTop(25);
-    serverUrlLabel.setBounds(serverRow.removeFromLeft(80));
-    serverUrlInput.setBounds(serverRow.reduced(2));
+    // Réserver 120px à droite pour le logo
+    auto logoSpace = configArea.removeFromRight(120);
+    auto configRow = configArea.removeFromTop(20);
 
-    configArea.removeFromTop(5);
+    // Server (45% de largeur restante)
+    auto serverSection = configRow.removeFromLeft(configRow.getWidth() * 0.45f);
+    serverUrlLabel.setBounds(serverSection.removeFromLeft(50));
+    serverUrlInput.setBounds(serverSection.reduced(1));
 
-    auto keyRow = configArea.removeFromTop(25);
-    apiKeyLabel.setBounds(keyRow.removeFromLeft(80));
-    apiKeyInput.setBounds(keyRow.reduced(2));
+    configRow.removeFromLeft(10); // Petit espace
 
-    configArea.removeFromTop(5);
+    // API Key (le reste de la largeur)
+    apiKeyLabel.setBounds(configRow.removeFromLeft(50));
+    apiKeyInput.setBounds(configRow.reduced(1));
 
+    // Instructions en bas
     auto instructionRow = configArea.removeFromTop(20);
     midiInstructionLabel.setBounds(instructionRow);
 
@@ -842,7 +836,7 @@ void DjIaVstEditor::loadPromptPresets()
 void DjIaVstEditor::onPresetSelected()
 {
     int selectedId = promptPresetSelector.getSelectedId();
-    if (selectedId > 0 && selectedId < promptPresets.size()) // Pas "Custom..."
+    if (selectedId > 0 && selectedId <= promptPresets.size())
     {
         juce::String selectedPrompt = promptPresets[selectedId - 1];
         promptInput.setText(selectedPrompt);

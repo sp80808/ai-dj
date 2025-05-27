@@ -1,5 +1,6 @@
 import json
 import time
+import gc
 from llama_cpp import Llama
 
 
@@ -22,20 +23,18 @@ class DJAILL:
             {"role": "system", "content": self.get_system_prompt()}
         ]
 
-    def _init_model(self):
-        """Initialise ou réinitialise le modèle LLM"""
-        print(f"⚡ Initialisation du modèle LLM depuis {self.model_path}...")
-
-        # Si un modèle existe déjà, le détruire explicitement
+    def destroy_model(self):
         if hasattr(self, "model"):
             try:
                 del self.model
-                import gc
-
-                gc.collect()  # Force la libération de mémoire
-                print("🧹 Ancien modèle détruit")
+                gc.collect()
+                print("🧹 Modèle détruit")
             except Exception as e:
                 print(f"⚠️ Erreur lors de la destruction du modèle: {e}")
+
+    def init_model(self):
+        """Initialise ou réinitialise le modèle LLM"""
+        print(f"⚡ Initialisation du modèle LLM depuis {self.model_path}...")
 
         # Initialiser un nouveau modèle LLM
         self.model = Llama(
@@ -46,6 +45,22 @@ class DJAILL:
             verbose=False,
         )
         print("✅ Nouveau modèle LLM initialisé")
+
+    def _add_message_safely(self, role, content):
+        """Ajoute un message en vérifiant l'alternance des rôles"""
+        if not self.conversation_history:
+            # Premier message (system)
+            self.conversation_history.append({"role": role, "content": content})
+            return
+
+        last_role = self.conversation_history[-1]["role"]
+
+        # Vérifier l'alternance (sauf pour system au début)
+        if last_role == role and role != "system":
+            print(f"⚠️ Tentative d'ajout de deux messages {role} consécutifs - ignoré")
+            return
+
+        self.conversation_history.append({"role": role, "content": content})
 
     def get_next_decision(self):
         """Obtient la prochaine décision du DJ IA"""
@@ -63,16 +78,14 @@ class DJAILL:
         user_prompt = self._build_prompt()
 
         # Ajouter à l'historique de conversation
-        self.conversation_history.append({"role": "user", "content": user_prompt})
+        self._add_message_safely("user", user_prompt)
 
-        # Garder seulement les 10 derniers échanges (system + 9 pairs user/assistant)
-        # pour éviter de dépasser le contexte
-        if len(self.conversation_history) > 19:  # system + 9*2 messages
-            # Garder le system prompt + les 8 derniers échanges
-            self.conversation_history = [
-                self.conversation_history[0]
-            ] + self.conversation_history[-16:]
-            print("🧹 Historique tronqué pour rester dans le contexte")
+        if len(self.conversation_history) > 19:
+
+            system_prompt = self.conversation_history[0]
+            recent_pairs = self.conversation_history[-16:]
+
+            self.conversation_history = [system_prompt] + recent_pairs
 
         print(
             f"\n🧠 Génération AI-DJ avec {len(self.conversation_history)} messages d'historique..."
@@ -88,9 +101,7 @@ class DJAILL:
             response_text = response["choices"][0]["message"]["content"]
 
             # Ajouter la réponse à l'historique AVANT de parser
-            self.conversation_history.append(
-                {"role": "assistant", "content": response_text}
-            )
+            self._add_message_safely("assistant", response_text)
 
             # Trouver le JSON dans la réponse
             import re

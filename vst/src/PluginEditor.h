@@ -66,8 +66,7 @@ private:
         "Industrial noise texture",
         "Glitchy percussion loop",
         "Vintage analog lead",
-        "Distorted noise chops",
-        "Custom..."};
+        "Distorted noise chops"};
 
     // Composants UI
     juce::ComboBox promptPresetSelector;

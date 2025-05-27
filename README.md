@@ -57,13 +57,21 @@ DJ-IA VST is a live music generation plugin that uses AI to create music loops i
    cd JUCE
    git checkout 7.0.12
    ```
+4. **SoundTouch Library**:
+   ```bash
+   git clone https://github.com/suomipelit/soundtouch.git
+   cd soundtouch
+   mkdir build && cd build
+   cmake .. -G "Visual Studio 17 2022"
+   cmake --build . --config Release
+   ```
 
 ### Build Steps
 
 ```bash
 cd vst/
 mkdir build && cd build
-cmake .. -DJUCE_DIR="C:/path/to/JUCE" -G "Visual Studio 17 2022"
+cmake .. -DJUCE_DIR="C:/path/to/JUCE" -DSOUNDTOUCH_DIR="C:/path/to/soundtouch" -G "Visual Studio 17 2022"
 cmake --build . --config Release
 ```
 
@@ -81,26 +89,49 @@ dj_ia_env\Scripts\activate
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 pip install stable-audio-tools
 pip install llama-cpp-python librosa soundfile pyrubberband
-pip install fastapi uvicorn
+pip install fastapi uvicorn python-dotenv
 ```
 
-### 2. Start AI Server
+### 2. Configure Environment
+
+Rename `.env.example` to `.env` and fill in your configuration:
 
 ```bash
-python main.py --model-path "C:\path\to\your\model.gguf" \
-               --profile "techno_minimal" \
-               --output-dir "./output" \
-               --clean \
-               --generation-duration 6.0 \
-               --mode api \
-               --host 0.0.0.0 \
-               --audio-model stable-audio-open
+# .env file
+DJ_IA_API_KEY=your_api_key_here          # Used in production only
+LLM_MODEL_PATH=C:/path/to/your/model.gguf # Path to your LLM model
+AUDIO_MODEL=stable-audio-open             # Music generation model
+ENVIRONMENT=dev                           # dev/prod (API key only required in prod)
 ```
 
-### 3. Load Plugin in DAW
+**Audio Model Options:**
+
+- `musicgen-small` - Fast, lower quality
+- `musicgen-medium` - Balanced speed/quality
+- `musicgen-large` - Highest quality, slower
+- `stable-audio-open` - **Recommended** for electronic music
+- `stable-audio-pro` - Premium version (if available)
+
+### 3. Start AI Server
+
+```bash
+python main.py --host 0.0.0.0 --port 8000 --clean
+```
+
+**Available options:**
+
+- `--model-path`: Override LLM model path from .env
+- `--audio-model`: Override audio model from .env
+- `--output-dir`: Output directory (default: ./output)
+- `--generation-duration`: Default sample length in seconds (default: 6.0)
+- `--clean`: Clean output directory on startup
+- `--host`: Server host (default: localhost)
+- `--port`: Server port (default: 8000)
+
+### 4. Load Plugin in DAW
 
 - Add DJ-IA VST to any track
-- Configure server URL and API key in plugin
+- Configure server URL (`http://localhost:8000`) and API key in plugin
 - Create multiple tracks with different MIDI notes
 - Generate AI loops for each track
 - Play tracks with MIDI keyboard/controller
@@ -116,9 +147,12 @@ python main.py --model-path "C:\path\to\your\model.gguf" \
 ### **2. AI Generation**
 
 - Select a track and enter creative prompts
-- Choose style, BPM, key, and preferred stems
+- Choose style, BPM, key, generation duration, and preferred stems
 - Click **"Generate"** to create AI audio for that track
-- Repeat for each track to build your sample collection
+- **Load Modes**:
+  - **Auto Load**: Samples load immediately after generation
+  - **Load on MIDI**: Samples load when you press any MIDI key (default)
+  - **Manual**: Click "Load Sample" button when ready
 
 ### **3. Live Performance**
 
@@ -168,15 +202,13 @@ dark atmosphere, minimal hi-hats, rolling bassline"
 
 ### **Session Management**
 
-- **Save/Load Sessions**: Store complete multi-track setups
+- **Save/Load Sessions**: Store complete multi-track setups (metadata only for performance)
 - **Preset System**: Save favorite prompts for quick access
-- **Auto-Load**: Samples load automatically or wait for manual trigger
+- **Auto-Load Modes**: Choose when samples load for optimal workflow
 
 ## ⚠️ Known Issues
 
 - **CUDA required**: CPU generation too slow for live use
-- **Character encoding**: Some special characters may display incorrectly
-- **Custom prompts not persistent**: Saved prompts reset on DAW restart (temporary limitation)
 - **Audio crackling**: May occur with 2+ simultaneous tracks (increase DAW buffer size)
 - **UI color updates**: Some button colors don't refresh immediately
 - **Minor UI glitches**: Occasional display inconsistencies
@@ -190,6 +222,7 @@ DJ-IA is designed for **live performance**:
 - Multi-track sampler enables complex live arrangements
 - Time-stretching keeps everything locked to tempo
 - MIDI triggering provides precise performance control
+- Smart loading modes prevent audio interruptions
 - No complex effects - just pure AI generation + intelligent sampling
 
 This is about **intelligent music creation**, not effects processing.
