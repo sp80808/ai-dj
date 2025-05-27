@@ -4,7 +4,6 @@ import tempfile
 import os
 import random
 import gc
-from config.music_prompts import SAMPLE_PARAMS
 
 
 class MusicGenerator:
@@ -100,19 +99,9 @@ class MusicGenerator:
         try:
             print(f"🔮 Génération directe avec prompt: '{musicgen_prompt}'")
 
-            # Paramètres par défaut
-            params = SAMPLE_PARAMS.get(
-                sample_type,
-                {
-                    "duration": generation_duration,
-                    "should_start_with_kick": False,
-                    "key_sensitive": False,
-                },
-            )
-
             if self.model_type == "musicgen":
                 self.model.set_generation_params(
-                    duration=params["duration"],
+                    duration=generation_duration,
                     temperature=0.8,  # Température fixe, plus besoin de calculer
                 )
 
@@ -189,7 +178,7 @@ class MusicGenerator:
                 "type": sample_type,
                 "tempo": tempo,
                 "prompt": musicgen_prompt,
-                "should_start_with_kick": params["should_start_with_kick"],
+                "should_start_with_kick": True,
             }
 
             return sample_audio, sample_info
