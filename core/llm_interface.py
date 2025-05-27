@@ -1,5 +1,4 @@
 import json
-import re
 import time
 from llama_cpp import Llama
 
@@ -93,12 +92,15 @@ class DJAILL:
                 {"role": "assistant", "content": response_text}
             )
 
+            # Trouver le JSON dans la réponse
+            import re
+
             json_match = re.search(r"({.*})", response_text, re.DOTALL)
             if json_match:
                 json_str = json_match.group(1)
                 decision = json.loads(json_str)
             else:
-                print(f"Pas de JSON dans la réponse du LLM, utilisation du fallback.")
+                # Fallback si pas de JSON trouvé
                 decision = {
                     "action_type": "generate_sample",
                     "parameters": {
@@ -134,44 +136,48 @@ class DJAILL:
         return decision
 
     def _build_prompt(self):
-        """Prompt user minimal avec contexte actuel"""
+        """Prompt user avec priorité sur la demande actuelle"""
         special_instruction = self.session_state.get("special_instruction", "")
         current_tempo = self.session_state.get("current_tempo", 126)
         current_key = self.session_state.get("current_key", "C minor")
 
-        return f"""Mots-clés utilisateur: {special_instruction}
+        return f"""⚠️ NOUVELLE DEMANDE UTILISATEUR ⚠️
+Mots-clés: {special_instruction}
 
 Context:
-- Tempo: {current_tempo} BPM
+- Tempo: {current_tempo} BPM  
 - Tonalité: {current_key}
 
-Génère un sample qui s'intègre bien avec tes générations précédentes mais apporte quelque chose de nouveau."""
+IMPORTANT: Cette nouvelle demande est PRIORITAIRE. Si elle est différente de tes générations précédentes, ABANDONNE complètement le style précédent et concentre-toi sur cette nouvelle demande."""
 
     def get_system_prompt(self) -> str:
-        return """Tu es un générateur de samples musicaux intelligent. L'utilisateur te donne des mots-clés, tu génères un JSON cohérent en tenant compte de l'historique de la conversation.
+        return """Tu es un générateur de samples musicaux intelligent. L'utilisateur te donne des mots-clés, tu génères un JSON cohérent.
 
 FORMAT OBLIGATOIRE :
 {
     "action_type": "generate_sample",
     "parameters": {
         "sample_details": {
-            "musicgen_prompt": "[prompt optimisé pour MusicGen basé sur les mots-clés ET l'historique]",
+            "musicgen_prompt": "[prompt optimisé pour MusicGen basé sur les mots-clés]",
             "key": "[tonalité appropriée ou garde celle fournie]"
         }
     },
-    "reasoning": "Explication courte de tes choix en tenant compte de l'historique"
+    "reasoning": "Explication courte de tes choix"
 }
 
-RÈGLES :
-- Crée un prompt MusicGen cohérent à partir des mots-clés de l'user
-- TIENS COMPTE de tes générations précédentes pour créer de la variété et de la cohérence
-- Pour la tonalité : utilise celle fournie ou adapte si le style l'exige
-- Évite de répéter exactement les mêmes éléments que précédemment
+RÈGLES DE PRIORITÉ :
+1. 🔥 SI l'utilisateur demande un style/genre spécifique → IGNORE l'historique et génère exactement ce qu'il demande
+2. 📝 SI c'est une demande vague ou similaire → Tu peux tenir compte de l'historique pour la variété
+3. 🎯 TOUJOURS respecter les mots-clés exacts de l'utilisateur
+
+RÈGLES TECHNIQUES :
+- Crée un prompt MusicGen cohérent et précis
+- Pour la tonalité : utilise celle fournie ou adapte si nécessaire
 - Réponds UNIQUEMENT en JSON
 
 EXEMPLES :
+User: "deep techno rhythm kick hardcore" → musicgen_prompt: "deep techno kick drum, hardcore rhythm, driving 4/4 beat, industrial"
 User: "ambient space" → musicgen_prompt: "ambient atmospheric space soundscape, ethereal pads"
-User: "hard kick techno" → musicgen_prompt: "hard techno kick, driving 4/4 beat, industrial"
 User: "jazzy piano" → musicgen_prompt: "jazz piano, smooth chords, melodic improvisation"
 """
 
