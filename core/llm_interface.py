@@ -137,14 +137,12 @@ class DJAILL:
 
     def _build_prompt(self):
         """Prompt user avec priorité sur la demande actuelle"""
-        special_instruction = self.session_state.get("special_instruction", "")
+        user_prompt = self.session_state.get("user_prompt", "")
         current_tempo = self.session_state.get("current_tempo", 126)
         current_key = self.session_state.get("current_key", "C minor")
 
-        print("SPECIAL INSTRUCTION: " + special_instruction)
-
         return f"""⚠️ NOUVELLE DEMANDE UTILISATEUR ⚠️
-Mots-clés: {special_instruction}
+Mots-clés: {user_prompt}
 
 Context:
 - Tempo: {current_tempo} BPM  
