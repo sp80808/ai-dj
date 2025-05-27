@@ -15,25 +15,13 @@ class LayerManager:
         self,
         output_dir,
         sample_rate: int = 48000,
-        num_channels: int = 16,
-        on_max_layers_reached=None,
     ):
         self.sample_rate = sample_rate
         self.output_dir = output_dir
-        self.on_max_layers_reached = on_max_layers_reached
-        self.operation_count = 0
-        self.max_operations_before_reset = 4
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
 
-        self.layers = {}
-        self.channel_id_counter = 0
-        self.master_tempo: float = 126.0  # BPM
-        self.global_playback_start_time: Optional[float] = (
-            None  # Heure de démarrage du tout premier sample
-        )
-        self.is_master_clock_running: bool = False
-        self.num_channels = num_channels
+        self.master_tempo: float = 126.0
 
     def find_kick_attack_start(self, audio, sr, onset_position, layer_id):
         """Trouve le vrai début de l'attaque du kick pour le préserver complètement"""

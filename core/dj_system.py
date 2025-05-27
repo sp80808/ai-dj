@@ -46,9 +46,7 @@ class DJSystem:
 
         print("Initialisation du LayerManager...")
         self.layer_manager = LayerManager(
-            sample_rate=self.sample_rate,
             output_dir=os.path.join(self.output_dir_base, "layers"),
-            on_max_layers_reached=self.handle_max_layers,
         )
         self.layer_manager.set_master_tempo(initial_llm_state["current_tempo"])
 
