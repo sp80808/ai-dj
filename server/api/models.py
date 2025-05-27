@@ -9,6 +9,7 @@ class GenerateRequest(BaseModel):
     key: Optional[str] = None
     measures: Optional[int] = 4
     preferred_stems: Optional[List[str]] = None
+    generation_duration: Optional[int] = 6
 
 
 class GenerateResponse(BaseModel):
@@ -19,9 +20,3 @@ class GenerateResponse(BaseModel):
     stems_used: Optional[List[str]] = None
     llm_reasoning: Optional[str] = None
     sample_rate: int
-
-
-class InitConfig(BaseModel):
-    api_key: Optional[str] = None
-    model_name: Optional[str] = None
-    output_dir: Optional[str] = None

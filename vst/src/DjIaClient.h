@@ -12,6 +12,7 @@ public:
         juce::String key;
         int measures;
         std::vector<juce::String> preferredStems;
+        float generationDuration;
     };
 
     struct LoopResponse

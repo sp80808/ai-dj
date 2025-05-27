@@ -247,6 +247,16 @@ void DjIaVstEditor::setupUI()
     keySelector.addItem("D minor", 6);
     keySelector.setSelectedId(1);
 
+    addAndMakeVisible(durationSlider);
+    durationSlider.setRange(4.0, 30.0, 1.0); // 4-30 secondes par pas de 1
+    durationSlider.setValue(6.0);            // 6 secondes par défaut
+    durationSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+    durationSlider.setTextValueSuffix(" s");
+
+    addAndMakeVisible(durationLabel);
+    durationLabel.setText("Duration", juce::dontSendNotification);
+    durationLabel.attachToComponent(&durationSlider, true);
+
     // Generate button
     addAndMakeVisible(generateButton);
     generateButton.setButtonText("Generate Loop");
@@ -281,17 +291,35 @@ void DjIaVstEditor::setupUI()
     addAndMakeVisible(stemsLabel);
     stemsLabel.setText("Stems:", juce::dontSendNotification);
 
+    // Drums
     addAndMakeVisible(drumsButton);
     drumsButton.setButtonText("Drums");
     drumsButton.setClickingTogglesState(true);
 
+    // Bass
     addAndMakeVisible(bassButton);
     bassButton.setButtonText("Bass");
     bassButton.setClickingTogglesState(true);
 
+    // Other
     addAndMakeVisible(otherButton);
     otherButton.setButtonText("Other");
     otherButton.setClickingTogglesState(true);
+
+    // Vocals
+    addAndMakeVisible(vocalsButton);
+    vocalsButton.setButtonText("Vocals");
+    vocalsButton.setClickingTogglesState(true);
+
+    // Guitar
+    addAndMakeVisible(guitarButton);
+    guitarButton.setButtonText("Guitar");
+    guitarButton.setClickingTogglesState(true);
+
+    // Piano
+    addAndMakeVisible(pianoButton);
+    pianoButton.setButtonText("Piano");
+    pianoButton.setClickingTogglesState(true);
 
     // Status label
     addAndMakeVisible(statusLabel);
@@ -396,6 +424,11 @@ void DjIaVstEditor::setupUI()
         audioProcessor.setHostBpmEnabled(hostBpmButton.getToggleState());
     };
 
+    durationSlider.onValueChange = [this]
+    {
+        audioProcessor.setLastDuration(durationSlider.getValue());
+    };
+
     generateButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff00aa44)); // Vert foncé
     generateButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
 
@@ -417,6 +450,8 @@ void DjIaVstEditor::updateUIFromProcessor()
     // Contrôles musicaux
     promptInput.setText(audioProcessor.getLastPrompt(), juce::dontSendNotification);
     bpmSlider.setValue(audioProcessor.getLastBpm(), juce::dontSendNotification);
+
+    durationSlider.setValue(audioProcessor.getLastDuration(), juce::dontSendNotification);
 
     // Style selector
     juce::String style = audioProcessor.getLastStyle();
@@ -543,22 +578,23 @@ void DjIaVstEditor::resized()
 
     area.removeFromTop(5);
 
-    // Prompt - IDENTIQUE
+    // Prompt
     promptInput.setBounds(area.removeFromTop(35));
     area.removeFromTop(5);
 
-    // Contrôles musicaux - IDENTIQUE
+    // Contrôles musicaux
     auto controlRow = area.removeFromTop(35);
-    auto controlWidth = controlRow.getWidth() / 4;
+    auto controlWidth = controlRow.getWidth() / 5;
 
     styleSelector.setBounds(controlRow.removeFromLeft(controlWidth).reduced(2));
     keySelector.setBounds(controlRow.removeFromLeft(controlWidth).reduced(2));
+    durationSlider.setBounds(controlRow.removeFromLeft(controlWidth).reduced(2));
     hostBpmButton.setBounds(controlRow.removeFromLeft(controlWidth).reduced(2));
     bpmSlider.setBounds(controlRow.reduced(2));
 
     area.removeFromTop(8);
 
-    // Stems - IDENTIQUE
+    // Stems
     auto stemsRow = area.removeFromTop(30);
     stemsLabel.setBounds(stemsRow.removeFromLeft(60));
     auto stemsArea = stemsRow.reduced(2);
@@ -722,6 +758,7 @@ void DjIaVstEditor::onGenerateButtonClicked()
             request.bpm = (float)bpmSlider.getValue();
             request.key = keySelector.getText();
             request.measures = 4;
+            request.generationDuration = (int)durationSlider.getValue();
 
             // Collecter les stems sélectionnés
             if (drumsButton.getToggleState())
@@ -730,6 +767,12 @@ void DjIaVstEditor::onGenerateButtonClicked()
                 request.preferredStems.push_back("bass");
             if (otherButton.getToggleState())
                 request.preferredStems.push_back("other");
+            if (vocalsButton.getToggleState())
+                request.preferredStems.push_back("vocals");
+            if (guitarButton.getToggleState())
+                request.preferredStems.push_back("guitar");
+            if (pianoButton.getToggleState())
+                request.preferredStems.push_back("piano");
 
             // Générer la loop
             juce::String targetTrackId = audioProcessor.getSelectedTrackId();

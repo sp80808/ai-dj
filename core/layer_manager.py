@@ -1,15 +1,10 @@
 import os
-import time
-import random
-import pygame
+import tempfile
+import subprocess
 import librosa
-import gc
 import numpy as np
 import soundfile as sf
-from typing import Dict, List, Optional, Any
-from core.audio_layer_sync import AudioLayerSync
-from core.audio_layer import AudioLayer
-from config.music_prompts import rhythm_keywords, rhythm_types
+from typing import Optional
 from config.config import BEATS_PER_BAR
 
 
@@ -18,9 +13,9 @@ class LayerManager:
 
     def __init__(
         self,
+        output_dir,
         sample_rate: int = 48000,
         num_channels: int = 16,
-        output_dir: str = "./dj_layers_output",
         on_max_layers_reached=None,
     ):
         self.sample_rate = sample_rate
@@ -31,7 +26,6 @@ class LayerManager:
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
 
-
         self.layers = {}
         self.channel_id_counter = 0
         self.master_tempo: float = 126.0  # BPM
@@ -40,7 +34,6 @@ class LayerManager:
         )
         self.is_master_clock_running: bool = False
         self.num_channels = num_channels
-
 
     def find_kick_attack_start(self, audio, sr, onset_position, layer_id):
         """Trouve le vrai début de l'attaque du kick pour le préserver complètement"""
@@ -91,15 +84,12 @@ class LayerManager:
             f"🤔 Attaque kick non détectée, démarrage conservateur à {conservative_start/sr:.3f}s ('{layer_id}')"
         )
         return conservative_start
-    
-
 
     def _prepare_sample_for_loop(
         self,
         original_audio_path: str,
         layer_id: str,
         measures: int,
-        model_name="musicgen",
         time_stretch=True,
     ) -> Optional[str]:
         """Prépare un sample pour qu'il boucle (détection d'onset, calage, crossfade)."""
@@ -123,7 +113,6 @@ class LayerManager:
         samples_per_bar = samples_per_beat * BEATS_PER_BAR
         target_total_samples = samples_per_bar * measures
         target_total_samples = int(target_total_samples * 1.2)
-
 
         # Détection d'onset
         onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
@@ -178,7 +167,9 @@ class LayerManager:
 
         if current_length > target_total_samples:
             fade_samples = int(sr * 0.1)  # 100ms
-            audio[target_total_samples - fade_samples:target_total_samples] *= np.linspace(1.0, 0.0, fade_samples)
+            audio[
+                target_total_samples - fade_samples : target_total_samples
+            ] *= np.linspace(1.0, 0.0, fade_samples)
             audio = audio[:target_total_samples]
         elif current_length < target_total_samples:
             num_repeats = int(np.ceil(target_total_samples / current_length))
@@ -217,7 +208,8 @@ class LayerManager:
                 stretched_audio = self.match_sample_to_tempo(
                     temp_path,  # Le chemin du fichier temporaire
                     target_tempo=self.master_tempo,
-                    sr=self.sample_rate,preserve_measures=False
+                    sr=self.sample_rate,
+                    preserve_measures=False,
                 )
 
             if isinstance(stretched_audio, np.ndarray):
@@ -240,453 +232,15 @@ class LayerManager:
             print(f"Erreur de sauvegarde du sample bouclé pour {layer_id}: {e}")
             return None
 
-    def _apply_effects_to_sample(
-        self, audio_path: str, effects: List[Dict[str, Any]], layer_id: str
-    ) -> Optional[str]:
-        """Applique des effets (actuellement HPF/LPF) à un fichier audio."""
-        if not effects:
-            return audio_path  # Pas d'effets à appliquer
-
-        try:
-            audio, sr = sf.read(audio_path, always_2d=False)
-            if sr != self.sample_rate:
-                audio = librosa.resample(audio, orig_sr=sr, target_sr=self.sample_rate)
-        except Exception as e:
-            print(f"Erreur chargement pour effets (Layer {layer_id}): {e}")
-            return None
-
-        for effect in effects:
-            effect_type = effect.get("type")
-            if effect_type == "hpf":
-                cutoff = effect.get("cutoff_hz", 20)  # Défaut à 20Hz si non spécifié
-                # Librosa n'a pas de HPF direct, mais on peut utiliser un LPF sur un signal inversé ou butterworth
-                # Utilisons scipy pour un filtre Butterworth propre
-                from scipy.signal import butter, sosfilt
-
-                nyquist = 0.5 * sr
-                normal_cutoff = cutoff / nyquist
-                if normal_cutoff >= 1.0:  # cutoff doit être < nyquist
-                    print(
-                        f"Attention (Layer {layer_id}): Cutoff HPF {cutoff}Hz >= Nyquist {nyquist}Hz. Filtre ignoré."
-                    )
-                    continue
-                # Ordre du filtre, 4 est un bon compromis
-                sos = butter(
-                    4, normal_cutoff, btype="highpass", analog=False, output="sos"
-                )
-                audio = sosfilt(sos, audio)
-                print(f"🔉 Layer '{layer_id}': HPF appliqué à {cutoff}Hz.")
-            elif effect_type == "lpf":
-                cutoff = effect.get("cutoff_hz", 20000)
-                from scipy.signal import butter, sosfilt
-
-                nyquist = 0.5 * sr
-                normal_cutoff = cutoff / nyquist
-                if normal_cutoff >= 1.0:
-                    print(
-                        f"Attention (Layer {layer_id}): Cutoff LPF {cutoff}Hz >= Nyquist {nyquist}Hz. Filtre ignoré."
-                    )
-                    continue
-                sos = butter(
-                    4, normal_cutoff, btype="lowpass", analog=False, output="sos"
-                )
-                audio = sosfilt(sos, audio)
-                print(f"🔉 Layer '{layer_id}': LPF appliqué à {cutoff}Hz.")
-            # Ajouter d'autres effets ici (compresseur, etc. plus complexe avec numpy/scipy)
-
-        effected_sample_filename = (
-            f"{os.path.splitext(os.path.basename(audio_path))[0]}_fx.wav"
-        )
-        effected_sample_path = os.path.join(self.output_dir, effected_sample_filename)
-        try:
-            sf.write(effected_sample_path, audio, sr)
-            return effected_sample_path
-        except Exception as e:
-            print(f"Erreur sauvegarde sample avec effets (Layer {layer_id}): {e}")
-            return None
-
-    def _wait_for_sync_point(self, beats_to_wait: float = BEATS_PER_BAR):
-        """Attend le prochain point de synchronisation (début de mesure par défaut)."""
-        if not self.is_master_clock_running or self.global_playback_start_time is None:
-            print("⏱️  Horloge maître non démarrée. Démarrage immédiat.")
-            if not self.is_master_clock_running:  # Si c'est le tout premier sample
-                self.global_playback_start_time = time.time()
-                self.is_master_clock_running = True
-            return
-
-        seconds_per_beat = 60.0 / self.master_tempo
-        sync_interval_seconds = (
-            seconds_per_beat * beats_to_wait
-        )  # Ex: 4 beats pour une mesure
-
-        elapsed_since_global_start = time.time() - self.global_playback_start_time
-
-        time_into_current_interval = elapsed_since_global_start % sync_interval_seconds
-        time_remaining_to_sync = sync_interval_seconds - time_into_current_interval
-
-        # Petite marge pour la précision du sleep et éviter les valeurs négatives si on est pile dessus
-        if (
-            time_remaining_to_sync < 0.02
-        ):  # Moins de 20ms, on attend l'intervalle suivant
-            time_remaining_to_sync += sync_interval_seconds
-
-        if time_remaining_to_sync > 0:
-            print(
-                f"\n⏱️  Attente de synchronisation: {time_remaining_to_sync:.3f}s (Tempo: {self.master_tempo} BPM, intervalle de {beats_to_wait} beats)"
-            )
-            time.sleep(time_remaining_to_sync)
-
-        # Mettre à jour global_playback_start_time si c'est le premier sample qui le définit
-        if not self.is_master_clock_running:
-            self.global_playback_start_time = time.time()
-            self.is_master_clock_running = True
-
-    def manage_layer(
-        self,
-        layer_id: str,
-        operation: str,
-        sample_details: Optional[Dict[str, Any]] = None,
-        playback_params: Optional[Dict[str, Any]] = None,
-        effects: Optional[List[Dict[str, Any]]] = None,
-        stop_behavior: str = "next_bar",
-        model_name="musicgen",
-        prepare_sample_for_loop=True,
-        use_sync=False,
-        midi_clock_manager=None,
-    ):
-        """Gère un layer: ajout/remplacement, modification, suppression."""
-
-        if operation == "add_replace":
-
-            if (
-                not sample_details or "original_file_path" not in sample_details
-            ):  # On attend le chemin du fichier généré par MusicGen
-                print(
-                    f"Erreur (Layer {layer_id}): 'original_file_path' manquant pour 'add_replace'."
-                )
-                return
-
-            original_file_path = sample_details["original_file_path"]
-            measures = sample_details.get("measures", 2)  # Le LLM doit spécifier ça
-
-            sample_type = sample_details.get("type", "").lower()
-
-            # Liste exhaustive des types rythmiques basée sur les observations et prévisions
-
-            is_rhythm_layer = sample_type in rhythm_types or any(
-                keyword in sample_type for keyword in rhythm_keywords
-            )
-
-            # Si c'est un layer rythmique, vérifier s'il y en a déjà un actif
-            if is_rhythm_layer:
-                # Identifier tous les layers rythmiques actuellement actifs
-                rhythm_layers = []
-                for l_id, layer in self.layers.items():
-                    # Accéder au type via sample_details si disponible
-                    if hasattr(layer, "type"):
-                        layer_type = layer.type.lower()
-                        if layer_type in rhythm_types or any(
-                            keyword in layer_type for keyword in rhythm_keywords
-                        ):
-                            rhythm_layers.append(l_id)
-
-                # S'il y a déjà des layers rythmiques (et ce n'est pas un remplacement)
-                if rhythm_layers and layer_id not in rhythm_layers:
-                    rhythm_layer_to_remove = rhythm_layers[0]  # Prendre le premier
-                    print(
-                        f"Un seul layer rythmique autorisé. Remplacement de '{rhythm_layer_to_remove}' par '{layer_id}'"
-                    )
-
-                    # Supprimer l'ancien layer rythmique
-                    layer_to_remove = self.layers.pop(rhythm_layer_to_remove)
-                    layer_to_remove.stop(fadeout_ms=200, cleanup=True)
-                    print(
-                        f"Layer rythmique '{rhythm_layer_to_remove}' automatiquement retiré"
-                    )
-
-            # 1. Préparer le sample pour la boucle (trim, calage en durée)
-            if prepare_sample_for_loop:
-                looped_sample_path = self._prepare_sample_for_loop(
-                    original_file_path,
-                    layer_id,
-                    measures,
-                    model_name=model_name,
-                )
-            else:
-                looped_sample_path = original_file_path
-            if not looped_sample_path:
-                print(f"Échec de la préparation de la boucle pour {layer_id}.")
-                return
-
-            if prepare_sample_for_loop:
-                # 2. Appliquer les effets (si demandé)
-                final_sample_path = self._apply_effects_to_sample(
-                    looped_sample_path, effects or [], layer_id
-                )
-            else:
-                final_sample_path = looped_sample_path
-            if not final_sample_path:
-                print(f"Échec de l'application des effets pour {layer_id}.")
-                # On pourrait décider de jouer le sample non-effecté ou d'annuler
-                final_sample_path = looped_sample_path  # Jouer sans effets dans ce cas
-            if (
-                os.path.exists(original_file_path)
-                and final_sample_path != original_file_path
-            ):
-                try:
-                    os.remove(original_file_path)
-                    print(f"\n🗑️  Fichier audio original supprimé: {original_file_path}")
-                except (PermissionError, OSError) as e:
-                    print(
-                        f"Impossible de supprimer le fichier original {original_file_path}: {e}"
-                    )
-            if (
-                os.path.exists(looped_sample_path)
-                and final_sample_path != looped_sample_path
-                and final_sample_path != original_file_path
-            ):
-                try:
-                    os.remove(looped_sample_path)
-                    print(
-                        f"🧹 Fichier audio bouclé intermédiaire supprimé: {looped_sample_path}"
-                    )
-                except (PermissionError, OSError) as e:
-                    print(
-                        f"Impossible de supprimer le fichier bouclé {looped_sample_path}: {e}"
-                    )
-            # Attendre le point de synchronisation
-            start_sync_beats = playback_params.get(
-                "start_beats_sync", BEATS_PER_BAR
-            )  # Par défaut, sur la prochaine mesure
-            self._wait_for_sync_point(beats_to_wait=start_sync_beats)
-
-            if layer_id in self.layers:
-                # Plus besoin de récupérer le canal, PyAudio gère ça
-                self.layers[layer_id].stop(fadeout_ms=20, cleanup=True)
-                time.sleep(0.025)
-                del self.layers[layer_id]
-                
-                gc.collect()
-                
-                print(f"⏹️  Layer '{layer_id}' arrêté et nettoyé pour remplacement.")
-
-            channel_id = getattr(self, 'channel_id_counter', 0)
-            self.channel_id_counter = channel_id + 1
-
-            max_active_layers = 3
-            if len(self.layers) >= max_active_layers and layer_id not in self.layers:
-                print(f"\n⚠️  Limite de {max_active_layers} layers atteinte.\n")
-
-                # Utiliser le callback si disponible
-                if self.on_max_layers_reached:
-                    layer_info = {
-                        layer_id: {
-                            "type": getattr(layer, "type", "unknown"),
-                            "used_stem": getattr(layer, "used_stem", None),
-                        }
-                        for layer_id, layer in self.layers.items()
-                    }
-
-                    # Appeler le callback avec les infos des layers
-                    should_continue = self.on_max_layers_reached(layer_info)
-
-                    if not should_continue:
-                        print("Ajout du nouveau layer annulé par le callback.")
-                        return
-
-                    # Sinon, on continue et on ajoute quand même ce layer (temporairement à 4)
-                else:
-                    # Comportement par défaut (comme avant)
-                    all_layers = list(self.layers.keys())
-                    weights = [
-                        3 if i == 0 else 2 if i < len(all_layers) // 2 else 1
-                        for i in range(len(all_layers))
-                    ]
-                    layer_to_remove_id = random.choices(all_layers, weights=weights)[0]
-
-                    print(
-                        f"Suppression du layer '{layer_to_remove_id}' pour faire de la place."
-                    )
-                    layer_to_remove = self.layers.pop(layer_to_remove_id)
-                    layer_to_remove.stop(fadeout_ms=200, cleanup=True)
-                    print(f"Layer '{layer_to_remove_id}' automatiquement retiré.")
-
-            used_stem_type = sample_details.get("used_stem") or "unknown"
-            # On peut aussi extraire du layer_id si ça contient des infos (bass_layer, kick_layer, etc.)
-            layer_type = "unknown"
-            if "_" in layer_id:
-                parts = layer_id.split("_")
-                if len(parts) > 0:
-                    layer_type = parts[0].lower()
-
-            # Ajuster le volume en fonction du stem et du type de layer
-            adjusted_volume = playback_params.get("volume", 0.9)
-
-            # Réglages basés sur le stem extrait
-            if used_stem_type == "drums":
-                if "kick" in layer_type:
-                    # Kick drum - bon volume
-                    adjusted_volume *= 1.0
-                    print(f"🥁 Volume du kick conservé à {adjusted_volume:.2f}")
-                else:
-                    # Autres percussions - légèrement réduit
-                    adjusted_volume *= 0.85
-                    print(f"🥁 Volume des percussions ajusté à {adjusted_volume:.2f}")
-
-            elif used_stem_type == "bass":
-                adjusted_volume *= 0.8
-                print(f"🔉 Volume de basse réduit à {adjusted_volume:.2f}")
-
-            elif used_stem_type == "other":
-                # Éléments "other" - réglage standard avec légère réduction
-                adjusted_volume *= 0.8
-                print(f"🎹 Volume des éléments autres ajusté à {adjusted_volume:.2f}")
-
-            elif used_stem_type == "vocals":
-                # Éléments vocaux - assez fort pour être distincts
-                adjusted_volume *= 0.9
-                print(f"🎤 Volume des éléments vocaux ajusté à {adjusted_volume:.2f}")
-
-            elif used_stem_type == "full_mix" or used_stem_type == "unknown":
-                # Mix complet - réduction significative car contient tous les éléments
-                adjusted_volume *= 0.7
-                print(f"🎛️  Volume du mix complet ajusté à {adjusted_volume:.2f}")
-
-            # Ensuite création du layer avec le volume ajusté
-            if use_sync:
-                new_layer = AudioLayerSync(
-                    layer_id,
-                    final_sample_path,
-                    channel_id=channel_id,
-                    volume=adjusted_volume,  # Volume ajusté selon le stem
-                    pan=playback_params.get("pan", 0.0),
-                    midi_manager=midi_clock_manager,
-                )
-            else:
-                new_layer = AudioLayer(
-                    layer_id,
-                    final_sample_path,
-                    channel_id,
-                    volume=adjusted_volume,  # Volume ajusté selon le stem
-                    pan=playback_params.get("pan", 0.0),
-                )
-
-            if hasattr(new_layer, 'audio_data') and new_layer.audio_data is not None:
-                sound_loaded = True
-            elif hasattr(new_layer, 'sound_object') and new_layer.sound_object is not None:
-                sound_loaded = True
-            else:
-                sound_loaded = False
-
-            if sound_loaded:
-                self.layers[layer_id] = new_layer
-                if not self.is_master_clock_running:
-                    self.global_playback_start_time = time.time()
-                    self.is_master_clock_running = True
-                if use_sync:
-                    new_layer.play()
-                else:
-                    new_layer.play(
-                        grid_start_time=self.global_playback_start_time,
-                        tempo=self.master_tempo,
-                    )
-            else:
-                print(
-                    f"Layer '{layer_id}' n'a pas pu être créé car le son n'a pas été chargé."
-                )
-
-        elif operation == "modify":
-            if layer_id not in self.layers:
-                print(f"Erreur: Layer '{layer_id}' non trouvé pour modification.")
-                return
-
-            layer = self.layers[layer_id]
-            if playback_params:
-                if "volume" in playback_params:
-                    layer.set_volume(playback_params["volume"])
-                    print(
-                        f"Layer '{layer_id}': Volume mis à {playback_params['volume']}."
-                    )
-                if "pan" in playback_params:
-                    layer.set_pan(playback_params["pan"])
-                    print(f"Layer '{layer_id}': Pan mis à {playback_params['pan']}.")
-
-            if effects:  # La modification d'effets en temps réel est plus complexe
-                print(
-                    f"Layer '{layer_id}': Modification d'effets demandée. Cela nécessiterait de re-traiter et re-jouer le sample. Non implémenté dynamiquement de manière fluide pour l'instant."
-                )
-                # Pour une vraie modification d'effet, il faudrait:
-                # 1. Garder le chemin du sample *original non bouclé et non effecté*
-                # 2. Arrêter le layer actuel (synchronisé)
-                # 3. Re-préparer la boucle à partir de l'original
-                # 4. Appliquer la *nouvelle chaîne d'effets complète*
-                # 5. Rejouer (synchronisé)
-                # C'est lourd et peut causer une coupure.
-
-        elif operation == "remove":
-            if layer_id not in self.layers:
-                print(f"❌ Erreur: Layer '{layer_id}' non trouvé pour suppression.")
-                return
-
-            layer_to_remove = self.layers.pop(layer_id)  # Retirer du dictionnaire
-
-            stop_sync_beats = BEATS_PER_BAR  # Par défaut, arrêt sur la prochaine mesure
-            fade_duration = 100  # ms
-            if stop_behavior == "immediate":
-                layer_to_remove.stop(cleanup=True)
-            elif stop_behavior == "fade_out_bar":
-                self._wait_for_sync_point(beats_to_wait=stop_sync_beats)
-                layer_to_remove.stop(fadeout_ms=fade_duration, cleanup=True)
-            elif (
-                stop_behavior == "next_bar_end"
-            ):  # Arrêt à la fin de la mesure en cours
-                self._wait_for_sync_point(beats_to_wait=stop_sync_beats)
-                layer_to_remove.stop(cleanup=True)
-            else:  # Comportement par défaut
-                self._wait_for_sync_point(beats_to_wait=stop_sync_beats)
-                layer_to_remove.stop(fadeout_ms=fade_duration, cleanup=True)
-
-        else:
-            print(f"Opération inconnue '{operation}' pour le layer manager.")
-
     def set_master_tempo(self, new_tempo: float):
         """Change le tempo maître. ATTENTION: Ne re-pitche pas les samples en cours."""
-        if new_tempo > 50 and new_tempo < 300:  # Limites raisonnables
+        if new_tempo > 50 and new_tempo < 300:
             print(
                 f"Changement du tempo maître de {self.master_tempo} BPM à {new_tempo} BPM."
             )
             self.master_tempo = new_tempo
-            # Note: Changer le tempo n'affecte pas la vitesse de lecture des samples déjà joués avec Pygame.
-            # Pour un vrai time-stretching/pitch-shifting en temps réel, il faudrait des outils plus avancés.
-            # Le LLM devrait être conscient de cela et peut-être demander de remplacer les layers
-            # avec de nouveaux samples générés au nouveau tempo.
         else:
             print(f"Tempo invalide: {new_tempo}. Doit être entre 50 et 300 BPM.")
-
-    def stop_all_layers(self, fade_ms: int = 200):
-        """Arrête tous les layers en cours avec un fadeout."""
-        print(f"Arrêt de tous les layers avec un fadeout de {fade_ms}ms...")
-
-        # Parcourir tous les layers actifs et les arrêter
-        for layer_id in list(self.layers.keys()):
-            if layer_id in self.layers:  # Vérifier qu'il existe toujours
-                layer = self.layers.pop(layer_id)  # Retirer du dictionnaire
-
-                # Faire un fadeout et nettoyer
-                if layer.is_playing:
-                    layer.stop(fadeout_ms=fade_ms, cleanup=True)
-
-        # Réinitialiser l'état du gestionnaire de layers
-        self.layers.clear()
-        self.is_master_clock_running = False
-        self.global_playback_start_time = None
-
-        # Forcer le garbage collector pour libérer la mémoire
-        import gc
-
-        gc.collect()
-
-        print("Tous les layers ont été arrêtés et nettoyés.")
 
     def match_sample_to_tempo(
         self, audio, target_tempo, sr, preserve_measures=True, beats_per_measure=4
@@ -714,11 +268,11 @@ class LayerManager:
                 try:
                     # ✅ soundfile au lieu de librosa
                     audio, file_sr = sf.read(audio, always_2d=False)
-                    
+
                     # Resampler si nécessaire
                     if file_sr != sr:
                         audio = librosa.resample(audio, orig_sr=file_sr, target_sr=sr)
-                        
+
                     print(f"✅ Fichier audio chargé: {audio.shape}, sr={file_sr}")
                 except Exception as e:
                     print(f"❌ Échec du chargement du fichier: {e}")
@@ -741,7 +295,6 @@ class LayerManager:
                 return audio
 
             print(f"ℹ️  Audio shape: {audio.shape}, dtype: {audio.dtype}")
-
 
             # Longueur originale en échantillons et en secondes
             original_length = len(audio)
@@ -804,7 +357,7 @@ class LayerManager:
                 # Calculer la durée idéale en nombre entier de mesures au nouveau tempo
                 target_beats = whole_measures * beats_per_measure
                 target_duration = (target_beats / target_tempo) * 60.0
-                target_duration *= 1.2 
+                target_duration *= 1.2
                 target_length = int(target_duration * sr)
 
                 # Redimensionner l'audio adapté pour avoir un nombre exact de mesures
@@ -862,11 +415,6 @@ class LayerManager:
         Returns:
             np.array: Audio étiré temporellement
         """
-        import tempfile
-        import subprocess
-        import soundfile as sf
-        import librosa
-        import os
 
         temp_files = []
 

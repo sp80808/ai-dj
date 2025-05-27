@@ -10,7 +10,7 @@ from config.music_prompts import SAMPLE_PARAMS
 class MusicGenerator:
     """Générateur de samples musicaux avec différents modèles (MusicGen ou Stable Audio)"""
 
-    def __init__(self, model_name="musicgen-medium", default_duration=8.0):
+    def __init__(self, model_name="musicgen-medium"):
         """
         Initialise le générateur de musique
 
@@ -20,7 +20,6 @@ class MusicGenerator:
             default_duration (float): Durée par défaut des générations en secondes
         """
         self.model_name = model_name
-        self.default_duration = default_duration
         self.model = None
         self.sample_rate = 32000
 
@@ -91,7 +90,9 @@ class MusicGenerator:
         # Stockage des samples générés
         self.sample_cache = {}
 
-    def generate_sample(self, musicgen_prompt, tempo, sample_type="custom"):
+    def generate_sample(
+        self, musicgen_prompt, tempo, sample_type="custom", generation_duration=6
+    ):
         """
         Version simplifiée qui prend juste un prompt MusicGen tout fait
         (remplace l'ancienne méthode compliquée)
@@ -103,7 +104,7 @@ class MusicGenerator:
             params = SAMPLE_PARAMS.get(
                 sample_type,
                 {
-                    "duration": 8,
+                    "duration": generation_duration,
                     "should_start_with_kick": False,
                     "key_sensitive": False,
                 },
@@ -129,7 +130,7 @@ class MusicGenerator:
                     generate_diffusion_cond,
                 )
 
-                seconds_total = 12
+                seconds_total = generation_duration
                 conditioning = [
                     {
                         "prompt": musicgen_prompt,
@@ -208,33 +209,35 @@ class MusicGenerator:
             else:
                 temp_dir = tempfile.gettempdir()
                 path = os.path.join(temp_dir, filename)
-                
+
             # Vérifier que sample_audio est un numpy array
             if not isinstance(sample_audio, np.ndarray):
                 sample_audio = np.array(sample_audio)
-            
+
             # ✅ NOUVEAU : Resample vers 48kHz si nécessaire
             if self.sample_rate != 48000:
                 print(f"🔄 Resampling {self.sample_rate}Hz → 48000Hz")
                 import librosa
+
                 sample_audio = librosa.resample(
-                    sample_audio, 
-                    orig_sr=self.sample_rate, 
-                    target_sr=48000
+                    sample_audio, orig_sr=self.sample_rate, target_sr=48000
                 )
                 # Mettre à jour le sample rate pour la sauvegarde
                 save_sample_rate = 48000
             else:
                 save_sample_rate = self.sample_rate
-                
+
             # Normaliser
             max_val = np.max(np.abs(sample_audio))
             if max_val > 0:
                 sample_audio = sample_audio / max_val * 0.9
-                
+
             import soundfile as sf
-            sf.write(path, sample_audio, save_sample_rate)  # ← Utilise le bon sample rate
-            
+
+            sf.write(
+                path, sample_audio, save_sample_rate
+            )  # ← Utilise le bon sample rate
+
             return path
         except Exception as e:
             print(f"❌ Erreur lors de la sauvegarde du sample: {e}")

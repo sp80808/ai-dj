@@ -657,6 +657,8 @@ public:
     bool getAutoLoadEnabled() const { return autoLoadEnabled.load(); }
     void loadPendingSample();
     bool hasSampleWaiting() const { return hasUnloadedSample.load(); }
+    void setLastDuration(double duration) { lastDuration = duration; }
+    double getLastDuration() const { return lastDuration; }
 
     // MIDI callback
     void setMidiIndicatorCallback(std::function<void(const juce::String &)> callback)
@@ -682,6 +684,7 @@ private:
     std::atomic<double> cachedHostBpm{126.0};
     static juce::AudioProcessor::BusesProperties createBusLayout();
     static const int MAX_TRACKS = 8;
+    double lastDuration = 6.0;
     void updateMasterEQ();
 
     void loadAudioDataAsync(const juce::String &trackId, const juce::MemoryBlock &audioData);

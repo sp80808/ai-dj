@@ -90,9 +90,15 @@ private:
     juce::ToggleButton drumsButton;
     juce::ToggleButton bassButton;
     juce::ToggleButton otherButton;
+    juce::ToggleButton vocalsButton;
+    juce::ToggleButton guitarButton;
+    juce::ToggleButton pianoButton;
 
     juce::TextButton playButton;
     juce::ToggleButton hostBpmButton;
+
+    juce::Slider durationSlider;
+    juce::Label durationLabel;
 
     juce::ToggleButton autoLoadButton;
     juce::TextButton loadSampleButton;

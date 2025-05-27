@@ -994,6 +994,7 @@ void DjIaVstProcessor::getStateInformation(juce::MemoryBlock &destData)
     state.setProperty("lastBpm", lastBpm, nullptr);
     state.setProperty("lastPresetIndex", lastPresetIndex, nullptr);
     state.setProperty("hostBpmEnabled", hostBpmEnabled, nullptr);
+    state.setProperty("lastDuration", lastDuration, nullptr);
 
     // État multi-track
     state.setProperty("selectedTrackId", selectedTrackId, nullptr);
@@ -1041,27 +1042,77 @@ void DjIaVstProcessor::setStateInformation(const void *data, int sizeInBytes)
     lastBpm = state.getProperty("lastBpm", 126.0);
     lastPresetIndex = state.getProperty("lastPresetIndex", -1);
     hostBpmEnabled = state.getProperty("hostBpmEnabled", false);
+    lastDuration = state.getProperty("lastDuration", 6.0);
 
     // ✅ 3. Charger custom prompts
     auto promptsState = state.getChildWithName("CustomPrompts");
     if (promptsState.isValid())
     {
         customPrompts.clear();
-        for (int i = 0; i < promptsState.getNumProperties(); ++i)
+
+        // Méthode 1: Si on a un count
+        if (promptsState.hasProperty("count"))
         {
-            auto propertyName = promptsState.getPropertyName(i);
-            if (propertyName.toString().startsWith("prompt_"))
+            int count = promptsState.getProperty("count", 0);
+            writeToLog("Loading " + juce::String(count) + " custom prompts (new format)");
+
+            for (int i = 0; i < promptsState.getNumChildren(); ++i)
             {
-                juce::String prompt = promptsState.getProperty(propertyName, "").toString();
-                if (prompt.isNotEmpty())
+                auto promptNode = promptsState.getChild(i);
+                if (promptNode.hasType("Prompt"))
                 {
-                    customPrompts.add(prompt);
+                    juce::String prompt = promptNode.getProperty("text", "").toString();
+                    if (prompt.isNotEmpty())
+                    {
+                        customPrompts.add(prompt);
+                        writeToLog("  Loaded: " + prompt);
+                    }
                 }
             }
         }
-        writeToLog("Loaded " + juce::String(customPrompts.size()) + " custom prompts");
-    }
+        else
+        {
+            // Méthode 2: Ancien format (fallback)
+            writeToLog("Loading custom prompts (old format)");
 
+            // Collecter tous les prompts avec leur index
+            juce::Array<std::pair<int, juce::String>> indexedPrompts;
+
+            for (int i = 0; i < promptsState.getNumProperties(); ++i)
+            {
+                auto propertyName = promptsState.getPropertyName(i);
+                if (propertyName.toString().startsWith("prompt_"))
+                {
+                    juce::String indexStr = propertyName.toString().substring(7); // Après "prompt_"
+                    int index = indexStr.getIntValue();
+                    juce::String prompt = promptsState.getProperty(propertyName, "").toString();
+
+                    if (prompt.isNotEmpty())
+                    {
+                        indexedPrompts.add({index, prompt});
+                    }
+                }
+            }
+
+            // Trier par index pour maintenir l'ordre
+            std::sort(indexedPrompts.begin(), indexedPrompts.end(),
+                      [](const auto &a, const auto &b)
+                      { return a.first < b.first; });
+
+            // Ajouter dans l'ordre
+            for (const auto &pair : indexedPrompts)
+            {
+                customPrompts.add(pair.second);
+                writeToLog("  Loaded: " + pair.second);
+            }
+        }
+
+        writeToLog("Final custom prompts count: " + juce::String(customPrompts.size()));
+    }
+    else
+    {
+        writeToLog("No custom prompts state found");
+    }
     // ✅ 4. Config serveur (thread-safe)
     juce::String newServerUrl = state.getProperty("serverUrl", "http://localhost:8000").toString();
     juce::String newApiKey = state.getProperty("apiKey", "").toString();
