@@ -314,7 +314,7 @@ public:
             track->bpm = trackState.getProperty("bpm", 126.0f);
             track->originalBpm = trackState.getProperty("originalBpm", 126.0f);
             track->timeStretchMode = trackState.getProperty("timeStretchMode", 4);
-            track->bpmOffset = trackState.getProperty("bpmOffset", 0.0); // NOUVEAU
+            track->bpmOffset = trackState.getProperty("bpmOffset", 0.0);
             track->midiNote = trackState.getProperty("midiNote", 60);
             track->loopStart = trackState.getProperty("loopStart", 0.0);
             track->loopEnd = trackState.getProperty("loopEnd", 4.0);

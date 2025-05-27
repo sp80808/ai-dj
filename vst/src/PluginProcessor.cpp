@@ -320,9 +320,6 @@ void DjIaVstProcessor::processMidiMessages(juce::MidiBuffer &midiMessages, bool 
     if (midiEventCount > 0)
     {
         needsUIUpdate = true;
-        writeToLog("📨 MIDI events: " + juce::String(midiEventCount) +
-                   " (Host playing: " + juce::String(hostIsPlaying ? "YES" : "NO") +
-                   ", BPM: " + juce::String(hostBpm, 1) + ")");
     }
 
     for (const auto metadata : midiMessages)
