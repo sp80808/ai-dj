@@ -80,7 +80,7 @@ struct TrackData
         isSolo = false;
         volume = 0.8f;
         pan = 0.0f;
-        bpmOffset = 0.0; 
+        bpmOffset = 0.0;
     }
 
     void setPlaying(bool playing)
@@ -89,11 +89,11 @@ struct TrackData
         isPlaying = playing;
         if (wasPlaying != playing && onPlayStateChanged)
         {
-            juce::MessageManager::callAsync([this, playing]() {
+            juce::MessageManager::callAsync([this, playing]()
+                                            {
                 if (onPlayStateChanged) {
                     onPlayStateChanged(playing);
-                }
-                });
+                } });
         }
     }
 };
@@ -265,7 +265,7 @@ public:
             trackState.setProperty("bpm", track->bpm, nullptr);
             trackState.setProperty("originalBpm", track->originalBpm, nullptr);
             trackState.setProperty("timeStretchMode", track->timeStretchMode, nullptr);
-            trackState.setProperty("bpmOffset", track->bpmOffset, nullptr); // NOUVEAU
+            trackState.setProperty("bpmOffset", track->bpmOffset, nullptr);
             trackState.setProperty("midiNote", track->midiNote, nullptr);
             trackState.setProperty("loopStart", track->loopStart, nullptr);
             trackState.setProperty("loopEnd", track->loopEnd, nullptr);
@@ -334,21 +334,10 @@ public:
             track->loopEnd = trackState.getProperty("loopEnd", 4.0);
             track->volume = trackState.getProperty("volume", 0.8f);
             track->pan = trackState.getProperty("pan", 0.0f);
-            track->isMuted = trackState.getProperty("muted", false);
-            track->isSolo = trackState.getProperty("solo", false);
             track->isEnabled = trackState.getProperty("enabled", true);
             track->fineOffset = trackState.getProperty("fineOffset", 0.0f);
-            track->onPlayStateChanged = nullptr;
             track->timeStretchRatio = trackState.getProperty("timeStretchRatio", 1.0);
             track->stagingOriginalBpm = trackState.getProperty("stagingOriginalBpm", 126.0f);
-            track->hasStagingData = false;
-            track->swapRequested = false;
-            track->cachedPlaybackRatio = 1.0;
-            track->readPosition = 0.0;
-            track->isPlaying = false;
-            track->isArmed = false;
-            track->stagingNumSamples = 0;
-            track->stagingSampleRate = 48000.0;
 
             juce::String audioDataBase64 = trackState.getProperty("audioData", "");
             if (audioDataBase64.isNotEmpty())

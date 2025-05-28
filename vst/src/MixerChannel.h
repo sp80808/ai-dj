@@ -27,12 +27,16 @@ public:
         {
             juce::WeakReference<MixerChannel> weakThis(this);
             track->onPlayStateChanged = [weakThis](bool isPlaying)
+            {
+                if (weakThis != nullptr)
                 {
-                    if (weakThis != nullptr)
-                    {
+                    juce::MessageManager::callAsync([weakThis]()
+                                                    {
+                    if (weakThis != nullptr && !weakThis->isUpdatingButtons) {
                         weakThis->updateButtonColors();
-                    }
-                };
+                    } });
+                }
+            };
         }
         updateFromTrackData();
     }
@@ -130,7 +134,7 @@ public:
         }
     }
 
-    void fillMeters(juce::Rectangle<float>& vuArea, int i, float segmentHeight, int numSegments, float currentLevel, juce::Graphics& g)
+    void fillMeters(juce::Rectangle<float> &vuArea, int i, float segmentHeight, int numSegments, float currentLevel, juce::Graphics &g)
     {
         float segmentY = vuArea.getBottom() - 2 - (i + 1) * segmentHeight;
         float segmentLevel = (float)i / numSegments;
@@ -357,7 +361,7 @@ private:
     TrackData *track;
     bool isSelected = false;
     int bypassMidiFrames = 0;
-    bool updatingFromTrack = false;
+    std::atomic<bool> isUpdatingButtons{false};
 
     // VU Meter variables
     float currentAudioLevel = 0.0f;
@@ -417,7 +421,6 @@ private:
         playButton.setClickingTogglesState(true);
         playButton.onClick = [this]()
         {
-            if (updatingFromTrack) return;
             if (track)
             {
                 bool shouldArm = playButton.getToggleState();
@@ -437,7 +440,6 @@ private:
         stopButton.setClickingTogglesState(false);
         stopButton.onClick = [this]()
         {
-            if (updatingFromTrack) return;
             if (track)
             {
                 track->isArmed = false;
@@ -454,7 +456,6 @@ private:
         muteButton.setClickingTogglesState(true);
         muteButton.onClick = [this]()
         {
-            if (updatingFromTrack) return;
             if (track)
             {
                 track->isMuted = muteButton.getToggleState();
@@ -469,7 +470,6 @@ private:
         soloButton.setClickingTogglesState(true);
         soloButton.onClick = [this]()
         {
-            if (updatingFromTrack) return;
             if (track)
             {
                 bool newSoloState = soloButton.getToggleState();
@@ -588,10 +588,17 @@ private:
 
     void updateButtonColors()
     {
-        if (!track)
+        bool expected = false;
+        if (!isUpdatingButtons.compare_exchange_strong(expected, true))
+        {
             return;
+        }
 
-        updatingFromTrack = true;
+        if (!track)
+        {
+            isUpdatingButtons = false;
+            return;
+        }
         bool isArmed = track->isArmed.load();
         bool isPlaying = track->isPlaying.load();
         bool isMuted = track->isMuted.load();
@@ -618,22 +625,22 @@ private:
         muteButton.setToggleState(isMuted, juce::dontSendNotification);
         muteButton.setColour(juce::TextButton::buttonOnColourId,
                              isMuted ? juce::Colour(0xffaa0000) : juce::Colour(0xff404040));
-        muteButton.setColour(juce::TextButton::buttonColourId,   
-            juce::Colour(0xff404040));
+        muteButton.setColour(juce::TextButton::buttonColourId,
+                             juce::Colour(0xff404040));
 
         soloButton.setToggleState(isSolo, juce::dontSendNotification);
-        soloButton.setColour(juce::TextButton::buttonOnColourId, 
-            juce::Colour(0xffffff00));
-        soloButton.setColour(juce::TextButton::textColourOnId,  
-            juce::Colours::black);
-        soloButton.setColour(juce::TextButton::buttonColourId, 
-            juce::Colour(0xff404040));
-        soloButton.setColour(juce::TextButton::textColourOffId,  
-            juce::Colours::white);
+        soloButton.setColour(juce::TextButton::buttonOnColourId,
+                             juce::Colour(0xffffff00));
+        soloButton.setColour(juce::TextButton::textColourOnId,
+                             juce::Colours::black);
+        soloButton.setColour(juce::TextButton::buttonColourId,
+                             juce::Colour(0xff404040));
+        soloButton.setColour(juce::TextButton::textColourOffId,
+                             juce::Colours::white);
 
         stopButton.setColour(juce::TextButton::buttonColourId,
                              (isArmed || isPlaying) ? juce::Colour(0xffaa4400) : juce::Colour(0xff404040));
-        updatingFromTrack = false;
+        isUpdatingButtons = false;
     }
 
     void setupMidiLearn(juce::Component &component, int controlType)

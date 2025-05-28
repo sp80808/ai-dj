@@ -20,6 +20,8 @@ DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor &p)
     {
         updateUIComponents();
     };
+    juce::Timer::callAfterDelay(300, [this]()
+                                { refreshTracks(); });
 }
 
 DjIaVstEditor::~DjIaVstEditor()
@@ -659,7 +661,7 @@ void DjIaVstEditor::updateMidiIndicator(const juce::String &noteInfo)
     lastMidiNote = noteInfo;
 
     juce::MessageManager::callAsync([this, noteInfo]()
-        {
+                                    {
             if (midiIndicator.isShowing())
             {
                 midiIndicator.setText("MIDI: " + noteInfo, juce::dontSendNotification);
@@ -672,11 +674,8 @@ void DjIaVstEditor::updateMidiIndicator(const juce::String &noteInfo)
                             midiIndicator.setColour(juce::Label::backgroundColourId, juce::Colours::black);
                         }
                     });
-            }
-        });
-
-    }
-
+            } });
+}
 
 void DjIaVstEditor::onGenerateButtonClicked()
 {
@@ -889,7 +888,7 @@ void DjIaVstEditor::onAutoLoadToggled()
     else
     {
         statusLabel.setText("Manual mode - click Load Sample when ready", juce::dontSendNotification);
-        updateLoadButtonState(); 
+        updateLoadButtonState();
     }
 }
 
@@ -902,7 +901,7 @@ void DjIaVstEditor::onLoadSampleClicked()
 
 void DjIaVstEditor::updateLoadButtonState()
 {
-    if (!autoLoadButton.getToggleState()) 
+    if (!autoLoadButton.getToggleState())
     {
         if (audioProcessor.hasSampleWaiting())
         {
