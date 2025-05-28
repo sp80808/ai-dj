@@ -1,4 +1,5 @@
 import json
+import re
 import time
 import gc
 from llama_cpp import Llama
@@ -36,36 +37,58 @@ class DJAILL:
         """Initialise ou réinitialise le modèle LLM"""
         print(f"⚡ Initialisation du modèle LLM depuis {self.model_path}...")
 
-        # Initialiser un nouveau modèle LLM
         self.model = Llama(
             model_path=self.model_path,
-            n_ctx=4096,  # Contexte suffisamment grand
-            n_gpu_layers=-1,  # Utiliser tous les layers GPU disponibles
-            n_threads=4,  # Ajuster selon CPU
+            n_ctx=4096,
+            n_gpu_layers=-1,
+            n_threads=4,
             verbose=False,
         )
         print("✅ Nouveau modèle LLM initialisé")
 
+    def _ensure_alternating_roles(self):
+        """S'assure que les rôles alternent correctement user/assistant"""
+        if len(self.conversation_history) < 2:
+            return
+
+        system_msg = None
+        messages = self.conversation_history[:]
+
+        if messages and messages[0].get("role") == "system":
+            system_msg = messages.pop(0)
+
+        cleaned_messages = []
+        last_role = None
+
+        for msg in messages:
+            current_role = msg.get("role")
+
+            if current_role != last_role:
+                cleaned_messages.append(msg)
+                last_role = current_role
+            else:
+                if cleaned_messages:
+                    cleaned_messages[-1]["content"] += f"\n\n{msg['content']}"
+
+        if system_msg:
+            self.conversation_history = [system_msg] + cleaned_messages
+        else:
+            self.conversation_history = cleaned_messages
+
     def _add_message_safely(self, role, content):
-        """Ajoute un message en vérifiant l'alternance des rôles"""
+        """Ajoute un message en vérifiant l'alternance"""
         if not self.conversation_history:
-            # Premier message (system)
             self.conversation_history.append({"role": role, "content": content})
             return
 
-        last_role = self.conversation_history[-1]["role"]
-
-        # Vérifier l'alternance (sauf pour system au début)
-        if last_role == role and role != "system":
-            print(f"⚠️ Tentative d'ajout de deux messages {role} consécutifs - ignoré")
-            return
-
-        self.conversation_history.append({"role": role, "content": content})
+        last_msg = self.conversation_history[-1]
+        if last_msg.get("role") == role:
+            last_msg["content"] += f"\n\n{content}"
+        else:
+            self.conversation_history.append({"role": role, "content": content})
 
     def get_next_decision(self):
         """Obtient la prochaine décision du DJ IA"""
-
-        # Mise à jour du temps de session
         current_time = time.time()
         if self.session_state.get("last_action_time", 0) > 0:
             elapsed = current_time - self.session_state["last_action_time"]
@@ -73,11 +96,7 @@ class DJAILL:
                 self.session_state.get("session_duration", 0) + elapsed
             )
         self.session_state["last_action_time"] = current_time
-
-        # Construire le prompt utilisateur
         user_prompt = self._build_prompt()
-
-        # Ajouter à l'historique de conversation
         self._add_message_safely("user", user_prompt)
 
         if len(self.conversation_history) > 19:
@@ -90,28 +109,19 @@ class DJAILL:
         print(
             f"\n🧠 Génération AI-DJ avec {len(self.conversation_history)} messages d'historique..."
         )
-
-        # Générer avec tout l'historique
         response = self.model.create_chat_completion(self.conversation_history)
 
         print("✅ Génération terminée !")
 
         try:
-            # Extraire et parser la réponse JSON
             response_text = response["choices"][0]["message"]["content"]
-
-            # Ajouter la réponse à l'historique AVANT de parser
             self._add_message_safely("assistant", response_text)
-
-            # Trouver le JSON dans la réponse
-            import re
 
             json_match = re.search(r"({.*})", response_text, re.DOTALL)
             if json_match:
                 json_str = json_match.group(1)
                 decision = json.loads(json_str)
             else:
-                # Fallback si pas de JSON trouvé
                 decision = {
                     "action_type": "generate_sample",
                     "parameters": {
