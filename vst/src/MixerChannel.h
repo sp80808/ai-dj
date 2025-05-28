@@ -12,6 +12,10 @@ public:
 
     ~MixerChannel() override
     {
+        if (track)
+        {
+            track->onPlayStateChanged = nullptr;
+        }
     }
 
     void updateVUMeters()
@@ -23,6 +27,17 @@ public:
     void setTrackData(TrackData *trackData)
     {
         track = trackData;
+        if (track)
+        {
+            juce::WeakReference<MixerChannel> weakThis(this);
+            track->onPlayStateChanged = [weakThis](bool isPlaying)
+                {
+                    if (weakThis != nullptr)
+                    {
+                        weakThis->updateButtonColors();
+                    }
+                };
+        }
         updateFromTrackData();
     }
 
@@ -346,6 +361,7 @@ private:
     TrackData *track;
     bool isSelected = false;
     int bypassMidiFrames = 0;
+    bool updatingFromTrack = false;
 
     // VU Meter variables
     float currentAudioLevel = 0.0f;
@@ -405,6 +421,7 @@ private:
         playButton.setClickingTogglesState(true);
         playButton.onClick = [this]()
         {
+            if (updatingFromTrack) return;
             if (track)
             {
                 bool shouldArm = playButton.getToggleState();
@@ -424,6 +441,7 @@ private:
         stopButton.setClickingTogglesState(false);
         stopButton.onClick = [this]()
         {
+            if (updatingFromTrack) return;
             if (track)
             {
                 track->isArmed = false;
@@ -440,6 +458,7 @@ private:
         muteButton.setClickingTogglesState(true);
         muteButton.onClick = [this]()
         {
+            if (updatingFromTrack) return;
             if (track)
             {
                 track->isMuted = muteButton.getToggleState();
@@ -454,6 +473,7 @@ private:
         soloButton.setClickingTogglesState(true);
         soloButton.onClick = [this]()
         {
+            if (updatingFromTrack) return;
             if (track)
             {
                 bool newSoloState = soloButton.getToggleState();
@@ -575,10 +595,13 @@ private:
         if (!track)
             return;
 
+        updatingFromTrack = true;
         bool isArmed = track->isArmed.load();
         bool isPlaying = track->isPlaying.load();
         bool isMuted = track->isMuted.load();
         bool isSolo = track->isSolo.load();
+
+        playButton.setToggleState(isArmed || isPlaying, juce::dontSendNotification);
 
         if (isPlaying)
         {
@@ -596,11 +619,13 @@ private:
             playButton.setButtonText("ARM");
         }
 
+        muteButton.setToggleState(isMuted, juce::dontSendNotification);
         muteButton.setColour(juce::TextButton::buttonOnColourId,
                              isMuted ? juce::Colour(0xffaa0000) : juce::Colour(0xff404040));
         muteButton.setColour(juce::TextButton::buttonColourId,   
             juce::Colour(0xff404040));
 
+        soloButton.setToggleState(isSolo, juce::dontSendNotification);
         soloButton.setColour(juce::TextButton::buttonOnColourId, 
             juce::Colour(0xffffff00));
         soloButton.setColour(juce::TextButton::textColourOnId,  
@@ -612,6 +637,7 @@ private:
 
         stopButton.setColour(juce::TextButton::buttonColourId,
                              (isArmed || isPlaying) ? juce::Colour(0xffaa4400) : juce::Colour(0xff404040));
+        updatingFromTrack = false;
     }
 
     void setupMidiLearn(juce::Component &component, int controlType)
@@ -648,4 +674,5 @@ private:
     }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MixerChannel)
+    JUCE_DECLARE_WEAK_REFERENCEABLE(MixerChannel)
 };

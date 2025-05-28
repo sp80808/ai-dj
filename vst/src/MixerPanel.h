@@ -402,36 +402,26 @@ public:
         float totalLevel = 0.0f;
         float maxLevel = 0.0f;
         int activeChannels = 0;
-
-        // Sommer les niveaux de toutes les channels actives
         for (auto &channel : mixerChannels)
         {
             float channelLevel = channel->getCurrentAudioLevel();
             if (channelLevel > 0.01f)
-            {                                                // Seuil minimal pour éviter le bruit de fond
-                totalLevel += channelLevel * channelLevel;   // RMS
-                maxLevel = std::max(maxLevel, channelLevel); // Peak
+            {                                                
+                totalLevel += channelLevel * channelLevel;  
+                maxLevel = std::max(maxLevel, channelLevel);
                 activeChannels++;
             }
         }
 
         if (activeChannels > 0)
         {
-            // Calculer le niveau RMS
             float rmsLevel = std::sqrt(totalLevel / activeChannels);
-
-            // Utiliser un mix entre RMS et peak pour un rendu plus musical
             float finalLevel = (rmsLevel * 0.7f) + (maxLevel * 0.3f);
-
-            // Appliquer le volume master
             finalLevel *= masterVolume;
-
-            // Envoyer au master channel
             masterChannel->setRealAudioLevel(finalLevel);
         }
         else
         {
-            // Aucune track active = silence
             masterChannel->setRealAudioLevel(0.0f);
         }
     }
@@ -440,9 +430,8 @@ public:
     {
         auto trackIds = audioProcessor.getAllTrackIds();
 
-        // Clear existing channels - ORDRE IMPORTANT
-        channelsContainer.removeAllChildren(); // D'abord retirer de l'affichage
-        mixerChannels.clear();                 // Puis vider le vector
+        channelsContainer.removeAllChildren(); 
+        mixerChannels.clear();              
 
         int xPos = 5;
         const int channelWidth = 90;
@@ -456,46 +445,67 @@ public:
 
             auto mixerChannel = std::make_unique<MixerChannel>(trackId);
             mixerChannel->setTrackData(trackData);
-
-            // CORRECTION : Capturer le raw pointer AVANT de move
             auto *channelPtr = mixerChannel.get();
+            refreshChannelsCallbacks(mixerChannel, channelPtr);
+            positionMixer(mixerChannel, xPos, channelWidth, channelSpacing);
+        }
 
-            // === CALLBACKS SOLO/MUTE ===
-            mixerChannel->onSoloChanged = [this, channelPtr](const juce::String &id, bool solo)
+        displayChannelsContainer(xPos);
+    }
+
+    void displayChannelsContainer(int xPos)
+    {
+        int finalHeight = std::max(400, getHeight() - 10);
+        channelsContainer.setSize(xPos, finalHeight);
+        channelsContainer.setVisible(true);
+        channelsContainer.repaint();
+    }
+
+    void positionMixer(std::unique_ptr<MixerChannel>& mixerChannel, int& xPos, const int channelWidth, const int channelSpacing)
+    {
+        int containerHeight = std::max(400, channelsContainer.getHeight());
+        mixerChannel->setBounds(xPos, 0, channelWidth, containerHeight);
+
+        channelsContainer.addAndMakeVisible(mixerChannel.get());
+        mixerChannels.push_back(std::move(mixerChannel));
+
+        xPos += channelWidth + channelSpacing;
+    }
+
+    void refreshChannelsCallbacks(std::unique_ptr<MixerChannel>& mixerChannel, MixerChannel* channelPtr)
+    {
+        mixerChannel->onSoloChanged = [this, channelPtr](const juce::String& id, bool solo)
             {
-                // Rafraîchir TOUTES les channels car solo affecte les autres
-                for (auto &channel : mixerChannels)
+                for (auto& channel : mixerChannels)
                 {
                     channel->updateFromTrackData();
                     channel->repaint();
                 }
             };
 
-            mixerChannel->onMuteChanged = [this, channelPtr](const juce::String &id, bool mute)
+        mixerChannel->onMuteChanged = [this, channelPtr](const juce::String& id, bool mute)
             {
                 channelPtr->updateFromTrackData();
                 channelPtr->repaint();
             };
 
-            // === CALLBACKS TRANSPORT ===
-            mixerChannel->onPlayTrack = [this, channelPtr](const juce::String &id)
+        mixerChannel->onPlayTrack = [this, channelPtr](const juce::String& id)
             {
-                if (auto *track = audioProcessor.getTrack(id))
+                if (auto* track = audioProcessor.getTrack(id))
                 {
                     audioProcessor.startNotePlaybackForTrack(id, track->midiNote, 126.0);
                 }
-                // Délai pour voir le changement ARM->PLAY
                 juce::Timer::callAfterDelay(50, [channelPtr]()
-                                            {
-                if (channelPtr) { // Vérifier que le pointeur est encore valide
-                    channelPtr->updateFromTrackData();
-                    channelPtr->repaint();
-                } });
+                    {
+                        if (channelPtr) { 
+                            channelPtr->updateFromTrackData();
+                            channelPtr->repaint();
+                        } });
             };
 
-            mixerChannel->onStopTrack = [this, channelPtr](const juce::String &id)
+        mixerChannel->onStopTrack = [this, channelPtr](const juce::String& id)
             {
-                if (auto *track = audioProcessor.getTrack(id))
+                if (auto* track = audioProcessor.getTrack(id))
                 {
                     track->isPlaying = false;
                     track->isArmed = false;
@@ -504,62 +514,35 @@ public:
                 channelPtr->repaint();
             };
 
-            mixerChannel->onFineChanged = [this](const juce::String &id, float fine)
+        mixerChannel->onFineChanged = [this](const juce::String& id, float fine)
             {
-                if (auto *track = audioProcessor.getTrack(id))
+                if (auto* track = audioProcessor.getTrack(id))
                 {
                     track->fineOffset = fine;
                 }
             };
 
-            // === CALLBACK MIDI LEARN ===
-            mixerChannel->onMidiLearn = [this](const juce::String &trackId, int controlType)
+        mixerChannel->onMidiLearn = [this](const juce::String& trackId, int controlType)
             {
- 
+
             };
-
-            // === POSITIONNEMENT ===
-            // CORRECTION : Utiliser la hauteur du container, pas getHeight()
-            int containerHeight = std::max(400, channelsContainer.getHeight()); // Hauteur minimale
-            mixerChannel->setBounds(xPos, 0, channelWidth, containerHeight);
-
-            // CORRECTION : Ajouter AVANT de move
-            channelsContainer.addAndMakeVisible(mixerChannel.get());
-            mixerChannels.push_back(std::move(mixerChannel));
-
-            xPos += channelWidth + channelSpacing;
-        }
-
-        // Redimensionner le container avec une hauteur minimale
-        int finalHeight = std::max(400, getHeight() - 10);
-        channelsContainer.setSize(xPos, finalHeight);
-
-        // Forcer visibilité et repaint
-        channelsContainer.setVisible(true);
-        channelsContainer.repaint();
     }
 
     void paint(juce::Graphics &g) override
     {
         auto bounds = getLocalBounds();
-
-        // Background mixer style hardware
         juce::ColourGradient gradient(
             juce::Colour(0xff1a1a1a), 0, 0,
             juce::Colour(0xff2a2a2a), 0, getHeight(),
             false);
         g.setGradientFill(gradient);
         g.fillAll();
-
-        // Texture métallique subtile
         g.setColour(juce::Colour(0xff333333));
         for (int i = 0; i < getWidth(); i += 2)
         {
             g.drawVerticalLine(i, 0, getHeight());
             g.setOpacity(0.1f);
         }
-
-        // Séparateur entre channels et master
         int masterX = getWidth() - 100;
         g.setColour(juce::Colour(0xff666666));
         g.drawLine(masterX - 5, 10, masterX - 5, getHeight() - 10, 2.0f);
@@ -569,21 +552,16 @@ public:
     {
         auto area = getLocalBounds();
 
-        // Master channel à droite (100px)
         auto masterArea = area.removeFromRight(100);
         masterChannel->setBounds(masterArea.reduced(5));
 
-        // Séparateur
         area.removeFromRight(10);
 
-        // Channels viewport prend le reste
         channelsViewport.setBounds(area);
 
-        // Redimensionner le container des channels
         int containerHeight = channelsViewport.getHeight() - 20;
         channelsContainer.setSize(channelsContainer.getWidth(), containerHeight);
 
-        // Repositionner tous les channels
         int xPos = 5;
         const int channelWidth = 90;
         const int channelSpacing = 5;
@@ -595,7 +573,6 @@ public:
         }
     }
 
-    // Interface publique
     void trackAdded(const juce::String &trackId)
     {
         refreshMixerChannels();

@@ -9,12 +9,10 @@ DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor &p)
     logoImage = juce::ImageCache::getFromMemory(BinaryData::logo_png,
                                                 BinaryData::logo_pngSize);
     setupUI();
-
-    // Connecter le callback MIDI
     juce::WeakReference<DjIaVstEditor> weakThis(this);
     audioProcessor.setMidiIndicatorCallback([weakThis](const juce::String &noteInfo)
                                             {
-        if (weakThis != nullptr) { // Vérifier que l'éditeur existe encore
+        if (weakThis != nullptr) { 
             weakThis->updateMidiIndicator(noteInfo);
         } });
     refreshTracks();
@@ -22,7 +20,6 @@ DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor &p)
     {
         updateUIComponents();
     };
-    loadPromptPresets();
 }
 
 DjIaVstEditor::~DjIaVstEditor()
@@ -806,27 +803,19 @@ void DjIaVstEditor::onGenerateButtonClicked()
 void DjIaVstEditor::loadPromptPresets()
 {
     promptPresetSelector.clear();
-
-    // ✅ Charger les presets par défaut + custom prompts
-    juce::StringArray allPrompts = promptPresets; // Presets par défaut
-
-    // ✅ Ajouter les custom prompts du processor
+    juce::StringArray allPrompts = promptPresets;
     auto customPrompts = audioProcessor.getCustomPrompts();
     for (const auto &customPrompt : customPrompts)
     {
         if (!allPrompts.contains(customPrompt))
         {
-            allPrompts.insert(-1, customPrompt); // Avant "Custom..."
+            allPrompts.insert(-1, customPrompt);
         }
     }
-
-    // ✅ Populer le selector
     for (int i = 0; i < allPrompts.size(); ++i)
     {
         promptPresetSelector.addItem(allPrompts[i], i + 1);
     }
-
-    // ✅ Mettre à jour la liste locale
     promptPresets = allPrompts;
 }
 
@@ -851,25 +840,17 @@ void DjIaVstEditor::onSavePreset()
     juce::String currentPrompt = promptInput.getText().trim();
     if (currentPrompt.isNotEmpty())
     {
-        // ✅ SAUVEGARDER dans le processor (persistant)
         audioProcessor.addCustomPrompt(currentPrompt);
-
-        // ✅ AUSSI dans la liste locale pour l'UI immédiate
         if (!promptPresets.contains(currentPrompt))
         {
-            promptPresets.insert(promptPresets.size() - 1, currentPrompt); // Avant "Custom..."
+            promptPresets.insert(promptPresets.size(), currentPrompt);
         }
-
-        // ✅ Refresh la liste UI
         loadPromptPresets();
-
-        // ✅ Sélectionner le preset qu'on vient d'ajouter
         int newPresetIndex = promptPresets.indexOf(currentPrompt);
         if (newPresetIndex >= 0)
         {
             promptPresetSelector.setSelectedId(newPresetIndex + 1, juce::dontSendNotification);
         }
-
         statusLabel.setText("Preset saved: " + currentPrompt, juce::dontSendNotification);
     }
     else
@@ -882,13 +863,11 @@ void DjIaVstEditor::updateBpmFromHost()
 {
     if (hostBpmButton.getToggleState())
     {
-        // Récupérer le BPM de l'hôte
         double hostBpm = audioProcessor.getHostBpm();
-
         if (hostBpm > 0.0)
         {
             bpmSlider.setValue(hostBpm, juce::dontSendNotification);
-            bpmSlider.setEnabled(false); // Désactiver le slider
+            bpmSlider.setEnabled(false);
             statusLabel.setText("BPM synced with host: " + juce::String(hostBpm, 1), juce::dontSendNotification);
         }
         else
@@ -899,7 +878,7 @@ void DjIaVstEditor::updateBpmFromHost()
     }
     else
     {
-        bpmSlider.setEnabled(true); // Réactiver le slider
+        bpmSlider.setEnabled(true);
         statusLabel.setText("Using manual BPM", juce::dontSendNotification);
     }
 }
@@ -908,8 +887,6 @@ void DjIaVstEditor::onAutoLoadToggled()
 {
     bool autoLoadOn = autoLoadButton.getToggleState();
     audioProcessor.setAutoLoadEnabled(autoLoadOn);
-
-    // Activer/désactiver le bouton manuel
     loadSampleButton.setEnabled(!autoLoadOn);
 
     if (autoLoadOn)
@@ -920,7 +897,7 @@ void DjIaVstEditor::onAutoLoadToggled()
     else
     {
         statusLabel.setText("Manual mode - click Load Sample when ready", juce::dontSendNotification);
-        updateLoadButtonState(); // Vérifier s'il y a un sample en attente
+        updateLoadButtonState(); 
     }
 }
 
@@ -933,7 +910,7 @@ void DjIaVstEditor::onLoadSampleClicked()
 
 void DjIaVstEditor::updateLoadButtonState()
 {
-    if (!autoLoadButton.getToggleState()) // Mode manuel
+    if (!autoLoadButton.getToggleState()) 
     {
         if (audioProcessor.hasSampleWaiting())
         {

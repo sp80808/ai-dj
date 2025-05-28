@@ -23,6 +23,7 @@ struct TrackData
     juce::AudioSampleBuffer stagingBuffer;
     std::atomic<bool> hasStagingData{false};
     std::atomic<bool> swapRequested{false};
+    std::function<void(bool)> onPlayStateChanged;
 
     // Métadonnées staging
     std::atomic<int> stagingNumSamples{0};
@@ -78,7 +79,21 @@ struct TrackData
         isSolo = false;
         volume = 0.8f;
         pan = 0.0f;
-        bpmOffset = 0.0; // Reset aussi l'offset
+        bpmOffset = 0.0; 
+    }
+
+    void setPlaying(bool playing)
+    {
+        bool wasPlaying = isPlaying.load();
+        isPlaying = playing;
+        if (wasPlaying != playing && onPlayStateChanged)
+        {
+            juce::MessageManager::callAsync([this, playing]() {
+                if (onPlayStateChanged) {
+                    onPlayStateChanged(playing);
+                }
+                });
+        }
     }
 };
 
@@ -374,10 +389,10 @@ private:
             playbackRatio = 1.0;
             break;
 
-        case 2: 
+        case 2:
             if (track.originalBpm > 0.0f)
             {
-                float totalBpmAdjust = track.bpmOffset + track.fineOffset; 
+                float totalBpmAdjust = track.bpmOffset + track.fineOffset;
                 float adjustedBpm = track.originalBpm + totalBpmAdjust;
                 playbackRatio = adjustedBpm / track.originalBpm;
             }
@@ -387,10 +402,10 @@ private:
             playbackRatio = 1.0;
             break;
 
-        case 4: 
+        case 4:
             if (track.originalBpm > 0.0f)
             {
-                float totalManualAdjust = track.bpmOffset + track.fineOffset; 
+                float totalManualAdjust = track.bpmOffset + track.fineOffset;
                 playbackRatio = (track.originalBpm + totalManualAdjust) / track.originalBpm;
             }
             break;
@@ -559,12 +574,12 @@ public:
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
     void processBlock(juce::AudioBuffer<float> &, juce::MidiBuffer &) override;
-    void checkIfUIUpdateNeeded(juce::MidiBuffer& midiMessages);
-    void applyMasterEffects(juce::AudioSampleBuffer& mainOutput);
-    void copyTracksToIndividualOutputs(juce::AudioSampleBuffer& buffer);
-    void clearOutputBuffers(juce::AudioSampleBuffer& buffer);
-    void resizeIndividualsBuffers(juce::AudioSampleBuffer& buffer);
-    void getDawInformations(juce::AudioPlayHead* playHead, bool& hostIsPlaying, double& hostBpm, double& hostPpqPosition);
+    void checkIfUIUpdateNeeded(juce::MidiBuffer &midiMessages);
+    void applyMasterEffects(juce::AudioSampleBuffer &mainOutput);
+    void copyTracksToIndividualOutputs(juce::AudioSampleBuffer &buffer);
+    void clearOutputBuffers(juce::AudioSampleBuffer &buffer);
+    void resizeIndividualsBuffers(juce::AudioSampleBuffer &buffer);
+    void getDawInformations(juce::AudioPlayHead *playHead, bool &hostIsPlaying, double &hostBpm, double &hostPpqPosition);
     bool isBusesLayoutSupported(const BusesLayout &layouts) const override;
 
     // Interface Plugin
@@ -591,9 +606,9 @@ public:
 
     void updateUI();
 
-    void addCustomPromptsToIndexedPrompts(juce::ValueTree& promptsState, juce::Array<std::pair<int, juce::String>>& indexedPrompts);
+    void addCustomPromptsToIndexedPrompts(juce::ValueTree &promptsState, juce::Array<std::pair<int, juce::String>> &indexedPrompts);
 
-    void loadCustomPromptsByCountProperty(juce::ValueTree& promptsState);
+    void loadCustomPromptsByCountProperty(juce::ValueTree &promptsState);
 
     void setMasterVolume(float volume) { masterVolume = volume; }
     void setMasterPan(float pan) { masterPan = pan; }
@@ -683,12 +698,12 @@ private:
     void updateMasterEQ();
 
     void loadAudioDataAsync(const juce::String &trackId, const juce::MemoryBlock &audioData);
-    void processAudioBPMAndSync(TrackData* track);
-    void loadAudioToStagingBuffer(std::unique_ptr<juce::AudioFormatReader>& reader, TrackData* track);
+    void processAudioBPMAndSync(TrackData *track);
+    void loadAudioToStagingBuffer(std::unique_ptr<juce::AudioFormatReader> &reader, TrackData *track);
     void checkAndSwapStagingBuffers();
     void performAtomicSwap(TrackData *track, const juce::String &trackId);
     void updateWaveformDisplay(const juce::String &trackId);
-    void performTrackDeletion(const juce::String& trackId);
+    void performTrackDeletion(const juce::String &trackId);
     void reassignTrackOutputsAndMidi();
     std::unordered_map<int, juce::String> playingTracks;
     //==============================================================================
@@ -751,20 +766,22 @@ private:
     std::atomic<float> masterHighEQ{0.0f};
     std::atomic<float> masterMidEQ{0.0f};
     std::atomic<float> masterLowEQ{0.0f};
+    std::atomic<bool> waitingForMidiToLoad{false};
+    juce::String trackIdWaitingForLoad;
+    std::atomic<bool> correctMidiNoteReceived{false};
 
     //==============================================================================
     // MÉTHODES PRIVÉES
     //==============================================================================
 
     void processIncomingAudio();
-    void loadAudioDataToTrack(const juce::String &trackId);
-    void resetTrackReadPosition(TrackData* track);
-    void processBPM(TrackData* track);
-    void loadAudioToBuffer(TrackData* track, std::unique_ptr<juce::AudioFormatReader>& reader);
+    void resetTrackReadPosition(TrackData *track);
+    void processBPM(TrackData *track);
+    void loadAudioToBuffer(TrackData *track, std::unique_ptr<juce::AudioFormatReader> &reader);
     void clearPendingAudio();
 
     void processMidiMessages(juce::MidiBuffer &midiMessages, bool hostIsPlaying, double hostBpm);
-    void playTrack(const juce::MidiMessage& message, double hostBpm);
+    void playTrack(const juce::MidiMessage &message, double hostBpm);
     void updateTimeStretchRatios(double hostBpm);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor)

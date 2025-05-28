@@ -16,6 +16,8 @@ public:
     void updateUIFromProcessor();
     void refreshTracks();
 
+    juce::Label statusLabel;
+
     juce::StringArray getMenuBarNames() override;
     juce::PopupMenu getMenuForIndex(int topLevelMenuIndex, const juce::String &menuName) override;
     void menuItemSelected(int menuItemID, int topLevelMenuIndex) override;
@@ -102,7 +104,6 @@ private:
     juce::ToggleButton autoLoadButton;
     juce::TextButton loadSampleButton;
     // Status
-    juce::Label statusLabel;
     juce::Label midiInstructionLabel;
     juce::Label midiIndicator;
     juce::String lastMidiNote;
