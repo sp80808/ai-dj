@@ -290,14 +290,11 @@ public:
         tracks.clear();
         trackOrder.clear();
 
-        DBG("loadState starting - state has " + juce::String(state.getNumChildren()) + " children");
-
         for (int i = 0; i < state.getNumChildren(); ++i)
         {
             auto trackState = state.getChild(i);
             if (!trackState.hasType("Track"))
             {
-                DBG("Skipping non-Track child: " + trackState.getType().toString());
                 continue;
             }
 
@@ -305,8 +302,6 @@ public:
 
             track->trackId = trackState.getProperty("id", juce::Uuid().toString());
             track->trackName = trackState.getProperty("name", "Track");
-
-            DBG("Loading track: " + track->trackId + " - " + track->trackName);
 
             track->prompt = trackState.getProperty("prompt", "");
             track->style = trackState.getProperty("style", "");
@@ -352,20 +347,7 @@ public:
             std::string stdId = track->trackId.toStdString();
             tracks[stdId] = std::move(track);
             trackOrder.push_back(stdId);
-
-            DBG("Track added to maps - tracks size: " + juce::String(tracks.size()) +
-                ", trackOrder size: " + juce::String(trackOrder.size()));
         }
-        DBG("loadState complete - final tracks: " + juce::String(tracks.size()));
-    }
-
-    void writeToLog(const juce::String &message)
-    {
-        auto file = juce::File::getSpecialLocation(juce::File::userDesktopDirectory)
-                        .getChildFile("dj_ia_vst_multitrack.log");
-
-        auto time = juce::Time::getCurrentTime().toString(true, true, true, true);
-        file.appendText(time + ": " + message + "\n");
     }
 
 private:
@@ -384,33 +366,32 @@ private:
         const float volume = juce::jlimit(0.0f, 1.0f, track.volume.load());
         const float pan = juce::jlimit(-1.0f, 1.0f, track.pan.load());
         double currentPosition = track.readPosition.load();
-
-        // CALCUL DU RATIO selon le mode time-stretch
         double playbackRatio = 1.0;
 
         switch (track.timeStretchMode)
         {
-        case 1: // Off - garder ratio = 1.0
+        case 1:
             playbackRatio = 1.0;
             break;
 
-        case 2: // Manual BPM (slider)
+        case 2: 
             if (track.originalBpm > 0.0f)
             {
-                float adjustedBpm = track.originalBpm + track.bpmOffset + (track.fineOffset / 100.0f);
+                float totalBpmAdjust = track.bpmOffset + track.fineOffset; 
+                float adjustedBpm = track.originalBpm + totalBpmAdjust;
                 playbackRatio = adjustedBpm / track.originalBpm;
             }
             break;
 
-        case 3: // Host BPM (DAW) - DEFAULT
+        case 3:
             playbackRatio = 1.0;
             break;
 
-        case 4: // Both (Host + Manual offset)
+        case 4: 
             if (track.originalBpm > 0.0f)
             {
-                float manualAdjust = track.bpmOffset + (track.fineOffset / 100.0f);
-                playbackRatio = (track.originalBpm + manualAdjust) / track.originalBpm;
+                float totalManualAdjust = track.bpmOffset + track.fineOffset; 
+                playbackRatio = (track.originalBpm + totalManualAdjust) / track.originalBpm;
             }
             break;
         }
@@ -564,7 +545,12 @@ public:
     // CONSTRUCTEUR ET INTERFACE STANDARD
     //==============================================================================
     DjIaVstProcessor();
+    void initDummySynth();
+    void initTracks();
+    void loadParameters();
     ~DjIaVstProcessor() override;
+
+    void cleanProcessor();
 
     // Listener pour les paramètres
     void parameterChanged(const juce::String &parameterID, float newValue) override;
@@ -573,12 +559,18 @@ public:
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
     void processBlock(juce::AudioBuffer<float> &, juce::MidiBuffer &) override;
+    void checkIfUIUpdateNeeded(juce::MidiBuffer& midiMessages);
+    void applyMasterEffects(juce::AudioSampleBuffer& mainOutput);
+    void copyTracksToIndividualOutputs(juce::AudioSampleBuffer& buffer);
+    void clearOutputBuffers(juce::AudioSampleBuffer& buffer);
+    void resizeIndividualsBuffers(juce::AudioSampleBuffer& buffer);
+    void getDawInformations(juce::AudioPlayHead* playHead, bool& hostIsPlaying, double& hostBpm, double& hostPpqPosition);
     bool isBusesLayoutSupported(const BusesLayout &layouts) const override;
 
     // Interface Plugin
     juce::AudioProcessorEditor *createEditor() override;
     bool hasEditor() const override { return true; }
-    const juce::String getName() const override { return JucePlugin_Name; }
+    const juce::String getName() const override { return "DJ-IA VST"; }
 
     // Capacités MIDI
     bool acceptsMidi() const override { return true; }
@@ -596,6 +588,12 @@ public:
     // État
     void getStateInformation(juce::MemoryBlock &destData) override;
     void setStateInformation(const void *data, int sizeInBytes) override;
+
+    void updateUI();
+
+    void addCustomPromptsToIndexedPrompts(juce::ValueTree& promptsState, juce::Array<std::pair<int, juce::String>>& indexedPrompts);
+
+    void loadCustomPromptsByCountProperty(juce::ValueTree& promptsState);
 
     void setMasterVolume(float volume) { masterVolume = volume; }
     void setMasterPan(float pan) { masterPan = pan; }
@@ -669,9 +667,6 @@ public:
     // Parameters access
     juce::AudioProcessorValueTreeState &getParameters() { return parameters; }
 
-    // Logging
-    static void writeToLog(const juce::String &message);
-
     void addCustomPrompt(const juce::String &prompt);
     juce::StringArray getCustomPrompts() const;
     void clearCustomPrompts();
@@ -688,9 +683,13 @@ private:
     void updateMasterEQ();
 
     void loadAudioDataAsync(const juce::String &trackId, const juce::MemoryBlock &audioData);
+    void processAudioBPMAndSync(TrackData* track);
+    void loadAudioToStagingBuffer(std::unique_ptr<juce::AudioFormatReader>& reader, TrackData* track);
     void checkAndSwapStagingBuffers();
     void performAtomicSwap(TrackData *track, const juce::String &trackId);
     void updateWaveformDisplay(const juce::String &trackId);
+    void performTrackDeletion(const juce::String& trackId);
+    void reassignTrackOutputsAndMidi();
     std::unordered_map<int, juce::String> playingTracks;
     //==============================================================================
     // ÉTAT DU PLUGIN
@@ -759,9 +758,13 @@ private:
 
     void processIncomingAudio();
     void loadAudioDataToTrack(const juce::String &trackId);
+    void resetTrackReadPosition(TrackData* track);
+    void processBPM(TrackData* track);
+    void loadAudioToBuffer(TrackData* track, std::unique_ptr<juce::AudioFormatReader>& reader);
     void clearPendingAudio();
 
     void processMidiMessages(juce::MidiBuffer &midiMessages, bool hostIsPlaying, double hostBpm);
+    void playTrack(const juce::MidiMessage& message, double hostBpm);
     void updateTimeStretchRatios(double hostBpm);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor)

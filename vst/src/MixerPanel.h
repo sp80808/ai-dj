@@ -504,33 +504,18 @@ public:
                 channelPtr->repaint();
             };
 
-            // === NOUVEAUX CALLBACKS PITCH/FINE/PAN ===
-            mixerChannel->onPitchChanged = [this](const juce::String &id, float pitch)
-            {
-                DBG("🎵 Pitch changed: " + id + " = " + juce::String(pitch, 1) + " BPM");
-                // Le TrackData.bpmOffset est déjà mis à jour dans le callback du knob
-            };
-
             mixerChannel->onFineChanged = [this](const juce::String &id, float fine)
             {
-                DBG("🎼 Fine changed: " + id + " = " + juce::String(fine, 1) + " cents");
                 if (auto *track = audioProcessor.getTrack(id))
                 {
                     track->fineOffset = fine;
                 }
             };
 
-            mixerChannel->onPanChanged = [this](const juce::String &id, float pan)
-            {
-                DBG("🔊 Pan changed: " + id + " = " + juce::String(pan, 2));
-                // Le TrackData.pan est déjà mis à jour dans le callback du knob
-            };
-
             // === CALLBACK MIDI LEARN ===
             mixerChannel->onMidiLearn = [this](const juce::String &trackId, int controlType)
             {
-                DBG("🎹 MIDI Learn requested for track " + trackId + ", control " + juce::String(controlType));
-                // TODO: Implémenter MIDI learn
+ 
             };
 
             // === POSITIONNEMENT ===
@@ -552,9 +537,6 @@ public:
         // Forcer visibilité et repaint
         channelsContainer.setVisible(true);
         channelsContainer.repaint();
-
-        DBG("✅ Mixer refreshed: " + juce::String(mixerChannels.size()) + " channels, container size: " +
-            juce::String(channelsContainer.getWidth()) + "x" + juce::String(channelsContainer.getHeight()));
     }
 
     void paint(juce::Graphics &g) override

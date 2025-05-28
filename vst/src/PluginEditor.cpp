@@ -8,8 +8,6 @@ DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor &p)
     setSize(1300, 800);
     logoImage = juce::ImageCache::getFromMemory(BinaryData::logo_png,
                                                 BinaryData::logo_pngSize);
-    DjIaVstProcessor::writeToLog("Logo size in binary: " + juce::String(BinaryData::logo_pngSize));
-    DjIaVstProcessor::writeToLog("Logo image valid: " + juce::String(logoImage.isValid() ? "YES" : "NO"));
     setupUI();
 
     // Connecter le callback MIDI
@@ -205,9 +203,6 @@ void DjIaVstEditor::setupUI()
     debugRefreshButton.setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
     debugRefreshButton.onClick = [this]()
     {
-        DjIaVstProcessor::writeToLog("=== MANUAL REFRESH CLICKED ===");
-
-        // FORCER la recréation complète
         refreshTracks();
     };
 
@@ -279,7 +274,7 @@ void DjIaVstEditor::setupUI()
 
     addAndMakeVisible(apiKeyInput);
     apiKeyInput.setText(audioProcessor.getApiKey());
-    apiKeyInput.setPasswordCharacter('•');
+    apiKeyInput.setPasswordCharacter('*');
     apiKeyInput.onReturnKey = [this]
     {
         audioProcessor.setApiKey(apiKeyInput.getText());
@@ -490,7 +485,6 @@ void DjIaVstEditor::updateUIFromProcessor()
     {
         bpmSlider.setEnabled(false);
     }
-    DjIaVstProcessor::writeToLog("=== updateUIFromProcessor called ===");
     refreshTrackComponents();
 }
 
@@ -957,19 +951,9 @@ void DjIaVstEditor::updateLoadButtonState()
 void DjIaVstEditor::refreshTrackComponents()
 {
     auto trackIds = audioProcessor.getAllTrackIds();
-    DjIaVstProcessor::writeToLog("=== refreshTrackComponents called ===");
-    DjIaVstProcessor::writeToLog("Processor has " + juce::String(trackIds.size()) + " tracks");
-    DjIaVstProcessor::writeToLog("Current trackComponents.size(): " + juce::String(trackComponents.size()));
-    DjIaVstProcessor::writeToLog("tracksContainer visible: " + juce::String(tracksContainer.isVisible() ? "YES" : "NO"));
-    DjIaVstProcessor::writeToLog("tracksViewport visible: " + juce::String(tracksViewport.isVisible() ? "YES" : "NO"));
 
-    for (int i = 0; i < trackIds.size(); ++i)
-    {
-        DjIaVstProcessor::writeToLog("  Track " + juce::String(i) + " ID: " + trackIds[i]);
-    }
     if (trackComponents.size() == trackIds.size())
     {
-        // Vérifier si les composants sont vraiment affichés
         bool allVisible = true;
         for (auto &comp : trackComponents)
         {
@@ -989,7 +973,6 @@ void DjIaVstEditor::refreshTrackComponents()
             updateSelectedTrack();
             return;
         }
-        DjIaVstProcessor::writeToLog("Components exist but not visible - forcing recreation");
     }
 
     setEnabled(false);
@@ -1062,9 +1045,6 @@ void DjIaVstEditor::refreshTrackComponents()
 
     // Redimensionner EN UNE FOIS
     tracksContainer.setSize(tracksViewport.getWidth() - 20, yPos + 5);
-
-    DjIaVstProcessor::writeToLog("trackComponents created: " + juce::String(trackComponents.size()));
-    DjIaVstProcessor::writeToLog("tracksContainer size: " + juce::String(tracksContainer.getWidth()) + "x" + juce::String(tracksContainer.getHeight()));
     if (mixerPanel)
     {
         mixerPanel->refreshMixerChannels();
@@ -1103,8 +1083,6 @@ void DjIaVstEditor::onDeleteTrack(const juce::String &trackId)
     if (audioProcessor.getAllTrackIds().size() > 1)
     {
         audioProcessor.deleteTrack(trackId);
-
-        // Notifier le mixer
         if (mixerPanel)
         {
             mixerPanel->trackRemoved(trackId);

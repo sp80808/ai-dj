@@ -172,12 +172,10 @@ public:
         if (std::abs(e.x - startX) < tolerance)
         {
             draggingStart = true;
-            writeToLog("🎯 Dragging START marker");
         }
         else if (std::abs(e.x - endX) < tolerance)
         {
             draggingEnd = true;
-            writeToLog("🎯 Dragging END marker");
         }
         else
         {
@@ -265,7 +263,6 @@ public:
         {
             if (getTotalDuration() <= 0.0)
             {
-                writeToLog("❌ Cannot zoom: invalid total duration");
                 return;
             }
 
@@ -287,7 +284,6 @@ public:
             double newViewDuration = getTotalDuration() / zoomFactor;
             if (newViewDuration <= 0.0)
             {
-                writeToLog("❌ Invalid newViewDuration, reverting zoom");
                 zoomFactor = oldZoomFactor;
                 return;
             }
@@ -336,15 +332,6 @@ private:
     double playbackPosition = 0.0; // Position actuelle en secondes
     bool isCurrentlyPlaying = false;
 
-    void writeToLog(const juce::String &message)
-    {
-        auto file = juce::File::getSpecialLocation(juce::File::userDesktopDirectory)
-                        .getChildFile("dj_ia_vst_multitrack.log");
-
-        auto time = juce::Time::getCurrentTime().toString(true, true, true, true);
-        file.appendText(time + ": " + message + "\n");
-    }
-
     void generateThumbnail()
     {
         thumbnail.clear();
@@ -378,7 +365,6 @@ private:
             int sampleEnd = std::min(sampleStart + samplesPerPoint, audioBuffer.getNumSamples());
             if (sampleStart >= audioBuffer.getNumSamples())
             {
-                writeToLog("⚠️ Breaking thumbnail generation at point " + juce::String(point));
                 break;
             }
             // Calculer RMS (plus musical que peak) + peak pour les transitoires
@@ -391,8 +377,6 @@ private:
 
                 if (sample >= audioBuffer.getNumSamples())
                 {
-                    writeToLog("❌ Sample " + juce::String(sample) + " >= buffer size " +
-                               juce::String(audioBuffer.getNumSamples()));
                     break;
                 }
                 for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
@@ -571,63 +555,39 @@ private:
     // Dessiner la tête de lecture
     void drawPlaybackHead(juce::Graphics &g)
     {
-        // DEBUG - toujours afficher quelque chose pour tester
-        if (playbackPosition > 0.0 || isCurrentlyPlaying)
+        if (isCurrentlyPlaying && playbackPosition >= 0.0)
         {
-            writeToLog("=== DRAWING PLAYBACK HEAD ===");
-            writeToLog("  playbackPosition: " + juce::String(playbackPosition, 3) + "s");
-            writeToLog("  isCurrentlyPlaying: " + juce::String(isCurrentlyPlaying ? "YES" : "NO"));
-            writeToLog("  getTotalDuration: " + juce::String(getTotalDuration(), 3) + "s");
-            writeToLog("  viewStartTime: " + juce::String(viewStartTime, 3) + "s");
-            writeToLog("  zoomFactor: " + juce::String(zoomFactor, 2));
-        }
-
-        if (!isCurrentlyPlaying && playbackPosition <= 0.0)
-        {
-            return;
-        }
-        double displayPosition = playbackPosition / stretchRatio;
-        float headX = timeToX(displayPosition);
-
-        writeToLog("  timeToX result: " + juce::String(headX) + " (component width: " + juce::String(getWidth()) + ")");
-
-        // TOUJOURS dessiner quelque chose de visible pour debug
-        if (isCurrentlyPlaying)
-        {
-            // Forcer une position visible pour debug
-            float debugX = juce::jlimit(10.0f, (float)getWidth() - 10.0f, headX);
-
-            // Ligne de la tête de lecture - TRÈS VISIBLE
-            g.setColour(juce::Colours::red);
-            g.drawLine(debugX, 0, debugX, getHeight(), 4.0f); // Très épaisse
-
-            // Triangle en haut - GROS
-            juce::Path triangle;
-            triangle.addTriangle(debugX - 8, 0, debugX + 8, 0, debugX, 16);
-            g.setColour(juce::Colours::yellow);
-            g.fillPath(triangle);
-
-            // Triangle en bas - GROS
-            triangle.clear();
-            triangle.addTriangle(debugX - 8, getHeight(), debugX + 8, getHeight(), debugX, getHeight() - 16);
-            g.fillPath(triangle);
-
-            // Position en temps - GROS TEXTE
-            g.setColour(juce::Colours::white);
-            g.setFont(14.0f);
-            g.drawText(juce::String(playbackPosition, 2) + "s", debugX - 40, getHeight() / 2 - 10, 80, 20,
-                       juce::Justification::centred);
-
-            // Aussi dessiner à la position calculée réelle si différente
-            if (std::abs(debugX - headX) > 5.0f)
+            double displayPosition = playbackPosition;
+            if (stretchRatio > 0.0f && stretchRatio != 1.0f)
             {
-                g.setColour(juce::Colours::cyan);
-                g.drawLine(headX, 0, headX, getHeight(), 2.0f);
-                g.drawText("REAL", headX - 20, 5, 40, 15, juce::Justification::centred);
+                displayPosition = playbackPosition / stretchRatio;
             }
+            float headX = timeToX(displayPosition);
 
-            writeToLog("Drew playback head at debugX=" + juce::String(debugX) + ", realX=" + juce::String(headX));
+            if (headX >= 0 && headX <= getWidth())
+            {
+                g.setColour(juce::Colours::red);
+                g.drawLine(headX, 0, headX, getHeight(), 4.0f); // Très épaisse
+
+                // Triangle en haut - GROS
+                juce::Path triangle;
+                triangle.addTriangle(headX - 8, 0, headX + 8, 0, headX, 16);
+                g.setColour(juce::Colours::yellow);
+                g.fillPath(triangle);
+
+                // Triangle en bas - GROS
+                triangle.clear();
+                triangle.addTriangle(headX - 8, getHeight(), headX + 8, getHeight(), headX, getHeight() - 16);
+                g.fillPath(triangle);
+
+                // Position en temps - GROS TEXTE
+                g.setColour(juce::Colours::white);
+                g.setFont(14.0f);
+                g.drawText(juce::String(playbackPosition, 2) + "s", headX - 40, getHeight() / 2 - 10, 80, 20,
+                    juce::Justification::centred);
+            }
         }
+        
     }
 
     float timeToX(double time)
@@ -643,7 +603,7 @@ private:
         double relativeTime = time - viewStartTime;
         float result = juce::jmap(relativeTime, 0.0, viewDuration, 0.0, (double)getWidth());
 
-        return juce::jlimit(-1000.0f, (float)getWidth() + 1000.0f, result);
+        return juce::jlimit(0.0f, (float)getWidth(), result);
     }
 
     void drawBeatMarkers(juce::Graphics &g)
@@ -655,10 +615,8 @@ private:
         float viewDuration = totalDuration / zoomFactor;
         float viewEndTime = getViewEndTime();
 
-        float beatDuration = 60.0f / sampleBpm;                        // ← Plus le BPM est élevé, plus c'est court !
-        float barDuration = beatDuration * 4.0f;                       // ← Donc les barres se rapprochent !
-        writeToLog("Beat Duration: " + juce::String(beatDuration, 3)); // 3 décimales
-        writeToLog("Bar Duration: " + juce::String(barDuration, 2));   // 2 décimales
+        float beatDuration = 60.0f / sampleBpm;                 // ← Plus le BPM est élevé, plus c'est court !
+        float barDuration = beatDuration * 4.0f;                // ← Donc les barres se rapprochent !
         // Dessiner les mesures - L'ESPACEMENT CHANGE !
         g.setColour(juce::Colours::white.withAlpha(0.8f));
         for (float time = 0.0f; time <= viewEndTime; time += barDuration)

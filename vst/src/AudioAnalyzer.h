@@ -13,10 +13,6 @@ public:
 
         try
         {
-            DBG("Starting BPM detection...");
-            DBG("  Buffer size: " + juce::String(buffer.getNumSamples()) + " samples");
-            DBG("  Duration: " + juce::String(buffer.getNumSamples() / sampleRate, 2) + " seconds");
-
             // SoundTouch BPMDetect ne fonctionne qu'en mono
             soundtouch::BPMDetect bpmDetect(1, (int)sampleRate);
 
@@ -37,12 +33,9 @@ public:
                 monoData.push_back(mono);
             }
 
-            DBG("  Max level: " + juce::String(maxLevel, 3));
-
             // Vérifier que l'audio n'est pas trop faible
             if (maxLevel < 0.001f)
             {
-                DBG("Audio level too low for BPM detection");
                 return 0.0f;
             }
 
@@ -64,33 +57,25 @@ public:
 
             float detectedBPM = bpmDetect.getBpm();
 
-            DBG("  Raw detected BPM: " + juce::String(detectedBPM, 2));
-
             // Validation simple : range musicale raisonnable
             if (detectedBPM >= 30.0f && detectedBPM <= 300.0f)
             {
-                DBG("BPM detection successful: " + juce::String(detectedBPM, 1));
                 return detectedBPM;
             }
             else
             {
-                DBG("BPM out of musical range, trying fallback...");
-
                 // Essayer fallback par onset detection
                 float fallbackBPM = detectBPMByOnsets(buffer, sampleRate);
                 if (fallbackBPM >= 30.0f && fallbackBPM <= 300.0f)
                 {
-                    DBG("Fallback BPM detection: " + juce::String(fallbackBPM, 1));
                     return fallbackBPM;
                 }
 
-                DBG("Both detection methods failed");
                 return 0.0f;
             }
         }
         catch (const std::exception &e)
         {
-            DBG("BPM Detection exception: " + juce::String(e.what()));
             return 0.0f;
         }
     }
@@ -103,8 +88,6 @@ public:
 
         try
         {
-            DBG("Trying fallback onset-based BPM detection...");
-
             // Analyser les transitoires/onsets simples
             const int hopSize = 512;
             const int windowSize = 1024;
@@ -141,7 +124,6 @@ public:
 
             if (onsets.size() < 4)
             {
-                DBG("Not enough onsets detected: " + juce::String(onsets.size()));
                 return 0.0f;
             }
 
@@ -158,17 +140,12 @@ public:
 
             if (intervals.empty())
             {
-                DBG("No valid intervals found");
                 return 0.0f;
             }
 
             // BPM médian pour éviter les outliers
             std::sort(intervals.begin(), intervals.end());
             float medianBPM = intervals[intervals.size() / 2];
-
-            DBG("Onset analysis: " + juce::String(onsets.size()) + " onsets, " +
-                juce::String(intervals.size()) + " intervals, median BPM: " + juce::String(medianBPM, 1));
-
             // Validation simple
             if (medianBPM >= 30.0f && medianBPM <= 300.0f)
             {
@@ -179,7 +156,6 @@ public:
         }
         catch (const std::exception &e)
         {
-            DBG("Fallback BPM detection failed: " + juce::String(e.what()));
             return 0.0f;
         }
     }
@@ -245,7 +221,7 @@ public:
         }
         catch (const std::exception &e)
         {
-            DBG("Time stretch error: " + juce::String(e.what()));
+            std::cout << "Error: " << e.what() << std::endl;
         }
     }
 };

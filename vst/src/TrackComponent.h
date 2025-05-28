@@ -27,15 +27,6 @@ public:
         return showWaveformButton.getToggleState() && waveformDisplay && waveformDisplay->isVisible();
     }
 
-    void writeToLog(const juce::String &message)
-    {
-        auto file = juce::File::getSpecialLocation(juce::File::userDesktopDirectory)
-                        .getChildFile("dj_ia_vst_multitrack.log");
-
-        auto time = juce::Time::getCurrentTime().toString(true, true, true, true);
-        file.appendText(time + ": " + message + "\n");
-    }
-
     void calculateHostBasedDisplay()
     {
         if (!track || track->numSamples == 0)
@@ -225,20 +216,18 @@ public:
         }
 
         g.setColour(bgColour);
-        g.fillRoundedRectangle(bounds.toFloat(), 6.0f); // Coins plus arrondis
+        g.fillRoundedRectangle(bounds.toFloat(), 6.0f); 
 
-        // Border avec glow effect
         juce::Colour borderColour = isGenerating ? juce::Colour(0xffff6600) : (isSelected ? juce::Colour(0xff00ff88) : juce::Colour(0xff555555));
 
         g.setColour(borderColour);
         g.drawRoundedRectangle(bounds.toFloat().reduced(1), 6.0f,
                                isGenerating ? 3.0f : (isSelected ? 2.0f : 1.0f));
 
-        // Glow effect pour sélection
         if (isSelected)
         {
             g.setColour(borderColour.withAlpha(0.3f));
-            g.drawRoundedRectangle(bounds.toFloat().reduced(-1), 8.0f, 1.0f);
+            g.drawRoundedRectangle(bounds.toFloat().expanded(1), 8.0f, 1.0f); 
         }
     }
 
@@ -610,8 +599,6 @@ private:
                         {
                             track->readPosition = 0.0;
                         }
-
-                        DBG("Loop points changed: " + juce::String(start, 2) + "s to " + juce::String(end, 2) + "s");
                     }
                 };
                 addAndMakeVisible(*waveformDisplay);
@@ -620,7 +607,6 @@ private:
             // Charger les données audio si disponibles
             if (track && track->numSamples > 0)
             {
-                DBG("Loading waveform data: " + juce::String(track->numSamples) + " samples at " + juce::String(track->sampleRate) + " Hz");
 
                 waveformDisplay->setAudioData(track->audioBuffer, track->sampleRate);
                 waveformDisplay->setLoopPoints(track->loopStart, track->loopEnd);
@@ -629,7 +615,6 @@ private:
             }
             else
             {
-                DBG("No audio data available for waveform display");
                 waveformDisplay->setVisible(true);
             }
         }
@@ -663,8 +648,6 @@ private:
                 // Redimensionner le container parent
                 parentContainer->setSize(parentContainer->getWidth(), totalHeight);
                 parentContainer->resized();
-
-                DBG("Track container resized to height: " + juce::String(totalHeight));
             }
         }
 

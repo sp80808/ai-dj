@@ -17,7 +17,6 @@ public:
     void updateVUMeters()
     {
         updateVUMeter();
-        updateButtonColors();
         repaint();
     }
 
@@ -29,7 +28,6 @@ public:
 
     juce::String getTrackId() const { return trackId; }
 
-    // Callbacks
     std::function<void(const juce::String &, bool)> onSoloChanged;
     std::function<void(const juce::String &, bool)> onMuteChanged;
     std::function<void(const juce::String &)> onPlayTrack;
@@ -59,24 +57,19 @@ public:
     {
         auto bounds = getLocalBounds();
 
-        // Background channel strip avec sélection
         juce::Colour bgColour = isSelected ? juce::Colour(0xff3a3a3a) : juce::Colour(0xff2a2a2a);
         g.setColour(bgColour);
         g.fillRoundedRectangle(bounds.toFloat(), 8.0f);
 
-        // Border avec couleur de sélection
         juce::Colour borderColour = isSelected ? juce::Colour(0xff00ff88) : juce::Colour(0xff404040);
         float borderWidth = isSelected ? 2.0f : 1.0f;
         g.drawRoundedRectangle(bounds.toFloat().reduced(1), 8.0f, borderWidth);
 
-        // Glow effect si sélectionné
         if (isSelected)
         {
             g.setColour(borderColour.withAlpha(0.3f));
-            g.drawRoundedRectangle(bounds.toFloat().reduced(-1), 10.0f, 1.0f);
+            g.drawRoundedRectangle(bounds.toFloat().reduced(1), 10.0f, 1.0f);
         }
-
-        // VU meter à droite
         drawVUMeter(g, bounds);
     }
 
@@ -84,57 +77,26 @@ public:
     {
         auto vuArea = juce::Rectangle<float>(bounds.getWidth() - 10, 110, 6, bounds.getHeight() - 120);
 
-        // Background du VU meter
         g.setColour(juce::Colour(0xff0a0a0a));
         g.fillRoundedRectangle(vuArea, 2.0f);
 
-        // Border
         g.setColour(juce::Colour(0xff666666));
         g.drawRoundedRectangle(vuArea, 2.0f, 0.5f);
 
         if (!track)
             return;
 
-        // Calculer le niveau audio réel
         float currentLevel = getCurrentAudioLevel();
         float peakLevel = getPeakLevel();
 
-        // Segments du VU meter
         int numSegments = 20;
         float segmentHeight = (vuArea.getHeight() - 4) / numSegments;
 
         for (int i = 0; i < numSegments; ++i)
         {
-            float segmentY = vuArea.getBottom() - 2 - (i + 1) * segmentHeight;
-            float segmentLevel = (float)i / numSegments;
-
-            juce::Rectangle<float> segmentRect(
-                vuArea.getX() + 1, segmentY, vuArea.getWidth() - 2, segmentHeight - 1);
-
-            // Couleur selon le niveau
-            juce::Colour segmentColour;
-            if (segmentLevel < 0.7f)
-                segmentColour = juce::Colours::green; // Vert pour les niveaux normaux
-            else if (segmentLevel < 0.9f)
-                segmentColour = juce::Colours::orange; // Orange pour les niveaux élevés
-            else
-                segmentColour = juce::Colours::red; // Rouge pour les niveaux de clipping
-
-            // Afficher le segment si le niveau l'atteint
-            if (currentLevel >= segmentLevel)
-            {
-                g.setColour(segmentColour);
-                g.fillRoundedRectangle(segmentRect, 1.0f);
-            }
-            else
-            {
-                // Segment éteint (très sombre)
-                g.setColour(segmentColour.withAlpha(0.1f));
-                g.fillRoundedRectangle(segmentRect, 1.0f);
-            }
+            fillMeters(vuArea, i, segmentHeight, numSegments, currentLevel, g);
         }
 
-        // Peak hold (petit segment qui reste visible quelques frames)
         if (peakLevel > 0.0f)
         {
             int peakSegment = (int)(peakLevel * numSegments);
@@ -149,12 +111,39 @@ public:
             }
         }
 
-        // Indicateur de clipping (LED rouge en haut)
         if (peakLevel >= 0.95f)
         {
             auto clipRect = juce::Rectangle<float>(vuArea.getX(), vuArea.getY() - 8, vuArea.getWidth(), 4);
             g.setColour(juce::Colours::red);
             g.fillRoundedRectangle(clipRect, 2.0f);
+        }
+    }
+
+    void fillMeters(juce::Rectangle<float>& vuArea, int i, float segmentHeight, int numSegments, float currentLevel, juce::Graphics& g)
+    {
+        float segmentY = vuArea.getBottom() - 2 - (i + 1) * segmentHeight;
+        float segmentLevel = (float)i / numSegments;
+
+        juce::Rectangle<float> segmentRect(
+            vuArea.getX() + 1, segmentY, vuArea.getWidth() - 2, segmentHeight - 1);
+
+        juce::Colour segmentColour;
+        if (segmentLevel < 0.7f)
+            segmentColour = juce::Colours::green;
+        else if (segmentLevel < 0.9f)
+            segmentColour = juce::Colours::orange;
+        else
+            segmentColour = juce::Colours::red;
+
+        if (currentLevel >= segmentLevel)
+        {
+            g.setColour(segmentColour);
+            g.fillRoundedRectangle(segmentRect, 1.0f);
+        }
+        else
+        {
+            g.setColour(segmentColour.withAlpha(0.1f));
+            g.fillRoundedRectangle(segmentRect, 1.0f);
         }
     }
 
@@ -199,17 +188,12 @@ public:
         fineKnob.setBounds(fineArea.reduced(2));
 
         area.removeFromTop(5);
-
-        // Pan knob at bottom
         auto panArea = knobsArea.removeFromTop(50);
         panLabel.setBounds(panArea.removeFromTop(12));
         panKnob.setBounds(panArea.reduced(2));
-
-        // MIDI Learn indicators (small dots)
         updateMidiLearnIndicators();
     }
 
-    // Handle incoming MIDI for learned controls
     void handleMidiMessage(const juce::MidiMessage &message, int learnedControlType)
     {
         if (!track || bypassMidiFrames > 0)
@@ -275,7 +259,6 @@ public:
     {
         if (!track || !track->isPlaying.load())
         {
-            // Decay naturel quand pas de signal
             currentAudioLevel *= 0.95f;
             if (peakHoldTimer > 0)
             {
@@ -286,12 +269,10 @@ public:
             return;
         }
 
-        // Calculer le niveau audio réel depuis le buffer
         float instantLevel = calculateInstantLevel();
 
-        // Lissage du niveau pour éviter les variations trop brutales
         levelHistory.push_back(instantLevel);
-        if (levelHistory.size() > 5) // Moyenne sur 5 frames
+        if (levelHistory.size() > 5)
             levelHistory.erase(levelHistory.begin());
 
         float smoothedLevel = 0.0f;
@@ -299,23 +280,19 @@ public:
             smoothedLevel += level;
         smoothedLevel /= levelHistory.size();
 
-        // Attack/Release simulation
         if (smoothedLevel > currentAudioLevel)
         {
-            // Attack rapide
             currentAudioLevel = smoothedLevel;
         }
         else
         {
-            // Release plus lent
             currentAudioLevel = currentAudioLevel * 0.85f + smoothedLevel * 0.15f;
         }
 
-        // Peak hold
         if (currentAudioLevel > peakHold)
         {
             peakHold = currentAudioLevel;
-            peakHoldTimer = 30; // Hold pendant 1 seconde (30 frames à 30Hz)
+            peakHoldTimer = 30;
         }
     }
 
@@ -324,15 +301,13 @@ public:
         if (!track || track->numSamples == 0)
             return 0.0f;
 
-        // Simuler le niveau audio basé sur la position actuelle dans le sample
         double readPos = track->readPosition.load();
         int sampleIndex = (int)(readPos);
 
         if (sampleIndex >= 0 && sampleIndex < track->numSamples)
         {
-            // Prendre quelques samples autour de la position actuelle
             float level = 0.0f;
-            int samples = std::min(32, track->numSamples - sampleIndex); // 32 samples pour l'analyse
+            int samples = std::min(32, track->numSamples - sampleIndex);
 
             for (int i = 0; i < samples; ++i)
             {
@@ -344,9 +319,9 @@ public:
             }
 
             level /= (samples * track->audioBuffer.getNumChannels());
-            level *= track->volume.load(); // Appliquer le volume de la tranche
+            level *= track->volume.load();
 
-            return juce::jlimit(0.0f, 1.0f, level * 3.0f); // Amplifier pour la visibilité
+            return juce::jlimit(0.0f, 1.0f, level * 3.0f);
         }
 
         return 0.0f;
@@ -355,14 +330,12 @@ public:
     float getCurrentAudioLevel() const { return currentAudioLevel; }
     float getPeakLevel() const { return peakHold; }
 
-    // Méthode pour highlight la channel sélectionnée
     void setSelected(bool selected)
     {
         isSelected = selected;
         repaint();
     }
 
-    // Méthode pour définir le niveau depuis l'extérieur
     void setCurrentLevel(float level)
     {
         currentAudioLevel = level;
@@ -440,6 +413,7 @@ private:
                 {
                     track->isPlaying = false;
                 }
+                updateButtonColors();
             }
         };
         setupMidiLearn(playButton, MIDI_PLAY);
@@ -455,6 +429,7 @@ private:
                 track->isArmed = false;
                 track->isPlaying = false;
                 playButton.setToggleState(false, juce::dontSendNotification);
+                updateButtonColors();
             }
         };
         setupMidiLearn(stopButton, MIDI_STOP);
@@ -468,6 +443,7 @@ private:
             if (track)
             {
                 track->isMuted = muteButton.getToggleState();
+                updateButtonColors();
             }
         };
         setupMidiLearn(muteButton, MIDI_MUTE);
@@ -482,6 +458,7 @@ private:
             {
                 bool newSoloState = soloButton.getToggleState();
                 track->isSolo = newSoloState;
+                updateButtonColors();
             }
         };
         setupMidiLearn(soloButton, MIDI_SOLO);
@@ -555,12 +532,11 @@ private:
         panLabel.setJustificationType(juce::Justification::centred);
         panLabel.setFont(juce::Font(9.0f));
 
-        // Pitch knob
         pitchKnob.onValueChange = [this]()
         {
             if (track)
             {
-                track->bpmOffset = pitchKnob.getValue(); // Utiliser bpmOffset pour le pitch
+                track->bpmOffset = pitchKnob.getValue();
                 if (onPitchChanged)
                 {
                     onPitchChanged(trackId, pitchKnob.getValue());
@@ -572,13 +548,11 @@ private:
         {
             if (track)
             {
-                // Le fine peut modifier légèrement le pitch principal
-                float fineAmount = fineKnob.getValue() / 100.0f; // Convertir en fraction
-                // TODO: Ajouter un champ fineOffset dans TrackData
-
+                float fineBpmOffset = fineKnob.getValue() / 100.0f;
+                track->fineOffset = fineBpmOffset;
                 if (onFineChanged)
                 {
-                    onFineChanged(trackId, fineKnob.getValue());
+                    onFineChanged(trackId, fineBpmOffset);
                 }
             }
         };
@@ -606,50 +580,43 @@ private:
         bool isMuted = track->isMuted.load();
         bool isSolo = track->isSolo.load();
 
-        // Play/ARM button (inchangé)
         if (isPlaying)
         {
-            playButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff00ff44));
-            playButton.setButtonText("PLAY");
+            playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff00ff44));
+            playButton.setButtonText("PLY");
         }
         else if (isArmed)
         {
-            playButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffff6600));
+            playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffff6600));
             playButton.setButtonText("ARM");
         }
         else
         {
-            playButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff404040));
+            playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff404040));
             playButton.setButtonText("ARM");
         }
 
-        // Mute button
-        muteButton.setColour(juce::TextButton::buttonColourId,
+        muteButton.setColour(juce::TextButton::buttonOnColourId,
                              isMuted ? juce::Colour(0xffaa0000) : juce::Colour(0xff404040));
+        muteButton.setColour(juce::TextButton::buttonColourId,   
+            juce::Colour(0xff404040));
 
-        // Solo button avec couleurs différentes
-        if (isSolo)
-        {
-            soloButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffffff00)); // Jaune vif
-            soloButton.setColour(juce::TextButton::textColourOnId, juce::Colours::black);     // Texte noir
-        }
-        else
-        {
-            soloButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff404040)); // Gris
-            soloButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);     // Texte blanc
-        }
+        soloButton.setColour(juce::TextButton::buttonOnColourId, 
+            juce::Colour(0xffffff00));
+        soloButton.setColour(juce::TextButton::textColourOnId,  
+            juce::Colours::black);
+        soloButton.setColour(juce::TextButton::buttonColourId, 
+            juce::Colour(0xff404040));
+        soloButton.setColour(juce::TextButton::textColourOffId,  
+            juce::Colours::white);
 
-        // Stop button
         stopButton.setColour(juce::TextButton::buttonColourId,
                              (isArmed || isPlaying) ? juce::Colour(0xffaa4400) : juce::Colour(0xff404040));
     }
 
     void setupMidiLearn(juce::Component &component, int controlType)
     {
-        // Right-click for MIDI learn
         component.setMouseCursor(juce::MouseCursor::PointingHandCursor);
-
-        // Override mouse events for MIDI learn
         auto mouseHandler = [this, controlType](const juce::MouseEvent &e)
         {
             if (e.mods.isRightButtonDown())
@@ -657,8 +624,6 @@ private:
                 startMidiLearn(controlType);
             }
         };
-
-        // Add mouse listener (simplified - you'll need proper event handling)
         component.addMouseListener(this, false);
     }
 
@@ -669,11 +634,7 @@ private:
         {
             onMidiLearn(trackId, controlType);
         }
-
-        // Visual feedback
         repaint();
-
-        // Auto-timeout after 5 seconds
         juce::Timer::callAfterDelay(5000, [this, controlType]()
                                     {
             midiLearnActive.erase(controlType);

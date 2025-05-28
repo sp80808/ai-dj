@@ -4,6 +4,7 @@ __pycache__
 .env
 vst/JUCE
 vst/build
+vst/build_vs
 vst/soundtouch
 vst/out
 vst/.vs
@@ -11,3 +12,4 @@ vst/.vs
 server/api/generated_loops
 server/api/temp_loops
 output.wav
+.vs

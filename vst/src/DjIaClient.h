@@ -13,6 +13,11 @@ public:
         int measures;
         std::vector<juce::String> preferredStems;
         float generationDuration;
+
+        LoopRequest()
+            : generationDuration(6.0f), bpm(120.0f), measures(4)
+        {
+        }
     };
 
     struct LoopResponse
@@ -24,6 +29,11 @@ public:
         std::vector<juce::String> stemsUsed;
         juce::String llmReasoning;
         double sampleRate;
+
+        LoopResponse()
+            : duration(0.0f), bpm(120.0f), sampleRate(44100.0)
+        {
+        }
     };
 
     DjIaClient(const juce::String &apiKey = "", const juce::String &baseUrl = "http://localhost:8000")
@@ -58,9 +68,6 @@ public:
     {
         try
         {
-            writeToLog("🚀 Generating loop with prompt: " + request.prompt);
-
-            // Créer le JSON de la requête
             juce::var jsonRequest(new juce::DynamicObject());
             jsonRequest.getDynamicObject()->setProperty("prompt", request.prompt);
             jsonRequest.getDynamicObject()->setProperty("style", request.style);
@@ -127,8 +134,6 @@ public:
                     for (const auto &stem : *stemsArray)
                         result.stemsUsed.push_back(stem.toString());
                 }
-
-                writeToLog("✅ Loop generated successfully");
                 return result;
             }
             else
@@ -138,21 +143,11 @@ public:
         }
         catch (const std::exception &e)
         {
-            writeToLog("❌ Error in generateLoop: " + juce::String(e.what()));
             throw;
         }
     }
 
 private:
-    static void writeToLog(const juce::String &message)
-    {
-        auto file = juce::File::getSpecialLocation(juce::File::userDesktopDirectory)
-                        .getChildFile("dj_ia_vst.log");
-
-        auto time = juce::Time::getCurrentTime().toString(true, true, true, true);
-        file.appendText(time + ": " + message + "\n");
-    }
-
     juce::String apiKey;
     juce::String baseUrl;
 };
