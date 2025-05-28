@@ -658,36 +658,28 @@ void DjIaVstEditor::updateMidiIndicator(const juce::String &noteInfo)
 {
     lastMidiNote = noteInfo;
 
-    // Mettre à jour dans le thread UI
     juce::MessageManager::callAsync([this, noteInfo]()
-                                    {
-        if (midiIndicator.isShowing())
         {
-            midiIndicator.setText("MIDI: " + noteInfo, juce::dontSendNotification);
-            midiIndicator.setColour(juce::Label::backgroundColourId, juce::Colours::green);
-            
-            juce::Timer::callAfterDelay(200, [this]() 
+            if (midiIndicator.isShowing())
             {
-                if (midiIndicator.isShowing())
-                {
-                    midiIndicator.setColour(juce::Label::backgroundColourId, juce::Colours::black);
-                }
-            });
-        } });
+                midiIndicator.setText("MIDI: " + noteInfo, juce::dontSendNotification);
+                midiIndicator.setColour(juce::Label::backgroundColourId, juce::Colours::green);
 
-    // Mettre à jour les tracks immédiatement
-    for (auto &trackComp : trackComponents)
-    {
-        if (trackComp->isShowing())
-        {
-            trackComp->updateFromTrackData();
-        }
+                juce::Timer::callAfterDelay(200, [this]()
+                    {
+                        if (midiIndicator.isShowing())
+                        {
+                            midiIndicator.setColour(juce::Label::backgroundColourId, juce::Colours::black);
+                        }
+                    });
+            }
+        });
+
     }
-}
+
 
 void DjIaVstEditor::onGenerateButtonClicked()
 {
-    // Validation des inputs
     if (serverUrlInput.getText().isEmpty())
     {
         statusLabel.setText("Error: Server URL is required", juce::dontSendNotification);

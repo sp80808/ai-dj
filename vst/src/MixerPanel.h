@@ -450,6 +450,7 @@ public:
             positionMixer(mixerChannel, xPos, channelWidth, channelSpacing);
         }
 
+
         displayChannelsContainer(xPos);
     }
 

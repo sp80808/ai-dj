@@ -866,6 +866,7 @@ void DjIaVstProcessor::getStateInformation(juce::MemoryBlock &destData)
     juce::ValueTree state("DjIaVstState");
 
     state.setProperty("apiKey", juce::var(apiKey), nullptr);
+    state.setProperty("serverUrl", juce::var(serverUrl), nullptr);
     state.setProperty("lastPrompt", juce::var(lastPrompt), nullptr);
     state.setProperty("lastStyle", juce::var(lastStyle), nullptr);
     state.setProperty("lastKey", juce::var(lastKey), nullptr);

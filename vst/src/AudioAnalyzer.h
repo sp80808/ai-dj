@@ -13,66 +13,19 @@ public:
 
         try
         {
-            // SoundTouch BPMDetect ne fonctionne qu'en mono
             soundtouch::BPMDetect bpmDetect(1, (int)sampleRate);
 
-            // Convertir en mono et normaliser
             std::vector<float> monoData;
             monoData.reserve(buffer.getNumSamples());
 
-            float maxLevel = 0.0f;
-            for (int i = 0; i < buffer.getNumSamples(); ++i)
-            {
-                float mono = buffer.getSample(0, i);
-                if (buffer.getNumChannels() > 1)
-                {
-                    mono = (buffer.getSample(0, i) + buffer.getSample(1, i)) * 0.5f;
-                }
+            bool retFlag;
+            float retVal = normalizeAudio(buffer, monoData, retFlag);
+            if (retFlag) return retVal;
 
-                maxLevel = std::max(maxLevel, std::abs(mono));
-                monoData.push_back(mono);
-            }
-
-            // Vérifier que l'audio n'est pas trop faible
-            if (maxLevel < 0.001f)
-            {
-                return 0.0f;
-            }
-
-            // Normaliser pour améliorer la détection
-            float normalizeGain = 0.5f / maxLevel;
-            for (auto &sample : monoData)
-            {
-                sample *= normalizeGain;
-            }
-
-            // Analyser par chunks
-            const int chunkSize = 4096;
-
-            for (size_t i = 0; i < monoData.size(); i += chunkSize)
-            {
-                size_t remaining = std::min((size_t)chunkSize, monoData.size() - i);
-                bpmDetect.inputSamples(&monoData[i], (int)remaining);
-            }
+            chunkAnalysis(monoData, bpmDetect);
 
             float detectedBPM = bpmDetect.getBpm();
-
-            // Validation simple : range musicale raisonnable
-            if (detectedBPM >= 30.0f && detectedBPM <= 300.0f)
-            {
-                return detectedBPM;
-            }
-            else
-            {
-                // Essayer fallback par onset detection
-                float fallbackBPM = detectBPMByOnsets(buffer, sampleRate);
-                if (fallbackBPM >= 30.0f && fallbackBPM <= 300.0f)
-                {
-                    return fallbackBPM;
-                }
-
-                return 0.0f;
-            }
+            return returnDetectedBPMorFallback(detectedBPM, buffer, sampleRate);
         }
         catch (const std::exception &e)
         {
@@ -80,15 +33,70 @@ public:
         }
     }
 
-    // Fallback simple par détection d'onset (gardée pour les cas difficiles)
+    static float returnDetectedBPMorFallback(float detectedBPM, const juce::AudioSampleBuffer& buffer, double sampleRate)
+    {
+        if (detectedBPM >= 30.0f && detectedBPM <= 300.0f)
+        {
+            return detectedBPM;
+        }
+        else
+        {
+            float fallbackBPM = detectBPMByOnsets(buffer, sampleRate);
+            if (fallbackBPM >= 30.0f && fallbackBPM <= 300.0f)
+            {
+                return fallbackBPM;
+            }
+
+            return 0.0f;
+        }
+    }
+
+    static void chunkAnalysis(std::vector<float>& monoData, soundtouch::BPMDetect& bpmDetect)
+    {
+        const int chunkSize = 4096;
+
+        for (size_t i = 0; i < monoData.size(); i += chunkSize)
+        {
+            size_t remaining = std::min((size_t)chunkSize, monoData.size() - i);
+            bpmDetect.inputSamples(&monoData[i], (int)remaining);
+        }
+    }
+
+    static float normalizeAudio(const juce::AudioSampleBuffer& buffer, std::vector<float>& monoData, bool& retFlag)
+    {
+        retFlag = true;
+        float maxLevel = 0.0f;
+        for (int i = 0; i < buffer.getNumSamples(); ++i)
+        {
+            float mono = buffer.getSample(0, i);
+            if (buffer.getNumChannels() > 1)
+            {
+                mono = (buffer.getSample(0, i) + buffer.getSample(1, i)) * 0.5f;
+            }
+
+            maxLevel = std::max(maxLevel, std::abs(mono));
+            monoData.push_back(mono);
+        }
+        if (maxLevel < 0.001f)
+        {
+            return 0.0f;
+        }
+        float normalizeGain = 0.5f / maxLevel;
+        for (auto& sample : monoData)
+        {
+            sample *= normalizeGain;
+        }
+        retFlag = false;
+        return {};
+    }
+
     static float detectBPMByOnsets(const juce::AudioBuffer<float> &buffer, double sampleRate)
     {
-        if (buffer.getNumSamples() < sampleRate) // Moins d'1 seconde
+        if (buffer.getNumSamples() < sampleRate) 
             return 0.0f;
 
         try
         {
-            // Analyser les transitoires/onsets simples
             const int hopSize = 512;
             const int windowSize = 1024;
             std::vector<float> onsetStrength;
@@ -107,8 +115,6 @@ public:
                 }
                 onsetStrength.push_back(std::sqrt(energy / windowSize));
             }
-
-            // Détection simple de pics
             std::vector<int> onsets;
             float threshold = 0.1f;
 
@@ -126,13 +132,11 @@ public:
             {
                 return 0.0f;
             }
-
-            // Calculer BPM moyen entre onsets
             std::vector<float> intervals;
             for (int i = 1; i < onsets.size(); ++i)
             {
                 float intervalSeconds = (onsets[i] - onsets[i - 1]) * hopSize / (float)sampleRate;
-                if (intervalSeconds > 0.2f && intervalSeconds < 2.0f) // Entre 30 et 300 BPM
+                if (intervalSeconds > 0.2f && intervalSeconds < 2.0f)
                 {
                     intervals.push_back(60.0f / intervalSeconds);
                 }
@@ -143,10 +147,9 @@ public:
                 return 0.0f;
             }
 
-            // BPM médian pour éviter les outliers
             std::sort(intervals.begin(), intervals.end());
             float medianBPM = intervals[intervals.size() / 2];
-            // Validation simple
+
             if (medianBPM >= 30.0f && medianBPM <= 300.0f)
             {
                 return medianBPM;

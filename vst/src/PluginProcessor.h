@@ -67,6 +67,7 @@ struct TrackData
         pan = 0.0f;
         readPosition = 0.0;
         bpmOffset = 0.0;
+        onPlayStateChanged = nullptr;
     }
 
     void reset()
@@ -273,6 +274,9 @@ public:
             trackState.setProperty("muted", track->isMuted.load(), nullptr);
             trackState.setProperty("solo", track->isSolo.load(), nullptr);
             trackState.setProperty("enabled", track->isEnabled.load(), nullptr);
+            trackState.setProperty("fineOffset", track->fineOffset, nullptr);
+            trackState.setProperty("timeStretchRatio", track->timeStretchRatio, nullptr);
+            trackState.setProperty("stagingOriginalBpm", track->stagingOriginalBpm, nullptr);
 
             // Sauvegarder audio data si présent
             if (track->numSamples > 0)
@@ -333,8 +337,19 @@ public:
             track->isMuted = trackState.getProperty("muted", false);
             track->isSolo = trackState.getProperty("solo", false);
             track->isEnabled = trackState.getProperty("enabled", true);
+            track->fineOffset = trackState.getProperty("fineOffset", 0.0f);
+            track->onPlayStateChanged = nullptr;
+            track->timeStretchRatio = trackState.getProperty("timeStretchRatio", 1.0);
+            track->stagingOriginalBpm = trackState.getProperty("stagingOriginalBpm", 126.0f);
+            track->hasStagingData = false;
+            track->swapRequested = false;
+            track->cachedPlaybackRatio = 1.0;
+            track->readPosition = 0.0;
+            track->isPlaying = false;
+            track->isArmed = false;
+            track->stagingNumSamples = 0;
+            track->stagingSampleRate = 48000.0;
 
-            // Charger audio data si présent
             juce::String audioDataBase64 = trackState.getProperty("audioData", "");
             if (audioDataBase64.isNotEmpty())
             {

@@ -12,10 +12,6 @@ public:
 
     ~MixerChannel() override
     {
-        if (track)
-        {
-            track->onPlayStateChanged = nullptr;
-        }
     }
 
     void updateVUMeters()
