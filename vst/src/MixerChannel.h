@@ -672,8 +672,7 @@ private:
 
 	void updateMidiLearnIndicators()
 	{
-		// Small red dots for active MIDI learn
-		// Will be drawn in paint() method
+
 	}
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MixerChannel)

@@ -83,13 +83,15 @@ class DJAILL:
         self.session_state["last_action_time"] = current_time
         user_prompt = self._build_prompt()
         self._add_message_safely("user", user_prompt)
-
-        if len(self.conversation_history) > 19:
+        if len(self.conversation_history) > 7:
 
             system_prompt = self.conversation_history[0]
             recent_pairs = self.conversation_history[-16:]
 
             self.conversation_history = [system_prompt] + recent_pairs
+            self._ensure_alternating_roles()
+            if self.conversation_history[-1].get("role") != "user":
+                self._add_message_safely("user", user_prompt)
 
         print(
             f"\n🧠 AI-DJ generation with {len(self.conversation_history)} history messages..."

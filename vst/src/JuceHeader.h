@@ -1,8 +1,5 @@
 #pragma once
 
-// Laisser CMake définir les flags principaux (IsSynth, WantsMidiInput, etc.)
-// Mais définir les infos basiques
-
 #define JucePlugin_Name "DJ-IA VST"
 #define JucePlugin_Desc "AI Loop Generator Instrument"
 #define JucePlugin_Manufacturer "Anthony"
