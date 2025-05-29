@@ -3,7 +3,7 @@ import time
 import librosa
 from fastapi import APIRouter, HTTPException, Depends, Security, Request
 from .models import GenerateRequest, GenerateResponse
-from config.config import API_KEY, API_KEY_HEADER, ENVIRONMENT
+from config.config import API_KEYS, API_KEY_HEADER, ENVIRONMENT, audio_lock, llm_lock
 from server.api.api_request_handler import APIRequestHandler
 
 
@@ -21,14 +21,16 @@ def get_dj_system(request: Request):
 async def verify_api_key(api_key: str = Security(API_KEY_HEADER)):
     if ENVIRONMENT == "dev":
         return "dev-bypass"
-    if api_key != API_KEY:
+    if not API_KEYS:
+        raise HTTPException(status_code=500, detail="No API keys configured")
+    if api_key not in API_KEYS:
         raise HTTPException(status_code=403, detail="Invalid API key")
     return api_key
 
 
 @router.post("/verify_key")
 async def verify_key(_: str = Depends(verify_api_key)):
-    return {"status": "valid", "message": "Ok"}
+    return {"status": "valid", "message": "API Key valid"}
 
 
 @router.post("/generate", response_model=GenerateResponse)
@@ -42,12 +44,14 @@ async def generate_loop(
         print(f"\n===== 🎵 QUERY #{request_id} =====")
         print(f"📝 '{request.prompt}' | {request.bpm} BPM | {request.key}")
         handler = APIRequestHandler(dj_system)
-        handler.setup_llm_session(request, request_id)
-        llm_decision = handler.get_llm_decision(request_id)
-        audio, _ = handler.generate_simple(request, llm_decision, request_id)
-        processed_path, used_stems = handler.process_audio_pipeline(
-            audio, request, request_id
-        )
+        async with llm_lock:
+            handler.setup_llm_session(request, request_id)
+            llm_decision = handler.get_llm_decision(request_id)
+        async with audio_lock:
+            audio, _ = handler.generate_simple(request, llm_decision, request_id)
+            processed_path, used_stems = handler.process_audio_pipeline(
+                audio, request, request_id
+            )
         audio_data, sr = librosa.load(processed_path, sr=None)
         duration = len(audio_data) / sr
 
