@@ -6,6 +6,8 @@ DJ-IA VST is a live music generation plugin that uses AI to create music loops i
 
 ⚠️ **Proof of Concept** - Currently in active development
 
+🚀 **[Download Alpha Release](https://github.com/innermost47/ai-dj/releases)** - Get the latest pre-release binaries
+
 ## 🎯 Core Concept
 
 1. **LLM Brain**: Analyzes your session and generates intelligent prompts
