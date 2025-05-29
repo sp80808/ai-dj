@@ -174,7 +174,7 @@ class LayerManager:
 
             if isinstance(stretched_audio, np.ndarray):
                 sf.write(looped_sample_path, stretched_audio, sr)
-                print(f"⏩ Looped sample with adapted tempo: {looped_sample_path}")
+                print(f"⏩ Looped sample: {looped_sample_path}")
             else:
                 sf.write(looped_sample_path, audio, sr)
                 print(

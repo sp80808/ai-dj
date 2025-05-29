@@ -48,16 +48,16 @@ private:
 	void loadSessionList();
 	void saveCurrentSession(const juce::String& sessionName);
 	void loadSession(const juce::String& sessionName);
-	void toggleMixer();
 	void onDeleteTrack(const juce::String& trackId);
 	void updateUIComponents();
 	void setAllGenerateButtonsEnabled(bool enabled);
+	void updateServerSidePreTreatment();
 
 	juce::File getSessionsDirectory();
 	std::unique_ptr<MixerPanel> mixerPanel;
 	juce::TextButton showMixerButton;
 	bool mixerVisible = false;
-	// Presets de prompts
+
 	juce::StringArray promptPresets = {
 		"Techno kick rhythm",
 		"Hardcore kick pattern",
@@ -72,7 +72,7 @@ private:
 		"Vintage analog lead",
 		"Distorted noise chops" };
 
-	// Composants UI
+
 	juce::ComboBox promptPresetSelector;
 	juce::TextButton savePresetButton;
 	juce::TextEditor promptInput;
@@ -82,13 +82,12 @@ private:
 	juce::ComboBox keySelector;
 	juce::TextButton generateButton;
 	juce::TextButton debugRefreshButton;
-	// Configuration serveur
+
 	juce::Label serverUrlLabel;
 	juce::TextEditor serverUrlInput;
 	juce::Label apiKeyLabel;
 	juce::TextEditor apiKeyInput;
 
-	// Sélection des stems
 	juce::Label stemsLabel;
 	juce::ToggleButton drumsButton;
 	juce::ToggleButton bassButton;
@@ -99,13 +98,14 @@ private:
 
 	juce::TextButton playButton;
 	juce::ToggleButton hostBpmButton;
+	juce::ToggleButton serverSidePreTreatmentButton;
 
 	juce::Slider durationSlider;
 	juce::Label durationLabel;
 
 	juce::ToggleButton autoLoadButton;
 	juce::TextButton loadSampleButton;
-	// Status
+
 	juce::Label midiIndicator;
 	juce::String lastMidiNote;
 

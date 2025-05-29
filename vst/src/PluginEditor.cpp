@@ -213,6 +213,11 @@ void DjIaVstEditor::setupUI()
 	hostBpmButton.setButtonText("Sync Host");
 	hostBpmButton.setClickingTogglesState(true);
 
+	addAndMakeVisible(serverSidePreTreatmentButton);
+	serverSidePreTreatmentButton.setButtonText("Server Side Pre Treatment");
+	serverSidePreTreatmentButton.setClickingTogglesState(true);
+	serverSidePreTreatmentButton.setToggleState(true, juce::dontSendNotification);
+
 	addAndMakeVisible(keySelector);
 	keySelector.addItem("C minor", 1);
 	keySelector.addItem("C major", 2);
@@ -220,11 +225,11 @@ void DjIaVstEditor::setupUI()
 	keySelector.addItem("F major", 4);
 	keySelector.addItem("A minor", 5);
 	keySelector.addItem("D minor", 6);
-	keySelector.setSelectedId(1);
+	keySelector.setSelectedId(1, juce::dontSendNotification);
 
 	addAndMakeVisible(durationSlider);
 	durationSlider.setRange(4.0, 30.0, 1.0);
-	durationSlider.setValue(6.0);
+	durationSlider.setValue(6.0, juce::dontSendNotification);
 	durationSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
 	durationSlider.setTextValueSuffix(" s");
 
@@ -355,6 +360,9 @@ void DjIaVstEditor::addEventListeners()
 
 	hostBpmButton.onClick = [this]
 		{ updateBpmFromHost(); };
+
+	serverSidePreTreatmentButton.onClick = [this]
+		{ updateServerSidePreTreatment(); };
 
 	generateButton.onClick = [this]
 		{ onGenerateButtonClicked(); };
@@ -511,10 +519,11 @@ void DjIaVstEditor::resized()
 	area.removeFromTop(5);
 
 	auto controlRow = area.removeFromTop(35);
-	auto controlWidth = controlRow.getWidth() / 4;
+	auto controlWidth = controlRow.getWidth() / 5;
 
 	keySelector.setBounds(controlRow.removeFromLeft(controlWidth).reduced(2));
 	durationSlider.setBounds(controlRow.removeFromLeft(controlWidth).reduced(2));
+	serverSidePreTreatmentButton.setBounds(controlRow.removeFromLeft(controlWidth).reduced(2));
 	hostBpmButton.setBounds(controlRow.removeFromLeft(controlWidth).reduced(2));
 	bpmSlider.setBounds(controlRow.reduced(2));
 
@@ -536,8 +545,6 @@ void DjIaVstEditor::resized()
 
 	auto tracksHeaderArea = area.removeFromTop(30);
 	addTrackButton.setBounds(tracksHeaderArea.removeFromRight(100));
-	tracksHeaderArea.removeFromRight(5);
-	debugRefreshButton.setBounds(tracksHeaderArea.removeFromRight(150));
 
 	area.removeFromTop(5);
 
@@ -629,6 +636,7 @@ void DjIaVstEditor::onGenerateButtonClicked()
 				request.key = keySelector.getText();
 				request.measures = 4;
 				request.generationDuration = (int)durationSlider.getValue();
+				request.serverSidePreTreatment = audioProcessor.getServerSidePreTreatment();
 
 				if (drumsButton.getToggleState())
 					request.preferredStems.push_back("drums");
@@ -736,6 +744,12 @@ void DjIaVstEditor::onSavePreset()
 	{
 		statusLabel.setText("Enter a prompt first!", juce::dontSendNotification);
 	}
+}
+
+void DjIaVstEditor::updateServerSidePreTreatment()
+{
+	bool serverSidePreTreatment = serverSidePreTreatmentButton.getToggleState();
+	audioProcessor.setServerSidePreTreatment(serverSidePreTreatment);
 }
 
 void DjIaVstEditor::updateBpmFromHost()

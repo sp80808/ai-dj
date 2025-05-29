@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "./JuceHeader.h"
 
 class DjIaClient
@@ -7,14 +7,21 @@ public:
 	struct LoopRequest
 	{
 		juce::String prompt;
+		float generationDuration;
 		float bpm;
 		juce::String key;
 		int measures;
 		std::vector<juce::String> preferredStems;
-		float generationDuration;
+		bool serverSidePreTreatment;
 
 		LoopRequest()
-			: generationDuration(6.0f), bpm(120.0f), measures(4)
+			: prompt(""),
+			generationDuration(6.0f),
+			bpm(120.0f),
+			key(""),
+			measures(4),
+			preferredStems(),
+			serverSidePreTreatment(true)
 		{
 		}
 	};
@@ -50,6 +57,7 @@ public:
 			jsonRequest.getDynamicObject()->setProperty("bpm", request.bpm);
 			jsonRequest.getDynamicObject()->setProperty("key", request.key);
 			jsonRequest.getDynamicObject()->setProperty("measures", request.measures);
+			jsonRequest.getDynamicObject()->setProperty("server_side_pre_treatment", request.serverSidePreTreatment);
 
 			if (!request.preferredStems.empty())
 			{

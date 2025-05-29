@@ -169,11 +169,9 @@ public:
 		auto area = getLocalBounds().reduced(4);
 		int width = area.getWidth();
 
-		// Track name at top
 		trackNameLabel.setBounds(area.removeFromTop(20));
 		area.removeFromTop(5);
 
-		// Transport buttons (2x2 grid)
 		auto transportArea = area.removeFromTop(60);
 		auto topRow = transportArea.removeFromTop(28);
 		auto bottomRow = transportArea;
@@ -185,21 +183,17 @@ public:
 
 		area.removeFromTop(5);
 
-		// Volume slider (vertical, takes most space)
 		auto volumeArea = area.removeFromTop(100);
 		volumeSlider.setBounds(volumeArea.reduced(width / 4, 0));
 
 		area.removeFromTop(5);
 
-		// Knobs section
 		auto knobsArea = area.removeFromTop(170);
 
-		// Pitch knob
 		auto pitchArea = knobsArea.removeFromTop(50);
 		pitchLabel.setBounds(pitchArea.removeFromTop(12));
 		pitchKnob.setBounds(pitchArea.reduced(2));
 
-		// Fine knob
 		auto fineArea = knobsArea.removeFromTop(50);
 		fineLabel.setBounds(fineArea.removeFromTop(12));
 		fineKnob.setBounds(fineArea.reduced(2));
