@@ -22,6 +22,7 @@ public:
 		calculateHostBasedDisplay();
 	}
 
+
 	bool isWaveformVisible() const
 	{
 		return showWaveformButton.getToggleState() && waveformDisplay && waveformDisplay->isVisible();
@@ -315,6 +316,11 @@ public:
 			waveformDisplay->setLoopPoints(track->loopStart, track->loopEnd);
 			calculateHostBasedDisplay();
 		}
+	}
+
+	void TrackComponent::setGenerateButtonEnabled(bool enabled)
+	{
+		generateButton.setEnabled(enabled);
 	}
 
 private:

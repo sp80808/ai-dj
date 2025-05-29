@@ -29,6 +29,27 @@ DjIaVstEditor::~DjIaVstEditor()
 	audioProcessor.onUIUpdateNeeded = nullptr;
 }
 
+void DjIaVstEditor::updateMidiIndicator(const juce::String& noteInfo)
+{
+	lastMidiNote = noteInfo;
+
+	juce::MessageManager::callAsync([this, noteInfo]()
+		{
+			if (midiIndicator.isShowing())
+			{
+				midiIndicator.setText("MIDI: " + noteInfo, juce::dontSendNotification);
+				midiIndicator.setColour(juce::Label::backgroundColourId, juce::Colours::green);
+
+				juce::Timer::callAfterDelay(200, [this]()
+					{
+						if (midiIndicator.isShowing())
+						{
+							midiIndicator.setColour(juce::Label::backgroundColourId, juce::Colours::black);
+						}
+					});
+			} });
+}
+
 void DjIaVstEditor::updateUIComponents()
 {
 	for (auto& trackComp : trackComponents)
@@ -520,7 +541,7 @@ void DjIaVstEditor::resized()
 
 	area.removeFromTop(5);
 
-	auto tracksAndMixerArea = area.removeFromTop(area.getHeight() - 110);
+	auto tracksAndMixerArea = area.removeFromTop(area.getHeight() - 100);
 
 	auto tracksMainArea = tracksAndMixerArea.removeFromLeft(tracksAndMixerArea.getWidth() * 0.65f);
 
@@ -546,44 +567,12 @@ void DjIaVstEditor::resized()
 	resizing = false;
 }
 
-void DjIaVstEditor::toggleMixer()
+void DjIaVstEditor::setAllGenerateButtonsEnabled(bool enabled)
 {
-	mixerVisible = !mixerVisible;
-	showMixerButton.setToggleState(mixerVisible, juce::dontSendNotification);
-
-	if (mixerVisible)
+	for (auto& trackComp : trackComponents)
 	{
-		showMixerButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff00aa44)); // Vert
-		statusLabel.setText("Mixer panel opened", juce::dontSendNotification);
+		trackComp->setGenerateButtonEnabled(enabled);
 	}
-	else
-	{
-		showMixerButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff4a4a4a)); // Gris
-		statusLabel.setText("Mixer panel closed", juce::dontSendNotification);
-	}
-
-	resized(); // Refaire le layout
-}
-
-void DjIaVstEditor::updateMidiIndicator(const juce::String& noteInfo)
-{
-	lastMidiNote = noteInfo;
-
-	juce::MessageManager::callAsync([this, noteInfo]()
-		{
-			if (midiIndicator.isShowing())
-			{
-				midiIndicator.setText("MIDI: " + noteInfo, juce::dontSendNotification);
-				midiIndicator.setColour(juce::Label::backgroundColourId, juce::Colours::green);
-
-				juce::Timer::callAfterDelay(200, [this]()
-					{
-						if (midiIndicator.isShowing())
-						{
-							midiIndicator.setColour(juce::Label::backgroundColourId, juce::Colours::black);
-						}
-					});
-			} });
 }
 
 void DjIaVstEditor::onGenerateButtonClicked()
@@ -606,8 +595,8 @@ void DjIaVstEditor::onGenerateButtonClicked()
 		return;
 	}
 
-	// Désactiver le bouton pendant la génération
 	generateButton.setEnabled(false);
+	setAllGenerateButtonsEnabled(false);
 	statusLabel.setText("Connecting to server...", juce::dontSendNotification);
 
 	juce::String selectedTrackId = audioProcessor.getSelectedTrackId();
@@ -620,25 +609,20 @@ void DjIaVstEditor::onGenerateButtonClicked()
 		}
 	}
 
-	// Lancer la génération dans un thread séparé
 	juce::Thread::launch([this, selectedTrackId]()
 		{
 			try
 			{
-				// Mettre à jour le status
 				juce::MessageManager::callAsync([this]() {
 					statusLabel.setText("Generating loop (this may take a few minutes)...",
 						juce::dontSendNotification);
 					});
 
-				// Configurer le client API
 				audioProcessor.setServerUrl(serverUrlInput.getText());
 				audioProcessor.setApiKey(apiKeyInput.getText());
 
-				// Attendre un peu pour la configuration
 				juce::Thread::sleep(100);
 
-				// Créer la requête
 				DjIaClient::LoopRequest request;
 				request.prompt = promptInput.getText();
 				request.bpm = (float)bpmSlider.getValue();
@@ -646,7 +630,6 @@ void DjIaVstEditor::onGenerateButtonClicked()
 				request.measures = 4;
 				request.generationDuration = (int)durationSlider.getValue();
 
-				// Collecter les stems sélectionnés
 				if (drumsButton.getToggleState())
 					request.preferredStems.push_back("drums");
 				if (bassButton.getToggleState())
@@ -660,26 +643,22 @@ void DjIaVstEditor::onGenerateButtonClicked()
 				if (pianoButton.getToggleState())
 					request.preferredStems.push_back("piano");
 
-				// Générer la loop
 				juce::String targetTrackId = audioProcessor.getSelectedTrackId();
 				audioProcessor.generateLoop(request, targetTrackId);
 
-				// Succès - mettre à jour l'UI
 				juce::MessageManager::callAsync([this, selectedTrackId]() {
 					for (auto& trackComp : trackComponents) {
 						if (trackComp->getTrackId() == selectedTrackId) {
 							trackComp->stopGeneratingAnimation();
-
-							// Forcer un rafraîchissement complet du composant
 							trackComp->updateFromTrackData();
 							trackComp->repaint();
-
 							break;
 						}
 					}
 					statusLabel.setText("Loop generated successfully! Press Play to listen.",
 						juce::dontSendNotification);
 					generateButton.setEnabled(true);
+					setAllGenerateButtonsEnabled(true);
 
 					});
 			}
@@ -695,6 +674,7 @@ void DjIaVstEditor::onGenerateButtonClicked()
 
 					statusLabel.setText("Error: " + error, juce::dontSendNotification);
 					generateButton.setEnabled(true);
+					setAllGenerateButtonsEnabled(true);
 					});
 			} });
 }
@@ -886,14 +866,6 @@ void DjIaVstEditor::refreshTrackComponents()
 		trackComp->onGenerateForTrack = [this](const juce::String& id)
 			{
 				audioProcessor.selectTrack(id);
-				for (auto& comp : trackComponents)
-				{
-					if (comp->getTrackId() == id)
-					{
-						comp->startGeneratingAnimation();
-						break;
-					}
-				}
 				onGenerateButtonClicked();
 			};
 

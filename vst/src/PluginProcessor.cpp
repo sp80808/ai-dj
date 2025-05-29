@@ -16,7 +16,12 @@ juce::AudioProcessor::BusesProperties DjIaVstProcessor::createBusLayout()
 
 DjIaVstProcessor::DjIaVstProcessor()
 	: AudioProcessor(createBusLayout()),
-	parameters(*this, nullptr, "Parameters", { std::make_unique<juce::AudioParameterBool>("generate", "Generate Loop", false), std::make_unique<juce::AudioParameterBool>("play", "Play Loop", false), std::make_unique<juce::AudioParameterBool>("autoload", "Auto-Load", true), std::make_unique<juce::AudioParameterFloat>("bpm", "BPM", 60.0f, 200.0f, 126.0f), std::make_unique<juce::AudioParameterChoice>("style", "Style", juce::StringArray{"Techno", "House", "Ambient", "Experimental"}, 0) })
+	parameters(*this, nullptr, "Parameters", {
+		std::make_unique<juce::AudioParameterBool>("generate", "Generate Loop", false),
+		std::make_unique<juce::AudioParameterBool>("play", "Play Loop", false),
+		std::make_unique<juce::AudioParameterBool>("autoload", "Auto-Load", true),
+		std::make_unique<juce::AudioParameterFloat>("bpm", "BPM", 60.0f, 200.0f, 126.0f),
+		})
 {
 	loadParameters();
 	initTracks();

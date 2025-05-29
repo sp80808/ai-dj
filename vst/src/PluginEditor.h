@@ -51,6 +51,7 @@ private:
 	void toggleMixer();
 	void onDeleteTrack(const juce::String& trackId);
 	void updateUIComponents();
+	void setAllGenerateButtonsEnabled(bool enabled);
 
 	juce::File getSessionsDirectory();
 	std::unique_ptr<MixerPanel> mixerPanel;
