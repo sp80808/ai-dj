@@ -209,8 +209,6 @@ dark atmosphere, minimal hi-hats, rolling bassline"
 ## ⚠️ Known Issues
 
 - **CUDA required**: CPU generation too slow for live use
-- **Audio crackling**: May occur with 2+ simultaneous tracks (increase DAW buffer size)
-- **UI color updates**: Some button colors don't refresh immediately
 - **Minor UI glitches**: Occasional display inconsistencies
 
 ## 🎯 Live Performance Focus

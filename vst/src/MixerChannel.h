@@ -487,7 +487,7 @@ private:
 
 		addAndMakeVisible(pitchKnob);
 		pitchKnob.setRange(-12.0, 12.0, 0.1);
-		pitchKnob.setValue(0.0);
+		pitchKnob.setValue(track ? track->bpmOffset : 0.0, juce::dontSendNotification);
 		pitchKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 		pitchKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
 		pitchKnob.setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xff00ff88));
@@ -501,7 +501,7 @@ private:
 
 		addAndMakeVisible(fineKnob);
 		fineKnob.setRange(-100.0, 100.0, 1.0);
-		fineKnob.setValue(0.0);
+		fineKnob.setValue(track ? track->fineOffset : 0.0, juce::dontSendNotification);
 		fineKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 		fineKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
 		fineKnob.setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xff00ff88));
@@ -515,7 +515,7 @@ private:
 
 		addAndMakeVisible(panKnob);
 		panKnob.setRange(-1.0, 1.0, 0.01);
-		panKnob.setValue(0.0);
+		panKnob.setValue(track ? track->pan.load() : 0.0, juce::dontSendNotification);
 		panKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 		panKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
 		panKnob.setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xff00ff88));
@@ -545,7 +545,6 @@ private:
 					}
 				}
 			};
-
 		fineKnob.onValueChange = [this]()
 			{
 				if (track)
@@ -562,8 +561,7 @@ private:
 			{
 				if (track)
 				{
-					track->pan = panKnob.getValue();
-
+					track->pan.store(panKnob.getValue());
 					if (onPanChanged)
 					{
 						onPanChanged(trackId, track->pan.load());

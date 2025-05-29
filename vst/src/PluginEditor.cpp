@@ -24,6 +24,7 @@ DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor& p)
 	juce::Timer::callAfterDelay(300, [this]()
 		{
 			refreshTracks();
+			loadPromptPresets();
 			for (auto& trackComp : trackComponents)
 			{
 				if (trackComp->getTrack() && trackComp->getTrack()->showWaveform)
@@ -211,7 +212,6 @@ void DjIaVstEditor::setupUI()
 	menuBar = std::make_unique<juce::MenuBarComponent>(this);
 	addAndMakeVisible(*menuBar);
 	addAndMakeVisible(promptPresetSelector);
-	loadPromptPresets();
 
 	addAndMakeVisible(savePresetButton);
 	savePresetButton.setButtonText("Save");
@@ -752,11 +752,23 @@ void DjIaVstEditor::loadPromptPresets()
 		promptPresetSelector.addItem(allPrompts[i], i + 1);
 	}
 	promptPresets = allPrompts;
+	int lastPresetIndex = audioProcessor.getLastPresetIndex();
+	if (lastPresetIndex >= 1 && lastPresetIndex <= allPrompts.size())
+	{
+		promptPresetSelector.setSelectedId(lastPresetIndex + 1, juce::dontSendNotification);
+	}
+	else
+	{
+		promptPresetSelector.setSelectedId(0, juce::dontSendNotification);
+	}
+	juce::String selectedPresetText = promptPresetSelector.getText();
+	promptInput.setText(selectedPresetText, juce::dontSendNotification);
 }
 
 void DjIaVstEditor::onPresetSelected()
 {
 	int selectedId = promptPresetSelector.getSelectedId();
+	audioProcessor.setLastPresetIndex(selectedId);
 	if (selectedId > 0 && selectedId <= promptPresets.size())
 	{
 		juce::String selectedPrompt = promptPresets[selectedId - 1];
