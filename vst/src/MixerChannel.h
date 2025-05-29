@@ -2,7 +2,7 @@
 #include "JuceHeader.h"
 #include "PluginProcessor.h"
 
-class MixerChannel : public juce::Component
+class MixerChannel : public juce::Component, public juce::Timer
 {
 public:
 	MixerChannel(const juce::String& trackId) : trackId(trackId), track(nullptr)
@@ -359,35 +359,30 @@ private:
 	int bypassMidiFrames = 0;
 	std::atomic<bool> isUpdatingButtons{ false };
 
-	// VU Meter variables
 	float currentAudioLevel = 0.0f;
 	float peakHold = 0.0f;
 	int peakHoldTimer = 0;
-	std::vector<float> levelHistory; // Pour le lissage
-
-	// UI Components
+	std::vector<float> levelHistory;
 
 
-	// Transport buttons
+	bool isBlinking = false;
+	bool blinkState = false;
+
 	juce::TextButton playButton;
 	juce::TextButton stopButton;
 	juce::TextButton muteButton;
 	juce::TextButton soloButton;
 
-	// Volume (vertical slider)
 	juce::Slider volumeSlider;
 
-	// Pitch & Fine knobs
 	juce::Slider pitchKnob;
 	juce::Label pitchLabel;
 	juce::Slider fineKnob;
 	juce::Label fineLabel;
 
-	// Pan knob
 	juce::Slider panKnob;
 	juce::Label panLabel;
 
-	// MIDI Learn state
 	enum MidiLearnControls
 	{
 		MIDI_VOLUME = 1,
@@ -404,14 +399,12 @@ private:
 
 	void setupUI()
 	{
-		// Track name
 		addAndMakeVisible(trackNameLabel);
 		trackNameLabel.setText("Track", juce::dontSendNotification);
 		trackNameLabel.setColour(juce::Label::textColourId, juce::Colours::white);
 		trackNameLabel.setJustificationType(juce::Justification::centred);
 		trackNameLabel.setFont(juce::Font(12.0f, juce::Font::bold));
 
-		// Play button
 		addAndMakeVisible(playButton);
 		playButton.setButtonText("ARM");
 		playButton.setClickingTogglesState(true);
@@ -430,7 +423,6 @@ private:
 			};
 		setupMidiLearn(playButton, MIDI_PLAY);
 
-		// Stop button
 		addAndMakeVisible(stopButton);
 		stopButton.setButtonText("STP");
 		stopButton.setClickingTogglesState(false);
@@ -439,14 +431,17 @@ private:
 				if (track)
 				{
 					track->isArmed = false;
-					track->isPlaying = false;
+					track->isArmedToStop = true;
 					playButton.setToggleState(false, juce::dontSendNotification);
+
+					isBlinking = true;
+					startTimer(300);
+
 					updateButtonColors();
 				}
 			};
 		setupMidiLearn(stopButton, MIDI_STOP);
 
-		// Mute button
 		addAndMakeVisible(muteButton);
 		muteButton.setButtonText("M");
 		muteButton.setClickingTogglesState(true);
@@ -460,7 +455,6 @@ private:
 			};
 		setupMidiLearn(muteButton, MIDI_MUTE);
 
-		// Solo button
 		addAndMakeVisible(soloButton);
 		soloButton.setButtonText("S");
 		soloButton.setClickingTogglesState(true);
@@ -475,7 +469,6 @@ private:
 			};
 		setupMidiLearn(soloButton, MIDI_SOLO);
 
-		// Volume slider (vertical)
 		addAndMakeVisible(volumeSlider);
 		volumeSlider.setRange(0.0, 1.0, 0.01);
 		volumeSlider.setValue(0.8);
@@ -492,7 +485,6 @@ private:
 			};
 		setupMidiLearn(volumeSlider, MIDI_VOLUME);
 
-		// Pitch knob
 		addAndMakeVisible(pitchKnob);
 		pitchKnob.setRange(-12.0, 12.0, 0.1);
 		pitchKnob.setValue(0.0);
@@ -507,7 +499,6 @@ private:
 		pitchLabel.setJustificationType(juce::Justification::centred);
 		pitchLabel.setFont(juce::Font(9.0f));
 
-		// Fine knob
 		addAndMakeVisible(fineKnob);
 		fineKnob.setRange(-100.0, 100.0, 1.0);
 		fineKnob.setValue(0.0);
@@ -522,7 +513,6 @@ private:
 		fineLabel.setJustificationType(juce::Justification::centred);
 		fineLabel.setFont(juce::Font(9.0f));
 
-		// Pan knob
 		addAndMakeVisible(panKnob);
 		panKnob.setRange(-1.0, 1.0, 0.01);
 		panKnob.setValue(0.0);
@@ -580,6 +570,22 @@ private:
 					}
 				}
 			};
+	}
+
+	void MixerChannel::timerCallback() override
+	{
+		if (isBlinking && track && track->isArmedToStop)
+		{
+			blinkState = !blinkState;
+			stopButton.setColour(juce::TextButton::buttonColourId,
+				blinkState ? juce::Colours::red : juce::Colours::darkred);
+		}
+		else
+		{
+			stopTimer();
+			isBlinking = false;
+			updateButtonColors();
+		}
 	}
 
 	void updateButtonColors()

@@ -375,12 +375,17 @@ void DjIaVstProcessor::startNotePlaybackForTrack(const juce::String& trackId, in
 	TrackData* track = trackManager.getTrack(trackId);
 	if (!track || track->numSamples == 0)
 		return;
-
+	if (track->isArmedToStop.load()) {
+		track->isPlaying = false;
+		track->isArmedToStop = false;
+		if (onUIUpdateNeeded)
+			onUIUpdateNeeded();
+		return;
+	}
 	if (!track->isArmed.load())
 	{
 		return;
 	}
-
 	if (track->isPlaying.load())
 	{
 		return;
