@@ -478,29 +478,21 @@ private:
 		if (effectiveBpm <= 0)
 			return;
 
-		// Calculer les durées de grille
 		double beatDuration = 60.0 / effectiveBpm;
-		double barDuration = beatDuration * 4.0; // 1 mesure
-
-		// Calculer la durée effective du sample (après time-stretch)
+		double barDuration = beatDuration * 4.0;
 		double originalDuration = track->numSamples / track->sampleRate;
 		double stretchRatio = effectiveBpm / track->originalBpm;
 		double effectiveDuration = originalDuration / stretchRatio;
 
-		// FORCER l'alignement parfait sur les mesures
-		track->loopStart = 0.0; // Toujours au début
+		track->loopStart = 0.0;
 
-		// Calculer combien de mesures entières on peut faire
 		int maxWholeBars = (int)(effectiveDuration / barDuration);
-		maxWholeBars = juce::jlimit(1, 8, maxWholeBars); // Entre 1 et 8 mesures
+		maxWholeBars = juce::jlimit(1, 8, maxWholeBars);
 
-		// CONTRAINTE : La fin doit être pile sur une mesure
 		track->loopEnd = maxWholeBars * barDuration;
 
-		// SÉCURITÉ : Ne jamais dépasser la durée effective
 		if (track->loopEnd > effectiveDuration)
 		{
-			// Réduire d'une mesure
 			maxWholeBars = std::max(1, maxWholeBars - 1);
 			track->loopEnd = maxWholeBars * barDuration;
 		}
@@ -513,7 +505,6 @@ private:
 
 		if (!track->prompt.isEmpty())
 		{
-			// Calculer et afficher BPM effectif avec indicateur visuel
 			float effectiveBpm = calculateEffectiveBpm();
 			float originalBpm = track->originalBpm;
 
@@ -522,19 +513,19 @@ private:
 
 			switch (track->timeStretchMode)
 			{
-			case 1: // Off
+			case 1:
 				bpmInfo = " | Original: " + juce::String(originalBpm, 1);
 				break;
-			case 2: // Manual BPM
+			case 2:
 				stretchIndicator = (effectiveBpm > originalBpm) ? " +" : (effectiveBpm < originalBpm) ? " -"
 					: " =";
 				bpmInfo = " | BPM: " + juce::String(effectiveBpm, 1) + stretchIndicator;
 				break;
-			case 3:                      // Host BPM
-				stretchIndicator = " ="; // Icône sync
+			case 3:
+				stretchIndicator = " =";
 				bpmInfo = " | Sync: " + juce::String(effectiveBpm, 1) + stretchIndicator;
 				break;
-			case 4: // Host + Manual
+			case 4:
 				stretchIndicator = (track->bpmOffset > 0) ? " +" : (track->bpmOffset < 0) ? " -"
 					: "";
 				bpmInfo = " | Host+" + juce::String(track->bpmOffset, 1) + stretchIndicator;
@@ -551,19 +542,17 @@ private:
 		if (!track)
 			return;
 
-		// Afficher le slider pour les modes Manual (2) et Host+Manual (4)
 		bool shouldShow = (track->timeStretchMode == 2 || track->timeStretchMode == 4);
 		bpmOffsetSlider.setVisible(shouldShow);
 		bpmOffsetLabel.setVisible(shouldShow);
 
-		resized(); // Refaire le layout
+		resized();
 	}
 
 	void toggleWaveformDisplay()
 	{
 		if (showWaveformButton.getToggleState())
 		{
-			// Créer la waveform si elle n'existe pas
 			if (!waveformDisplay)
 			{
 				waveformDisplay = std::make_unique<WaveformDisplay>();
@@ -573,8 +562,6 @@ private:
 						{
 							track->loopStart = start;
 							track->loopEnd = end;
-
-							// Reset position de lecture si on change les points pendant la lecture
 							if (track->isPlaying.load())
 							{
 								track->readPosition = 0.0;
@@ -584,7 +571,6 @@ private:
 				addAndMakeVisible(*waveformDisplay);
 			}
 
-			// Charger les données audio si disponibles
 			if (track && track->numSamples > 0)
 			{
 
@@ -606,13 +592,11 @@ private:
 			}
 		}
 
-		// IMPORTANT: Notifier le parent que la taille a changé
 		if (auto* parentViewport = findParentComponentOfClass<juce::Viewport>())
 		{
 			if (auto* parentContainer = parentViewport->getViewedComponent())
 			{
-				// Recalculer la hauteur totale de tous les composants tracks
-				int totalHeight = 5; // Marge du haut
+				int totalHeight = 5;
 
 				for (int i = 0; i < parentContainer->getNumChildComponents(); ++i)
 				{
@@ -621,17 +605,13 @@ private:
 						int trackHeight = trackComp->showWaveformButton.getToggleState() ? 160 : 80;
 						trackComp->setSize(trackComp->getWidth(), trackHeight);
 						trackComp->setBounds(trackComp->getX(), totalHeight, trackComp->getWidth(), trackHeight);
-						totalHeight += trackHeight + 5; // 5px d'espacement
+						totalHeight += trackHeight + 5;
 					}
 				}
-
-				// Redimensionner le container parent
 				parentContainer->setSize(parentContainer->getWidth(), totalHeight);
 				parentContainer->resized();
 			}
 		}
-
-		// Forcer un repaint complet
 		resized();
 		repaint();
 	}
