@@ -863,6 +863,14 @@ void DjIaVstEditor::refreshTrackComponents()
 				}
 			};
 
+		trackComp->onTrackRenamed = [this](const juce::String& id, const juce::String& newName)
+			{
+				if (mixerPanel)
+				{
+					mixerPanel->updateTrackName(id, newName);
+				}
+			};
+
 		trackComp->onGenerateForTrack = [this](const juce::String& id)
 			{
 				audioProcessor.selectTrack(id);

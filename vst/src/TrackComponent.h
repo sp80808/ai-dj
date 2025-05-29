@@ -11,6 +11,13 @@ public:
 		setupUI();
 	}
 
+	juce::String getTrackId() const { return trackId; }
+
+	std::function<void(const juce::String&)> onDeleteTrack;
+	std::function<void(const juce::String&)> onSelectTrack;
+	std::function<void(const juce::String&)> onGenerateForTrack;
+	std::function<void(const juce::String&, const juce::String&)> onTrackRenamed;
+
 	void setTrackData(TrackData* trackData)
 	{
 		track = trackData;
@@ -84,11 +91,7 @@ public:
 		}
 	}
 
-	juce::String getTrackId() const { return trackId; }
 
-	std::function<void(const juce::String&)> onDeleteTrack;
-	std::function<void(const juce::String&)> onSelectTrack;
-	std::function<void(const juce::String&)> onGenerateForTrack;
 
 	void updateFromTrackData()
 	{
@@ -227,7 +230,6 @@ public:
 	{
 		auto area = getLocalBounds().reduced(6);
 
-		// === HEADER ROW ===
 		auto headerArea = area.removeFromTop(25);
 
 		selectButton.setBounds(headerArea.removeFromLeft(60));
@@ -248,10 +250,8 @@ public:
 
 		area.removeFromTop(5);
 
-		// === CONTROLS ROW ===
 		auto controlsArea = area.removeFromTop(25);
 
-		// Slider BPM (seulement si visible)
 		if (bpmOffsetSlider.isVisible())
 		{
 			controlsArea.removeFromLeft(5);
@@ -261,10 +261,8 @@ public:
 
 		area.removeFromTop(5);
 
-		// === INFO ROW ===
 		infoLabel.setBounds(area.removeFromTop(20));
 
-		// === WAVEFORM (si visible) ===
 		if (waveformDisplay && showWaveformButton.getToggleState())
 		{
 			area.removeFromTop(5);
@@ -281,7 +279,7 @@ public:
 	void startGeneratingAnimation()
 	{
 		isGenerating = true;
-		startTimer(200); // Clignoter toutes les 200ms
+		startTimer(200);
 	}
 
 	void stopGeneratingAnimation()
@@ -330,7 +328,7 @@ private:
 	std::unique_ptr<WaveformDisplay> waveformDisplay;
 	juce::TextButton showWaveformButton;
 	DjIaVstProcessor& audioProcessor;
-	// Composants UI
+
 	juce::TextButton selectButton;
 	juce::Label trackNameLabel;
 	juce::TextButton deleteButton;
@@ -355,7 +353,6 @@ private:
 
 	void setupUI()
 	{
-		// Select button
 		addAndMakeVisible(selectButton);
 		selectButton.setButtonText("Select");
 		selectButton.onClick = [this]()
@@ -364,12 +361,10 @@ private:
 					onSelectTrack(trackId);
 			};
 
-		// Track name
 		addAndMakeVisible(trackNameLabel);
 		trackNameLabel.setText(track ? track->trackName : "Track", juce::dontSendNotification);
 		trackNameLabel.setColour(juce::Label::textColourId, juce::Colours::white);
 
-		// Delete button
 		addAndMakeVisible(deleteButton);
 		deleteButton.setButtonText("X");
 		deleteButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
@@ -379,7 +374,6 @@ private:
 					onDeleteTrack(trackId);
 			};
 
-		// Generate button
 		addAndMakeVisible(generateButton);
 		generateButton.setButtonText("Gen");
 		generateButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green);
@@ -401,8 +395,12 @@ private:
 			{
 				if (track)
 				{
-					track->trackName = trackNameEditor.getText();
+					juce::String newName = trackNameEditor.getText();
+					track->trackName = newName;
 					trackNameLabel.setText(track->trackName, juce::dontSendNotification);
+
+					if (onTrackRenamed)
+						onTrackRenamed(trackId, newName);
 				}
 			};
 
