@@ -13,84 +13,84 @@
 
 struct TrackData
 {
-    // Identifiant unique
-    juce::String trackId;
-    juce::String trackName;
-    std::atomic<bool> isPlaying{false};
-    std::atomic<bool> isArmed{false};
-    float fineOffset = 0.0f;
-    std::atomic<double> cachedPlaybackRatio{1.0};
-    juce::AudioSampleBuffer stagingBuffer;
-    std::atomic<bool> hasStagingData{false};
-    std::atomic<bool> swapRequested{false};
-    std::function<void(bool)> onPlayStateChanged;
+	// Identifiant unique
+	juce::String trackId;
+	juce::String trackName;
+	std::atomic<bool> isPlaying{ false };
+	std::atomic<bool> isArmed{ false };
+	float fineOffset = 0.0f;
+	std::atomic<double> cachedPlaybackRatio{ 1.0 };
+	juce::AudioSampleBuffer stagingBuffer;
+	std::atomic<bool> hasStagingData{ false };
+	std::atomic<bool> swapRequested{ false };
+	std::function<void(bool)> onPlayStateChanged;
 
-    std::atomic<int> stagingNumSamples{0};
-    std::atomic<double> stagingSampleRate{48000.0};
-    float stagingOriginalBpm = 126.0f;
+	std::atomic<int> stagingNumSamples{ 0 };
+	std::atomic<double> stagingSampleRate{ 48000.0 };
+	float stagingOriginalBpm = 126.0f;
 
-    double loopStart = 0.0;
-    double loopEnd = 4.0;
-    float originalBpm = 126.0f;
-    int timeStretchMode = 4;
-    double timeStretchRatio = 1.0;
+	double loopStart = 0.0;
+	double loopEnd = 4.0;
+	float originalBpm = 126.0f;
+	int timeStretchMode = 4;
+	double timeStretchRatio = 1.0;
 
-    double bpmOffset = 0.0;
+	double bpmOffset = 0.0;
 
-    int midiNote = 60;
+	int midiNote = 60;
 
-    juce::AudioSampleBuffer audioBuffer;
-    double sampleRate = 48000.0;
-    int numSamples = 0;
+	juce::AudioSampleBuffer audioBuffer;
+	double sampleRate = 48000.0;
+	int numSamples = 0;
 
-    std::atomic<bool> isEnabled{true};
-    std::atomic<bool> isSolo{false};
-    std::atomic<bool> isMuted{false};
-    std::atomic<float> volume{0.8f};
-    std::atomic<float> pan{0.0f};
+	std::atomic<bool> isEnabled{ true };
+	std::atomic<bool> isSolo{ false };
+	std::atomic<bool> isMuted{ false };
+	std::atomic<float> volume{ 0.8f };
+	std::atomic<float> pan{ 0.0f };
 
-    juce::String prompt;
-    juce::String style;
-    juce::String stems;
-    float bpm = 126.0f;
+	juce::String prompt;
+	juce::String style;
+	juce::String stems;
+	float bpm = 126.0f;
 
-    std::atomic<double> readPosition{0.0};
+	std::atomic<double> readPosition{ 0.0 };
 
-    TrackData() : trackId(juce::Uuid().toString())
-    {
-        volume = 0.8f;
-        pan = 0.0f;
-        readPosition = 0.0;
-        bpmOffset = 0.0;
-        onPlayStateChanged = nullptr;
-    }
+	TrackData() : trackId(juce::Uuid().toString())
+	{
+		volume = 0.8f;
+		pan = 0.0f;
+		readPosition = 0.0;
+		bpmOffset = 0.0;
+		onPlayStateChanged = nullptr;
+	}
 
-    void reset()
-    {
-        audioBuffer.setSize(0, 0);
-        numSamples = 0;
-        readPosition = 0.0;
-        isEnabled = true;
-        isMuted = false;
-        isSolo = false;
-        volume = 0.8f;
-        pan = 0.0f;
-        bpmOffset = 0.0;
-    }
+	void reset()
+	{
+		audioBuffer.setSize(0, 0);
+		numSamples = 0;
+		readPosition = 0.0;
+		isEnabled = true;
+		isMuted = false;
+		isSolo = false;
+		volume = 0.8f;
+		pan = 0.0f;
+		bpmOffset = 0.0;
+	}
 
-    void setPlaying(bool playing)
-    {
-        bool wasPlaying = isPlaying.load();
-        isPlaying = playing;
-        if (wasPlaying != playing && onPlayStateChanged)
-        {
-            juce::MessageManager::callAsync([this, playing]()
-                                            {
-                if (onPlayStateChanged) {
-                    onPlayStateChanged(playing);
-                } });
-        }
-    }
+	void setPlaying(bool playing)
+	{
+		bool wasPlaying = isPlaying.load();
+		isPlaying = playing;
+		if (wasPlaying != playing && onPlayStateChanged)
+		{
+			juce::MessageManager::callAsync([this, playing]()
+				{
+					if (onPlayStateChanged) {
+						onPlayStateChanged(playing);
+					} });
+		}
+	}
 };
 
 //==============================================================================
@@ -99,415 +99,415 @@ struct TrackData
 class TrackManager
 {
 public:
-    TrackManager() = default;
+	TrackManager() = default;
 
-    // Gestion des pistes
-    juce::String createTrack(const juce::String &name = "Track")
-    {
-        juce::ScopedLock lock(tracksLock);
+	// Gestion des pistes
+	juce::String createTrack(const juce::String& name = "Track")
+	{
+		juce::ScopedLock lock(tracksLock);
 
-        auto track = std::make_unique<TrackData>();
-        track->trackName = name + " " + juce::String(tracks.size() + 1);
-        track->bpmOffset = 0.0;
-        track->midiNote = 60 + tracks.size();
-        juce::String trackId = track->trackId;
-        std::string stdId = trackId.toStdString();
+		auto track = std::make_unique<TrackData>();
+		track->trackName = name + " " + juce::String(tracks.size() + 1);
+		track->bpmOffset = 0.0;
+		track->midiNote = 60 + tracks.size();
+		juce::String trackId = track->trackId;
+		std::string stdId = trackId.toStdString();
 
-        tracks[stdId] = std::move(track);
-        trackOrder.push_back(stdId); // ← AJOUTER à l'ordre
+		tracks[stdId] = std::move(track);
+		trackOrder.push_back(stdId); // ← AJOUTER à l'ordre
 
-        return trackId;
-    }
+		return trackId;
+	}
 
-    void removeTrack(const juce::String &trackId)
-    {
-        juce::ScopedLock lock(tracksLock);
-        std::string stdId = trackId.toStdString();
+	void removeTrack(const juce::String& trackId)
+	{
+		juce::ScopedLock lock(tracksLock);
+		std::string stdId = trackId.toStdString();
 
-        tracks.erase(stdId);
-        trackOrder.erase(std::remove(trackOrder.begin(), trackOrder.end(), stdId), trackOrder.end());
-    }
+		tracks.erase(stdId);
+		trackOrder.erase(std::remove(trackOrder.begin(), trackOrder.end(), stdId), trackOrder.end());
+	}
 
-    void reorderTracks(const juce::String &fromTrackId, const juce::String &toTrackId)
-    {
-        juce::ScopedLock lock(tracksLock);
+	void reorderTracks(const juce::String& fromTrackId, const juce::String& toTrackId)
+	{
+		juce::ScopedLock lock(tracksLock);
 
-        std::string fromStdId = fromTrackId.toStdString();
-        std::string toStdId = toTrackId.toStdString();
+		std::string fromStdId = fromTrackId.toStdString();
+		std::string toStdId = toTrackId.toStdString();
 
-        // Trouver les positions dans trackOrder
-        auto fromIt = std::find(trackOrder.begin(), trackOrder.end(), fromStdId);
-        auto toIt = std::find(trackOrder.begin(), trackOrder.end(), toStdId);
+		// Trouver les positions dans trackOrder
+		auto fromIt = std::find(trackOrder.begin(), trackOrder.end(), fromStdId);
+		auto toIt = std::find(trackOrder.begin(), trackOrder.end(), toStdId);
 
-        if (fromIt == trackOrder.end() || toIt == trackOrder.end())
-            return;
+		if (fromIt == trackOrder.end() || toIt == trackOrder.end())
+			return;
 
-        // Déplacer dans le vecteur d'ordre
-        std::string movedId = *fromIt;
-        trackOrder.erase(fromIt);
+		// Déplacer dans le vecteur d'ordre
+		std::string movedId = *fromIt;
+		trackOrder.erase(fromIt);
 
-        // Recalculer toIt après erase
-        toIt = std::find(trackOrder.begin(), trackOrder.end(), toStdId);
-        trackOrder.insert(toIt, movedId);
-    }
+		// Recalculer toIt après erase
+		toIt = std::find(trackOrder.begin(), trackOrder.end(), toStdId);
+		trackOrder.insert(toIt, movedId);
+	}
 
-    TrackData *getTrack(const juce::String &trackId)
-    {
-        juce::ScopedLock lock(tracksLock);
-        auto it = tracks.find(trackId.toStdString());
-        return (it != tracks.end()) ? it->second.get() : nullptr;
-    }
+	TrackData* getTrack(const juce::String& trackId)
+	{
+		juce::ScopedLock lock(tracksLock);
+		auto it = tracks.find(trackId.toStdString());
+		return (it != tracks.end()) ? it->second.get() : nullptr;
+	}
 
-    std::vector<juce::String> getAllTrackIds() const
-    {
-        juce::ScopedLock lock(tracksLock);
-        std::vector<juce::String> ids;
-        for (const auto &stdId : trackOrder)
-        { // ← Utiliser l'ordre !
-            if (tracks.count(stdId))
-            {
-                ids.push_back(juce::String(stdId));
-            }
-        }
-        return ids;
-    }
-    void renderAllTracks(juce::AudioBuffer<float> &outputBuffer,
-                         std::vector<juce::AudioBuffer<float>> &individualOutputs,
-                         double hostSampleRate)
-    {
-        const int numSamples = outputBuffer.getNumSamples();
-        bool anyTrackSolo = false;
+	std::vector<juce::String> getAllTrackIds() const
+	{
+		juce::ScopedLock lock(tracksLock);
+		std::vector<juce::String> ids;
+		for (const auto& stdId : trackOrder)
+		{ // ← Utiliser l'ordre !
+			if (tracks.count(stdId))
+			{
+				ids.push_back(juce::String(stdId));
+			}
+		}
+		return ids;
+	}
+	void renderAllTracks(juce::AudioBuffer<float>& outputBuffer,
+		std::vector<juce::AudioBuffer<float>>& individualOutputs,
+		double hostSampleRate)
+	{
+		const int numSamples = outputBuffer.getNumSamples();
+		bool anyTrackSolo = false;
 
-        {
-            juce::ScopedLock lock(tracksLock);
-            for (const auto &pair : tracks)
-            {
-                if (pair.second->isSolo.load())
-                {
-                    anyTrackSolo = true;
-                    break;
-                }
-            }
-        }
+		{
+			juce::ScopedLock lock(tracksLock);
+			for (const auto& pair : tracks)
+			{
+				if (pair.second->isSolo.load())
+				{
+					anyTrackSolo = true;
+					break;
+				}
+			}
+		}
 
-        outputBuffer.clear();
-        for (auto &buffer : individualOutputs)
-        {
-            buffer.clear();
-        }
+		outputBuffer.clear();
+		for (auto& buffer : individualOutputs)
+		{
+			buffer.clear();
+		}
 
-        juce::ScopedLock lock(tracksLock);
+		juce::ScopedLock lock(tracksLock);
 
-        int trackIndex = 0;
-        for (const auto &pair : tracks)
-        {
-            if (trackIndex >= individualOutputs.size())
-                break;
+		int trackIndex = 0;
+		for (const auto& pair : tracks)
+		{
+			if (trackIndex >= individualOutputs.size())
+				break;
 
-            auto *track = pair.second.get();
+			auto* track = pair.second.get();
 
-            if (track->isEnabled.load() && track->numSamples > 0)
-            {
-                juce::AudioBuffer<float> tempMixBuffer(outputBuffer.getNumChannels(), numSamples);
-                juce::AudioBuffer<float> tempIndividualBuffer(2, numSamples);
-                tempMixBuffer.clear();
-                tempIndividualBuffer.clear();
+			if (track->isEnabled.load() && track->numSamples > 0)
+			{
+				juce::AudioBuffer<float> tempMixBuffer(outputBuffer.getNumChannels(), numSamples);
+				juce::AudioBuffer<float> tempIndividualBuffer(2, numSamples);
+				tempMixBuffer.clear();
+				tempIndividualBuffer.clear();
 
-                renderSingleTrack(*track, tempMixBuffer, tempIndividualBuffer,
-                                  numSamples, hostSampleRate);
+				renderSingleTrack(*track, tempMixBuffer, tempIndividualBuffer,
+					numSamples, hostSampleRate);
 
-                bool shouldHearTrack = !track->isMuted.load() &&
-                                       (!anyTrackSolo || track->isSolo.load());
+				bool shouldHearTrack = !track->isMuted.load() &&
+					(!anyTrackSolo || track->isSolo.load());
 
-                if (shouldHearTrack)
-                {
-                    for (int ch = 0; ch < outputBuffer.getNumChannels(); ++ch)
-                    {
-                        outputBuffer.addFrom(ch, 0, tempMixBuffer, ch, 0, numSamples);
-                    }
-                }
+				if (shouldHearTrack)
+				{
+					for (int ch = 0; ch < outputBuffer.getNumChannels(); ++ch)
+					{
+						outputBuffer.addFrom(ch, 0, tempMixBuffer, ch, 0, numSamples);
+					}
+				}
 
-                for (int ch = 0; ch < std::min(2, individualOutputs[trackIndex].getNumChannels()); ++ch)
-                {
-                    individualOutputs[trackIndex].copyFrom(ch, 0, tempIndividualBuffer, ch, 0, numSamples);
+				for (int ch = 0; ch < std::min(2, individualOutputs[trackIndex].getNumChannels()); ++ch)
+				{
+					individualOutputs[trackIndex].copyFrom(ch, 0, tempIndividualBuffer, ch, 0, numSamples);
 
-                    if (!shouldHearTrack)
-                    {
-                        individualOutputs[trackIndex].applyGain(ch, 0, numSamples, 0.0f);
-                    }
-                }
-            }
+					if (!shouldHearTrack)
+					{
+						individualOutputs[trackIndex].applyGain(ch, 0, numSamples, 0.0f);
+					}
+				}
+			}
 
-            trackIndex++;
-        }
-    }
+			trackIndex++;
+		}
+	}
 
-    juce::ValueTree saveState() const
-    {
-        juce::ValueTree state("TrackManager");
+	juce::ValueTree saveState() const
+	{
+		juce::ValueTree state("TrackManager");
 
-        juce::ScopedLock lock(tracksLock);
-        for (const auto &pair : tracks)
-        {
-            auto trackState = juce::ValueTree("Track");
-            auto *track = pair.second.get();
+		juce::ScopedLock lock(tracksLock);
+		for (const auto& pair : tracks)
+		{
+			auto trackState = juce::ValueTree("Track");
+			auto* track = pair.second.get();
 
-            trackState.setProperty("id", track->trackId, nullptr);
-            trackState.setProperty("name", track->trackName, nullptr);
-            trackState.setProperty("prompt", track->prompt, nullptr);
-            trackState.setProperty("style", track->style, nullptr);
-            trackState.setProperty("stems", track->stems, nullptr);
-            trackState.setProperty("bpm", track->bpm, nullptr);
-            trackState.setProperty("originalBpm", track->originalBpm, nullptr);
-            trackState.setProperty("timeStretchMode", track->timeStretchMode, nullptr);
-            trackState.setProperty("bpmOffset", track->bpmOffset, nullptr);
-            trackState.setProperty("midiNote", track->midiNote, nullptr);
-            trackState.setProperty("loopStart", track->loopStart, nullptr);
-            trackState.setProperty("loopEnd", track->loopEnd, nullptr);
-            trackState.setProperty("volume", track->volume.load(), nullptr);
-            trackState.setProperty("pan", track->pan.load(), nullptr);
-            trackState.setProperty("muted", track->isMuted.load(), nullptr);
-            trackState.setProperty("solo", track->isSolo.load(), nullptr);
-            trackState.setProperty("enabled", track->isEnabled.load(), nullptr);
-            trackState.setProperty("fineOffset", track->fineOffset, nullptr);
-            trackState.setProperty("timeStretchRatio", track->timeStretchRatio, nullptr);
-            trackState.setProperty("stagingOriginalBpm", track->stagingOriginalBpm, nullptr);
+			trackState.setProperty("id", track->trackId, nullptr);
+			trackState.setProperty("name", track->trackName, nullptr);
+			trackState.setProperty("prompt", track->prompt, nullptr);
+			trackState.setProperty("style", track->style, nullptr);
+			trackState.setProperty("stems", track->stems, nullptr);
+			trackState.setProperty("bpm", track->bpm, nullptr);
+			trackState.setProperty("originalBpm", track->originalBpm, nullptr);
+			trackState.setProperty("timeStretchMode", track->timeStretchMode, nullptr);
+			trackState.setProperty("bpmOffset", track->bpmOffset, nullptr);
+			trackState.setProperty("midiNote", track->midiNote, nullptr);
+			trackState.setProperty("loopStart", track->loopStart, nullptr);
+			trackState.setProperty("loopEnd", track->loopEnd, nullptr);
+			trackState.setProperty("volume", track->volume.load(), nullptr);
+			trackState.setProperty("pan", track->pan.load(), nullptr);
+			trackState.setProperty("muted", track->isMuted.load(), nullptr);
+			trackState.setProperty("solo", track->isSolo.load(), nullptr);
+			trackState.setProperty("enabled", track->isEnabled.load(), nullptr);
+			trackState.setProperty("fineOffset", track->fineOffset, nullptr);
+			trackState.setProperty("timeStretchRatio", track->timeStretchRatio, nullptr);
+			trackState.setProperty("stagingOriginalBpm", track->stagingOriginalBpm, nullptr);
 
-            // Sauvegarder audio data si présent
-            if (track->numSamples > 0)
-            {
-                juce::MemoryBlock audioData;
-                juce::MemoryOutputStream stream(audioData, false);
+			// Sauvegarder audio data si présent
+			if (track->numSamples > 0)
+			{
+				juce::MemoryBlock audioData;
+				juce::MemoryOutputStream stream(audioData, false);
 
-                stream.writeDouble(track->sampleRate);
-                stream.writeInt(track->audioBuffer.getNumChannels());
-                stream.writeInt(track->numSamples);
+				stream.writeDouble(track->sampleRate);
+				stream.writeInt(track->audioBuffer.getNumChannels());
+				stream.writeInt(track->numSamples);
 
-                for (int ch = 0; ch < track->audioBuffer.getNumChannels(); ++ch)
-                {
-                    stream.write(track->audioBuffer.getReadPointer(ch),
-                                 track->numSamples * sizeof(float));
-                }
+				for (int ch = 0; ch < track->audioBuffer.getNumChannels(); ++ch)
+				{
+					stream.write(track->audioBuffer.getReadPointer(ch),
+						track->numSamples * sizeof(float));
+				}
 
-                trackState.setProperty("audioData", audioData.toBase64Encoding(), nullptr);
-            }
+				trackState.setProperty("audioData", audioData.toBase64Encoding(), nullptr);
+			}
 
-            state.appendChild(trackState, nullptr);
-        }
+			state.appendChild(trackState, nullptr);
+		}
 
-        return state;
-    }
+		return state;
+	}
 
-    void loadState(const juce::ValueTree &state)
-    {
-        juce::ScopedLock lock(tracksLock);
-        tracks.clear();
-        trackOrder.clear();
+	void loadState(const juce::ValueTree& state)
+	{
+		juce::ScopedLock lock(tracksLock);
+		tracks.clear();
+		trackOrder.clear();
 
-        for (int i = 0; i < state.getNumChildren(); ++i)
-        {
-            auto trackState = state.getChild(i);
-            if (!trackState.hasType("Track"))
-            {
-                continue;
-            }
+		for (int i = 0; i < state.getNumChildren(); ++i)
+		{
+			auto trackState = state.getChild(i);
+			if (!trackState.hasType("Track"))
+			{
+				continue;
+			}
 
-            auto track = std::make_unique<TrackData>();
+			auto track = std::make_unique<TrackData>();
 
-            track->trackId = trackState.getProperty("id", juce::Uuid().toString());
-            track->trackName = trackState.getProperty("name", "Track");
+			track->trackId = trackState.getProperty("id", juce::Uuid().toString());
+			track->trackName = trackState.getProperty("name", "Track");
 
-            track->prompt = trackState.getProperty("prompt", "");
-            track->style = trackState.getProperty("style", "");
-            track->stems = trackState.getProperty("stems", "");
-            track->bpm = trackState.getProperty("bpm", 126.0f);
-            track->originalBpm = trackState.getProperty("originalBpm", 126.0f);
-            track->timeStretchMode = trackState.getProperty("timeStretchMode", 4);
-            track->bpmOffset = trackState.getProperty("bpmOffset", 0.0);
-            track->midiNote = trackState.getProperty("midiNote", 60);
-            track->loopStart = trackState.getProperty("loopStart", 0.0);
-            track->loopEnd = trackState.getProperty("loopEnd", 4.0);
-            track->volume = trackState.getProperty("volume", 0.8f);
-            track->pan = trackState.getProperty("pan", 0.0f);
-            track->isEnabled = trackState.getProperty("enabled", true);
-            track->fineOffset = trackState.getProperty("fineOffset", 0.0f);
-            track->timeStretchRatio = trackState.getProperty("timeStretchRatio", 1.0);
-            track->stagingOriginalBpm = trackState.getProperty("stagingOriginalBpm", 126.0f);
+			track->prompt = trackState.getProperty("prompt", "");
+			track->style = trackState.getProperty("style", "");
+			track->stems = trackState.getProperty("stems", "");
+			track->bpm = trackState.getProperty("bpm", 126.0f);
+			track->originalBpm = trackState.getProperty("originalBpm", 126.0f);
+			track->timeStretchMode = trackState.getProperty("timeStretchMode", 4);
+			track->bpmOffset = trackState.getProperty("bpmOffset", 0.0);
+			track->midiNote = trackState.getProperty("midiNote", 60);
+			track->loopStart = trackState.getProperty("loopStart", 0.0);
+			track->loopEnd = trackState.getProperty("loopEnd", 4.0);
+			track->volume = trackState.getProperty("volume", 0.8f);
+			track->pan = trackState.getProperty("pan", 0.0f);
+			track->isEnabled = trackState.getProperty("enabled", true);
+			track->fineOffset = trackState.getProperty("fineOffset", 0.0f);
+			track->timeStretchRatio = trackState.getProperty("timeStretchRatio", 1.0);
+			track->stagingOriginalBpm = trackState.getProperty("stagingOriginalBpm", 126.0f);
 
-            juce::String audioDataBase64 = trackState.getProperty("audioData", "");
-            if (audioDataBase64.isNotEmpty())
-            {
-                juce::MemoryBlock audioData;
-                if (audioData.fromBase64Encoding(audioDataBase64))
-                {
-                    juce::MemoryInputStream stream(audioData, false);
-                    track->sampleRate = stream.readDouble();
-                    int numChannels = stream.readInt();
-                    track->numSamples = stream.readInt();
+			juce::String audioDataBase64 = trackState.getProperty("audioData", "");
+			if (audioDataBase64.isNotEmpty())
+			{
+				juce::MemoryBlock audioData;
+				if (audioData.fromBase64Encoding(audioDataBase64))
+				{
+					juce::MemoryInputStream stream(audioData, false);
+					track->sampleRate = stream.readDouble();
+					int numChannels = stream.readInt();
+					track->numSamples = stream.readInt();
 
-                    if (track->numSamples > 0 && numChannels > 0)
-                    {
-                        track->audioBuffer.setSize(numChannels, track->numSamples);
+					if (track->numSamples > 0 && numChannels > 0)
+					{
+						track->audioBuffer.setSize(numChannels, track->numSamples);
 
-                        for (int ch = 0; ch < numChannels; ++ch)
-                        {
-                            stream.read(track->audioBuffer.getWritePointer(ch),
-                                        track->numSamples * sizeof(float));
-                        }
-                    }
-                }
-            }
+						for (int ch = 0; ch < numChannels; ++ch)
+						{
+							stream.read(track->audioBuffer.getWritePointer(ch),
+								track->numSamples * sizeof(float));
+						}
+					}
+				}
+			}
 
-            std::string stdId = track->trackId.toStdString();
-            tracks[stdId] = std::move(track);
-            trackOrder.push_back(stdId);
-        }
-    }
+			std::string stdId = track->trackId.toStdString();
+			tracks[stdId] = std::move(track);
+			trackOrder.push_back(stdId);
+		}
+	}
 
 private:
-    mutable juce::CriticalSection tracksLock;
-    std::unordered_map<std::string, std::unique_ptr<TrackData>> tracks;
-    std::vector<std::string> trackOrder;
+	mutable juce::CriticalSection tracksLock;
+	std::unordered_map<std::string, std::unique_ptr<TrackData>> tracks;
+	std::vector<std::string> trackOrder;
 
-    void renderSingleTrack(TrackData &track,
-                           juce::AudioBuffer<float> &mixOutput,
-                           juce::AudioBuffer<float> &individualOutput,
-                           int numSamples, double hostSampleRate)
-    {
-        if (track.numSamples == 0 || !track.isPlaying.load())
-            return;
+	void renderSingleTrack(TrackData& track,
+		juce::AudioBuffer<float>& mixOutput,
+		juce::AudioBuffer<float>& individualOutput,
+		int numSamples, double hostSampleRate)
+	{
+		if (track.numSamples == 0 || !track.isPlaying.load())
+			return;
 
-        const float volume = juce::jlimit(0.0f, 1.0f, track.volume.load());
-        const float pan = juce::jlimit(-1.0f, 1.0f, track.pan.load());
-        double currentPosition = track.readPosition.load();
-        double playbackRatio = 1.0;
+		const float volume = juce::jlimit(0.0f, 1.0f, track.volume.load());
+		const float pan = juce::jlimit(-1.0f, 1.0f, track.pan.load());
+		double currentPosition = track.readPosition.load();
+		double playbackRatio = 1.0;
 
-        switch (track.timeStretchMode)
-        {
-        case 1:
-            playbackRatio = 1.0;
-            break;
+		switch (track.timeStretchMode)
+		{
+		case 1:
+			playbackRatio = 1.0;
+			break;
 
-        case 2:
-            if (track.originalBpm > 0.0f)
-            {
-                float totalBpmAdjust = track.bpmOffset + track.fineOffset;
-                float adjustedBpm = track.originalBpm + totalBpmAdjust;
-                playbackRatio = adjustedBpm / track.originalBpm;
-            }
-            break;
+		case 2:
+			if (track.originalBpm > 0.0f)
+			{
+				float totalBpmAdjust = track.bpmOffset + track.fineOffset;
+				float adjustedBpm = track.originalBpm + totalBpmAdjust;
+				playbackRatio = adjustedBpm / track.originalBpm;
+			}
+			break;
 
-        case 3:
-            playbackRatio = 1.0;
-            break;
+		case 3:
+			playbackRatio = 1.0;
+			break;
 
-        case 4:
-            if (track.originalBpm > 0.0f)
-            {
-                float totalManualAdjust = track.bpmOffset + track.fineOffset;
-                playbackRatio = (track.originalBpm + totalManualAdjust) / track.originalBpm;
-            }
-            break;
-        }
+		case 4:
+			if (track.originalBpm > 0.0f)
+			{
+				float totalManualAdjust = track.bpmOffset + track.fineOffset;
+				playbackRatio = (track.originalBpm + totalManualAdjust) / track.originalBpm;
+			}
+			break;
+		}
 
-        // Convertir les temps en samples pour ONE-SHOT
-        double startSample = track.loopStart * track.sampleRate;
-        double endSample = track.loopEnd * track.sampleRate;
+		// Convertir les temps en samples pour ONE-SHOT
+		double startSample = track.loopStart * track.sampleRate;
+		double endSample = track.loopEnd * track.sampleRate;
 
-        // Validation des bornes
-        startSample = juce::jlimit(0.0, (double)track.numSamples - 1, startSample);
-        endSample = juce::jlimit(startSample + 1, (double)track.numSamples, endSample);
+		// Validation des bornes
+		startSample = juce::jlimit(0.0, (double)track.numSamples - 1, startSample);
+		endSample = juce::jlimit(startSample + 1, (double)track.numSamples, endSample);
 
-        double sectionLength = endSample - startSample;
+		double sectionLength = endSample - startSample;
 
-        // Si pas de section définie ou invalide, utiliser tout le sample
-        if (sectionLength < 100) // Minimum 100 samples (~2ms à 44kHz)
-        {
-            startSample = 0.0;
-            endSample = track.numSamples;
-            sectionLength = track.numSamples;
-        }
+		// Si pas de section définie ou invalide, utiliser tout le sample
+		if (sectionLength < 100) // Minimum 100 samples (~2ms à 44kHz)
+		{
+			startSample = 0.0;
+			endSample = track.numSamples;
+			sectionLength = track.numSamples;
+		}
 
-        // Process audio en ONE-SHOT (lecture linéaire)
-        for (int i = 0; i < numSamples; ++i)
-        {
-            double absolutePosition = startSample + currentPosition;
-            float leftGain = 1.0f;
-            float rightGain = 1.0f;
+		// Process audio en ONE-SHOT (lecture linéaire)
+		for (int i = 0; i < numSamples; ++i)
+		{
+			double absolutePosition = startSample + currentPosition;
+			float leftGain = 1.0f;
+			float rightGain = 1.0f;
 
-            if (pan < 0.0f)
-            {
-                // Pan vers la gauche : réduire le canal droit
-                rightGain = 1.0f + pan; // pan est négatif, donc rightGain diminue
-            }
-            else if (pan > 0.0f)
-            {
-                // Pan vers la droite : réduire le canal gauche
-                leftGain = 1.0f - pan;
-            }
+			if (pan < 0.0f)
+			{
+				// Pan vers la gauche : réduire le canal droit
+				rightGain = 1.0f + pan; // pan est négatif, donc rightGain diminue
+			}
+			else if (pan > 0.0f)
+			{
+				// Pan vers la droite : réduire le canal gauche
+				leftGain = 1.0f - pan;
+			}
 
-            // ARRÊTER si on dépasse la fin de la section
-            if (absolutePosition >= endSample)
-            {
-                // ARRÊTER LA LECTURE
-                track.isPlaying = false;
-                break; // Sortir de la boucle, plus d'audio à générer
-            }
+			// ARRÊTER si on dépasse la fin de la section
+			if (absolutePosition >= endSample)
+			{
+				// ARRÊTER LA LECTURE
+				track.isPlaying = false;
+				break; // Sortir de la boucle, plus d'audio à générer
+			}
 
-            // Sécurité: s'assurer qu'on ne dépasse pas les bornes du buffer
-            if (absolutePosition >= track.numSamples)
-            {
-                track.isPlaying = false;
-                break;
-            }
+			// Sécurité: s'assurer qu'on ne dépasse pas les bornes du buffer
+			if (absolutePosition >= track.numSamples)
+			{
+				track.isPlaying = false;
+				break;
+			}
 
-            for (int ch = 0; ch < std::min(2, track.audioBuffer.getNumChannels()); ++ch)
-            {
-                // Interpolation linéaire pour une lecture smooth
-                int sampleIndex = static_cast<int>(absolutePosition);
-                if (sampleIndex >= track.audioBuffer.getNumSamples())
-                {
-                    track.isPlaying = false;
-                    break;
-                }
+			for (int ch = 0; ch < std::min(2, track.audioBuffer.getNumChannels()); ++ch)
+			{
+				// Interpolation linéaire pour une lecture smooth
+				int sampleIndex = static_cast<int>(absolutePosition);
+				if (sampleIndex >= track.audioBuffer.getNumSamples())
+				{
+					track.isPlaying = false;
+					break;
+				}
 
-                float sample = track.audioBuffer.getSample(ch, sampleIndex);
-                sample *= volume;
-                if (ch == 0)
-                {
-                    sample *= leftGain;
-                }
-                else
-                {
-                    sample *= rightGain;
-                }
+				float sample = track.audioBuffer.getSample(ch, sampleIndex);
+				sample *= volume;
+				if (ch == 0)
+				{
+					sample *= leftGain;
+				}
+				else
+				{
+					sample *= rightGain;
+				}
 
-                // Mixage
-                mixOutput.addSample(ch, i, sample);
-                individualOutput.setSample(ch, i, sample);
+				// Mixage
+				mixOutput.addSample(ch, i, sample);
+				individualOutput.setSample(ch, i, sample);
 
-                // Mixage
-                mixOutput.addSample(ch, i, sample);
-                individualOutput.setSample(ch, i, sample);
-            }
+				// Mixage
+				mixOutput.addSample(ch, i, sample);
+				individualOutput.setSample(ch, i, sample);
+			}
 
-            // Avancer position AVEC time-stretch
-            currentPosition += playbackRatio;
-        }
+			// Avancer position AVEC time-stretch
+			currentPosition += playbackRatio;
+		}
 
-        // Sauvegarder la position (même si arrêtée)
-        track.readPosition = currentPosition;
-    }
+		// Sauvegarder la position (même si arrêtée)
+		track.readPosition = currentPosition;
+	}
 
-    float interpolateLinear(const float *buffer, double position, int bufferSize)
-    {
-        int index = static_cast<int>(position);
-        if (index >= bufferSize - 1)
-            return buffer[bufferSize - 1];
+	float interpolateLinear(const float* buffer, double position, int bufferSize)
+	{
+		int index = static_cast<int>(position);
+		if (index >= bufferSize - 1)
+			return buffer[bufferSize - 1];
 
-        float fraction = static_cast<float>(position - index);
-        return buffer[index] + fraction * (buffer[index + 1] - buffer[index]);
-    }
+		float fraction = static_cast<float>(position - index);
+		return buffer[index] + fraction * (buffer[index + 1] - buffer[index]);
+	}
 };
 
 //==============================================================================
@@ -515,273 +515,268 @@ private:
 //==============================================================================
 struct DummySound : public juce::SynthesiserSound
 {
-    bool appliesToNote(int) override { return true; }
-    bool appliesToChannel(int) override { return true; }
+	bool appliesToNote(int) override { return true; }
+	bool appliesToChannel(int) override { return true; }
 };
 
 class DummyVoice : public juce::SynthesiserVoice
 {
 public:
-    bool canPlaySound(juce::SynthesiserSound *) override { return true; }
+	bool canPlaySound(juce::SynthesiserSound*) override { return true; }
 
-    void startNote(int midiNoteNumber, float velocity,
-                   juce::SynthesiserSound *, int currentPitchWheelPosition) override
-    {
-        // Ne fait rien - juste pour que Bitwig détecte un Synthesiser
-    }
+	void startNote(int midiNoteNumber, float velocity,
+		juce::SynthesiserSound*, int currentPitchWheelPosition) override
+	{
+		// Ne fait rien - juste pour que Bitwig détecte un Synthesiser
+	}
 
-    void stopNote(float velocity, bool allowTailOff) override
-    {
-        clearCurrentNote(); // Important pour libérer la voix
-    }
+	void stopNote(float velocity, bool allowTailOff) override
+	{
+		clearCurrentNote(); // Important pour libérer la voix
+	}
 
-    void pitchWheelMoved(int newPitchWheelValue) override {}
-    void controllerMoved(int controllerNumber, int newControllerValue) override {}
+	void pitchWheelMoved(int newPitchWheelValue) override {}
+	void controllerMoved(int controllerNumber, int newControllerValue) override {}
 
-    void renderNextBlock(juce::AudioBuffer<float> &outputBuffer,
-                         int startSample, int numSamples) override
-    {
-        // Ne génère aucun audio - ton vrai sampler s'en occupe
-    }
+	void renderNextBlock(juce::AudioBuffer<float>& outputBuffer,
+		int startSample, int numSamples) override
+	{
+		// Ne génère aucun audio - ton vrai sampler s'en occupe
+	}
 };
 
 //==============================================================================
 // PLUGIN PROCESSOR PRINCIPAL
 //==============================================================================
 class DjIaVstProcessor : public juce::AudioProcessor,
-                         public juce::AudioProcessorValueTreeState::Listener,
-                         public juce::Timer
+	public juce::AudioProcessorValueTreeState::Listener,
+	public juce::Timer
 {
 public:
-    void timerCallback() override;
-    std::function<void()> onUIUpdateNeeded;
-    //==============================================================================
-    // CONSTRUCTEUR ET INTERFACE STANDARD
-    //==============================================================================
-    DjIaVstProcessor();
-    void initDummySynth();
-    void initTracks();
-    void loadParameters();
-    ~DjIaVstProcessor() override;
+	void timerCallback() override;
+	std::function<void()> onUIUpdateNeeded;
+	//==============================================================================
+	// CONSTRUCTEUR ET INTERFACE STANDARD
+	//==============================================================================
+	DjIaVstProcessor();
+	void initDummySynth();
+	void initTracks();
+	void loadParameters();
+	~DjIaVstProcessor() override;
 
-    void cleanProcessor();
+	void cleanProcessor();
 
-    // Listener pour les paramètres
-    void parameterChanged(const juce::String &parameterID, float newValue) override;
+	// Listener pour les paramètres
+	void parameterChanged(const juce::String& parameterID, float newValue) override;
 
-    // Interface AudioProcessor
-    void prepareToPlay(double sampleRate, int samplesPerBlock) override;
-    void releaseResources() override;
-    void processBlock(juce::AudioBuffer<float> &, juce::MidiBuffer &) override;
-    void checkIfUIUpdateNeeded(juce::MidiBuffer &midiMessages);
-    void applyMasterEffects(juce::AudioSampleBuffer &mainOutput);
-    void copyTracksToIndividualOutputs(juce::AudioSampleBuffer &buffer);
-    void clearOutputBuffers(juce::AudioSampleBuffer &buffer);
-    void resizeIndividualsBuffers(juce::AudioSampleBuffer &buffer);
-    void getDawInformations(juce::AudioPlayHead *playHead, bool &hostIsPlaying, double &hostBpm, double &hostPpqPosition);
-    bool isBusesLayoutSupported(const BusesLayout &layouts) const override;
+	// Interface AudioProcessor
+	void prepareToPlay(double sampleRate, int samplesPerBlock) override;
+	void releaseResources() override;
+	void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+	void checkIfUIUpdateNeeded(juce::MidiBuffer& midiMessages);
+	void applyMasterEffects(juce::AudioSampleBuffer& mainOutput);
+	void copyTracksToIndividualOutputs(juce::AudioSampleBuffer& buffer);
+	void clearOutputBuffers(juce::AudioSampleBuffer& buffer);
+	void resizeIndividualsBuffers(juce::AudioSampleBuffer& buffer);
+	void getDawInformations(juce::AudioPlayHead* playHead, bool& hostIsPlaying, double& hostBpm, double& hostPpqPosition);
+	bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
 
-    // Interface Plugin
-    juce::AudioProcessorEditor *createEditor() override;
-    bool hasEditor() const override { return true; }
-    const juce::String getName() const override { return "DJ-IA VST"; }
+	// Interface Plugin
+	juce::AudioProcessorEditor* createEditor() override;
+	bool hasEditor() const override { return true; }
+	const juce::String getName() const override { return "DJ-IA VST"; }
 
-    // Capacités MIDI
-    bool acceptsMidi() const override { return true; }
-    bool producesMidi() const override { return false; }
-    bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 0.0; }
+	// Capacités MIDI
+	bool acceptsMidi() const override { return true; }
+	bool producesMidi() const override { return false; }
+	bool isMidiEffect() const override { return false; }
+	double getTailLengthSeconds() const override { return 0.0; }
 
-    // Programmes
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram(int) override {}
-    const juce::String getProgramName(int) override { return {}; }
-    void changeProgramName(int, const juce::String &) override {}
+	// Programmes
+	int getNumPrograms() override { return 1; }
+	int getCurrentProgram() override { return 0; }
+	void setCurrentProgram(int) override {}
+	const juce::String getProgramName(int) override { return {}; }
+	void changeProgramName(int, const juce::String&) override {}
 
-    // État
-    void getStateInformation(juce::MemoryBlock &destData) override;
-    void setStateInformation(const void *data, int sizeInBytes) override;
+	// État
+	void getStateInformation(juce::MemoryBlock& destData) override;
+	void setStateInformation(const void* data, int sizeInBytes) override;
 
-    void updateUI();
+	void updateUI();
 
-    void addCustomPromptsToIndexedPrompts(juce::ValueTree &promptsState, juce::Array<std::pair<int, juce::String>> &indexedPrompts);
+	void addCustomPromptsToIndexedPrompts(juce::ValueTree& promptsState, juce::Array<std::pair<int, juce::String>>& indexedPrompts);
 
-    void loadCustomPromptsByCountProperty(juce::ValueTree &promptsState);
+	void loadCustomPromptsByCountProperty(juce::ValueTree& promptsState);
 
-    void setMasterVolume(float volume) { masterVolume = volume; }
-    void setMasterPan(float pan) { masterPan = pan; }
-    void setMasterEQ(float high, float mid, float low)
-    {
-        masterHighEQ = high;
-        masterMidEQ = mid;
-        masterLowEQ = low;
-    }
+	void setMasterVolume(float volume) { masterVolume = volume; }
+	void setMasterPan(float pan) { masterPan = pan; }
+	void setMasterEQ(float high, float mid, float low)
+	{
+		masterHighEQ = high;
+		masterMidEQ = mid;
+		masterLowEQ = low;
+	}
 
-    // Getters pour l'UI
-    float getMasterVolume() const { return masterVolume.load(); }
-    float getMasterPan() const { return masterPan.load(); }
+	// Getters pour l'UI
+	float getMasterVolume() const { return masterVolume.load(); }
+	float getMasterPan() const { return masterPan.load(); }
 
-    //==============================================================================
-    // API MULTI-TRACK
-    //==============================================================================
+	//==============================================================================
+	// API MULTI-TRACK
+	//==============================================================================
 
-    // Track Management
-    juce::String createNewTrack(const juce::String &name = "Track");
-    void deleteTrack(const juce::String &trackId);
-    void selectTrack(const juce::String &trackId);
-    juce::String getSelectedTrackId() const { return selectedTrackId; }
-    void reorderTracks(const juce::String &fromTrackId, const juce::String &toTrackId);
-    std::vector<juce::String> getAllTrackIds() const { return trackManager.getAllTrackIds(); }
-    TrackData *getCurrentTrack() { return trackManager.getTrack(selectedTrackId); }
-    TrackData *getTrack(const juce::String &trackId) { return trackManager.getTrack(trackId); }
+	// Track Management
+	juce::String createNewTrack(const juce::String& name = "Track");
+	void deleteTrack(const juce::String& trackId);
+	void selectTrack(const juce::String& trackId);
+	juce::String getSelectedTrackId() const { return selectedTrackId; }
+	void reorderTracks(const juce::String& fromTrackId, const juce::String& toTrackId);
+	std::vector<juce::String> getAllTrackIds() const { return trackManager.getAllTrackIds(); }
+	TrackData* getCurrentTrack() { return trackManager.getTrack(selectedTrackId); }
+	TrackData* getTrack(const juce::String& trackId) { return trackManager.getTrack(trackId); }
 
-    // Génération et contrôle
-    void generateLoop(const DjIaClient::LoopRequest &request, const juce::String &targetTrackId = "");
-    void startNotePlaybackForTrack(const juce::String &trackId, int noteNumber, double hostBpm = 126.0);
-    void stopNotePlaybackForTrack(int noteNumber);
+	// Génération et contrôle
+	void generateLoop(const DjIaClient::LoopRequest& request, const juce::String& targetTrackId = "");
+	void startNotePlaybackForTrack(const juce::String& trackId, int noteNumber, double hostBpm = 126.0);
+	void stopNotePlaybackForTrack(int noteNumber);
 
-    // Configuration
-    void setApiKey(const juce::String &key);
-    void setServerUrl(const juce::String &url);
-    double getHostBpm() const;
+	// Configuration
+	void setApiKey(const juce::String& key);
+	void setServerUrl(const juce::String& url);
+	double getHostBpm() const;
 
-    // Getters pour l'UI
-    juce::String getServerUrl() const { return serverUrl; }
-    juce::String getApiKey() const { return apiKey; }
-    juce::String getLastPrompt() const { return lastPrompt; }
-    juce::String getLastStyle() const { return lastStyle; }
-    juce::String getLastKey() const { return lastKey; }
-    double getLastBpm() const { return lastBpm; }
-    int getLastPresetIndex() const { return lastPresetIndex; }
-    bool getHostBpmEnabled() const { return hostBpmEnabled; }
+	// Getters pour l'UI
+	juce::String getServerUrl() const { return serverUrl; }
+	juce::String getApiKey() const { return apiKey; }
+	juce::String getLastPrompt() const { return lastPrompt; }
+	juce::String getLastKey() const { return lastKey; }
+	double getLastBpm() const { return lastBpm; }
+	int getLastPresetIndex() const { return lastPresetIndex; }
+	bool getHostBpmEnabled() const { return hostBpmEnabled; }
 
-    // Setters pour l'UI
-    void setLastPrompt(const juce::String &prompt) { lastPrompt = prompt; }
-    void setLastStyle(const juce::String &style) { lastStyle = style; }
-    void setLastKey(const juce::String &key) { lastKey = key; }
-    void setLastBpm(double bpm) { lastBpm = bpm; }
-    void setLastPresetIndex(int index) { lastPresetIndex = index; }
-    void setHostBpmEnabled(bool enabled) { hostBpmEnabled = enabled; }
-    void updateAllWaveformsAfterLoad();
-    // Audio loading
-    void setAutoLoadEnabled(bool enabled);
-    bool getAutoLoadEnabled() const { return autoLoadEnabled.load(); }
-    void loadPendingSample();
-    bool hasSampleWaiting() const { return hasUnloadedSample.load(); }
-    void setLastDuration(double duration) { lastDuration = duration; }
-    double getLastDuration() const { return lastDuration; }
+	// Setters pour l'UI
+	void setLastPrompt(const juce::String& prompt) { lastPrompt = prompt; }
+	void setLastKey(const juce::String& key) { lastKey = key; }
+	void setLastBpm(double bpm) { lastBpm = bpm; }
+	void setLastPresetIndex(int index) { lastPresetIndex = index; }
+	void setHostBpmEnabled(bool enabled) { hostBpmEnabled = enabled; }
+	void updateAllWaveformsAfterLoad();
+	// Audio loading
+	void setAutoLoadEnabled(bool enabled);
+	bool getAutoLoadEnabled() const { return autoLoadEnabled.load(); }
+	void loadPendingSample();
+	bool hasSampleWaiting() const { return hasUnloadedSample.load(); }
+	void setLastDuration(double duration) { lastDuration = duration; }
+	double getLastDuration() const { return lastDuration; }
 
-    // MIDI callback
-    void setMidiIndicatorCallback(std::function<void(const juce::String &)> callback)
-    {
-        midiIndicatorCallback = callback;
-    }
+	// MIDI callback
+	void setMidiIndicatorCallback(std::function<void(const juce::String&)> callback)
+	{
+		midiIndicatorCallback = callback;
+	}
 
-    // Parameters access
-    juce::AudioProcessorValueTreeState &getParameters() { return parameters; }
+	// Parameters access
+	juce::AudioProcessorValueTreeState& getParameters() { return parameters; }
 
-    void addCustomPrompt(const juce::String &prompt);
-    juce::StringArray getCustomPrompts() const;
-    void clearCustomPrompts();
+	void addCustomPrompt(const juce::String& prompt);
+	juce::StringArray getCustomPrompts() const;
+	void clearCustomPrompts();
 
 private:
-    //==============================================================================
-    // CONFIGURATION DU BUS LAYOUT MULTI-OUTPUT
-    //==============================================================================
-    std::atomic<bool> needsUIUpdate{false};
-    std::atomic<double> cachedHostBpm{126.0};
-    static juce::AudioProcessor::BusesProperties createBusLayout();
-    static const int MAX_TRACKS = 8;
-    double lastDuration = 6.0;
-    void updateMasterEQ();
+	//==============================================================================
+	// CONFIGURATION DU BUS LAYOUT MULTI-OUTPUT
+	//==============================================================================
+	std::atomic<bool> needsUIUpdate{ false };
+	std::atomic<double> cachedHostBpm{ 126.0 };
+	static juce::AudioProcessor::BusesProperties createBusLayout();
+	static const int MAX_TRACKS = 8;
+	double lastDuration = 6.0;
+	void updateMasterEQ();
 
-    void loadAudioDataAsync(const juce::String &trackId, const juce::MemoryBlock &audioData);
-    void processAudioBPMAndSync(TrackData *track);
-    void loadAudioToStagingBuffer(std::unique_ptr<juce::AudioFormatReader> &reader, TrackData *track);
-    void checkAndSwapStagingBuffers();
-    void performAtomicSwap(TrackData *track, const juce::String &trackId);
-    void updateWaveformDisplay(const juce::String &trackId);
-    void performTrackDeletion(const juce::String &trackId);
-    void reassignTrackOutputsAndMidi();
-    std::unordered_map<int, juce::String> playingTracks;
-    //==============================================================================
-    // ÉTAT DU PLUGIN
-    //==============================================================================
-    juce::StringArray customPrompts;
+	void loadAudioDataAsync(const juce::String& trackId, const juce::MemoryBlock& audioData);
+	void processAudioBPMAndSync(TrackData* track);
+	void loadAudioToStagingBuffer(std::unique_ptr<juce::AudioFormatReader>& reader, TrackData* track);
+	void checkAndSwapStagingBuffers();
+	void performAtomicSwap(TrackData* track, const juce::String& trackId);
+	void updateWaveformDisplay(const juce::String& trackId);
+	void performTrackDeletion(const juce::String& trackId);
+	void reassignTrackOutputsAndMidi();
+	std::unordered_map<int, juce::String> playingTracks;
+	//==============================================================================
+	// ÉTAT DU PLUGIN
+	//==============================================================================
+	juce::StringArray customPrompts;
 
-    // Multi-track system
-    TrackManager trackManager;
-    juce::String selectedTrackId;
-    std::vector<juce::AudioBuffer<float>> individualOutputBuffers;
+	// Multi-track system
+	TrackManager trackManager;
+	juce::String selectedTrackId;
+	std::vector<juce::AudioBuffer<float>> individualOutputBuffers;
 
-    // État de lecture globale
-    std::atomic<bool> isNotePlaying{false};
-    std::atomic<int> currentNoteNumber{-1};
+	// État de lecture globale
+	std::atomic<bool> isNotePlaying{ false };
+	std::atomic<int> currentNoteNumber{ -1 };
 
-    // UI state
-    juce::String lastPrompt = "";
-    juce::String lastStyle = "Techno";
-    juce::String lastKey = "C minor";
-    double lastBpm = 126.0;
-    int lastPresetIndex = -1;
-    bool hostBpmEnabled = false;
+	// UI state
+	juce::String lastPrompt = "";
+	juce::String lastKey = "C minor";
+	double lastBpm = 126.0;
+	int lastPresetIndex = -1;
+	bool hostBpmEnabled = false;
 
-    // Sample rates
-    double hostSampleRate = 0.0;
-    double audioSampleRate = 0.0;
+	// Sample rates
+	double hostSampleRate = 0.0;
+	double audioSampleRate = 0.0;
 
-    // Configuration
-    juce::String serverUrl = "http://localhost:8000";
-    juce::String apiKey;
+	// Configuration
+	juce::String serverUrl = "http://localhost:8000";
+	juce::String apiKey;
 
-    //==============================================================================
-    // SYSTÈME D'API
-    //==============================================================================
-    DjIaClient apiClient;
-    juce::CriticalSection apiLock;
-    juce::MemoryBlock pendingAudioData;
-    juce::String pendingTrackId;
-    std::atomic<bool> hasPendingAudioData{false};
-    std::atomic<bool> autoLoadEnabled{true};
-    std::atomic<bool> hasUnloadedSample{false};
+	//==============================================================================
+	// SYSTÈME D'API
+	//==============================================================================
+	DjIaClient apiClient;
+	juce::CriticalSection apiLock;
+	juce::MemoryBlock pendingAudioData;
+	juce::String pendingTrackId;
+	std::atomic<bool> hasPendingAudioData{ false };
+	std::atomic<bool> autoLoadEnabled{ true };
+	std::atomic<bool> hasUnloadedSample{ false };
 
-    //==============================================================================
-    // MIDI ET SYNTHESISER
-    //==============================================================================
-    juce::Synthesiser synth;
-    std::function<void(const juce::String &)> midiIndicatorCallback;
+	//==============================================================================
+	// MIDI ET SYNTHESISER
+	//==============================================================================
+	juce::Synthesiser synth;
+	std::function<void(const juce::String&)> midiIndicatorCallback;
 
-    //==============================================================================
-    // PARAMÈTRES AUTOMATISABLES
-    //==============================================================================
-    juce::AudioProcessorValueTreeState parameters;
-    std::atomic<float> *generateParam = nullptr;
-    std::atomic<float> *playParam = nullptr;
-    std::atomic<float> *autoLoadParam = nullptr;
-    SimpleEQ masterEQ;
-    std::atomic<float> masterVolume{0.8f};
-    std::atomic<float> masterPan{0.0f};
-    std::atomic<float> masterHighEQ{0.0f};
-    std::atomic<float> masterMidEQ{0.0f};
-    std::atomic<float> masterLowEQ{0.0f};
-    std::atomic<bool> waitingForMidiToLoad{false};
-    juce::String trackIdWaitingForLoad;
-    std::atomic<bool> correctMidiNoteReceived{false};
+	//==============================================================================
+	// PARAMÈTRES AUTOMATISABLES
+	//==============================================================================
+	juce::AudioProcessorValueTreeState parameters;
+	std::atomic<float>* generateParam = nullptr;
+	std::atomic<float>* playParam = nullptr;
+	std::atomic<float>* autoLoadParam = nullptr;
+	SimpleEQ masterEQ;
+	std::atomic<float> masterVolume{ 0.8f };
+	std::atomic<float> masterPan{ 0.0f };
+	std::atomic<float> masterHighEQ{ 0.0f };
+	std::atomic<float> masterMidEQ{ 0.0f };
+	std::atomic<float> masterLowEQ{ 0.0f };
+	std::atomic<bool> waitingForMidiToLoad{ false };
+	juce::String trackIdWaitingForLoad;
+	std::atomic<bool> correctMidiNoteReceived{ false };
 
-    //==============================================================================
-    // MÉTHODES PRIVÉES
-    //==============================================================================
+	//==============================================================================
+	// MÉTHODES PRIVÉES
+	//==============================================================================
 
-    void processIncomingAudio();
-    void resetTrackReadPosition(TrackData *track);
-    void processBPM(TrackData *track);
-    void loadAudioToBuffer(TrackData *track, std::unique_ptr<juce::AudioFormatReader> &reader);
-    void clearPendingAudio();
+	void processIncomingAudio();
+	void loadAudioToBuffer(TrackData* track, std::unique_ptr<juce::AudioFormatReader>& reader);
+	void clearPendingAudio();
 
-    void processMidiMessages(juce::MidiBuffer &midiMessages, bool hostIsPlaying, double hostBpm);
-    void playTrack(const juce::MidiMessage &message, double hostBpm);
-    void updateTimeStretchRatios(double hostBpm);
+	void processMidiMessages(juce::MidiBuffer& midiMessages, bool hostIsPlaying, double hostBpm);
+	void playTrack(const juce::MidiMessage& message, double hostBpm);
+	void updateTimeStretchRatios(double hostBpm);
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor)
+	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor)
 };

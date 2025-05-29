@@ -179,15 +179,6 @@ void DjIaVstEditor::setupUI()
 	debugRefreshButton.setButtonText("Refresh");
 	debugRefreshButton.setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
 
-	addAndMakeVisible(styleSelector);
-	styleSelector.addItem("Techno", 1);
-	styleSelector.addItem("House", 2);
-	styleSelector.addItem("Ambient", 3);
-	styleSelector.addItem("Experimental", 4);
-	styleSelector.addItem("Drum & Bass", 5);
-	styleSelector.addItem("Minimal", 6);
-	styleSelector.setSelectedId(1);
-
 	addAndMakeVisible(bpmSlider);
 	bpmSlider.setRange(60.0, 200.0, 1.0);
 	bpmSlider.setValue(126.0);
@@ -369,10 +360,6 @@ void DjIaVstEditor::addEventListeners()
 			audioProcessor.setLastPrompt(promptInput.getText());
 		};
 
-	styleSelector.onChange = [this]
-		{
-			audioProcessor.setLastStyle(styleSelector.getText());
-		};
 
 	keySelector.onChange = [this]
 		{
@@ -411,16 +398,6 @@ void DjIaVstEditor::updateUIFromProcessor()
 	bpmSlider.setValue(audioProcessor.getLastBpm(), juce::dontSendNotification);
 
 	durationSlider.setValue(audioProcessor.getLastDuration(), juce::dontSendNotification);
-
-	juce::String style = audioProcessor.getLastStyle();
-	for (int i = 1; i <= styleSelector.getNumItems(); ++i)
-	{
-		if (styleSelector.getItemText(i - 1) == style)
-		{
-			styleSelector.setSelectedId(i, juce::dontSendNotification);
-			break;
-		}
-	}
 
 	juce::String key = audioProcessor.getLastKey();
 	for (int i = 1; i <= keySelector.getNumItems(); ++i)
@@ -513,9 +490,8 @@ void DjIaVstEditor::resized()
 	area.removeFromTop(5);
 
 	auto controlRow = area.removeFromTop(35);
-	auto controlWidth = controlRow.getWidth() / 5;
+	auto controlWidth = controlRow.getWidth() / 4;
 
-	styleSelector.setBounds(controlRow.removeFromLeft(controlWidth).reduced(2));
 	keySelector.setBounds(controlRow.removeFromLeft(controlWidth).reduced(2));
 	durationSlider.setBounds(controlRow.removeFromLeft(controlWidth).reduced(2));
 	hostBpmButton.setBounds(controlRow.removeFromLeft(controlWidth).reduced(2));
@@ -665,7 +641,6 @@ void DjIaVstEditor::onGenerateButtonClicked()
 				// Créer la requête
 				DjIaClient::LoopRequest request;
 				request.prompt = promptInput.getText();
-				request.style = styleSelector.getText();
 				request.bpm = (float)bpmSlider.getValue();
 				request.key = keySelector.getText();
 				request.measures = 4;

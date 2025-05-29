@@ -48,9 +48,7 @@ async def generate_loop(
     try:
         request_id = int(time.time())
         print(f"\n===== 🎵 REQUÊTE #{request_id} =====")
-        print(
-            f"📝 '{request.prompt}' | {request.style} | {request.bpm} BPM | {request.key}"
-        )
+        print(f"📝 '{request.prompt}' | {request.bpm} BPM | {request.key}")
 
         # Initialiser le gestionnaire
         handler = APIRequestHandler(dj_system)

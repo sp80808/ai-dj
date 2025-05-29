@@ -4,7 +4,6 @@ from typing import List, Optional
 
 class GenerateRequest(BaseModel):
     prompt: str
-    style: str
     bpm: float
     key: Optional[str] = None
     measures: Optional[int] = 4
