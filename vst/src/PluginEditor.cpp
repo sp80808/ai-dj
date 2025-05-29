@@ -1,4 +1,4 @@
-#include "./PluginProcessor.h"
+﻿#include "./PluginProcessor.h"
 #include "PluginEditor.h"
 #include "BinaryData.h"
 
@@ -14,14 +14,39 @@ DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor& p)
 		{
 			if (weakThis != nullptr) {
 				weakThis->updateMidiIndicator(noteInfo);
-			} });
+			}
+		});
+	refreshTracks();
+	audioProcessor.onUIUpdateNeeded = [this]()
+		{
+			updateUIComponents();
+		};
+	juce::Timer::callAfterDelay(300, [this]()
+		{
 			refreshTracks();
-			audioProcessor.onUIUpdateNeeded = [this]()
+			for (auto& trackComp : trackComponents)
+			{
+				if (trackComp->getTrack() && trackComp->getTrack()->showWaveform)
 				{
-					updateUIComponents();
-				};
-			juce::Timer::callAfterDelay(300, [this]()
-				{ refreshTracks(); });
+					trackComp->toggleWaveformDisplay();
+				}
+			}
+			if (audioProcessor.getIsGenerating())
+			{
+				generateButton.setEnabled(false);
+				setAllGenerateButtonsEnabled(false);
+				statusLabel.setText("Generation in progress...", juce::dontSendNotification);
+				juce::String generatingId = audioProcessor.getGeneratingTrackId();
+				for (auto& trackComp : trackComponents)
+				{
+					if (trackComp->getTrackId() == generatingId)
+					{
+						trackComp->startGeneratingAnimation();
+						break;
+					}
+				}
+			}
+		});
 }
 
 DjIaVstEditor::~DjIaVstEditor()
@@ -196,13 +221,14 @@ void DjIaVstEditor::setupUI()
 	promptInput.setTextToShowWhenEmpty("Enter custom prompt or select preset...",
 		juce::Colours::grey);
 
-	addAndMakeVisible(debugRefreshButton);
-	debugRefreshButton.setButtonText("Refresh");
-	debugRefreshButton.setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
+	addAndMakeVisible(resetUIButton);
+	resetUIButton.setButtonText("Reset UI");
+	resetUIButton.setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
+	resetUIButton.setTooltip("Reset UI state if stuck in generation mode");
 
 	addAndMakeVisible(bpmSlider);
 	bpmSlider.setRange(60.0, 200.0, 1.0);
-	bpmSlider.setValue(126.0);
+	bpmSlider.setValue(audioProcessor.getLastBpm(), juce::dontSendNotification);
 	bpmSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 20);
 
 	addAndMakeVisible(bpmLabel);
@@ -212,11 +238,14 @@ void DjIaVstEditor::setupUI()
 	addAndMakeVisible(hostBpmButton);
 	hostBpmButton.setButtonText("Sync Host");
 	hostBpmButton.setClickingTogglesState(true);
+	hostBpmButton.setToggleState(audioProcessor.getHostBpmEnabled(), juce::dontSendNotification);
+
+	bpmSlider.setEnabled(!audioProcessor.getHostBpmEnabled());
 
 	addAndMakeVisible(serverSidePreTreatmentButton);
 	serverSidePreTreatmentButton.setButtonText("Server Side Pre Treatment");
 	serverSidePreTreatmentButton.setClickingTogglesState(true);
-	serverSidePreTreatmentButton.setToggleState(true, juce::dontSendNotification);
+	serverSidePreTreatmentButton.setToggleState(audioProcessor.getServerSidePreTreatment(), juce::dontSendNotification);
 
 	addAndMakeVisible(keySelector);
 	keySelector.addItem("C minor", 1);
@@ -225,11 +254,11 @@ void DjIaVstEditor::setupUI()
 	keySelector.addItem("F major", 4);
 	keySelector.addItem("A minor", 5);
 	keySelector.addItem("D minor", 6);
-	keySelector.setSelectedId(1, juce::dontSendNotification);
+	keySelector.setSelectedId(audioProcessor.getLastKeyIndex(), juce::dontSendNotification);
 
 	addAndMakeVisible(durationSlider);
 	durationSlider.setRange(4.0, 30.0, 1.0);
-	durationSlider.setValue(6.0, juce::dontSendNotification);
+	durationSlider.setValue(audioProcessor.getLastDuration(), juce::dontSendNotification);
 	durationSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
 	durationSlider.setTextValueSuffix(" s");
 
@@ -257,27 +286,27 @@ void DjIaVstEditor::setupUI()
 
 	addAndMakeVisible(drumsButton);
 	drumsButton.setButtonText("Drums");
-	drumsButton.setClickingTogglesState(true);
+	drumsButton.setToggleState(audioProcessor.getDrumsEnabled(), juce::dontSendNotification);
 
 	addAndMakeVisible(bassButton);
 	bassButton.setButtonText("Bass");
-	bassButton.setClickingTogglesState(true);
+	bassButton.setToggleState(audioProcessor.getBassEnabled(), juce::dontSendNotification);
 
 	addAndMakeVisible(otherButton);
 	otherButton.setButtonText("Other");
-	otherButton.setClickingTogglesState(true);
+	otherButton.setToggleState(audioProcessor.getOtherEnabled(), juce::dontSendNotification);
 
 	addAndMakeVisible(vocalsButton);
 	vocalsButton.setButtonText("Vocals");
-	vocalsButton.setClickingTogglesState(true);
+	vocalsButton.setToggleState(audioProcessor.getVocalsEnabled(), juce::dontSendNotification);
 
 	addAndMakeVisible(guitarButton);
 	guitarButton.setButtonText("Guitar");
-	guitarButton.setClickingTogglesState(true);
+	guitarButton.setToggleState(audioProcessor.getGuitarEnabled(), juce::dontSendNotification);
 
 	addAndMakeVisible(pianoButton);
 	pianoButton.setButtonText("Piano");
-	pianoButton.setClickingTogglesState(true);
+	pianoButton.setToggleState(audioProcessor.getPianoEnabled(), juce::dontSendNotification);
 
 	addAndMakeVisible(statusLabel);
 	statusLabel.setText("Ready", juce::dontSendNotification);
@@ -376,11 +405,6 @@ void DjIaVstEditor::addEventListeners()
 	savePresetButton.onClick = [this]
 		{ onSavePreset(); };
 
-	debugRefreshButton.onClick = [this]()
-		{
-			refreshTracks();
-		};
-
 	promptPresetSelector.onChange = [this]
 		{ onPresetSelected(); };
 
@@ -392,7 +416,7 @@ void DjIaVstEditor::addEventListeners()
 
 	keySelector.onChange = [this]
 		{
-			audioProcessor.setLastKey(keySelector.getText());
+			audioProcessor.setLastKeyIndex(keySelector.getSelectedId());
 		};
 
 	bpmSlider.onValueChange = [this]
@@ -415,6 +439,23 @@ void DjIaVstEditor::addEventListeners()
 	durationSlider.onValueChange = [this]
 		{
 			audioProcessor.setLastDuration(durationSlider.getValue());
+		};
+
+	resetUIButton.onClick = [this]()
+		{
+			audioProcessor.setIsGenerating(false);
+			audioProcessor.setGeneratingTrackId("");
+
+			generateButton.setEnabled(true);
+			setAllGenerateButtonsEnabled(true);
+
+			statusLabel.setText("UI Reset - Ready", juce::dontSendNotification);
+
+			for (auto& trackComp : trackComponents)
+			{
+				trackComp->stopGeneratingAnimation();
+			}
+			refreshTracks();
 		};
 }
 
@@ -562,9 +603,10 @@ void DjIaVstEditor::resized()
 	}
 
 	auto buttonsRow = area.removeFromTop(35);
-	auto buttonWidth = buttonsRow.getWidth() / 2;
+	auto buttonWidth = buttonsRow.getWidth() / 3;
 	generateButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
-	loadSampleButton.setBounds(buttonsRow.reduced(5));
+	loadSampleButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
+	resetUIButton.setBounds(buttonsRow.reduced(5));
 
 	autoLoadButton.setBounds(bottomArea.removeFromTop(20));
 	bottomArea.removeFromTop(10);
@@ -607,6 +649,9 @@ void DjIaVstEditor::onGenerateButtonClicked()
 	statusLabel.setText("Connecting to server...", juce::dontSendNotification);
 
 	juce::String selectedTrackId = audioProcessor.getSelectedTrackId();
+	audioProcessor.setIsGenerating(true);
+	audioProcessor.setGeneratingTrackId(selectedTrackId);
+
 	for (auto& trackComp : trackComponents)
 	{
 		if (trackComp->getTrackId() == selectedTrackId)
@@ -667,7 +712,8 @@ void DjIaVstEditor::onGenerateButtonClicked()
 						juce::dontSendNotification);
 					generateButton.setEnabled(true);
 					setAllGenerateButtonsEnabled(true);
-
+					audioProcessor.setIsGenerating(false);
+					audioProcessor.setGeneratingTrackId("");
 					});
 			}
 			catch (const std::exception& e)
@@ -683,6 +729,8 @@ void DjIaVstEditor::onGenerateButtonClicked()
 					statusLabel.setText("Error: " + error, juce::dontSendNotification);
 					generateButton.setEnabled(true);
 					setAllGenerateButtonsEnabled(true);
+					audioProcessor.setIsGenerating(false);
+					audioProcessor.setGeneratingTrackId("");
 					});
 			} });
 }

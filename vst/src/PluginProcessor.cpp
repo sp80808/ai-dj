@@ -836,6 +836,16 @@ void DjIaVstProcessor::getStateInformation(juce::MemoryBlock& destData)
 	state.setProperty("hostBpmEnabled", juce::var(hostBpmEnabled), nullptr);
 	state.setProperty("lastDuration", juce::var(lastDuration), nullptr);
 	state.setProperty("selectedTrackId", juce::var(selectedTrackId), nullptr);
+	state.setProperty("serverSidePreTreatment", juce::var(serverSidePreTreatment), nullptr);
+	state.setProperty("drumsEnabled", juce::var(drumsEnabled), nullptr);
+	state.setProperty("bassEnabled", juce::var(bassEnabled), nullptr);
+	state.setProperty("otherEnabled", juce::var(otherEnabled), nullptr);
+	state.setProperty("vocalsEnabled", juce::var(vocalsEnabled), nullptr);
+	state.setProperty("guitarEnabled", juce::var(guitarEnabled), nullptr);
+	state.setProperty("pianoEnabled", juce::var(pianoEnabled), nullptr);
+	state.setProperty("lastKeyIndex", juce::var(lastKeyIndex), nullptr);
+	state.setProperty("isGenerating", juce::var(isGenerating), nullptr);
+	state.setProperty("generatingTrackId", juce::var(generatingTrackId), nullptr);
 
 	juce::ValueTree promptsState("CustomPrompts");
 	for (int i = 0; i < customPrompts.size(); ++i)
@@ -865,6 +875,16 @@ void DjIaVstProcessor::setStateInformation(const void* data, int sizeInBytes)
 	lastPresetIndex = state.getProperty("lastPresetIndex", -1);
 	hostBpmEnabled = state.getProperty("hostBpmEnabled", false);
 	lastDuration = state.getProperty("lastDuration", 6.0);
+	serverSidePreTreatment = state.getProperty("serverSidePreTreatment", true);
+	drumsEnabled = state.getProperty("drumsEnabled", false);
+	bassEnabled = state.getProperty("bassEnabled", false);
+	otherEnabled = state.getProperty("otherEnabled", false);
+	vocalsEnabled = state.getProperty("vocalsEnabled", false);
+	guitarEnabled = state.getProperty("guitarEnabled", false);
+	pianoEnabled = state.getProperty("pianoEnabled", false);
+	lastKeyIndex = state.getProperty("lastKeyIndex", 1);
+	isGenerating = state.getProperty("isGenerating", false);
+	generatingTrackId = state.getProperty("generatingTrackId", "").toString();
 
 	auto promptsState = state.getChildWithName("CustomPrompts");
 	if (promptsState.isValid())

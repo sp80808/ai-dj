@@ -81,13 +81,11 @@ private:
 	juce::Label bpmLabel;
 	juce::ComboBox keySelector;
 	juce::TextButton generateButton;
-	juce::TextButton debugRefreshButton;
-
+	juce::TextButton resetUIButton;
 	juce::Label serverUrlLabel;
 	juce::TextEditor serverUrlInput;
 	juce::Label apiKeyLabel;
 	juce::TextEditor apiKeyInput;
-
 	juce::Label stemsLabel;
 	juce::ToggleButton drumsButton;
 	juce::ToggleButton bassButton;
@@ -95,33 +93,24 @@ private:
 	juce::ToggleButton vocalsButton;
 	juce::ToggleButton guitarButton;
 	juce::ToggleButton pianoButton;
-
 	juce::TextButton playButton;
 	juce::ToggleButton hostBpmButton;
 	juce::ToggleButton serverSidePreTreatmentButton;
-
 	juce::Slider durationSlider;
 	juce::Label durationLabel;
-
 	juce::ToggleButton autoLoadButton;
 	juce::TextButton loadSampleButton;
-
 	juce::Label midiIndicator;
 	juce::String lastMidiNote;
-
 	juce::TextButton testMidiButton;
-
 	juce::Viewport tracksViewport;
 	juce::Component tracksContainer;
 	std::vector<std::unique_ptr<TrackComponent>> trackComponents;
 	juce::TextButton addTrackButton;
 	juce::Label tracksLabel;
-
-	// Session management
 	juce::TextButton saveSessionButton;
 	juce::TextButton loadSessionButton;
 	juce::ComboBox sessionSelector;
-
 	std::unique_ptr<juce::MenuBarComponent> menuBar;
 
 	enum MenuIDs
@@ -131,10 +120,8 @@ private:
 		saveSessionAs,
 		loadSessionMenu,
 		exportSession,
-
 		aboutDjIa = 100,
 		showHelp,
-
 		addTrack = 200,
 		deleteAllTracks,
 		resetTracks

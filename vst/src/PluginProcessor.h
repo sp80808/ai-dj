@@ -7,13 +7,8 @@
 #include <vector>
 #include <atomic>
 
-//==============================================================================
-// TRACK DATA STRUCTURE
-//==============================================================================
-
 struct TrackData
 {
-	// Identifiant unique
 	juce::String trackId;
 	juce::String trackName;
 	std::atomic<bool> isPlaying{ false };
@@ -25,37 +20,30 @@ struct TrackData
 	std::atomic<bool> hasStagingData{ false };
 	std::atomic<bool> swapRequested{ false };
 	std::function<void(bool)> onPlayStateChanged;
-
 	std::atomic<int> stagingNumSamples{ 0 };
 	std::atomic<double> stagingSampleRate{ 48000.0 };
 	float stagingOriginalBpm = 126.0f;
-
 	double loopStart = 0.0;
 	double loopEnd = 4.0;
 	float originalBpm = 126.0f;
 	int timeStretchMode = 4;
 	double timeStretchRatio = 1.0;
-
 	double bpmOffset = 0.0;
-
 	int midiNote = 60;
-
 	juce::AudioSampleBuffer audioBuffer;
 	double sampleRate = 48000.0;
 	int numSamples = 0;
-
 	std::atomic<bool> isEnabled{ true };
 	std::atomic<bool> isSolo{ false };
 	std::atomic<bool> isMuted{ false };
 	std::atomic<float> volume{ 0.8f };
 	std::atomic<float> pan{ 0.0f };
-
 	juce::String prompt;
 	juce::String style;
 	juce::String stems;
 	float bpm = 126.0f;
-
 	std::atomic<double> readPosition{ 0.0 };
+	bool showWaveform = false;
 
 	TrackData() : trackId(juce::Uuid().toString())
 	{
@@ -99,7 +87,6 @@ class TrackManager
 public:
 	TrackManager() = default;
 
-	// Gestion des pistes
 	juce::String createTrack(const juce::String& name = "Track")
 	{
 		juce::ScopedLock lock(tracksLock);
@@ -112,7 +99,7 @@ public:
 		std::string stdId = trackId.toStdString();
 
 		tracks[stdId] = std::move(track);
-		trackOrder.push_back(stdId); // ← AJOUTER à l'ordre
+		trackOrder.push_back(stdId);
 
 		return trackId;
 	}
@@ -133,18 +120,15 @@ public:
 		std::string fromStdId = fromTrackId.toStdString();
 		std::string toStdId = toTrackId.toStdString();
 
-		// Trouver les positions dans trackOrder
 		auto fromIt = std::find(trackOrder.begin(), trackOrder.end(), fromStdId);
 		auto toIt = std::find(trackOrder.begin(), trackOrder.end(), toStdId);
 
 		if (fromIt == trackOrder.end() || toIt == trackOrder.end())
 			return;
 
-		// Déplacer dans le vecteur d'ordre
 		std::string movedId = *fromIt;
 		trackOrder.erase(fromIt);
 
-		// Recalculer toIt après erase
 		toIt = std::find(trackOrder.begin(), trackOrder.end(), toStdId);
 		trackOrder.insert(toIt, movedId);
 	}
@@ -161,7 +145,7 @@ public:
 		juce::ScopedLock lock(tracksLock);
 		std::vector<juce::String> ids;
 		for (const auto& stdId : trackOrder)
-		{ // ← Utiliser l'ordre !
+		{
 			if (tracks.count(stdId))
 			{
 				ids.push_back(juce::String(stdId));
@@ -270,6 +254,7 @@ public:
 			trackState.setProperty("fineOffset", track->fineOffset, nullptr);
 			trackState.setProperty("timeStretchRatio", track->timeStretchRatio, nullptr);
 			trackState.setProperty("stagingOriginalBpm", track->stagingOriginalBpm, nullptr);
+			trackState.setProperty("showWaveform", track->showWaveform, nullptr);
 
 			if (track->numSamples > 0)
 			{
@@ -329,6 +314,7 @@ public:
 			track->fineOffset = trackState.getProperty("fineOffset", 0.0f);
 			track->timeStretchRatio = trackState.getProperty("timeStretchRatio", 1.0);
 			track->stagingOriginalBpm = trackState.getProperty("stagingOriginalBpm", 126.0f);
+			track->showWaveform = trackState.getProperty("showWaveform", false);
 
 			juce::String audioDataBase64 = trackState.getProperty("audioData", "");
 			if (audioDataBase64.isNotEmpty())
@@ -406,25 +392,21 @@ private:
 			break;
 		}
 
-		// Convertir les temps en samples pour ONE-SHOT
 		double startSample = track.loopStart * track.sampleRate;
 		double endSample = track.loopEnd * track.sampleRate;
 
-		// Validation des bornes
 		startSample = juce::jlimit(0.0, (double)track.numSamples - 1, startSample);
 		endSample = juce::jlimit(startSample + 1, (double)track.numSamples, endSample);
 
 		double sectionLength = endSample - startSample;
 
-		// Si pas de section définie ou invalide, utiliser tout le sample
-		if (sectionLength < 100) // Minimum 100 samples (~2ms à 44kHz)
+		if (sectionLength < 100)
 		{
 			startSample = 0.0;
 			endSample = track.numSamples;
 			sectionLength = track.numSamples;
 		}
 
-		// Process audio en ONE-SHOT (lecture linéaire)
 		for (int i = 0; i < numSamples; ++i)
 		{
 			double absolutePosition = startSample + currentPosition;
@@ -433,24 +415,19 @@ private:
 
 			if (pan < 0.0f)
 			{
-				// Pan vers la gauche : réduire le canal droit
-				rightGain = 1.0f + pan; // pan est négatif, donc rightGain diminue
+				rightGain = 1.0f + pan;
 			}
 			else if (pan > 0.0f)
 			{
-				// Pan vers la droite : réduire le canal gauche
 				leftGain = 1.0f - pan;
 			}
 
-			// ARRÊTER si on dépasse la fin de la section
 			if (absolutePosition >= endSample)
 			{
-				// ARRÊTER LA LECTURE
 				track.isPlaying = false;
-				break; // Sortir de la boucle, plus d'audio à générer
+				break;
 			}
 
-			// Sécurité: s'assurer qu'on ne dépasse pas les bornes du buffer
 			if (absolutePosition >= track.numSamples)
 			{
 				track.isPlaying = false;
@@ -459,7 +436,6 @@ private:
 
 			for (int ch = 0; ch < std::min(2, track.audioBuffer.getNumChannels()); ++ch)
 			{
-				// Interpolation linéaire pour une lecture smooth
 				int sampleIndex = static_cast<int>(absolutePosition);
 				if (sampleIndex >= track.audioBuffer.getNumSamples())
 				{
@@ -478,20 +454,13 @@ private:
 					sample *= rightGain;
 				}
 
-				// Mixage
 				mixOutput.addSample(ch, i, sample);
 				individualOutput.setSample(ch, i, sample);
-
-				// Mixage
 				mixOutput.addSample(ch, i, sample);
 				individualOutput.setSample(ch, i, sample);
 			}
-
-			// Avancer position AVEC time-stretch
 			currentPosition += playbackRatio;
 		}
-
-		// Sauvegarder la position (même si arrêtée)
 		track.readPosition = currentPosition;
 	}
 
@@ -506,9 +475,6 @@ private:
 	}
 };
 
-//==============================================================================
-// DUMMY SYNTHESISER (pour compatibilité MIDI)
-//==============================================================================
 struct DummySound : public juce::SynthesiserSound
 {
 	bool appliesToNote(int) override { return true; }
@@ -523,12 +489,11 @@ public:
 	void startNote(int midiNoteNumber, float velocity,
 		juce::SynthesiserSound*, int currentPitchWheelPosition) override
 	{
-		// Ne fait rien - juste pour que Bitwig détecte un Synthesiser
 	}
 
 	void stopNote(float velocity, bool allowTailOff) override
 	{
-		clearCurrentNote(); // Important pour libérer la voix
+		clearCurrentNote();
 	}
 
 	void pitchWheelMoved(int newPitchWheelValue) override {}
@@ -537,13 +502,9 @@ public:
 	void renderNextBlock(juce::AudioBuffer<float>& outputBuffer,
 		int startSample, int numSamples) override
 	{
-		// Ne génère aucun audio - ton vrai sampler s'en occupe
 	}
 };
 
-//==============================================================================
-// PLUGIN PROCESSOR PRINCIPAL
-//==============================================================================
 class DjIaVstProcessor : public juce::AudioProcessor,
 	public juce::AudioProcessorValueTreeState::Listener,
 	public juce::Timer
@@ -551,21 +512,15 @@ class DjIaVstProcessor : public juce::AudioProcessor,
 public:
 	void timerCallback() override;
 	std::function<void()> onUIUpdateNeeded;
-	//==============================================================================
-	// CONSTRUCTEUR ET INTERFACE STANDARD
-	//==============================================================================
+
 	DjIaVstProcessor();
+	~DjIaVstProcessor() override;
+
 	void initDummySynth();
 	void initTracks();
 	void loadParameters();
-	~DjIaVstProcessor() override;
-
 	void cleanProcessor();
-
-	// Listener pour les paramètres
 	void parameterChanged(const juce::String& parameterID, float newValue) override;
-
-	// Interface AudioProcessor
 	void prepareToPlay(double sampleRate, int samplesPerBlock) override;
 	void releaseResources() override;
 	void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
@@ -576,35 +531,41 @@ public:
 	void resizeIndividualsBuffers(juce::AudioSampleBuffer& buffer);
 	void getDawInformations(juce::AudioPlayHead* playHead, bool& hostIsPlaying, double& hostBpm, double& hostPpqPosition);
 	bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
-
-	// Interface Plugin
+	bool getDrumsEnabled() const { return drumsEnabled; }
+	void setDrumsEnabled(bool enabled) { drumsEnabled = enabled; }
+	bool getBassEnabled() const { return bassEnabled; }
+	void setBassEnabled(bool enabled) { bassEnabled = enabled; }
+	bool getOtherEnabled() const { return otherEnabled; }
+	void setOtherEnabled(bool enabled) { otherEnabled = enabled; }
+	bool getVocalsEnabled() const { return vocalsEnabled; }
+	void setVocalsEnabled(bool enabled) { vocalsEnabled = enabled; }
+	bool getGuitarEnabled() const { return guitarEnabled; }
+	void setGuitarEnabled(bool enabled) { guitarEnabled = enabled; }
+	bool getPianoEnabled() const { return pianoEnabled; }
+	void setPianoEnabled(bool enabled) { pianoEnabled = enabled; }
+	double getLastBpm() const { return lastBpm; }
+	void setLastBpm(double bpm) { lastBpm = bpm; }
+	double getLastDuration() const { return lastDuration; }
+	void setLastDuration(double duration) { lastDuration = duration; }
+	int getLastKeyIndex() const { return lastKeyIndex; }
+	void setLastKeyIndex(int index) { lastKeyIndex = index; }
 	juce::AudioProcessorEditor* createEditor() override;
 	bool hasEditor() const override { return true; }
 	const juce::String getName() const override { return "DJ-IA VST"; }
-
-	// Capacités MIDI
 	bool acceptsMidi() const override { return true; }
 	bool producesMidi() const override { return false; }
 	bool isMidiEffect() const override { return false; }
 	double getTailLengthSeconds() const override { return 0.0; }
-
-	// Programmes
 	int getNumPrograms() override { return 1; }
 	int getCurrentProgram() override { return 0; }
 	void setCurrentProgram(int) override {}
 	const juce::String getProgramName(int) override { return {}; }
 	void changeProgramName(int, const juce::String&) override {}
-
-	// État
 	void getStateInformation(juce::MemoryBlock& destData) override;
 	void setStateInformation(const void* data, int sizeInBytes) override;
-
 	void updateUI();
-
 	void addCustomPromptsToIndexedPrompts(juce::ValueTree& promptsState, juce::Array<std::pair<int, juce::String>>& indexedPrompts);
-
 	void loadCustomPromptsByCountProperty(juce::ValueTree& promptsState);
-
 	void setMasterVolume(float volume) { masterVolume = volume; }
 	void setMasterPan(float pan) { masterPan = pan; }
 	void setMasterEQ(float high, float mid, float low)
@@ -613,16 +574,8 @@ public:
 		masterMidEQ = mid;
 		masterLowEQ = low;
 	}
-
-	// Getters pour l'UI
 	float getMasterVolume() const { return masterVolume.load(); }
 	float getMasterPan() const { return masterPan.load(); }
-
-	//==============================================================================
-	// API MULTI-TRACK
-	//==============================================================================
-
-	// Track Management
 	juce::String createNewTrack(const juce::String& name = "Track");
 	void deleteTrack(const juce::String& trackId);
 	void selectTrack(const juce::String& trackId);
@@ -631,31 +584,20 @@ public:
 	std::vector<juce::String> getAllTrackIds() const { return trackManager.getAllTrackIds(); }
 	TrackData* getCurrentTrack() { return trackManager.getTrack(selectedTrackId); }
 	TrackData* getTrack(const juce::String& trackId) { return trackManager.getTrack(trackId); }
-
-	// Génération et contrôle
 	void generateLoop(const DjIaClient::LoopRequest& request, const juce::String& targetTrackId = "");
 	void startNotePlaybackForTrack(const juce::String& trackId, int noteNumber, double hostBpm = 126.0);
 	void stopNotePlaybackForTrack(int noteNumber);
-
-	// Configuration
 	void setApiKey(const juce::String& key);
 	void setServerUrl(const juce::String& url);
 	double getHostBpm() const;
-
-	// Getters pour l'UI
 	juce::String getServerUrl() const { return serverUrl; }
 	juce::String getApiKey() const { return apiKey; }
 	juce::String getLastPrompt() const { return lastPrompt; }
 	juce::String getLastKey() const { return lastKey; }
-	double getLastBpm() const { return lastBpm; }
 	int getLastPresetIndex() const { return lastPresetIndex; }
 	bool getHostBpmEnabled() const { return hostBpmEnabled; }
 	bool getServerSidePreTreatment() const { return serverSidePreTreatment; }
-
-	// Setters pour l'UI
 	void setLastPrompt(const juce::String& prompt) { lastPrompt = prompt; }
-	void setLastKey(const juce::String& key) { lastKey = key; }
-	void setLastBpm(double bpm) { lastBpm = bpm; }
 	void setLastPresetIndex(int index) { lastPresetIndex = index; }
 	void setHostBpmEnabled(bool enabled) { hostBpmEnabled = enabled; }
 	void updateAllWaveformsAfterLoad();
@@ -664,21 +606,18 @@ public:
 	bool getAutoLoadEnabled() const { return autoLoadEnabled.load(); }
 	void loadPendingSample();
 	bool hasSampleWaiting() const { return hasUnloadedSample.load(); }
-	void setLastDuration(double duration) { lastDuration = duration; }
-	double getLastDuration() const { return lastDuration; }
-
-	// MIDI callback
 	void setMidiIndicatorCallback(std::function<void(const juce::String&)> callback)
 	{
 		midiIndicatorCallback = callback;
 	}
-
-	// Parameters access
 	juce::AudioProcessorValueTreeState& getParameters() { return parameters; }
-
 	void addCustomPrompt(const juce::String& prompt);
 	juce::StringArray getCustomPrompts() const;
 	void clearCustomPrompts();
+	bool getIsGenerating() const { return isGenerating; }
+	void setIsGenerating(bool generating) { isGenerating = generating; }
+	juce::String getGeneratingTrackId() const { return generatingTrackId; }
+	void setGeneratingTrackId(const juce::String& trackId) { generatingTrackId = trackId; }
 
 private:
 	std::atomic<bool> needsUIUpdate{ false };
@@ -687,7 +626,6 @@ private:
 	static const int MAX_TRACKS = 8;
 	double lastDuration = 6.0;
 	void updateMasterEQ();
-
 	void loadAudioDataAsync(const juce::String& trackId, const juce::MemoryBlock& audioData);
 	void processAudioBPMAndSync(TrackData* track);
 	void loadAudioToStagingBuffer(std::unique_ptr<juce::AudioFormatReader>& reader, TrackData* track);
@@ -696,29 +634,31 @@ private:
 	void updateWaveformDisplay(const juce::String& trackId);
 	void performTrackDeletion(const juce::String& trackId);
 	void reassignTrackOutputsAndMidi();
-
+	bool drumsEnabled = false;
+	bool bassEnabled = false;
+	bool otherEnabled = false;
+	bool vocalsEnabled = false;
+	bool guitarEnabled = false;
+	bool pianoEnabled = false;
+	int lastKeyIndex = 1;
+	bool isGenerating = false;
+	juce::String generatingTrackId = "";
 	std::unordered_map<int, juce::String> playingTracks;
 	juce::StringArray customPrompts;
-
 	TrackManager trackManager;
 	juce::String selectedTrackId;
 	std::vector<juce::AudioBuffer<float>> individualOutputBuffers;
-
 	std::atomic<bool> isNotePlaying{ false };
 	std::atomic<int> currentNoteNumber{ -1 };
-
 	juce::String lastPrompt = "";
 	juce::String lastKey = "C minor";
 	double lastBpm = 126.0;
 	int lastPresetIndex = -1;
 	bool hostBpmEnabled = false;
-
 	double hostSampleRate = 0.0;
 	double audioSampleRate = 0.0;
-
 	juce::String serverUrl = "http://localhost:8000";
 	juce::String apiKey;
-
 	DjIaClient apiClient;
 	juce::CriticalSection apiLock;
 	juce::MemoryBlock pendingAudioData;
@@ -727,10 +667,8 @@ private:
 	std::atomic<bool> autoLoadEnabled{ true };
 	std::atomic<bool> hasUnloadedSample{ false };
 	std::atomic<bool> serverSidePreTreatment{ true };
-
 	juce::Synthesiser synth;
 	std::function<void(const juce::String&)> midiIndicatorCallback;
-
 	juce::AudioProcessorValueTreeState parameters;
 	std::atomic<float>* generateParam = nullptr;
 	std::atomic<float>* playParam = nullptr;
@@ -744,14 +682,10 @@ private:
 	std::atomic<bool> waitingForMidiToLoad{ false };
 	juce::String trackIdWaitingForLoad;
 	std::atomic<bool> correctMidiNoteReceived{ false };
-
-
 	void processIncomingAudio();
 	void clearPendingAudio();
-
 	void processMidiMessages(juce::MidiBuffer& midiMessages, bool hostIsPlaying, double hostBpm);
 	void playTrack(const juce::MidiMessage& message, double hostBpm);
 	void updateTimeStretchRatios(double hostBpm);
-
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor)
 };
