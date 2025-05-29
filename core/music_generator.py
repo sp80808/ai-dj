@@ -4,35 +4,30 @@ import tempfile
 import os
 import random
 import gc
+import librosa
+import soundfile as sf
 
 
 class MusicGenerator:
-    """Générateur de samples musicaux avec différents modèles (MusicGen ou Stable Audio)"""
-
     def __init__(self, model_name="musicgen-medium"):
-        """
-        Initialise le générateur de musique
-
-        Args:
-            model_name (str): Nom du modèle à utiliser ('musicgen-small', 'musicgen-medium',
-                              'musicgen-large', 'stable-audio-open', 'stable-audio-pro')
-            default_duration (float): Durée par défaut des générations en secondes
-        """
         self.model_name = model_name
         self.model = None
         self.sample_rate = 32000
+        self.default_duration = 6
+        self.model_type = None
+        self.sample_cache = {}
 
-        if "musicgen" in model_name:
-            size = model_name.split("-")[1] if "-" in model_name else "medium"
-            print(f"Initialisation de MusicGen ({size})...")
+    def init_model(self):
+        if "musicgen" in self.model_name:
+            size = self.model_name.split("-")[1] if "-" in self.model_name else "medium"
+            print(f"Initializing MusicGen ({size})...")
             from audiocraft.models import MusicGen
 
             self.model = MusicGen.get_pretrained(size)
             self.model_type = "musicgen"
 
-            # Définir les paramètres par défaut pour MusicGen
             self.model.set_generation_params(
-                duration=default_duration,
+                duration=self.default_duration,
                 temperature=1.0,
                 top_k=250,
                 top_p=0.0,
@@ -40,20 +35,16 @@ class MusicGenerator:
             )
             print("MusicGen initialisé!")
 
-        elif "stable-audio" in model_name:
-            print(f"Initialisation de Stable Audio ({model_name})...")
+        elif "stable-audio" in self.model_name:
+            print(f"Initializing Stable Audio ({self.model_name})...")
             try:
-                # Utiliser l'approche du code fourni plutôt que StableAudio
-                import torch
                 from stable_audio_tools import get_pretrained_model
 
-                # Définir le device
                 device = "cuda" if torch.cuda.is_available() else "cpu"
-                print(f"Utilisation du dispositif: {device}")
+                print(f"Using device: {device}")
 
-                # Télécharger le modèle et le déplacer sur GPU
                 model_id = "stabilityai/stable-audio-open-1.0"
-                if model_name == "stable-audio-pro":
+                if self.model_name == "stable-audio-pro":
                     model_id = "stabilityai/stable-audio-pro-1.0"
 
                 self.model, self.model_config = get_pretrained_model(model_id)
@@ -63,15 +54,14 @@ class MusicGenerator:
                 self.device = device
 
                 self.model_type = "stable-audio"
-                print(f"Stable Audio initialisé (sample rate: {self.sample_rate}Hz)!")
+                print(f"Stable Audio initialized (sample rate: {self.sample_rate}Hz)!")
 
             except ImportError as e:
-                print(f"⚠️ Erreur: {e}")
+                print(f"⚠️ Error: {e}")
                 print(
                     "Installation: pip install torch torchaudio stable-audio-tools einops"
                 )
-                # Fallback à MusicGen si Stable Audio n'est pas disponible
-                print("Fallback à MusicGen medium")
+                print("Fallback to MusicGen medium")
                 from audiocraft.models import MusicGen
 
                 self.model = MusicGen.get_pretrained("medium")
@@ -79,38 +69,32 @@ class MusicGenerator:
                 self.model_type = "musicgen"
 
         else:
-            # Modèle inconnu, fallback à MusicGen
-            print(f"⚠️ Modèle {model_name} inconnu, fallback à MusicGen medium")
+            print(f"⚠️ Model {self.model_name} unknown, fallback to MusicGen medium")
             from audiocraft.models import MusicGen
 
             self.model = MusicGen.get_pretrained("medium")
             self.model_type = "musicgen"
 
-        # Stockage des samples générés
-        self.sample_cache = {}
+    def destroy_model(self):
+        self.model = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        gc.collect()
 
     def generate_sample(
         self, musicgen_prompt, tempo, sample_type="custom", generation_duration=6
     ):
-        """
-        Version simplifiée qui prend juste un prompt MusicGen tout fait
-        (remplace l'ancienne méthode compliquée)
-        """
         try:
-            print(f"🔮 Génération directe avec prompt: '{musicgen_prompt}'")
+            print(f"🔮 Direct generation with prompt: '{musicgen_prompt}'")
 
             if self.model_type == "musicgen":
                 self.model.set_generation_params(
                     duration=generation_duration,
-                    temperature=0.8,  # Température fixe, plus besoin de calculer
+                    temperature=0.8,
                 )
-
-                # Génération directe avec le prompt fourni
                 wav = self.model.generate([musicgen_prompt])
-
                 with torch.no_grad():
                     wav_np = wav.cpu().detach().numpy()
-
                 sample_audio = wav_np[0, 0]
 
             elif self.model_type == "stable-audio":
@@ -128,12 +112,11 @@ class MusicGenerator:
                     }
                 ]
 
-                # Paramètres fixes pour Stable Audio
                 cfg_scale = 7.0
                 steps_value = 75
                 seed_value = random.randint(0, 2**31 - 1)
 
-                print(f"⚙️  Stable Audio: steps={steps_value}, cfg_scale={cfg_scale}")
+                print(f"⚙️ Stable Audio: steps={steps_value}, cfg_scale={cfg_scale}")
 
                 output = generate_diffusion_cond(
                     self.model,
@@ -172,7 +155,7 @@ class MusicGenerator:
                     torch.cuda.empty_cache()
                 gc.collect()
 
-            print(f"✅ Génération terminée !")
+            print(f"✅ Generation complete!")
 
             sample_info = {
                 "type": sample_type,
@@ -184,50 +167,36 @@ class MusicGenerator:
             return sample_audio, sample_info
 
         except Exception as e:
-            print(f"❌ Erreur génération: {str(e)}")
+            print(f"❌ Generation error: {str(e)}")
             silence = np.zeros(48000 * 4)
             error_info = {"type": sample_type, "tempo": tempo, "error": str(e)}
             return silence, error_info
 
     def save_sample(self, sample_audio, filename):
-        """Sauvegarde un sample généré sur disque"""
         try:
-            # Sauvegarder l'audio en tant que WAV
             if filename.endswith(".wav"):
                 path = filename
             else:
                 temp_dir = tempfile.gettempdir()
                 path = os.path.join(temp_dir, filename)
-
-            # Vérifier que sample_audio est un numpy array
             if not isinstance(sample_audio, np.ndarray):
                 sample_audio = np.array(sample_audio)
-
-            # ✅ NOUVEAU : Resample vers 48kHz si nécessaire
             if self.sample_rate != 48000:
                 print(f"🔄 Resampling {self.sample_rate}Hz → 48000Hz")
-                import librosa
-
                 sample_audio = librosa.resample(
                     sample_audio, orig_sr=self.sample_rate, target_sr=48000
                 )
-                # Mettre à jour le sample rate pour la sauvegarde
                 save_sample_rate = 48000
             else:
                 save_sample_rate = self.sample_rate
 
-            # Normaliser
             max_val = np.max(np.abs(sample_audio))
             if max_val > 0:
                 sample_audio = sample_audio / max_val * 0.9
 
-            import soundfile as sf
-
-            sf.write(
-                path, sample_audio, save_sample_rate
-            )  # ← Utilise le bon sample rate
+            sf.write(path, sample_audio, save_sample_rate)
 
             return path
         except Exception as e:
-            print(f"❌ Erreur lors de la sauvegarde du sample: {e}")
+            print(f"❌ Error saving sample: {e}")
             return None

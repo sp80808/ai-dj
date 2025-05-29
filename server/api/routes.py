@@ -11,31 +11,23 @@ router = APIRouter()
 
 
 def get_dj_system(request: Request):
-    """Récupère l'instance DJ System à partir de la requête"""
-    # Vérifier d'abord app.dj_system (méthode principale)
     if hasattr(request.app, "dj_system"):
         return request.app.dj_system
-
-    # Vérifier ensuite app.state.dj_system (méthode alternative)
     if hasattr(request.app, "state") and hasattr(request.app.state, "dj_system"):
         return request.app.state.dj_system
-
-    # Si aucune instance n'est trouvée, c'est une erreur grave
-    raise RuntimeError("Aucune instance DJSystem trouvée dans l'application FastAPI!")
+    raise RuntimeError("No DJSystem instance found in FastAPI application!")
 
 
 async def verify_api_key(api_key: str = Security(API_KEY_HEADER)):
-    """Vérifie la validité de la clé d'API"""
     if ENVIRONMENT == "dev":
         return "dev-bypass"
     if api_key != API_KEY:
-        raise HTTPException(status_code=403, detail="Clé d'API invalide")
+        raise HTTPException(status_code=403, detail="Invalid API key")
     return api_key
 
 
 @router.post("/verify_key")
 async def verify_key(_: str = Depends(verify_api_key)):
-    """Vérifie si une clé d'API est valide"""
     return {"status": "valid", "message": "Ok"}
 
 
@@ -47,27 +39,15 @@ async def generate_loop(
 ):
     try:
         request_id = int(time.time())
-        print(f"\n===== 🎵 REQUÊTE #{request_id} =====")
+        print(f"\n===== 🎵 QUERY #{request_id} =====")
         print(f"📝 '{request.prompt}' | {request.bpm} BPM | {request.key}")
-
-        # Initialiser le gestionnaire
         handler = APIRequestHandler(dj_system)
-
-        # 1. 🧠 SETUP LLM
         handler.setup_llm_session(request, request_id)
-
-        # 2. 🤖 DÉCISION LLM
         llm_decision = handler.get_llm_decision(request_id)
-
-        # 3. 🎹 GÉNÉRATION ADAPTÉE (LLM + GenreDetector)
         audio, _ = handler.generate_simple(request, llm_decision, request_id)
-
-        # 4. 🔧 PIPELINE AUDIO COMPLET
         processed_path, used_stems = handler.process_audio_pipeline(
             audio, request, request_id
         )
-
-        # 5. 📤 RETOUR FINAL
         audio_data, sr = librosa.load(processed_path, sr=None)
         duration = len(audio_data) / sr
 
@@ -76,7 +56,7 @@ async def generate_loop(
 
         audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
 
-        print(f"[{request_id}] ✅ SUCCÈS: {duration:.1f}")
+        print(f"[{request_id}] ✅ SUCCESS: {duration:.1f}")
 
         return {
             "audio_data": audio_base64,
@@ -89,5 +69,5 @@ async def generate_loop(
         }
 
     except Exception as e:
-        print(f"❌ ERREUR #{request_id}: {str(e)}")
+        print(f"❌ ERROR #{request_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -6,20 +6,10 @@ from llama_cpp import Llama
 
 
 class DJAILL:
-    """Interface avec le LLM qui joue le rôle du DJ"""
 
     def __init__(self, model_path, config=None):
-        """
-        Initialise l'interface avec le LLM
-
-        Args:
-            model_path (str): Chemin vers le modèle GMA-4B
-            config (dict): Configuration globale
-        """
         self.model_path = model_path
         self.session_state = config or {}
-
-        # Historique de conversation pour le LLM
         self.conversation_history = [
             {"role": "system", "content": self.get_system_prompt()}
         ]
@@ -29,14 +19,12 @@ class DJAILL:
             try:
                 del self.model
                 gc.collect()
-                print("🧹 Modèle détruit")
+                print("🧹 Model destroyed")
             except Exception as e:
-                print(f"⚠️ Erreur lors de la destruction du modèle: {e}")
+                print(f"⚠️ Error destroying model: {e}")
 
     def init_model(self):
-        """Initialise ou réinitialise le modèle LLM"""
-        print(f"⚡ Initialisation du modèle LLM depuis {self.model_path}...")
-
+        print(f"⚡ Initializing LLM model from {self.model_path}...")
         self.model = Llama(
             model_path=self.model_path,
             n_ctx=4096,
@@ -44,10 +32,9 @@ class DJAILL:
             n_threads=4,
             verbose=False,
         )
-        print("✅ Nouveau modèle LLM initialisé")
+        print("✅ New LLM model initialized")
 
     def _ensure_alternating_roles(self):
-        """S'assure que les rôles alternent correctement user/assistant"""
         if len(self.conversation_history) < 2:
             return
 
@@ -76,7 +63,6 @@ class DJAILL:
             self.conversation_history = cleaned_messages
 
     def _add_message_safely(self, role, content):
-        """Ajoute un message en vérifiant l'alternance"""
         if not self.conversation_history:
             self.conversation_history.append({"role": role, "content": content})
             return
@@ -88,7 +74,6 @@ class DJAILL:
             self.conversation_history.append({"role": role, "content": content})
 
     def get_next_decision(self):
-        """Obtient la prochaine décision du DJ IA"""
         current_time = time.time()
         if self.session_state.get("last_action_time", 0) > 0:
             elapsed = current_time - self.session_state["last_action_time"]
@@ -107,11 +92,11 @@ class DJAILL:
             self.conversation_history = [system_prompt] + recent_pairs
 
         print(
-            f"\n🧠 Génération AI-DJ avec {len(self.conversation_history)} messages d'historique..."
+            f"\n🧠 AI-DJ generation with {len(self.conversation_history)} history messages..."
         )
         response = self.model.create_chat_completion(self.conversation_history)
 
-        print("✅ Génération terminée !")
+        print("✅ Generation complete!")
 
         try:
             response_text = response["choices"][0]["message"]["content"]
@@ -130,14 +115,13 @@ class DJAILL:
                             "key": self.session_state.get("current_key", "C minor"),
                         }
                     },
-                    "reasoning": "Fallback: Pas de réponse JSON valide",
+                    "reasoning": "Fallback: No valid JSON response",
                 }
 
         except (json.JSONDecodeError, KeyError) as e:
-            print(f"Erreur de parsing de la réponse: {e}")
-            print(f"Réponse brute: {response_text}")
+            print(f"Error parsing response: {e}")
+            print(f"Raw response: {response_text}")
 
-            # Décision par défaut en cas d'erreur
             decision = {
                 "action_type": "generate_sample",
                 "parameters": {
@@ -146,10 +130,9 @@ class DJAILL:
                         "key": self.session_state.get("current_key", "C minor"),
                     }
                 },
-                "reasoning": f"Erreur de parsing: {str(e)}",
+                "reasoning": f"Parsing error: {str(e)}",
             }
 
-        # Enregistrer aussi dans l'historique legacy (si besoin pour autres parties du code)
         if "history" not in self.session_state:
             self.session_state["history"] = []
         self.session_state["history"].append(decision)
@@ -157,54 +140,51 @@ class DJAILL:
         return decision
 
     def _build_prompt(self):
-        """Prompt user avec priorité sur la demande actuelle"""
         user_prompt = self.session_state.get("user_prompt", "")
         current_tempo = self.session_state.get("current_tempo", 126)
         current_key = self.session_state.get("current_key", "C minor")
 
-        return f"""⚠️ NOUVELLE DEMANDE UTILISATEUR ⚠️
-Mots-clés: {user_prompt}
+        return f"""⚠️ NEW USER PROMPT ⚠️
+Keywords: {user_prompt}
 
 Context:
-- Tempo: {current_tempo} BPM  
-- Tonalité: {current_key}
+- Tempo: {current_tempo} BPM
+- Key: {current_key}
 
-IMPORTANT: Cette nouvelle demande est PRIORITAIRE. Si elle est différente de tes générations précédentes, ABANDONNE complètement le style précédent et concentre-toi sur cette nouvelle demande."""
+IMPORTANT: This new prompt has PRIORITY. If it's different from your previous generation, ABANDON the previous style completely and focus on this new prompt."""
 
     def get_system_prompt(self) -> str:
-        return """Tu es un générateur de samples musicaux intelligent. L'utilisateur te donne des mots-clés, tu génères un JSON cohérent.
+        return """You are a smart music sample generator. The user provides you with keywords, you generate coherent JSON.
 
-FORMAT OBLIGATOIRE :
+MANDATORY FORMAT:
 {
     "action_type": "generate_sample",
     "parameters": {
         "sample_details": {
-            "musicgen_prompt": "[prompt optimisé pour MusicGen basé sur les mots-clés]",
-            "key": "[tonalité appropriée ou garde celle fournie]"
+            "musicgen_prompt": "[prompt optimized for MusicGen based on keywords]",
+            "key": "[appropriate key or keep the provided one]"
         }
     },
-    "reasoning": "Explication courte de tes choix"
+    "reasoning": "Short explanation of your choices"
 }
 
-RÈGLES DE PRIORITÉ :
-1. 🔥 SI l'utilisateur demande un style/genre spécifique → IGNORE l'historique et génère exactement ce qu'il demande
-2. 📝 SI c'est une demande vague ou similaire → Tu peux tenir compte de l'historique pour la variété
-3. 🎯 TOUJOURS respecter les mots-clés exacts de l'utilisateur
+PRIORITY RULES:
+1. 🔥 IF the user requests a specific style/genre → IGNORE the history and generate exactly what they ask for
+2. 📝 IF it's a vague or similar request → You can consider the history for variety
+3. 🎯 ALWAYS respect keywords User's exact
 
-RÈGLES TECHNIQUES :
-- Crée un prompt MusicGen cohérent et précis
-- Pour la tonalité : utilise celle fournie ou adapte si nécessaire
-- Réponds UNIQUEMENT en JSON
+TECHNICAL RULES:
+- Create a consistent and accurate MusicGen prompt
+- For the key: use the one provided or adapt if necessary
+- Respond ONLY in JSON
 
-EXEMPLES :
+EXAMPLES:
 User: "deep techno rhythm kick hardcore" → musicgen_prompt: "deep techno kick drum, hardcore rhythm, driving 4/4 beat, industrial"
 User: "ambient space" → musicgen_prompt: "ambient atmospheric space soundscape, ethereal pads"
-User: "jazzy piano" → musicgen_prompt: "jazz piano, smooth chords, melodic improvisation"
-"""
+User: "jazzy piano" → musicgen_prompt: "jazz piano, smooth chords, melodic improvisation"""
 
     def reset_conversation(self):
-        """Remet à zéro l'historique de conversation"""
         self.conversation_history = [
             {"role": "system", "content": self.get_system_prompt()}
         ]
-        print("🔄 Historique de conversation remis à zéro")
+        print("🔄 Conversation history reset")
