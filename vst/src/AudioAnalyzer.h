@@ -174,16 +174,14 @@ public:
             soundtouch::SoundTouch soundTouch;
             soundTouch.setSampleRate((int)sampleRate);
             soundTouch.setChannels(buffer.getNumChannels());
-            soundTouch.setTempo(ratio); // ratio > 1 = plus rapide
+            soundTouch.setTempo(ratio); 
 
-            // Input samples
             if (buffer.getNumChannels() == 1)
             {
                 soundTouch.putSamples(buffer.getReadPointer(0), buffer.getNumSamples());
             }
             else
             {
-                // Interleave stereo
                 std::vector<float> interleavedInput;
                 interleavedInput.reserve(buffer.getNumSamples() * 2);
 
@@ -198,7 +196,6 @@ public:
 
             soundTouch.flush();
 
-            // Get processed samples
             int outputSamples = soundTouch.numSamples();
             if (outputSamples > 0)
             {
@@ -213,7 +210,6 @@ public:
                     std::vector<float> interleavedOutput(outputSamples * 2);
                     soundTouch.receiveSamples(interleavedOutput.data(), outputSamples);
 
-                    // De-interleave
                     for (int i = 0; i < outputSamples; ++i)
                     {
                         buffer.setSample(0, i, interleavedOutput[i * 2]);

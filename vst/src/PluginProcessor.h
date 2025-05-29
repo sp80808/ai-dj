@@ -25,7 +25,6 @@ struct TrackData
     std::atomic<bool> swapRequested{false};
     std::function<void(bool)> onPlayStateChanged;
 
-    // Métadonnées staging
     std::atomic<int> stagingNumSamples{0};
     std::atomic<double> stagingSampleRate{48000.0};
     float stagingOriginalBpm = 126.0f;
@@ -40,25 +39,21 @@ struct TrackData
 
     int midiNote = 60;
 
-    // Audio data
     juce::AudioSampleBuffer audioBuffer;
     double sampleRate = 48000.0;
     int numSamples = 0;
 
-    // État de lecture
     std::atomic<bool> isEnabled{true};
     std::atomic<bool> isSolo{false};
     std::atomic<bool> isMuted{false};
     std::atomic<float> volume{0.8f};
-    std::atomic<float> pan{0.0f}; // -1.0 = left, 1.0 = right
+    std::atomic<float> pan{0.0f};
 
-    // Métadonnées génération
     juce::String prompt;
     juce::String style;
     juce::String stems;
     float bpm = 126.0f;
 
-    // Position de lecture
     std::atomic<double> readPosition{0.0};
 
     TrackData() : trackId(juce::Uuid().toString())

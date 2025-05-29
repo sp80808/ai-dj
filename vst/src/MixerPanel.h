@@ -13,16 +13,14 @@ public:
 
     void setupUI()
     {
-        // Master Volume
         addAndMakeVisible(masterVolumeSlider);
         masterVolumeSlider.setRange(0.0, 1.0, 0.01);
         masterVolumeSlider.setValue(0.8);
         masterVolumeSlider.setSliderStyle(juce::Slider::LinearVertical);
         masterVolumeSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        masterVolumeSlider.setColour(juce::Slider::thumbColourId, juce::Colour(0xffff6600)); // Orange master
+        masterVolumeSlider.setColour(juce::Slider::thumbColourId, juce::Colour(0xffff6600)); 
         masterVolumeSlider.setColour(juce::Slider::trackColourId, juce::Colour(0xff404040));
 
-        // Master Pan
         addAndMakeVisible(masterPanKnob);
         masterPanKnob.setRange(-1.0, 1.0, 0.01);
         masterPanKnob.setValue(0.0);
@@ -30,7 +28,6 @@ public:
         masterPanKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
         masterPanKnob.setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xffff6600));
 
-        // EQ 3 bandes (simple mais efficace)
         addAndMakeVisible(highKnob);
         highKnob.setRange(-12.0, 12.0, 0.1);
         highKnob.setValue(0.0);
@@ -52,7 +49,6 @@ public:
         lowKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
         lowKnob.setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xffff6600));
 
-        // Labels
         addAndMakeVisible(masterLabel);
         masterLabel.setText("MASTER", juce::dontSendNotification);
         masterLabel.setColour(juce::Label::textColourId, juce::Colours::white);
@@ -83,7 +79,6 @@ public:
         panLabel.setJustificationType(juce::Justification::centred);
         panLabel.setFont(juce::Font(9.0f));
 
-        // Dans setupUI() de MasterChannel, ajouter les callbacks :
         masterVolumeSlider.onValueChange = [this]()
         {
             if (onMasterVolumeChanged)
@@ -129,15 +124,12 @@ public:
     {
         auto bounds = getLocalBounds();
 
-        // Background master channel (plus large, orange)
-        g.setColour(juce::Colour(0xff3a2a1a)); // Marron orangé
+        g.setColour(juce::Colour(0xff3a2a1a));
         g.fillRoundedRectangle(bounds.toFloat(), 8.0f);
 
-        // Border orange
         g.setColour(juce::Colour(0xffff6600));
         g.drawRoundedRectangle(bounds.toFloat().reduced(1), 8.0f, 2.0f);
 
-        // VU meter master à droite
         drawMasterVUMeter(g, bounds);
     }
 
@@ -146,41 +138,34 @@ public:
         auto area = getLocalBounds().reduced(4);
         int width = area.getWidth();
 
-        // Master label at top
         masterLabel.setBounds(area.removeFromTop(20));
         area.removeFromTop(10);
 
-        // EQ section en TRIANGLE - VERSION PROPRE
         auto eqArea = area.removeFromTop(100);
         int knobSize = 35;
 
-        // HIGH EQ - EN HAUT, PARFAITEMENT CENTRÉ
         auto highRow = eqArea.removeFromTop(50);
         highLabel.setBounds((width - 50) / 2, highRow.getY(), 50, 12);
         highKnob.setBounds((width - knobSize) / 2, highRow.getY() + 15, knobSize, knobSize);
 
-        eqArea.removeFromTop(5); // Espace entre les rangées
+        eqArea.removeFromTop(5); 
 
-        // RANGÉE DU BAS : MID et LOW
         auto bottomRow = eqArea.removeFromTop(50);
-        int spacing = width / 4; // Espacement symétrique
+        int spacing = width / 4;
 
-        // MID à gauche
         midLabel.setBounds(spacing - 25, bottomRow.getY(), 50, 12);
         midKnob.setBounds(spacing - knobSize / 2, bottomRow.getY() + 15, knobSize, knobSize);
 
-        // LOW à droite
         lowLabel.setBounds(width - spacing - 25, bottomRow.getY(), 50, 12);
         lowKnob.setBounds(width - spacing - knobSize / 2, bottomRow.getY() + 15, knobSize, knobSize);
 
-        auto volumeArea = area.removeFromTop(140); // Encore plus grand
-        int faderWidth = width / 3;                // Plus large aussi
+        auto volumeArea = area.removeFromTop(140); 
+        int faderWidth = width / 3;               
         int centerX = (width - faderWidth) / 2;
         masterVolumeSlider.setBounds(centerX, volumeArea.getY() + 5, faderWidth, volumeArea.getHeight() - 10);
 
         area.removeFromTop(5);
 
-        // Master pan at bottom
         auto panArea = area.removeFromTop(60);
         auto vuZone = panArea.removeFromRight(10);
         auto knobZone = panArea;
@@ -192,77 +177,84 @@ public:
     {
         auto vuArea = juce::Rectangle<float>(bounds.getWidth() - 15, 40, 10, bounds.getHeight() - 80);
 
-        // Background du VU meter master
         g.setColour(juce::Colour(0xff0a0a0a));
         g.fillRoundedRectangle(vuArea, 2.0f);
 
-        // Border
-        g.setColour(juce::Colour(0xffff6600)); // Orange pour master
+        g.setColour(juce::Colour(0xffff6600)); 
         g.drawRoundedRectangle(vuArea, 2.0f, 1.0f);
 
-        // Segments du VU meter master
-        int numSegments = 25; // Plus de résolution pour le master
+        int numSegments = 25;
         float segmentHeight = (vuArea.getHeight() - 4) / numSegments;
 
         for (int i = 0; i < numSegments; ++i)
         {
-            float segmentY = vuArea.getBottom() - 2 - (i + 1) * segmentHeight;
-            float segmentLevel = (float)i / numSegments;
-
-            juce::Rectangle<float> segmentRect(
-                vuArea.getX() + 1, segmentY, vuArea.getWidth() - 2, segmentHeight - 1);
-
-            // Couleur selon le niveau (master)
-            juce::Colour segmentColour;
-            if (segmentLevel < 0.6f)
-                segmentColour = juce::Colours::green;
-            else if (segmentLevel < 0.8f)
-                segmentColour = juce::Colours::orange;
-            else if (segmentLevel < 0.95f)
-                segmentColour = juce::Colours::red;
-            else
-                segmentColour = juce::Colours::white; // Clipping = blanc
-
-            // Afficher le segment si le niveau l'atteint
-            if (masterLevel >= segmentLevel)
-            {
-                g.setColour(segmentColour);
-                g.fillRoundedRectangle(segmentRect, 1.0f);
-            }
-            else
-            {
-                // Segment éteint
-                g.setColour(segmentColour.withAlpha(0.05f));
-                g.fillRoundedRectangle(segmentRect, 1.0f);
-            }
+            drawMasterChanelSegments(vuArea, i, segmentHeight, numSegments, g);
         }
 
-        // Peak hold master
         if (masterPeakHold > 0.0f)
         {
-            int peakSegment = (int)(masterPeakHold * numSegments);
-            if (peakSegment < numSegments)
-            {
-                float peakY = vuArea.getBottom() - 2 - (peakSegment + 1) * segmentHeight;
-                juce::Rectangle<float> peakRect(vuArea.getX() + 1, peakY, vuArea.getWidth() - 2, 3);
-
-                g.setColour(juce::Colours::white);
-                g.fillRect(peakRect);
-            }
+            drawPeakHoldLine(numSegments, vuArea, segmentHeight, g);
         }
 
-        // Indicateur de clipping master (LED rouge clignotante)
         if (masterPeakHold >= 0.98f)
         {
-            auto clipRect = juce::Rectangle<float>(vuArea.getX() - 2, vuArea.getY() - 12, vuArea.getWidth() + 4, 8);
-            g.setColour(isClipping && (juce::Time::getCurrentTime().toMilliseconds() % 500 < 250)
-                            ? juce::Colours::red
-                            : juce::Colours::darkred);
-            g.fillRoundedRectangle(clipRect, 4.0f);
+            drawMasterClipping(vuArea, g);
+        }
+    }
+
+    void drawPeakHoldLine(int numSegments, juce::Rectangle<float>& vuArea, float segmentHeight, juce::Graphics& g) const
+    {
+        int peakSegment = (int)(masterPeakHold * numSegments);
+        if (peakSegment < numSegments)
+        {
+            float peakY = vuArea.getBottom() - 2 - (peakSegment + 1) * segmentHeight;
+            juce::Rectangle<float> peakRect(vuArea.getX() + 1, peakY, vuArea.getWidth() - 2, 3);
 
             g.setColour(juce::Colours::white);
-            g.setFont(juce::Font(8.0f, juce::Font::bold));
-            g.drawText("CLIP", clipRect, juce::Justification::centred);
+            g.fillRect(peakRect);
+        }
+    }
+
+    void drawMasterClipping(juce::Rectangle<float>& vuArea, juce::Graphics& g) const
+    {
+        auto clipRect = juce::Rectangle<float>(vuArea.getX() - 2, vuArea.getY() - 12, vuArea.getWidth() + 4, 8);
+        g.setColour(isClipping && (juce::Time::getCurrentTime().toMilliseconds() % 500 < 250)
+            ? juce::Colours::red
+            : juce::Colours::darkred);
+        g.fillRoundedRectangle(clipRect, 4.0f);
+
+        g.setColour(juce::Colours::white);
+        g.setFont(juce::Font(8.0f, juce::Font::bold));
+        g.drawText("CLIP", clipRect, juce::Justification::centred);
+    }
+
+    void drawMasterChanelSegments(juce::Rectangle<float>& vuArea, int i, float segmentHeight, int numSegments, juce::Graphics& g) const
+    {
+        float segmentY = vuArea.getBottom() - 2 - (i + 1) * segmentHeight;
+        float segmentLevel = (float)i / numSegments;
+
+        juce::Rectangle<float> segmentRect(
+            vuArea.getX() + 1, segmentY, vuArea.getWidth() - 2, segmentHeight - 1);
+
+        juce::Colour segmentColour;
+        if (segmentLevel < 0.6f)
+            segmentColour = juce::Colours::green;
+        else if (segmentLevel < 0.8f)
+            segmentColour = juce::Colours::orange;
+        else if (segmentLevel < 0.95f)
+            segmentColour = juce::Colours::red;
+        else
+            segmentColour = juce::Colours::white;
+
+        if (masterLevel >= segmentLevel)
+        {
+            g.setColour(segmentColour);
+            g.fillRoundedRectangle(segmentRect, 1.0f);
+        }
+        else
+        {
+            g.setColour(segmentColour.withAlpha(0.05f));
+            g.fillRoundedRectangle(segmentRect, 1.0f);
         }
     }
 
@@ -278,32 +270,28 @@ public:
 
         if (hasRealAudio)
         {
-            // Utiliser le vrai niveau audio
             instantLevel = realAudioLevel;
         }
         else
         {
-            // Fallback : simulation pour debug
             static float phase = 0.0f;
-            phase += 0.05f; // Plus lent
+            phase += 0.05f; 
             instantLevel = (std::sin(phase) * 0.3f + 0.3f) * 0.5f;
         }
 
-        // Attack/Release réaliste
         if (instantLevel > masterLevel)
         {
-            masterLevel = masterLevel * 0.7f + instantLevel * 0.3f; // Attack rapide
+            masterLevel = masterLevel * 0.7f + instantLevel * 0.3f; 
         }
         else
         {
-            masterLevel = masterLevel * 0.95f + instantLevel * 0.05f; // Release lent
+            masterLevel = masterLevel * 0.95f + instantLevel * 0.05f; 
         }
 
-        // Peak hold
         if (masterLevel > masterPeakHold)
         {
             masterPeakHold = masterLevel;
-            masterPeakHoldTimer = 60; // 2 secondes à 30 FPS
+            masterPeakHoldTimer = 60;
         }
         else if (masterPeakHoldTimer > 0)
         {
@@ -311,19 +299,17 @@ public:
         }
         else
         {
-            masterPeakHold *= 0.98f; // Descente lente
+            masterPeakHold *= 0.98f;
         }
 
-        // Détecter clipping
         isClipping = (masterPeakHold >= 0.95f);
 
         repaint();
     }
 
-    // Interface publique pour contrôler le master
     std::function<void(float)> onMasterVolumeChanged;
     std::function<void(float)> onMasterPanChanged;
-    std::function<void(float, float, float)> onMasterEQChanged; // high, mid, low
+    std::function<void(float, float, float)> onMasterEQChanged;
 
 private:
     juce::Slider masterVolumeSlider;
@@ -336,7 +322,6 @@ private:
     juce::Label masterLabel;
     juce::Label highLabel, midLabel, lowLabel, panLabel;
 
-    // Niveaux master
     float masterLevel = 0.0f;
     float masterPeakHold = 0.0f;
     int masterPeakHoldTimer = 0;
@@ -350,7 +335,6 @@ class MixerPanel : public juce::Component
 public:
     MixerPanel(DjIaVstProcessor &processor) : audioProcessor(processor)
     {
-        // Créer le master channel
         masterChannel = std::make_unique<MasterChannel>();
         addAndMakeVisible(*masterChannel);
 
@@ -371,12 +355,10 @@ public:
             audioProcessor.setMasterEQ(high, mid, low);
         };
 
-        // Container pour les channels
         addAndMakeVisible(channelsViewport);
         channelsViewport.setViewedComponent(&channelsContainer, false);
-        channelsViewport.setScrollBarsShown(false, true); // Scroll horizontal
+        channelsViewport.setScrollBarsShown(false, true);
 
-        // Rafraîchir les channels
         refreshMixerChannels();
         audioProcessor.onUIUpdateNeeded = [this]()
         {
@@ -586,24 +568,22 @@ public:
         resized();
     }
 
-    void trackSelected(const juce::String &trackId)
+    void trackSelected(const juce::String& trackId)
     {
-        // Highlight la channel correspondante
-        for (auto &channel : mixerChannels)
+        for (auto& channel : mixerChannels)
         {
-            // TODO: Ajouter méthode setSelected dans MixerChannel
+            bool isThisTrackSelected = (channel->getTrackId() == trackId);
+            channel->setSelected(isThisTrackSelected);
         }
     }
 
 private:
     DjIaVstProcessor &audioProcessor;
 
-    // Master section
     std::unique_ptr<MasterChannel> masterChannel;
     float masterVolume = 0.8f;
     float masterPan = 0.0f;
 
-    // Channels
     juce::Viewport channelsViewport;
     juce::Component channelsContainer;
     std::vector<std::unique_ptr<MixerChannel>> mixerChannels;

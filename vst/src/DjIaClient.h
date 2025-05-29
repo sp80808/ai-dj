@@ -41,28 +41,6 @@ public:
     {
     }
 
-    bool isServerHealthy()
-    {
-        try
-        {
-            auto url = juce::URL(baseUrl + "/health");
-
-            if (auto response = url.createInputStream(
-                    juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inPostData)
-                        .withConnectionTimeoutMs(5000) // Timeout plus court
-                        .withExtraHeaders(apiKey.isNotEmpty() ? "X-API-Key: " + apiKey + "\n" : juce::String())))
-            {
-                auto jsonResponse = juce::JSON::parse(response->readEntireStreamAsString());
-                return jsonResponse.getProperty("status", "unhealthy") == "healthy";
-            }
-        }
-        catch (...)
-        {
-            return false;
-        }
-
-        return false;
-    }
 
     LoopResponse generateLoop(const LoopRequest &request)
     {
@@ -75,7 +53,6 @@ public:
             jsonRequest.getDynamicObject()->setProperty("key", request.key);
             jsonRequest.getDynamicObject()->setProperty("measures", request.measures);
 
-            // Ajouter les stems si présents
             if (!request.preferredStems.empty())
             {
                 juce::Array<juce::var> stems;
@@ -86,14 +63,12 @@ public:
 
             auto jsonString = juce::JSON::toString(jsonRequest);
 
-            // Headers simplifiés
             juce::String headerString = "Content-Type: application/json\n";
             if (apiKey.isNotEmpty())
             {
                 headerString += "X-API-Key: " + apiKey + "\n";
             }
 
-            // Créer la requête
             auto url = juce::URL(baseUrl + "/generate").withPOSTData(jsonString);
 
             auto options = juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inPostData)
@@ -105,7 +80,6 @@ public:
                 auto responseString = response->readEntireStreamAsString();
                 auto jsonResponse = juce::JSON::parse(responseString);
 
-                // Vérifier les erreurs
                 if (jsonResponse.hasProperty("detail"))
                 {
                     throw std::runtime_error(jsonResponse["detail"].toString().toStdString());
@@ -113,7 +87,6 @@ public:
 
                 LoopResponse result;
 
-                // Décoder le base64
                 juce::String audioBase64 = jsonResponse.getProperty("audio_data", "").toString();
                 if (audioBase64.isNotEmpty())
                 {
@@ -128,7 +101,6 @@ public:
                 result.llmReasoning = jsonResponse.getProperty("llm_reasoning", "");
                 result.sampleRate = static_cast<double>(jsonResponse.getProperty("sample_rate", 48000.0));
 
-                // Parser les stems utilisés
                 if (auto stemsArray = jsonResponse.getProperty("stems_used", juce::var()).getArray())
                 {
                     for (const auto &stem : *stemsArray)
