@@ -5,7 +5,7 @@
 class TrackComponent : public juce::Component, public juce::Timer
 {
 public:
-	TrackComponent(const juce::String& trackId, DjIaVstProcessor& processor)
+	TrackComponent(const juce::String &trackId, DjIaVstProcessor &processor)
 		: trackId(trackId), track(nullptr), audioProcessor(processor)
 	{
 		setupUI();
@@ -13,12 +13,12 @@ public:
 
 	juce::String getTrackId() const { return trackId; }
 
-	std::function<void(const juce::String&)> onDeleteTrack;
-	std::function<void(const juce::String&)> onSelectTrack;
-	std::function<void(const juce::String&)> onGenerateForTrack;
-	std::function<void(const juce::String&, const juce::String&)> onTrackRenamed;
+	std::function<void(const juce::String &)> onDeleteTrack;
+	std::function<void(const juce::String &)> onSelectTrack;
+	std::function<void(const juce::String &)> onGenerateForTrack;
+	std::function<void(const juce::String &, const juce::String &)> onTrackRenamed;
 
-	void setTrackData(TrackData* trackData)
+	void setTrackData(TrackData *trackData)
 	{
 		track = trackData;
 		updateFromTrackData();
@@ -28,7 +28,6 @@ public:
 	{
 		calculateHostBasedDisplay();
 	}
-
 
 	bool isWaveformVisible() const
 	{
@@ -90,8 +89,6 @@ public:
 			}
 		}
 	}
-
-
 
 	void updateFromTrackData()
 	{
@@ -192,7 +189,7 @@ public:
 		repaint();
 	}
 
-	void paint(juce::Graphics& g) override
+	void paint(juce::Graphics &g) override
 	{
 		auto bounds = getLocalBounds();
 
@@ -217,7 +214,7 @@ public:
 
 		g.setColour(borderColour);
 		g.drawRoundedRectangle(bounds.toFloat().reduced(1), 6.0f,
-			isGenerating ? 3.0f : (isSelected ? 2.0f : 1.0f));
+							   isGenerating ? 3.0f : (isSelected ? 2.0f : 1.0f));
 
 		if (isSelected)
 		{
@@ -304,7 +301,7 @@ public:
 		}
 	}
 
-	std::function<void(const juce::String&, const juce::String&)> onReorderTrack;
+	std::function<void(const juce::String &, const juce::String &)> onReorderTrack;
 
 	void refreshWaveformDisplay()
 	{
@@ -323,11 +320,11 @@ public:
 
 private:
 	juce::String trackId;
-	TrackData* track;
+	TrackData *track;
 	bool isSelected = false;
 	std::unique_ptr<WaveformDisplay> waveformDisplay;
 	juce::TextButton showWaveformButton;
-	DjIaVstProcessor& audioProcessor;
+	DjIaVstProcessor &audioProcessor;
 
 	juce::TextButton selectButton;
 	juce::Label trackNameLabel;
@@ -356,10 +353,10 @@ private:
 		addAndMakeVisible(selectButton);
 		selectButton.setButtonText("Select");
 		selectButton.onClick = [this]()
-			{
-				if (onSelectTrack)
-					onSelectTrack(trackId);
-			};
+		{
+			if (onSelectTrack)
+				onSelectTrack(trackId);
+		};
 
 		addAndMakeVisible(trackNameLabel);
 		trackNameLabel.setText(track ? track->trackName : "Track", juce::dontSendNotification);
@@ -369,19 +366,19 @@ private:
 		deleteButton.setButtonText("X");
 		deleteButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
 		deleteButton.onClick = [this]()
-			{
-				if (onDeleteTrack)
-					onDeleteTrack(trackId);
-			};
+		{
+			if (onDeleteTrack)
+				onDeleteTrack(trackId);
+		};
 
 		addAndMakeVisible(generateButton);
 		generateButton.setButtonText("Gen");
 		generateButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green);
 		generateButton.onClick = [this]()
-			{
-				if (onGenerateForTrack)
-					onGenerateForTrack(trackId);
-			};
+		{
+			if (onGenerateForTrack)
+				onGenerateForTrack(trackId);
+		};
 
 		addAndMakeVisible(infoLabel);
 		infoLabel.setText("Empty track", juce::dontSendNotification);
@@ -392,17 +389,17 @@ private:
 		trackNameEditor.setMultiLine(false);
 		trackNameEditor.setText(track ? track->trackName : "Track");
 		trackNameEditor.onReturnKey = [this]()
+		{
+			if (track)
 			{
-				if (track)
-				{
-					juce::String newName = trackNameEditor.getText();
-					track->trackName = newName;
-					trackNameLabel.setText(track->trackName, juce::dontSendNotification);
+				juce::String newName = trackNameEditor.getText();
+				track->trackName = newName;
+				trackNameLabel.setText(track->trackName, juce::dontSendNotification);
 
-					if (onTrackRenamed)
-						onTrackRenamed(trackId, newName);
-				}
-			};
+				if (onTrackRenamed)
+					onTrackRenamed(trackId, newName);
+			}
+		};
 
 		addAndMakeVisible(midiNoteSelector);
 		for (int note = 60; note < 72; ++note)
@@ -411,56 +408,53 @@ private:
 			midiNoteSelector.addItem(noteName, note - 59);
 		}
 		midiNoteSelector.onChange = [this]()
+		{
+			if (track)
 			{
-				if (track)
-				{
-					track->midiNote = midiNoteSelector.getSelectedId() + 59;
-				}
-			};
+				track->midiNote = midiNoteSelector.getSelectedId() + 59;
+			}
+		};
 
 		addAndMakeVisible(showWaveformButton);
 		showWaveformButton.setButtonText("Wave");
 		showWaveformButton.setClickingTogglesState(true);
 		showWaveformButton.onClick = [this]()
-			{
-				toggleWaveformDisplay();
-			};
+		{
+			toggleWaveformDisplay();
+		};
 
 		addAndMakeVisible(timeStretchModeSelector);
 		timeStretchModeSelector.addItem("Off", 1);
 		timeStretchModeSelector.addItem("Manual BPM", 2);
 		timeStretchModeSelector.addItem("Host BPM", 3);
 		timeStretchModeSelector.addItem("Host + Manual", 4);
-		timeStretchModeSelector.setSelectedId(3);
-
 		timeStretchModeSelector.onChange = [this]()
+		{
+			if (track)
 			{
-				if (track)
-				{
-					track->timeStretchMode = timeStretchModeSelector.getSelectedId();
-					updateBpmSliderVisibility();
-					calculateHostBasedDisplay();
-					adjustLoopPointsToTempo();
-				}
-			};
-
+				track->timeStretchMode = timeStretchModeSelector.getSelectedId();
+				updateBpmSliderVisibility();
+				calculateHostBasedDisplay();
+				adjustLoopPointsToTempo();
+			}
+		};
+		timeStretchModeSelector.setSelectedId(3, juce::dontSendNotification);
 		addAndMakeVisible(bpmOffsetSlider);
 		bpmOffsetSlider.setRange(-20.0, 20.0, 00.1);
-		bpmOffsetSlider.setValue(0.0);
 		bpmOffsetSlider.setSliderStyle(juce::Slider::LinearHorizontal);
 		bpmOffsetSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 20);
 		bpmOffsetSlider.setTextValueSuffix(" BPM");
 		bpmOffsetSlider.onValueChange = [this]()
+		{
+			if (track)
 			{
-				if (track)
-				{
-					track->bpmOffset = bpmOffsetSlider.getValue();
-					calculateHostBasedDisplay();
-					updateTrackInfo();
-					adjustLoopPointsToTempo();
-				}
-			};
-
+				track->bpmOffset = bpmOffsetSlider.getValue();
+				calculateHostBasedDisplay();
+				updateTrackInfo();
+				adjustLoopPointsToTempo();
+			}
+		};
+		bpmOffsetSlider.setValue(0.0, juce::dontSendNotification);
 		addAndMakeVisible(bpmOffsetLabel);
 		bpmOffsetLabel.setText("BPM:", juce::dontSendNotification);
 		bpmOffsetLabel.setFont(juce::Font(9.0f));
@@ -518,7 +512,7 @@ private:
 				break;
 			case 2:
 				stretchIndicator = (effectiveBpm > originalBpm) ? " +" : (effectiveBpm < originalBpm) ? " -"
-					: " =";
+																									  : " =";
 				bpmInfo = " | BPM: " + juce::String(effectiveBpm, 1) + stretchIndicator;
 				break;
 			case 3:
@@ -527,13 +521,13 @@ private:
 				break;
 			case 4:
 				stretchIndicator = (track->bpmOffset > 0) ? " +" : (track->bpmOffset < 0) ? " -"
-					: "";
+																						  : "";
 				bpmInfo = " | Host+" + juce::String(track->bpmOffset, 1) + stretchIndicator;
 				break;
 			}
 
 			infoLabel.setText("Prompt: " + track->prompt.substring(0, 15) + "..." + bpmInfo,
-				juce::dontSendNotification);
+							  juce::dontSendNotification);
 		}
 	}
 
@@ -557,17 +551,17 @@ private:
 			{
 				waveformDisplay = std::make_unique<WaveformDisplay>();
 				waveformDisplay->onLoopPointsChanged = [this](double start, double end)
+				{
+					if (track)
 					{
-						if (track)
+						track->loopStart = start;
+						track->loopEnd = end;
+						if (track->isPlaying.load())
 						{
-							track->loopStart = start;
-							track->loopEnd = end;
-							if (track->isPlaying.load())
-							{
-								track->readPosition = 0.0;
-							}
+							track->readPosition = 0.0;
 						}
-					};
+					}
+				};
 				addAndMakeVisible(*waveformDisplay);
 			}
 
@@ -592,15 +586,15 @@ private:
 			}
 		}
 
-		if (auto* parentViewport = findParentComponentOfClass<juce::Viewport>())
+		if (auto *parentViewport = findParentComponentOfClass<juce::Viewport>())
 		{
-			if (auto* parentContainer = parentViewport->getViewedComponent())
+			if (auto *parentContainer = parentViewport->getViewedComponent())
 			{
 				int totalHeight = 5;
 
 				for (int i = 0; i < parentContainer->getNumChildComponents(); ++i)
 				{
-					if (auto* trackComp = dynamic_cast<TrackComponent*>(parentContainer->getChildComponent(i)))
+					if (auto *trackComp = dynamic_cast<TrackComponent *>(parentContainer->getChildComponent(i)))
 					{
 						int trackHeight = trackComp->showWaveformButton.getToggleState() ? 160 : 80;
 						trackComp->setSize(trackComp->getWidth(), trackHeight);
