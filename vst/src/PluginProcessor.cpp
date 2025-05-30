@@ -944,8 +944,7 @@ void DjIaVstProcessor::setStateInformation(const void* data, int sizeInBytes)
 			selectedTrackId = trackManager.createTrack("Main");
 		}
 	}
-	juce::MessageManager::callAsync([this]()
-		{ updateUI(); });
+	stateLoaded = true;
 }
 
 void DjIaVstProcessor::updateUI()

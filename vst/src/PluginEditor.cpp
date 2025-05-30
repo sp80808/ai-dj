@@ -8,7 +8,10 @@ DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor& p)
 	setSize(1300, 800);
 	logoImage = juce::ImageCache::getFromMemory(BinaryData::logo_png,
 		BinaryData::logo_pngSize);
-	setupUI();
+	if (audioProcessor.isStateReady())
+		setupUI();
+	else
+		startTimer(50);
 	juce::WeakReference<DjIaVstEditor> weakThis(this);
 	audioProcessor.setMidiIndicatorCallback([weakThis](const juce::String& noteInfo)
 		{
@@ -54,6 +57,7 @@ DjIaVstEditor::~DjIaVstEditor()
 {
 	audioProcessor.onUIUpdateNeeded = nullptr;
 }
+
 
 void DjIaVstEditor::updateMidiIndicator(const juce::String& noteInfo)
 {
@@ -156,6 +160,11 @@ void DjIaVstEditor::refreshTracks()
 
 void DjIaVstEditor::timerCallback()
 {
+	if (audioProcessor.isStateReady())
+	{
+		stopTimer();
+		setupUI();
+	}
 	bool anyTrackPlaying = false;
 
 	for (auto& trackComp : trackComponents)

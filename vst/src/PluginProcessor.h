@@ -122,10 +122,12 @@ public:
 	void setIsGenerating(bool generating) { isGenerating = generating; }
 	juce::String getGeneratingTrackId() const { return generatingTrackId; }
 	void setGeneratingTrackId(const juce::String& trackId) { generatingTrackId = trackId; }
+	bool isStateReady() const { return stateLoaded; }
 
 private:
 	std::atomic<bool> needsUIUpdate{ false };
 	std::atomic<double> cachedHostBpm{ 126.0 };
+	std::atomic<bool> stateLoaded{ false };
 	static juce::AudioProcessor::BusesProperties createBusLayout();
 	static const int MAX_TRACKS = 8;
 	double lastDuration = 6.0;
