@@ -47,138 +47,157 @@ DJ-IA VST is a live music generation plugin that uses AI to create music loops i
 - **Track naming**: Custom names for organization
 - **Visual indicators**: Playing status, MIDI activity
 
-## 🛠️ Building the Plugin
+## 🚀 Quick Install & Setup
 
-### Prerequisites
+### **Automated Installation**
 
-1. **Visual Studio 2019/2022** with C++ build tools
-2. **CMake 3.15+**
-3. **JUCE Framework**:
-   ```bash
-   git clone https://github.com/juce-framework/JUCE.git
-   cd JUCE
-   git checkout 7.0.12
-   ```
-4. **SoundTouch Library**:
-   ```bash
-   git clone https://github.com/suomipelit/soundtouch.git
-   cd soundtouch
-   mkdir build && cd build
-   cmake .. -G "Visual Studio 17 2022"
-   cmake --build . --config Release
-   ```
-
-### Build Steps
+**Windows:**
 
 ```bash
-cd vst/
-mkdir build && cd build
-cmake .. -DJUCE_DIR="C:/path/to/JUCE" -DSOUNDTOUCH_DIR="C:/path/to/soundtouch" -G "Visual Studio 17 2022"
-cmake --build . --config Release
+install.bat
 ```
 
-Copy the built `DJ-IA.vst3` to `C:\Program Files\Common Files\VST3\`
-
-## 🚀 Setup & Usage
-
-### 1. Install AI Backend
+**Linux/Mac:**
 
 ```bash
-python -m venv dj_ia_env
-dj_ia_env\Scripts\activate
-
-# Core dependencies
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-pip install stable-audio-tools
-pip install llama-cpp-python librosa soundfile pyrubberband
-pip install fastapi uvicorn python-dotenv
+chmod +x install.sh
+./installa.sh
 ```
 
-### 2. Configure Environment
+The installer automatically:
 
-Rename `.env.example` to `.env` and fill in your configuration:
+- ✅ Checks prerequisites (Python, CMake, Git, CUDA)
+- 📦 Creates Python environment
+- ⬇️ Downloads dependencies (PyTorch with CUDA if available)
+- 🤖 Downloads Gemma-3-4B AI model (2.49 GB)
+- ⚙️ Creates configuration file
+- 🔨 Builds VST plugin
+- 📋 Provides clear next steps
+
+#### Configure Environment
+
+Create `.env` file:
 
 ```bash
-# .env file
-DJ_IA_API_KEY=your_api_key_here          # Used in production only
-LLM_MODEL_PATH=C:/path/to/your/model.gguf # Path to your LLM model
-AUDIO_MODEL=stable-audio-open             # Music generation model
-ENVIRONMENT=dev                           # dev/prod (API key only required in prod)
+DJ_IA_API_KEYS=your_api_keys_here  # For external access (optional)
+LLM_MODEL_PATH=/path/to/models/gemma-3-4b-it.gguf
+AUDIO_MODEL=stable-audio-open
+ENVIRONMENT=dev  # Use 'prod' for API key enforcement
+HOST=127.0.0.1 # 0.0.0.0 for prod
+PORT=8000
 ```
 
-**Audio Model Options:**
+## 🚀 Starting the Server
 
-- `musicgen-small` - Fast, lower quality
-- `musicgen-medium` - Balanced speed/quality
-- `musicgen-large` - Highest quality, slower
-- `stable-audio-open` - **Recommended** for electronic music
-- `stable-audio-pro` - Premium version (if available)
+After installation, start the AI server:
 
-### 3. Start AI Server
+**Windows:**
 
 ```bash
-python main.py --host 0.0.0.0 --port 8000 --clean
+env\Scripts\activate.bat && python main.py
 ```
 
-**Available options:**
+**Linux/Mac:**
 
-- `--model-path`: Override LLM model path from .env
-- `--audio-model`: Override audio model from .env
-- `--output-dir`: Output directory (default: ./output)
-- `--generation-duration`: Default sample length in seconds (default: 6.0)
-- `--clean`: Clean output directory on startup
-- `--host`: Server host (default: localhost)
-- `--port`: Server port (default: 8000)
+```bash
+source env/bin/activate && python main.py
+```
 
-### 4. Load Plugin in DAW
+### **Server Options**
 
-- Add DJ-IA VST to any track
-- Configure server URL (`http://localhost:8000`) and API key in plugin
-- Create multiple tracks with different MIDI notes
-- Generate AI loops for each track
-- Play tracks with MIDI keyboard/controller
+- `--model-path PATH` - Override LLM model path (default: from .env)
+- `--audio-model MODEL` - musicgen-small|medium|large|stable-audio-open|stable-audio-pro (default: from .env)
+- `--output-dir DIR` - Output directory (default: ./output)
+- `--clean` - Clean output directory on startup
+- `--host HOST` - Server host (default: from .env)
+- `--port PORT` - Server port (default: from .env)
 
-## 🎵 Multi-Sampler Workflow
+**Example:**
 
-### **1. Track Setup**
+```bash
+python main.py --audio-model stable-audio-open --clean
+```
 
-- Click **"+ Add Track"** to create new sampler tracks
-- Assign unique MIDI notes to each track (C4, D4, E4, etc.)
-- Name tracks for easy identification
+## 🔐 API Keys & External Access
 
-### **2. AI Generation**
+**API Keys are optional** and only needed for:
+
+- **External server access** - Allow remote connections to your DJ-IA server
+- **Shared usage** - Give API keys to friends/collaborators for access
+- **Production deployment** - Secure your server when hosting publicly
+
+**Local usage** (default): No API key required
+**External sharing**: Set `ENVIRONMENT=prod` in `.env` and provide API keys
+
+## 🎵 Usage Workflow
+
+### **1. Start Server & Load Plugin**
+
+- Start the AI server with `python main.py`
+- Add DJ-IA VST to a track in your DAW
+- Set server URL to `http://localhost:8000` in plugin
+- Add API key if using external server access
+
+### **2. Create Multi-Track Setup**
+
+- Click **"+ Add Track"** for new sampler tracks
+- Assign unique MIDI notes (C4, D4, E4, etc.)
+- Name tracks for organization
+
+### **3. AI Generation**
 
 - Select a track and enter creative prompts
-- Choose style, BPM, key, generation duration, and preferred stems
-- Click **"Generate"** to create AI audio for that track
+- Choose style, BPM, key, generation duration
+- Click **"Generate"** to create AI audio
 - **Load Modes**:
-  - **Auto Load**: Samples load immediately after generation
-  - **Load on MIDI**: Samples load when you press any MIDI key (default)
-  - **Manual**: Click "Load Sample" button when ready
+  - **Auto Load**: Immediate loading after generation
+  - **Load on MIDI**: Load when pressing any MIDI key (default)
+  - **Manual**: Click "Load Sample" when ready
 
-### **3. Live Performance**
+### **4. Live Performance**
 
-- Use MIDI keyboard/controller to trigger tracks
-- Each note plays its assigned track as a one-shot sample
-- Tracks automatically sync to your DAW's tempo
-- Mix individual tracks using volume/pan controls
+- Trigger tracks with MIDI keyboard/controller
+- Each note plays its assigned track as one-shot
+- Tracks auto-sync to DAW tempo
+- Mix with individual volume/pan controls
 
-### **4. Waveform Editing**
+### **5. Waveform Editing**
 
-- Click **"Wave"** button to open waveform editor
-- Zoom in on interesting sections with Ctrl+Wheel
-- Drag start/end markers to define playback region
-- Right-click to lock/unlock editing during playback
+- Click **"Wave"** for waveform editor
+- Zoom with Ctrl+Wheel, scroll with Wheel
+- Drag markers to define playback regions
+- Right-click to lock/unlock during playback
+
+## 🎛️ DAW Integration
+
+### **Multi-Output Setup**
+
+- **Main Output**: Mixed audio from all tracks
+- **Individual Outputs**: Track 1, Track 2, Track 3... for separate processing
+- Route individual outputs to different DAW channels
+
+### **MIDI Control**
+
+- Send MIDI notes to the plugin track
+- Each note number triggers its sampler track
+- Works with any MIDI controller or sequencer
+- Perfect for live performance and production
+
+### **Session Management**
+
+- **Save/Load Sessions**: Complete multi-track setups
+- **Preset System**: Save favorite prompts
+- **Smart Loading**: Choose when samples load
 
 ## 🎵 Why Stable Audio Open?
 
-**Stable Audio Open** is the heart of DJ-IA because it:
+**Stable Audio Open** is optimized for DJ-IA because:
 
 - **Higher quality** than MusicGen for electronic music
 - **Better stereo imaging** and spatial characteristics
-- **More responsive** to detailed prompts from the LLM
+- **More responsive** to detailed LLM-generated prompts
 - **44.1kHz native** output (vs 32kHz for MusicGen)
-- **Faster generation** for live performance needs
+- **Faster generation** for live performance
 
 The LLM creates sophisticated prompts like:
 
@@ -187,42 +206,28 @@ The LLM creates sophisticated prompts like:
 dark atmosphere, minimal hi-hats, rolling bassline"
 ```
 
-## 🎛️ DAW Integration
+## ⚠️ System Requirements
 
-### **Multi-Output Setup**
-
-- **Main Output**: Mixed audio from all playing tracks
-- **Individual Outputs**: Track 1, Track 2, Track 3... for separate processing
-- Route individual outputs to different DAW channels for advanced mixing
-
-### **MIDI Control**
-
-- Send MIDI notes to the plugin track
-- Each note number triggers its assigned sampler track
-- Works with any MIDI controller, keyboard, or sequenced notes
-- Perfect for live performance and studio production
-
-### **Session Management**
-
-- **Save/Load Sessions**: Store complete multi-track setups (metadata only for performance)
-- **Preset System**: Save favorite prompts for quick access
-- **Auto-Load Modes**: Choose when samples load for optimal workflow
+- **NVIDIA GPU with CUDA** - Required for real-time generation
+- **8GB+ RAM** - For model loading and audio processing
+- **Windows 10+** or **Linux/macOS** - Cross-platform support
+- **DAW with VST3 support** - Any modern DAW
 
 ## ⚠️ Known Issues
 
 - **CUDA required**: CPU generation too slow for live use
+- **Large model files**: Initial download takes time
 - **Minor UI glitches**: Occasional display inconsistencies
 
 ## 🎯 Live Performance Focus
 
-DJ-IA is designed for **live performance**:
+DJ-IA is designed for **intelligent live performance**:
 
-- Generate loops that fit your current musical context
-- LLM understands what elements are needed next
-- Multi-track sampler enables complex live arrangements
-- Time-stretching keeps everything locked to tempo
-- MIDI triggering provides precise performance control
-- Smart loading modes prevent audio interruptions
-- No complex effects - just pure AI generation + intelligent sampling
+- Generate contextually aware loops
+- LLM understands musical progression needs
+- Multi-track sampler for complex arrangements
+- Time-stretching for perfect tempo sync
+- MIDI triggering for precise control
+- Smart loading to prevent interruptions
 
 This is about **intelligent music creation**, not effects processing.

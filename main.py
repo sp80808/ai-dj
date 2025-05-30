@@ -86,12 +86,6 @@ def main():
         help="Audio model to use (MusicGen or Stable Audio)",
     )
     parser.add_argument(
-        "--generation-duration",
-        type=float,
-        default=6.0,
-        help="Default generation time (in seconds)",
-    )
-    parser.add_argument(
         "--clean",
         action="store_true",
         help="Clean all files in the output directory on startup",

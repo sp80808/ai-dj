@@ -26,7 +26,6 @@ class DJSystem:
         self.model_path = args.model_path
         self.output_dir_base = args.output_dir
         self.audio_model = args.audio_model
-        self.generation_duration = args.generation_duration
 
         print("Initializing DJ-IA system...")
         self.stems_manager = StemsManager()

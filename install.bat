@@ -85,7 +85,6 @@ REM Create config
 echo.
 echo Creating configuration...
 (
-echo # DJ-IA Configuration
 echo DJ_IA_API_KEYS=api keys separated by commas
 echo LLM_MODEL_PATH=%cd%\models\gemma-3-4b-it.gguf
 echo AUDIO_MODEL=stable-audio-open
@@ -121,25 +120,24 @@ if errorlevel 1 (
 )
 cd ..\..\
 
-REM Create start script
-echo.
-echo Creating start script...
-(
-echo @echo off
-echo echo Starting DJ-IA Server...
-echo call env\Scripts\activate.bat
-echo python main.py --host 0.0.0.0 --port 8000
-) > start.bat
-echo Start script created
-
 echo.
 echo Installation complete!
 echo ==================================
 echo Next steps:
 echo    1. Copy the VST plugin to your DAW's VST folder
-echo    2. Run: start.bat
+echo    2. Start the server with: env\Scripts\activate.bat ^&^& python main.py
 echo    3. Load DJ-IA VST in your DAW
 echo    4. Set server URL to: http://localhost:8000
+echo.
+echo Available server options:
+echo    --model-path PATH       Override LLM model path
+echo    --audio-model MODEL     musicgen-small^|medium^|large^|stable-audio-open^|stable-audio-pro
+echo    --output-dir DIR        Output directory ^(default: .\output^)
+echo    --clean                 Clean output directory on startup
+echo    --host HOST             Server host ^(default: from .env^)
+echo    --port PORT             Server port ^(default: from .env^)
+echo.
+echo Example: python main.py --audio-model musicgen-medium --generation-duration 8.0 --clean
 echo.
 echo Ready to jam!
 pause

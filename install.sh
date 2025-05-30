@@ -79,7 +79,6 @@ fi
 echo ""
 echo "Creating configuration..."
 cat > .env << EOF
-# DJ-IA Configuration
 DJ_IA_API_KEYS=api keys separated by commas
 LLM_MODEL_PATH=$(pwd)/models/gemma-3-4b-it.gguf
 AUDIO_MODEL=stable-audio-open
@@ -114,25 +113,23 @@ else
 fi
 cd ../../
 
-# Create start script
-echo ""
-echo "Creating start script..."
-cat > start.sh << 'EOF'
-#!/bin/bash
-echo "Starting DJ-IA Server..."
-source env/bin/activate
-python main.py --host 0.0.0.0 --port 8000
-EOF
-chmod +x start.sh
-echo "Start script created"
-
 echo ""
 echo "Installation complete!"
 echo "=================================="
 echo "Next steps:"
 echo "   1. Copy the VST plugin to your DAW's VST folder"
-echo "   2. Run: ./start.sh"
+echo "   2. Start the server with: source env/bin/activate && python main.py"
 echo "   3. Load DJ-IA VST in your DAW"
 echo "   4. Set server URL to: http://localhost:8000"
 echo ""
-echo "Ready to create AI music!"
+echo "Available server options:"
+echo "   --model-path PATH       Override LLM model path (default: from .env)"
+echo "   --audio-model MODEL     musicgen-small|medium|large|stable-audio-open|stable-audio-pro (default: from .env)"
+echo "   --output-dir DIR        Output directory (default: ./output)"
+echo "   --clean                 Clean output directory on startup"
+echo "   --host HOST             Server host (default: from .env)"
+echo "   --port PORT             Server port (default: from .env)"
+echo ""
+echo "Example: python main.py --audio-model stable-audio-open --clean"
+echo ""
+echo "🎵 Ready to jam!"
