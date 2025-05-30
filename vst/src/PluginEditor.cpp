@@ -516,13 +516,57 @@ void DjIaVstEditor::paint(juce::Graphics& g)
 	}
 }
 
+void DjIaVstEditor::layoutPromptSection(juce::Rectangle<int> area, int spacing) {
+	auto row1 = area.removeFromTop(35);
+	int saveButtonWidth = 50;
+	promptPresetSelector.setBounds(row1.removeFromLeft(area.getWidth() - saveButtonWidth - spacing));
+	row1.removeFromLeft(spacing);
+	savePresetButton.setBounds(row1.removeFromLeft(saveButtonWidth));
+
+	area.removeFromTop(spacing);
+
+	auto row2 = area.removeFromTop(35);
+	promptInput.setBounds(row2.removeFromLeft(area.getWidth()));
+}
+
+void DjIaVstEditor::layoutConfigSection(juce::Rectangle<int> area, int reducing) {
+	auto controlRow = area.removeFromTop(35);
+	auto controlWidth = controlRow.getWidth() / 5;
+
+	keySelector.setBounds(controlRow.removeFromLeft(controlWidth).reduced(reducing));
+	durationSlider.setBounds(controlRow.removeFromLeft(controlWidth).reduced(reducing));
+	serverSidePreTreatmentButton.setBounds(controlRow.removeFromLeft(controlWidth).reduced(reducing));
+	hostBpmButton.setBounds(controlRow.removeFromLeft(controlWidth).reduced(reducing));
+	bpmSlider.setBounds(controlRow.reduced(reducing));
+
+	auto stemsRow = area.removeFromTop(30);
+	auto stemsSection = stemsRow.removeFromLeft(600);
+	stemsLabel.setBounds(stemsSection.removeFromLeft(60));
+	auto stemsArea = stemsSection.reduced(reducing);
+	auto stemWidth = stemsArea.getWidth() / 6;
+	drumsButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(reducing));
+	bassButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(reducing));
+	vocalsButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(reducing));
+	guitarButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(reducing));
+	pianoButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(reducing));
+	otherButton.setBounds(stemsArea.reduced(reducing));
+}
+
 void DjIaVstEditor::resized()
 {
 	static bool resizing = false;
+
+	const int spacing = 5;
+	const int margin = 10;
+	const int padding = 10;
+	const int reducing = 2;
+
 	if (resizing)
 		return;
+
 	resizing = true;
-	auto bottomArea = getLocalBounds().removeFromBottom(70);
+
+	auto bottomArea = getLocalBounds().removeFromBottom(45);
 	auto area = getLocalBounds();
 
 	if (menuBar)
@@ -530,68 +574,37 @@ void DjIaVstEditor::resized()
 		menuBar->setBounds(area.removeFromTop(24));
 	}
 
-	area = area.reduced(10);
+	area = area.reduced(padding);
 
 	auto configArea = area.removeFromTop(40);
 
 	auto logoSpace = configArea.removeFromRight(120);
-	auto configRow = configArea.removeFromTop(20);
+	auto configRow = configArea.removeFromTop(35);
 
 	auto serverSection = configRow.removeFromLeft(configRow.getWidth() * 0.45f);
 	serverUrlLabel.setBounds(serverSection.removeFromLeft(50));
-	serverUrlInput.setBounds(serverSection.reduced(1));
+	serverUrlInput.setBounds(serverSection.reduced(reducing));
 
 	configRow.removeFromLeft(10);
 
 	apiKeyLabel.setBounds(configRow.removeFromLeft(50));
-	apiKeyInput.setBounds(configRow.reduced(1));
+	apiKeyInput.setBounds(configRow.reduced(reducing));
 
-	area.removeFromTop(5);
+	area.removeFromTop(spacing);
 
-	auto presetRow = area.removeFromTop(35);
-	promptPresetSelector.setBounds(presetRow.removeFromLeft(presetRow.getWidth() - 80));
-	presetRow.removeFromLeft(5);
-	savePresetButton.setBounds(presetRow);
+	auto promptAndConfigArea = area.removeFromTop(80);
+	auto leftSection = promptAndConfigArea.removeFromLeft(promptAndConfigArea.getWidth() / 2);
+	promptAndConfigArea.removeFromLeft(20);
+	auto rightSection = promptAndConfigArea;
 
-	area.removeFromTop(5);
+	layoutPromptSection(leftSection, spacing);
+	layoutConfigSection(rightSection, reducing);
 
-	promptInput.setBounds(area.removeFromTop(35));
+	area.removeFromTop(spacing);
 
-	area.removeFromTop(5);
+	auto tracksAndMixerArea = area.removeFromTop(area.getHeight() - 70);
 
-	auto controlRow = area.removeFromTop(35);
-	auto controlWidth = controlRow.getWidth() / 5;
-
-	keySelector.setBounds(controlRow.removeFromLeft(controlWidth).reduced(2));
-	durationSlider.setBounds(controlRow.removeFromLeft(controlWidth).reduced(2));
-	serverSidePreTreatmentButton.setBounds(controlRow.removeFromLeft(controlWidth).reduced(2));
-	hostBpmButton.setBounds(controlRow.removeFromLeft(controlWidth).reduced(2));
-	bpmSlider.setBounds(controlRow.reduced(2));
-
-	area.removeFromTop(5);
-
-	auto stemsRow = area.removeFromTop(30);
-	auto stemsSection = stemsRow.removeFromLeft(600);
-	stemsLabel.setBounds(stemsSection.removeFromLeft(60));
-	auto stemsArea = stemsSection.reduced(2);
-	auto stemWidth = stemsArea.getWidth() / 6;
-	drumsButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(1));
-	bassButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(1));
-	vocalsButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(1));
-	guitarButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(1));
-	pianoButton.setBounds(stemsArea.removeFromLeft(stemWidth).reduced(1));
-	otherButton.setBounds(stemsArea.reduced(1));
-
-	area.removeFromTop(5);
-
-	auto tracksHeaderArea = area.removeFromTop(30);
-	addTrackButton.setBounds(tracksHeaderArea.removeFromRight(100));
-
-	area.removeFromTop(5);
-
-	auto tracksAndMixerArea = area.removeFromTop(area.getHeight() - 100);
-
-	auto tracksMainArea = tracksAndMixerArea.removeFromLeft(tracksAndMixerArea.getWidth() * 0.65f);
+	auto tracksMainArea = tracksAndMixerArea.removeFromLeft(tracksAndMixerArea.getWidth() * 0.6f);
 
 	tracksViewport.setBounds(tracksMainArea);
 
@@ -603,13 +616,16 @@ void DjIaVstEditor::resized()
 	}
 
 	auto buttonsRow = area.removeFromTop(35);
-	auto buttonWidth = buttonsRow.getWidth() / 3;
+	auto buttonWidth = buttonsRow.getWidth() / 5;
+	auto tracksHeaderArea = area.removeFromTop(30);
+	autoLoadButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
+	addTrackButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
 	generateButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
 	loadSampleButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
 	resetUIButton.setBounds(buttonsRow.reduced(5));
 
-	autoLoadButton.setBounds(bottomArea.removeFromTop(20));
-	bottomArea.removeFromTop(10);
+
+	bottomArea.removeFromTop(spacing);
 	statusLabel.setBounds(bottomArea.removeFromTop(20));
 	midiIndicator.setBounds(bottomArea.removeFromTop(20));
 

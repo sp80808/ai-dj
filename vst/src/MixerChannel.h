@@ -183,7 +183,7 @@ public:
 
 		area.removeFromTop(5);
 
-		auto volumeArea = area.removeFromTop(100);
+		auto volumeArea = area.removeFromTop(270);
 		volumeSlider.setBounds(volumeArea.reduced(width / 4, 0));
 
 		area.removeFromTop(5);

@@ -10,6 +10,8 @@ public:
 	~DjIaVstEditor() override;
 
 	void paint(juce::Graphics&) override;
+	void layoutPromptSection(juce::Rectangle<int> area, int spacing);
+	void layoutConfigSection(juce::Rectangle<int> area, int reducing);
 	void resized() override;
 	void timerCallback() override;
 	void refreshTrackComponents();

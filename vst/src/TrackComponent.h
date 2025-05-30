@@ -323,7 +323,7 @@ public:
 		if (bpmOffsetSlider.isVisible())
 		{
 			controlsArea.removeFromLeft(5);
-			bpmOffsetLabel.setBounds(controlsArea.removeFromLeft(30));
+			bpmOffsetLabel.setBounds(controlsArea.removeFromLeft(50));
 			bpmOffsetSlider.setBounds(controlsArea.removeFromLeft(300));
 		}
 
@@ -531,7 +531,7 @@ private:
 			};
 		bpmOffsetSlider.setValue(0.0, juce::dontSendNotification);
 		addAndMakeVisible(bpmOffsetLabel);
-		bpmOffsetLabel.setText("BPM:", juce::dontSendNotification);
+		bpmOffsetLabel.setText("BPM offset:", juce::dontSendNotification);
 		bpmOffsetLabel.setFont(juce::Font(9.0f));
 		bpmOffsetLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
 
