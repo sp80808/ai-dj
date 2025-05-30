@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "AudioAnalyzer.h"
+#include "DummySynth.h"
 
 juce::AudioProcessor::BusesProperties DjIaVstProcessor::createBusLayout()
 {
