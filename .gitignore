@@ -13,3 +13,7 @@ server/api/generated_loops
 server/api/temp_loops
 output.wav
 .vs
+models/*
+!models/.gitkeep
+start.sh 
+start.bat

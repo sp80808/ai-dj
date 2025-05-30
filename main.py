@@ -1,13 +1,43 @@
 import argparse
 import os
 import shutil
+import time
 from fastapi import FastAPI, Request, Depends
 import uvicorn
 from dotenv import load_dotenv
 from core.dj_system import DJSystem
-from utils.file_utils import cleanup_output_directory
+
 
 load_dotenv()
+
+
+def cleanup_output_directory(directory_path, max_age_minutes=60):
+    if not os.path.exists(directory_path):
+        os.makedirs(directory_path, exist_ok=True)
+        print(f"✅ Directory created: {directory_path}")
+        return
+
+    print(f"Cleaning output directory: {directory_path}")
+    try:
+        now = time.time()
+        count = 0
+        for filename in os.listdir(directory_path):
+            file_path = os.path.join(directory_path, filename)
+            if os.path.isfile(file_path):
+                file_age_minutes = (now - os.path.getmtime(file_path)) / 60.0
+                if file_age_minutes > max_age_minutes:
+                    try:
+                        os.remove(file_path)
+                        count += 1
+                    except (PermissionError, OSError) as e:
+                        print(f"Error deleting {file_path}: {e}")
+
+        if count > 0:
+            print(f"Cleaning: {count} temporary files deleted from directory.")
+        else:
+            print("No files to clean.")
+    except Exception as e:
+        print(f"Error cleaning directory: {e}")
 
 
 def get_dj_system(request: Request):
@@ -66,8 +96,15 @@ def main():
         action="store_true",
         help="Clean all files in the output directory on startup",
     )
-    parser.add_argument("--host", default="localhost", help="Host for API server")
-    parser.add_argument("--port", type=int, default=8000, help="Port for API server")
+    parser.add_argument(
+        "--host", default=os.environ.get("HOST"), help="Host for API server"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.environ.get("PORT")),
+        help="Port for API server",
+    )
     args = parser.parse_args()
     layers_dir = os.path.join(args.output_dir, "layers")
     os.makedirs(args.output_dir, exist_ok=True)
