@@ -5,7 +5,7 @@
 class MixerChannel : public juce::Component, public juce::Timer
 {
 public:
-	MixerChannel(const juce::String& trackId) : trackId(trackId), track(nullptr)
+	MixerChannel(const juce::String &trackId) : trackId(trackId), track(nullptr)
 	{
 		setupUI();
 	}
@@ -22,37 +22,37 @@ public:
 		repaint();
 	}
 
-	void setTrackData(TrackData* trackData)
+	void setTrackData(TrackData *trackData)
 	{
 		track = trackData;
 		if (track)
 		{
 			juce::WeakReference<MixerChannel> weakThis(this);
 			track->onPlayStateChanged = [weakThis](bool isPlaying)
+			{
+				if (weakThis != nullptr)
 				{
-					if (weakThis != nullptr)
-					{
-						juce::MessageManager::callAsync([weakThis]()
-							{
+					juce::MessageManager::callAsync([weakThis]()
+													{
 								if (weakThis != nullptr && !weakThis->isUpdatingButtons) {
 									weakThis->updateButtonColors();
 								} });
-					}
-				};
+				}
+			};
 		}
 		updateFromTrackData();
 	}
 
 	juce::String getTrackId() const { return trackId; }
 
-	std::function<void(const juce::String&, bool)> onSoloChanged;
-	std::function<void(const juce::String&, bool)> onMuteChanged;
-	std::function<void(const juce::String&)> onPlayTrack;
-	std::function<void(const juce::String&)> onStopTrack;
-	std::function<void(const juce::String&, int)> onMidiLearn;
-	std::function<void(const juce::String&, float)> onPitchChanged;
-	std::function<void(const juce::String&, float)> onFineChanged;
-	std::function<void(const juce::String&, float)> onPanChanged;
+	std::function<void(const juce::String &, bool)> onSoloChanged;
+	std::function<void(const juce::String &, bool)> onMuteChanged;
+	std::function<void(const juce::String &)> onPlayTrack;
+	std::function<void(const juce::String &)> onStopTrack;
+	std::function<void(const juce::String &, int)> onMidiLearn;
+	std::function<void(const juce::String &, float)> onPitchChanged;
+	std::function<void(const juce::String &, float)> onFineChanged;
+	std::function<void(const juce::String &, float)> onPanChanged;
 
 	void updateFromTrackData()
 	{
@@ -70,7 +70,7 @@ public:
 		updateButtonColors();
 	}
 
-	void paint(juce::Graphics& g) override
+	void paint(juce::Graphics &g) override
 	{
 		auto bounds = getLocalBounds();
 
@@ -90,7 +90,7 @@ public:
 		drawVUMeter(g, bounds);
 	}
 
-	void drawVUMeter(juce::Graphics& g, juce::Rectangle<int> bounds)
+	void drawVUMeter(juce::Graphics &g, juce::Rectangle<int> bounds)
 	{
 		auto vuArea = juce::Rectangle<float>(bounds.getWidth() - 10, 110, 6, bounds.getHeight() - 120);
 
@@ -136,7 +136,7 @@ public:
 		}
 	}
 
-	void fillMeters(juce::Rectangle<float>& vuArea, int i, float segmentHeight, int numSegments, float currentLevel, juce::Graphics& g)
+	void fillMeters(juce::Rectangle<float> &vuArea, int i, float segmentHeight, int numSegments, float currentLevel, juce::Graphics &g)
 	{
 		float segmentY = vuArea.getBottom() - 2 - (i + 1) * segmentHeight;
 		float segmentLevel = (float)i / numSegments;
@@ -205,7 +205,7 @@ public:
 		updateMidiLearnIndicators();
 	}
 
-	void handleMidiMessage(const juce::MidiMessage& message, int learnedControlType)
+	void handleMidiMessage(const juce::MidiMessage &message, int learnedControlType)
 	{
 		if (!track || bypassMidiFrames > 0)
 			return;
@@ -354,16 +354,15 @@ public:
 
 private:
 	juce::String trackId;
-	TrackData* track;
+	TrackData *track;
 	bool isSelected = false;
 	int bypassMidiFrames = 0;
-	std::atomic<bool> isUpdatingButtons{ false };
+	std::atomic<bool> isUpdatingButtons{false};
 
 	float currentAudioLevel = 0.0f;
 	float peakHold = 0.0f;
 	int peakHoldTimer = 0;
 	std::vector<float> levelHistory;
-
 
 	bool isBlinking = false;
 	bool blinkState = false;
@@ -409,8 +408,10 @@ private:
 		playButton.setButtonText("ARM");
 		playButton.setClickingTogglesState(true);
 		playButton.onClick = [this]()
+		{
+			if (track)
 			{
-				if (track)
+				if (!track->isPlaying.load())
 				{
 					bool shouldArm = playButton.getToggleState();
 					track->isArmed = shouldArm;
@@ -418,17 +419,20 @@ private:
 					{
 						track->isPlaying = false;
 					}
-					updateButtonColors();
 				}
-			};
+				updateButtonColors();
+			}
+		};
 		setupMidiLearn(playButton, MIDI_PLAY);
 
 		addAndMakeVisible(stopButton);
 		stopButton.setButtonText("STP");
 		stopButton.setClickingTogglesState(false);
 		stopButton.onClick = [this]()
+		{
+			if (track)
 			{
-				if (track)
+				if (track->isPlaying.load() && !track->isArmedToStop.load())
 				{
 					track->isArmed = false;
 					track->isArmedToStop = true;
@@ -436,37 +440,37 @@ private:
 
 					isBlinking = true;
 					startTimer(300);
-
-					updateButtonColors();
 				}
-			};
+				updateButtonColors();
+			}
+		};
 		setupMidiLearn(stopButton, MIDI_STOP);
 
 		addAndMakeVisible(muteButton);
 		muteButton.setButtonText("M");
 		muteButton.setClickingTogglesState(true);
 		muteButton.onClick = [this]()
+		{
+			if (track)
 			{
-				if (track)
-				{
-					track->isMuted = muteButton.getToggleState();
-					updateButtonColors();
-				}
-			};
+				track->isMuted = muteButton.getToggleState();
+				updateButtonColors();
+			}
+		};
 		setupMidiLearn(muteButton, MIDI_MUTE);
 
 		addAndMakeVisible(soloButton);
 		soloButton.setButtonText("S");
 		soloButton.setClickingTogglesState(true);
 		soloButton.onClick = [this]()
+		{
+			if (track)
 			{
-				if (track)
-				{
-					bool newSoloState = soloButton.getToggleState();
-					track->isSolo = newSoloState;
-					updateButtonColors();
-				}
-			};
+				bool newSoloState = soloButton.getToggleState();
+				track->isSolo = newSoloState;
+				updateButtonColors();
+			}
+		};
 		setupMidiLearn(soloButton, MIDI_SOLO);
 
 		addAndMakeVisible(volumeSlider);
@@ -477,12 +481,12 @@ private:
 		volumeSlider.setColour(juce::Slider::thumbColourId, juce::Colour(0xff00ff88));
 		volumeSlider.setColour(juce::Slider::trackColourId, juce::Colour(0xff404040));
 		volumeSlider.onValueChange = [this]()
+		{
+			if (track)
 			{
-				if (track)
-				{
-					track->volume = volumeSlider.getValue();
-				}
-			};
+				track->volume = volumeSlider.getValue();
+			}
+		};
 		setupMidiLearn(volumeSlider, MIDI_VOLUME);
 
 		addAndMakeVisible(pitchKnob);
@@ -520,12 +524,12 @@ private:
 		panKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
 		panKnob.setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xff00ff88));
 		panKnob.onValueChange = [this]()
+		{
+			if (track)
 			{
-				if (track)
-				{
-					track->pan = panKnob.getValue();
-				}
-			};
+				track->pan = panKnob.getValue();
+			}
+		};
 		setupMidiLearn(panKnob, MIDI_PAN);
 
 		addAndMakeVisible(panLabel);
@@ -535,39 +539,39 @@ private:
 		panLabel.setFont(juce::Font(9.0f));
 
 		pitchKnob.onValueChange = [this]()
+		{
+			if (track)
 			{
-				if (track)
+				track->bpmOffset = pitchKnob.getValue();
+				if (onPitchChanged)
 				{
-					track->bpmOffset = pitchKnob.getValue();
-					if (onPitchChanged)
-					{
-						onPitchChanged(trackId, pitchKnob.getValue());
-					}
+					onPitchChanged(trackId, pitchKnob.getValue());
 				}
-			};
+			}
+		};
 		fineKnob.onValueChange = [this]()
+		{
+			if (track)
 			{
-				if (track)
+				float fineBpmOffset = fineKnob.getValue() / 100.0f;
+				track->fineOffset = fineBpmOffset;
+				if (onFineChanged)
 				{
-					float fineBpmOffset = fineKnob.getValue() / 100.0f;
-					track->fineOffset = fineBpmOffset;
-					if (onFineChanged)
-					{
-						onFineChanged(trackId, fineBpmOffset);
-					}
+					onFineChanged(trackId, fineBpmOffset);
 				}
-			};
+			}
+		};
 		panKnob.onValueChange = [this]()
+		{
+			if (track)
 			{
-				if (track)
+				track->pan.store(panKnob.getValue());
+				if (onPanChanged)
 				{
-					track->pan.store(panKnob.getValue());
-					if (onPanChanged)
-					{
-						onPanChanged(trackId, track->pan.load());
-					}
+					onPanChanged(trackId, track->pan.load());
 				}
-			};
+			}
+		};
 	}
 
 	void MixerChannel::timerCallback() override
@@ -576,7 +580,7 @@ private:
 		{
 			blinkState = !blinkState;
 			stopButton.setColour(juce::TextButton::buttonColourId,
-				blinkState ? juce::Colours::red : juce::Colours::darkred);
+								 blinkState ? juce::Colours::red : juce::Colours::darkred);
 		}
 		else
 		{
@@ -624,35 +628,35 @@ private:
 
 		muteButton.setToggleState(isMuted, juce::dontSendNotification);
 		muteButton.setColour(juce::TextButton::buttonOnColourId,
-			isMuted ? juce::Colour(0xffaa0000) : juce::Colour(0xff404040));
+							 isMuted ? juce::Colour(0xffaa0000) : juce::Colour(0xff404040));
 		muteButton.setColour(juce::TextButton::buttonColourId,
-			juce::Colour(0xff404040));
+							 juce::Colour(0xff404040));
 
 		soloButton.setToggleState(isSolo, juce::dontSendNotification);
 		soloButton.setColour(juce::TextButton::buttonOnColourId,
-			juce::Colour(0xffffff00));
+							 juce::Colour(0xffffff00));
 		soloButton.setColour(juce::TextButton::textColourOnId,
-			juce::Colours::black);
+							 juce::Colours::black);
 		soloButton.setColour(juce::TextButton::buttonColourId,
-			juce::Colour(0xff404040));
+							 juce::Colour(0xff404040));
 		soloButton.setColour(juce::TextButton::textColourOffId,
-			juce::Colours::white);
+							 juce::Colours::white);
 
 		stopButton.setColour(juce::TextButton::buttonColourId,
-			(isArmed || isPlaying) ? juce::Colour(0xffaa4400) : juce::Colour(0xff404040));
+							 (isArmed || isPlaying) ? juce::Colour(0xffaa4400) : juce::Colour(0xff404040));
 		isUpdatingButtons = false;
 	}
 
-	void setupMidiLearn(juce::Component& component, int controlType)
+	void setupMidiLearn(juce::Component &component, int controlType)
 	{
 		component.setMouseCursor(juce::MouseCursor::PointingHandCursor);
-		auto mouseHandler = [this, controlType](const juce::MouseEvent& e)
+		auto mouseHandler = [this, controlType](const juce::MouseEvent &e)
+		{
+			if (e.mods.isRightButtonDown())
 			{
-				if (e.mods.isRightButtonDown())
-				{
-					startMidiLearn(controlType);
-				}
-			};
+				startMidiLearn(controlType);
+			}
+		};
 		component.addMouseListener(this, false);
 	}
 
@@ -665,16 +669,15 @@ private:
 		}
 		repaint();
 		juce::Timer::callAfterDelay(5000, [this, controlType]()
-			{
+									{
 				midiLearnActive.erase(controlType);
 				repaint(); });
 	}
 
 	void updateMidiLearnIndicators()
 	{
-
 	}
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MixerChannel)
-		JUCE_DECLARE_WEAK_REFERENCEABLE(MixerChannel)
+	JUCE_DECLARE_WEAK_REFERENCEABLE(MixerChannel)
 };

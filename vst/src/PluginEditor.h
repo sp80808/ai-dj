@@ -6,10 +6,10 @@
 class DjIaVstEditor : public juce::AudioProcessorEditor, public juce::MenuBarModel, public juce::Timer
 {
 public:
-	explicit DjIaVstEditor(DjIaVstProcessor&);
+	explicit DjIaVstEditor(DjIaVstProcessor &);
 	~DjIaVstEditor() override;
 
-	void paint(juce::Graphics&) override;
+	void paint(juce::Graphics &) override;
 	void layoutPromptSection(juce::Rectangle<int> area, int spacing);
 	void layoutConfigSection(juce::Rectangle<int> area, int reducing);
 	void resized() override;
@@ -18,19 +18,21 @@ public:
 	void updateUIFromProcessor();
 	void refreshTracks();
 
+	void initUI();
+
 	juce::Label statusLabel;
 
 	juce::StringArray getMenuBarNames() override;
-	juce::PopupMenu getMenuForIndex(int topLevelMenuIndex, const juce::String& menuName) override;
+	juce::PopupMenu getMenuForIndex(int topLevelMenuIndex, const juce::String &menuName) override;
 	void menuItemSelected(int menuItemID, int topLevelMenuIndex) override;
 
-	std::vector<std::unique_ptr<TrackComponent>>& getTrackComponents()
+	std::vector<std::unique_ptr<TrackComponent>> &getTrackComponents()
 	{
 		return trackComponents;
 	}
 
 private:
-	DjIaVstProcessor& audioProcessor;
+	DjIaVstProcessor &audioProcessor;
 	juce::Image logoImage;
 	void setupUI();
 	void addEventListeners();
@@ -42,15 +44,15 @@ private:
 	void onAutoLoadToggled();
 	void onLoadSampleClicked();
 	void updateLoadButtonState();
-	void updateMidiIndicator(const juce::String& noteInfo);
+	void updateMidiIndicator(const juce::String &noteInfo);
 	void onAddTrack();
 	void updateSelectedTrack();
 	void onSaveSession();
 	void onLoadSession();
 	void loadSessionList();
-	void saveCurrentSession(const juce::String& sessionName);
-	void loadSession(const juce::String& sessionName);
-	void onDeleteTrack(const juce::String& trackId);
+	void saveCurrentSession(const juce::String &sessionName);
+	void loadSession(const juce::String &sessionName);
+	void onDeleteTrack(const juce::String &trackId);
 	void updateUIComponents();
 	void setAllGenerateButtonsEnabled(bool enabled);
 	void updateServerSidePreTreatment();
@@ -72,8 +74,7 @@ private:
 		"Industrial noise texture",
 		"Glitchy percussion loop",
 		"Vintage analog lead",
-		"Distorted noise chops" };
-
+		"Distorted noise chops"};
 
 	juce::ComboBox promptPresetSelector;
 	juce::TextButton savePresetButton;
