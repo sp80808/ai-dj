@@ -1,6 +1,7 @@
 import base64
 import time
 import librosa
+import hashlib
 from fastapi import APIRouter, HTTPException, Depends, Security, Request
 from .models import GenerateRequest, GenerateResponse
 from config.config import API_KEYS, API_KEY_HEADER, ENVIRONMENT, audio_lock, llm_lock
@@ -8,6 +9,10 @@ from server.api.api_request_handler import APIRequestHandler
 
 
 router = APIRouter()
+
+
+def get_user_id_from_api_key(api_key):
+    return hashlib.sha256(api_key.encode()).hexdigest()[:16]
 
 
 def get_dj_system(request: Request):
@@ -36,16 +41,17 @@ async def verify_key(_: str = Depends(verify_api_key)):
 @router.post("/generate", response_model=GenerateResponse)
 async def generate_loop(
     request: GenerateRequest,
-    _: str = Depends(verify_api_key),
+    api_key: str = Depends(verify_api_key),
     dj_system=Depends(get_dj_system),
 ):
     try:
         request_id = int(time.time())
         print(f"\n===== 🎵 QUERY #{request_id} =====")
         print(f"📝 '{request.prompt}' | {request.bpm} BPM | {request.key}")
+        user_id = get_user_id_from_api_key(api_key)
         handler = APIRequestHandler(dj_system)
         async with llm_lock:
-            handler.setup_llm_session(request, request_id)
+            handler.setup_llm_session(request, request_id, user_id)
             llm_decision = handler.get_llm_decision(request_id)
         async with audio_lock:
             audio, _ = handler.generate_simple(request, llm_decision, request_id)

@@ -9,7 +9,7 @@ class APIRequestHandler:
     def __init__(self, dj_system):
         self.dj_system: DJSystem = dj_system
 
-    def setup_llm_session(self, request: GenerateRequest, request_id):
+    def setup_llm_session(self, request: GenerateRequest, request_id, user_id):
         print(f"[{request_id}] 🔄 Minimal LLM Setup...")
 
         self.dj_system.dj_brain.init_model()
@@ -20,6 +20,7 @@ class APIRequestHandler:
             "user_prompt": request.prompt,
             "request_id": request_id,
             "last_action_time": time.time(),
+            "user_id": user_id,
         }
 
     def get_llm_decision(self, request_id):

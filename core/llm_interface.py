@@ -10,9 +10,7 @@ class DJAILL:
     def __init__(self, model_path, config=None):
         self.model_path = model_path
         self.session_state = config or {}
-        self.conversation_history = [
-            {"role": "system", "content": self.get_system_prompt()}
-        ]
+        self.conversations = {}
 
     def destroy_model(self):
         if hasattr(self, "model"):
@@ -34,6 +32,14 @@ class DJAILL:
         )
         print("✅ New LLM model initialized")
 
+    def init_user_conversation_history(self, user_id):
+        if user_id not in self.conversations:
+            self.conversations[user_id] = {
+                "conversation_history": [
+                    {"role": "system", "content": self.get_system_prompt()}
+                ]
+            }
+
     def get_next_decision(self):
         current_time = time.time()
         if self.session_state.get("last_action_time", 0) > 0:
@@ -43,15 +49,18 @@ class DJAILL:
             )
         self.session_state["last_action_time"] = current_time
         user_prompt = self._build_prompt()
-        self.conversation_history.append({"user": user_prompt})
-        print(self.conversation_history)
-        print(
-            f"\n🧠 AI-DJ generation with {len(self.conversation_history)} history messages..."
+        user_id = self.session_state["user_id"]
+        self.init_user_conversation_history(user_id)
+        self.conversations[user_id]["conversation_history"].append(
+            {"role": "user", "content": user_prompt}
         )
-        response = self.model.create_chat_completion(self.conversation_history)
-
+        print(
+            f"\n🧠 AI-DJ generation with {len(self.conversations[user_id]['conversation_history'])} history messages..."
+        )
+        response = self.model.create_chat_completion(
+            self.conversations[user_id]["conversation_history"]
+        )
         print("✅ Generation complete!")
-
         try:
             response_text = response["choices"][0]["message"]["content"]
             json_match = re.search(r"({.*})", response_text, re.DOTALL)
@@ -69,7 +78,6 @@ class DJAILL:
                     },
                     "reasoning": "Fallback: No valid JSON response",
                 }
-                self.conversation_history.append({"assistant": decision})
 
         except (json.JSONDecodeError, KeyError) as e:
             print(f"Error parsing response: {e}")
@@ -85,14 +93,11 @@ class DJAILL:
                 },
                 "reasoning": f"Parsing error: {str(e)}",
             }
-            self.conversation_history.append({"assistant": decision})
-
-        if "history" not in self.session_state:
-            self.session_state["history"] = []
-        self.session_state["history"].append(decision)
-        self.conversation_history.append({"assistant": decision})
-        if len(self.conversation_history) > 3:
-            del self.conversation_history[1:3]
+        self.conversations[user_id]["conversation_history"].append(
+            {"role": "assistant", "content": decision}
+        )
+        if len(self.conversations[user_id]["conversation_history"]) > 9:
+            del self.conversations[user_id]["conversation_history"][1:3]
         return decision
 
     def _build_prompt(self):
