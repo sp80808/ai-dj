@@ -44,7 +44,7 @@ class DJAILL:
         self.session_state["last_action_time"] = current_time
         user_prompt = self._build_prompt()
         self.conversation_history.append({"user": user_prompt})
-
+        print(self.conversation_history)
         print(
             f"\n🧠 AI-DJ generation with {len(self.conversation_history)} history messages..."
         )
