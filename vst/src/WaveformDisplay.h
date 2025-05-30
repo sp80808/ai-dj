@@ -129,14 +129,14 @@ public:
         {
             g.setColour(juce::Colours::yellow);
             g.setFont(10.0f);
-            g.drawText("Zoom: " + juce::String(zoomFactor, 1) + "x", 5, 5, 60, 15, juce::Justification::left);
+            g.drawText("Zoom: " + juce::String(zoomFactor, 1) + "x", 5, getHeight() - 15, 60, 15, juce::Justification::left);
         }
 
         if (loopPointsLocked)
         {
             g.setColour(juce::Colours::red);
             g.setFont(10.0f);
-            g.drawText("LOCKED", getWidth() - 60, 5, 55, 15, juce::Justification::right);
+            g.drawText("LOCKED", getWidth() - 60, getHeight() - 15, 55, 15, juce::Justification::right);
         }
     }
 
@@ -155,7 +155,7 @@ public:
         float startX = timeToX(loopStart);
         float endX = timeToX(loopEnd);
 
-        float tolerance = 15.0f; 
+        float tolerance = 15.0f;
 
         if (std::abs(e.x - startX) < tolerance)
         {
@@ -303,9 +303,8 @@ private:
     float originalBpm = 126.0f;
     float timeStretchRatio = 1.0f;
 
-    double zoomFactor = 1.0;   
-    double viewStartTime = 0.0; 
-
+    double zoomFactor = 1.0;
+    double viewStartTime = 0.0;
 
     double playbackPosition = 0.0;
     bool isCurrentlyPlaying = false;
@@ -340,18 +339,22 @@ private:
         {
             int retFlag;
             feedThumbnail(startSample, point, samplesPerPoint, retFlag);
-            if (retFlag == 2) break;
+            if (retFlag == 2)
+                break;
         }
     }
 
-    void feedThumbnail(int startSample, int point, int samplesPerPoint, int& retFlag)
+    void feedThumbnail(int startSample, int point, int samplesPerPoint, int &retFlag)
     {
         retFlag = 1;
         int sampleStart = startSample + (point * samplesPerPoint);
         int sampleEnd = std::min(sampleStart + samplesPerPoint, audioBuffer.getNumSamples());
         if (sampleStart >= audioBuffer.getNumSamples())
         {
-            { retFlag = 2; return; };
+            {
+                retFlag = 2;
+                return;
+            };
         }
         float rmsSum = 0.0f;
         float peak = 0.0f;
@@ -416,7 +419,7 @@ private:
         g.drawLine(0, getHeight() * 0.5f, getWidth(), getHeight() * 0.5f, 0.5f);
     }
 
-    void setColorDependingTimeStretchRatio(juce::Colour& waveformColor)
+    void setColorDependingTimeStretchRatio(juce::Colour &waveformColor)
     {
         if (timeStretchRatio > 1.1f)
         {
@@ -432,7 +435,7 @@ private:
         }
     }
 
-    void generateBottomHalfPath(int i, float pixelsPerPoint, bool& pathStarted, juce::Path& bottomPath, int thumbnailSize)
+    void generateBottomHalfPath(int i, float pixelsPerPoint, bool &pathStarted, juce::Path &bottomPath, int thumbnailSize)
     {
         float x = i * pixelsPerPoint;
         float amplitude = thumbnail[i];
@@ -460,7 +463,7 @@ private:
         }
     }
 
-    void generateTopHalfPath(int i, float pixelsPerPoint, bool& pathStarted, juce::Path& waveformPath, int thumbnailSize)
+    void generateTopHalfPath(int i, float pixelsPerPoint, bool &pathStarted, juce::Path &waveformPath, int thumbnailSize)
     {
         float x = i * pixelsPerPoint;
         float amplitude = thumbnail[i];
@@ -514,17 +517,17 @@ private:
         }
     }
 
-    void drawLoopTimeLabels(juce::Graphics& g, float startX, float endX)
+    void drawLoopTimeLabels(juce::Graphics &g, float startX, float endX)
     {
         g.setColour(juce::Colours::white);
         g.setFont(10.0f);
         g.drawText(juce::String(loopStart, 2) + "s", startX + 2, 2, 50, 15,
-            juce::Justification::left);
+                   juce::Justification::left);
         g.drawText(juce::String(loopEnd, 2) + "s", endX - 50, 2, 48, 15,
-            juce::Justification::right);
+                   juce::Justification::right);
     }
 
-    void drawLoopBarLabels(juce::Graphics& g, float startX, float endX)
+    void drawLoopBarLabels(juce::Graphics &g, float startX, float endX)
     {
         double beatDuration = 60.0 / trackBpm;
         double barDuration = beatDuration * 4.0;
@@ -537,10 +540,10 @@ private:
         g.setFont(10.0f);
 
         g.drawText("Bar " + juce::String(startBar), startX + 2, 2, 50, 15,
-            juce::Justification::left);
+                   juce::Justification::left);
 
         g.drawText("Bar " + juce::String(endBar) + " (" + juce::String(totalBars) + " bars)",
-            endX - 80, 2, 78, 15, juce::Justification::right);
+                   endX - 80, 2, 78, 15, juce::Justification::right);
     }
 
     void drawPlaybackHead(juce::Graphics &g)
@@ -557,7 +560,7 @@ private:
             if (headX >= 0 && headX <= getWidth())
             {
                 g.setColour(juce::Colours::red);
-                g.drawLine(headX, 0, headX, getHeight(), 4.0f); 
+                g.drawLine(headX, 0, headX, getHeight(), 4.0f);
 
                 juce::Path triangle;
                 triangle.addTriangle(headX - 8, 0, headX + 8, 0, headX, 16);
@@ -571,10 +574,9 @@ private:
                 g.setColour(juce::Colours::white);
                 g.setFont(14.0f);
                 g.drawText(juce::String(playbackPosition, 2) + "s", headX - 40, getHeight() / 2 - 10, 80, 20,
-                    juce::Justification::centred);
+                           juce::Justification::centred);
             }
         }
-        
     }
 
     float timeToX(double time)
@@ -602,8 +604,8 @@ private:
         float viewDuration = totalDuration / zoomFactor;
         float viewEndTime = getViewEndTime();
 
-        float beatDuration = 60.0f / sampleBpm;              
-        float barDuration = beatDuration * 4.0f;              
+        float beatDuration = 60.0f / sampleBpm;
+        float barDuration = beatDuration * 4.0f;
 
         g.setColour(juce::Colours::white.withAlpha(0.8f));
         for (float time = 0.0f; time <= viewEndTime; time += barDuration)
@@ -617,7 +619,7 @@ private:
         }
     }
 
-    void drawMeasures(float time, juce::Graphics& g, float barDuration)
+    void drawMeasures(float time, juce::Graphics &g, float barDuration)
     {
         if (time >= viewStartTime)
         {
@@ -628,12 +630,12 @@ private:
                 int measureNumber = (int)(time / barDuration) + 1;
                 g.setFont(10.0f);
                 g.drawText(juce::String(measureNumber), x + 2, 2, 30, 15,
-                    juce::Justification::left);
+                           juce::Justification::left);
             }
         }
     }
 
-    void drawBeats(juce::Graphics& g, float beatDuration, float viewEndTime, float barDuration)
+    void drawBeats(juce::Graphics &g, float beatDuration, float viewEndTime, float barDuration)
     {
         g.setColour(juce::Colours::white.withAlpha(0.4f));
         for (float time = beatDuration; time <= viewEndTime; time += beatDuration)
