@@ -116,7 +116,7 @@ class MusicGenerator:
                 steps_value = 75
                 seed_value = random.randint(0, 2**31 - 1)
 
-                print(f"⚙️ Stable Audio: steps={steps_value}, cfg_scale={cfg_scale}")
+                print(f"⚙️  Stable Audio: steps={steps_value}, cfg_scale={cfg_scale}")
 
                 output = generate_diffusion_cond(
                     self.model,

@@ -30,6 +30,7 @@ public:
 	{
 		return trackComponents;
 	}
+	void onGenerationComplete(const juce::String &selectedTrackId, const juce::String &notification);
 
 private:
 	DjIaVstProcessor &audioProcessor;

@@ -16,12 +16,12 @@ public:
 
 		LoopRequest()
 			: prompt(""),
-			generationDuration(6.0f),
-			bpm(120.0f),
-			key(""),
-			measures(4),
-			preferredStems(),
-			serverSidePreTreatment(true)
+			  generationDuration(6.0f),
+			  bpm(120.0f),
+			  key(""),
+			  measures(4),
+			  preferredStems(),
+			  serverSidePreTreatment(true)
 		{
 		}
 	};
@@ -37,18 +37,17 @@ public:
 		double sampleRate;
 
 		LoopResponse()
-			: duration(0.0f), bpm(120.0f), sampleRate(44100.0)
+			: duration(0.0f), bpm(120.0f), sampleRate(48000.0)
 		{
 		}
 	};
 
-	DjIaClient(const juce::String& apiKey = "", const juce::String& baseUrl = "http://localhost:8000")
+	DjIaClient(const juce::String &apiKey = "", const juce::String &baseUrl = "http://localhost:8000")
 		: apiKey(apiKey), baseUrl(baseUrl + "/api/v1")
 	{
 	}
 
-
-	LoopResponse generateLoop(const LoopRequest& request)
+	LoopResponse generateLoop(const LoopRequest &request)
 	{
 		try
 		{
@@ -62,7 +61,7 @@ public:
 			if (!request.preferredStems.empty())
 			{
 				juce::Array<juce::var> stems;
-				for (const auto& stem : request.preferredStems)
+				for (const auto &stem : request.preferredStems)
 					stems.add(stem);
 				jsonRequest.getDynamicObject()->setProperty("preferred_stems", stems);
 			}
@@ -78,8 +77,8 @@ public:
 			auto url = juce::URL(baseUrl + "/generate").withPOSTData(jsonString);
 
 			auto options = juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inPostData)
-				.withConnectionTimeoutMs(120000)
-				.withExtraHeaders(headerString);
+							   .withConnectionTimeoutMs(360000)
+							   .withExtraHeaders(headerString);
 
 			if (auto response = url.createInputStream(options))
 			{
@@ -109,7 +108,7 @@ public:
 
 				if (auto stemsArray = jsonResponse.getProperty("stems_used", juce::var()).getArray())
 				{
-					for (const auto& stem : *stemsArray)
+					for (const auto &stem : *stemsArray)
 						result.stemsUsed.push_back(stem.toString());
 				}
 				return result;
@@ -119,9 +118,13 @@ public:
 				throw std::runtime_error("Failed to connect to server");
 			}
 		}
-		catch (const std::exception& e)
+		catch (const std::exception &e)
 		{
-			throw;
+			DBG("API Error: " + juce::String(e.what()));
+			LoopResponse emptyResponse;
+			emptyResponse.audioData = juce::MemoryBlock();
+			emptyResponse.duration = 0.0;
+			return emptyResponse;
 		}
 	}
 

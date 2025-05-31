@@ -61,7 +61,7 @@ echo "Installing audio processing libraries..."
 pip install stable-audio-tools
 pip install llama-cpp-python librosa soundfile
 echo "Installing web server dependencies..."
-pip install fastapi uvicorn python-dotenv requests
+pip install fastapi uvicorn python-dotenv requests apscheduler
 echo "Dependencies installed"
 
 # Download model

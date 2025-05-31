@@ -728,23 +728,6 @@ void DjIaVstEditor::onGenerateButtonClicked()
 
 				juce::String targetTrackId = audioProcessor.getSelectedTrackId();
 				audioProcessor.generateLoop(request, targetTrackId);
-
-				juce::MessageManager::callAsync([this, selectedTrackId]() {
-					for (auto& trackComp : trackComponents) {
-						if (trackComp->getTrackId() == selectedTrackId) {
-							trackComp->stopGeneratingAnimation();
-							trackComp->updateFromTrackData();
-							trackComp->repaint();
-							break;
-						}
-					}
-					statusLabel.setText("Loop generated successfully! Press Play to listen.",
-						juce::dontSendNotification);
-					generateButton.setEnabled(true);
-					setAllGenerateButtonsEnabled(true);
-					audioProcessor.setIsGenerating(false);
-					audioProcessor.setGeneratingTrackId("");
-					});
 			}
 			catch (const std::exception& e)
 			{
@@ -763,6 +746,23 @@ void DjIaVstEditor::onGenerateButtonClicked()
 					audioProcessor.setGeneratingTrackId("");
 					});
 			} });
+}
+
+void DjIaVstEditor::onGenerationComplete(const juce::String& selectedTrackId, const juce::String& notification) {
+	juce::MessageManager::callAsync([this, selectedTrackId, notification]() {
+		for (auto& trackComp : trackComponents) {
+			if (trackComp->getTrackId() == selectedTrackId) {
+				trackComp->stopGeneratingAnimation();
+				trackComp->updateFromTrackData();
+				trackComp->repaint();
+				break;
+			}
+		}
+		statusLabel.setText(notification,
+			juce::dontSendNotification);
+		generateButton.setEnabled(true);
+		setAllGenerateButtonsEnabled(true);
+		});
 }
 
 void DjIaVstEditor::loadPromptPresets()

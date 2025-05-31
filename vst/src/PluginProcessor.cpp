@@ -527,6 +527,17 @@ void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest &request, cons
 	try
 	{
 		auto response = apiClient.generateLoop(request);
+		if (response.audioData.getSize() == 0) {
+			DBG("Empty response from API");
+			setIsGenerating(false);
+			setGeneratingTrackId("");
+			juce::MessageManager::callAsync([this, trackId]() {
+				if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+					editor->onGenerationComplete(trackId, "Empty response from API");
+				}
+				});
+			return;
+		}
 		{
 			const juce::ScopedLock lock(apiLock);
 			pendingTrackId = trackId;
@@ -551,6 +562,14 @@ void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest &request, cons
 			}
 			track->stems = stems;
 		}
+		setIsGenerating(false);
+		setGeneratingTrackId("");
+		juce::MessageManager::callAsync([this, trackId]() {
+			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+				editor->onGenerationComplete(trackId, "Loop generated successfully! Press Play to listen.");
+			}
+			});
+
 	}
 	catch (const std::exception &e)
 	{
@@ -558,6 +577,8 @@ void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest &request, cons
 		waitingForMidiToLoad = false;
 		trackIdWaitingForLoad.clear();
 		correctMidiNoteReceived = false;
+		setIsGenerating(false);
+		setGeneratingTrackId("");
 		juce::MessageManager::callAsync([this, error = juce::String(e.what())]()
 										{
 				if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
@@ -567,24 +588,42 @@ void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest &request, cons
 	}
 }
 
+
 void DjIaVstProcessor::processIncomingAudio()
 {
-	if (!hasPendingAudioData.load() || pendingTrackId.isEmpty())
+	DBG("=== processIncomingAudio() called ===");
+	if (!hasPendingAudioData.load())
+	{
+		DBG("No pending audio data");
 		return;
+	}
+
+	if (pendingTrackId.isEmpty()) {
+		DBG("Pending track ID is empty");
+		return;
+	}
+
+	DBG("hasPendingAudioData: true, pendingTrackId: " + pendingTrackId);
 
 	TrackData *track = trackManager.getTrack(pendingTrackId);
-	if (!track)
+	if (!track) {
+		DBG("Track not found!");
 		return;
+	}
+
 
 	if (track->isPlaying.load() || track->isArmed.load())
 	{
+		DBG("Track is playing/armed, checking MIDI conditions...");
 		if (waitingForMidiToLoad.load() && !correctMidiNoteReceived.load())
 		{
+			DBG("BLOCKING: Waiting for MIDI note");
 			hasUnloadedSample = true;
 			return;
 		}
 	}
 
+	DBG("PROCEEDING with audio load");
 	juce::MessageManager::callAsync([this]()
 									{
 			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
