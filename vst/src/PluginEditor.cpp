@@ -748,8 +748,10 @@ void DjIaVstEditor::onGenerateButtonClicked()
 			} });
 }
 
-void DjIaVstEditor::onGenerationComplete(const juce::String& selectedTrackId, const juce::String& notification) {
-	juce::MessageManager::callAsync([this, selectedTrackId, notification]() {
+void DjIaVstEditor::onGenerationComplete(const juce::String &selectedTrackId, const juce::String &notification)
+{
+	juce::MessageManager::callAsync([this, selectedTrackId, notification]()
+									{
 		for (auto& trackComp : trackComponents) {
 			if (trackComp->getTrackId() == selectedTrackId) {
 				trackComp->stopGeneratingAnimation();
@@ -761,8 +763,7 @@ void DjIaVstEditor::onGenerationComplete(const juce::String& selectedTrackId, co
 		statusLabel.setText(notification,
 			juce::dontSendNotification);
 		generateButton.setEnabled(true);
-		setAllGenerateButtonsEnabled(true);
-		});
+		setAllGenerateButtonsEnabled(true); });
 }
 
 void DjIaVstEditor::loadPromptPresets()

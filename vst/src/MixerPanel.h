@@ -4,31 +4,30 @@
 #include "MasterChannel.h"
 #include "PluginProcessor.h"
 
-
 class MixerPanel : public juce::Component
 {
 public:
-	MixerPanel(DjIaVstProcessor& processor) : audioProcessor(processor)
+	MixerPanel(DjIaVstProcessor &processor) : audioProcessor(processor)
 	{
-		masterChannel = std::make_unique<MasterChannel>();
+		masterChannel = std::make_unique<MasterChannel>(audioProcessor);
 		addAndMakeVisible(*masterChannel);
 
 		masterChannel->onMasterVolumeChanged = [this](float volume)
-			{
-				masterVolume = volume;
-				audioProcessor.setMasterVolume(volume);
-			};
+		{
+			masterVolume = volume;
+			audioProcessor.setMasterVolume(volume);
+		};
 
 		masterChannel->onMasterPanChanged = [this](float pan)
-			{
-				masterPan = pan;
-				audioProcessor.setMasterPan(pan);
-			};
+		{
+			masterPan = pan;
+			audioProcessor.setMasterPan(pan);
+		};
 
 		masterChannel->onMasterEQChanged = [this](float high, float mid, float low)
-			{
-				audioProcessor.setMasterEQ(high, mid, low);
-			};
+		{
+			audioProcessor.setMasterEQ(high, mid, low);
+		};
 
 		addAndMakeVisible(channelsViewport);
 		channelsViewport.setViewedComponent(&channelsContainer, false);
@@ -36,14 +35,14 @@ public:
 
 		refreshMixerChannels();
 		audioProcessor.onUIUpdateNeeded = [this]()
-			{
-				updateAllMixerComponents();
-			};
+		{
+			updateAllMixerComponents();
+		};
 	}
 
-	void updateTrackName(const juce::String& trackId, const juce::String& newName)
+	void updateTrackName(const juce::String &trackId, const juce::String &newName)
 	{
-		for (auto& channel : mixerChannels)
+		for (auto &channel : mixerChannels)
 		{
 			if (channel->getTrackId() == trackId)
 			{
@@ -55,7 +54,7 @@ public:
 
 	void updateAllMixerComponents()
 	{
-		for (auto& channel : mixerChannels)
+		for (auto &channel : mixerChannels)
 		{
 			channel->updateVUMeters();
 		}
@@ -71,7 +70,7 @@ public:
 		float totalLevel = 0.0f;
 		float maxLevel = 0.0f;
 		int activeChannels = 0;
-		for (auto& channel : mixerChannels)
+		for (auto &channel : mixerChannels)
 		{
 			float channelLevel = channel->getCurrentAudioLevel();
 			if (channelLevel > 0.01f)
@@ -106,19 +105,18 @@ public:
 		const int channelWidth = 90;
 		const int channelSpacing = 5;
 
-		for (const auto& trackId : trackIds)
+		for (const auto &trackId : trackIds)
 		{
-			TrackData* trackData = audioProcessor.getTrack(trackId);
+			TrackData *trackData = audioProcessor.getTrack(trackId);
 			if (!trackData)
 				continue;
 
-			auto mixerChannel = std::make_unique<MixerChannel>(trackId);
+			auto mixerChannel = std::make_unique<MixerChannel>(trackId, audioProcessor);
 			mixerChannel->setTrackData(trackData);
-			auto* channelPtr = mixerChannel.get();
+			auto *channelPtr = mixerChannel.get();
 			refreshChannelsCallbacks(mixerChannel, channelPtr);
 			positionMixer(mixerChannel, xPos, channelWidth, channelSpacing);
 		}
-
 
 		displayChannelsContainer(xPos);
 	}
@@ -131,7 +129,7 @@ public:
 		channelsContainer.repaint();
 	}
 
-	void positionMixer(std::unique_ptr<MixerChannel>& mixerChannel, int& xPos, const int channelWidth, const int channelSpacing)
+	void positionMixer(std::unique_ptr<MixerChannel> &mixerChannel, int &xPos, const int channelWidth, const int channelSpacing)
 	{
 		int containerHeight = std::max(400, channelsContainer.getHeight());
 		mixerChannel->setBounds(xPos, 0, channelWidth, containerHeight);
@@ -142,63 +140,62 @@ public:
 		xPos += channelWidth + channelSpacing;
 	}
 
-	void refreshChannelsCallbacks(std::unique_ptr<MixerChannel>& mixerChannel, MixerChannel* channelPtr)
+	void refreshChannelsCallbacks(std::unique_ptr<MixerChannel> &mixerChannel, MixerChannel *channelPtr)
 	{
-		mixerChannel->onSoloChanged = [this, channelPtr](const juce::String& id, bool solo)
+		mixerChannel->onSoloChanged = [this, channelPtr](const juce::String &id, bool solo)
+		{
+			for (auto &channel : mixerChannels)
 			{
-				for (auto& channel : mixerChannels)
-				{
-					channel->updateFromTrackData();
-					channel->repaint();
-				}
-			};
+				channel->updateFromTrackData();
+				channel->repaint();
+			}
+		};
 
-		mixerChannel->onMuteChanged = [this, channelPtr](const juce::String& id, bool mute)
-			{
-				channelPtr->updateFromTrackData();
-				channelPtr->repaint();
-			};
+		mixerChannel->onMuteChanged = [this, channelPtr](const juce::String &id, bool mute)
+		{
+			channelPtr->updateFromTrackData();
+			channelPtr->repaint();
+		};
 
-		mixerChannel->onPlayTrack = [this, channelPtr](const juce::String& id)
+		mixerChannel->onPlayTrack = [this, channelPtr](const juce::String &id)
+		{
+			if (auto *track = audioProcessor.getTrack(id))
 			{
-				if (auto* track = audioProcessor.getTrack(id))
-				{
-					audioProcessor.startNotePlaybackForTrack(id, track->midiNote, 126.0);
-				}
-				juce::Timer::callAfterDelay(50, [channelPtr]()
-					{
+				audioProcessor.startNotePlaybackForTrack(id, track->midiNote, 126.0);
+			}
+			juce::Timer::callAfterDelay(50, [channelPtr]()
+										{
 						if (channelPtr) {
 							channelPtr->updateFromTrackData();
 							channelPtr->repaint();
 						} });
-			};
+		};
 
-		mixerChannel->onStopTrack = [this, channelPtr](const juce::String& id)
+		mixerChannel->onStopTrack = [this, channelPtr](const juce::String &id)
+		{
+			if (auto *track = audioProcessor.getTrack(id))
 			{
-				if (auto* track = audioProcessor.getTrack(id))
-				{
-					track->isPlaying = false;
-					track->isArmed = false;
-				}
-				channelPtr->updateFromTrackData();
-				channelPtr->repaint();
-			};
+				track->isPlaying = false;
+				track->isArmed = false;
+			}
+			channelPtr->updateFromTrackData();
+			channelPtr->repaint();
+		};
 
-		mixerChannel->onFineChanged = [this](const juce::String& id, float fine)
+		mixerChannel->onFineChanged = [this](const juce::String &id, float fine)
+		{
+			if (auto *track = audioProcessor.getTrack(id))
 			{
-				if (auto* track = audioProcessor.getTrack(id))
-				{
-					track->fineOffset = fine;
-				}
-			};
+				track->fineOffset = fine;
+			}
+		};
 
-		mixerChannel->onMidiLearn = [this](const juce::String& trackId, int controlType)
-			{
+		mixerChannel->onMidiLearn = [this](const juce::String &trackId, int controlType) {
 
-			};
+		};
 	}
 
-	void paint(juce::Graphics& g) override
+	void paint(juce::Graphics &g) override
 	{
 		auto bounds = getLocalBounds();
 		juce::ColourGradient gradient(
@@ -236,28 +233,28 @@ public:
 		const int channelWidth = 90;
 		const int channelSpacing = 5;
 
-		for (auto& channel : mixerChannels)
+		for (auto &channel : mixerChannels)
 		{
 			channel->setBounds(xPos, 0, channelWidth, containerHeight);
 			xPos += channelWidth + channelSpacing;
 		}
 	}
 
-	void trackAdded(const juce::String& trackId)
+	void trackAdded(const juce::String &trackId)
 	{
 		refreshMixerChannels();
 		resized();
 	}
 
-	void trackRemoved(const juce::String& trackId)
+	void trackRemoved(const juce::String &trackId)
 	{
 		refreshMixerChannels();
 		resized();
 	}
 
-	void trackSelected(const juce::String& trackId)
+	void trackSelected(const juce::String &trackId)
 	{
-		for (auto& channel : mixerChannels)
+		for (auto &channel : mixerChannels)
 		{
 			bool isThisTrackSelected = (channel->getTrackId() == trackId);
 			channel->setSelected(isThisTrackSelected);
@@ -265,7 +262,7 @@ public:
 	}
 
 private:
-	DjIaVstProcessor& audioProcessor;
+	DjIaVstProcessor &audioProcessor;
 
 	std::unique_ptr<MasterChannel> masterChannel;
 	float masterVolume = 0.8f;

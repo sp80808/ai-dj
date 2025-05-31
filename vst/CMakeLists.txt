@@ -20,7 +20,12 @@ target_sources(DjIaVst
         src/PluginProcessor.cpp
         src/PluginEditor.cpp
         src/BinaryData.cpp  
-        src/PluginEntry.cpp)
+        src/PluginEntry.cpp
+        src/MidiLearnManager.cpp
+        src/MixerChannel.cpp
+        src/TrackComponent.cpp
+        src/MasterChannel.cpp
+        )
 
 target_include_directories(DjIaVst
     PRIVATE
