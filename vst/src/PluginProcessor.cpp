@@ -474,14 +474,10 @@ void DjIaVstProcessor::handleSampleParams(int slot, TrackData *track)
 	if (track->isSolo.load() != isSolo)
 	{
 		track->isSolo = isSolo;
-		if (onUIUpdateNeeded)
-			onUIUpdateNeeded();
 	}
 	if (track->isMuted.load() != isMuted)
 	{
 		track->isMuted = isMuted;
-		if (onUIUpdateNeeded)
-			onUIUpdateNeeded();
 	}
 }
 
