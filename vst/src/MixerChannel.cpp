@@ -41,7 +41,6 @@ void MixerChannel::setTrackData(TrackData *trackData)
 			}
 		};
 	}
-	updateFromTrackData();
 }
 
 void MixerChannel::removeListener(juce::String name)
@@ -195,10 +194,21 @@ void MixerChannel::addEventListeners()
 	};
 	muteButton.onClick = [this]()
 	{
+		if (track)
+		{
+			track->isMuted = muteButton.getToggleState();
+			updateButtonColors();
+		}
 		setButtonParameter("Mute", muteButton);
 	};
 	soloButton.onClick = [this]()
 	{
+		if (track)
+		{
+			bool newSoloState = soloButton.getToggleState();
+			track->isSolo = newSoloState;
+			updateButtonColors();
+		}
 		setButtonParameter("Solo", soloButton);
 	};
 	addListener("Volume");

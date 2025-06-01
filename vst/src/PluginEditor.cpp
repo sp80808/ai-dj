@@ -133,8 +133,12 @@ void DjIaVstEditor::initUI()
 	refreshTracks();
 	audioProcessor.onUIUpdateNeeded = [this]()
 	{
-		juce::Timer::callAfterDelay(50, [this]()
-									{ updateUIComponents(); });
+		juce::WeakReference<DjIaVstEditor> weakThis(this);
+		juce::Timer::callAfterDelay(50, [weakThis]()
+									{
+        if (weakThis != nullptr) {
+            weakThis->updateUIComponents();
+        } });
 	};
 }
 
