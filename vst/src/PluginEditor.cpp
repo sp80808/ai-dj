@@ -46,6 +46,7 @@ DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor &p)
 DjIaVstEditor::~DjIaVstEditor()
 {
 	audioProcessor.onUIUpdateNeeded = nullptr;
+	audioProcessor.getMidiLearnManager().clearUICallbacks();
 }
 
 void DjIaVstEditor::updateMidiIndicator(const juce::String &noteInfo)
@@ -71,23 +72,8 @@ void DjIaVstEditor::updateMidiIndicator(const juce::String &noteInfo)
 
 void DjIaVstEditor::updateUIComponents()
 {
-	for (auto &trackComp : trackComponents)
-	{
-		if (trackComp->isShowing())
-		{
-			TrackData *track = audioProcessor.getTrack(trackComp->getTrackId());
-			if (track && track->isPlaying.load())
-			{
-				trackComp->updateFromTrackData();
-			}
-		}
-	}
-
-	if (mixerPanel)
-	{
-		mixerPanel->updateAllMixerComponents();
-	}
-
+	static bool wasGenerating = false;
+	bool isCurrentlyGenerating = generateButton.isEnabled() == false;
 	if (!lastMidiNote.isEmpty())
 	{
 		static int midiBlinkCounter = 0;
@@ -116,24 +102,12 @@ void DjIaVstEditor::updateUIComponents()
 	for (auto &trackComp : trackComponents)
 	{
 		TrackData *track = audioProcessor.getTrack(trackComp->getTrackId());
-		if (track && track->isPlaying.load() && track->numSamples > 0)
+		if (track)
 		{
-			double startSample = track->loopStart * track->sampleRate;
-			double currentTimeInSection = (startSample + track->readPosition.load()) / track->sampleRate;
-
-			trackComp->updatePlaybackPosition(currentTimeInSection);
+			trackComp->updateFromTrackData();
 		}
 	}
-
-	static bool wasGenerating = false;
-	bool isCurrentlyGenerating = generateButton.isEnabled() == false;
-	if (wasGenerating && !isCurrentlyGenerating)
-	{
-		for (auto &trackComp : trackComponents)
-		{
-			trackComp->refreshWaveformIfNeeded();
-		}
-	}
+	mixerPanel->updateAllMixerComponents();
 	wasGenerating = isCurrentlyGenerating;
 }
 
@@ -159,7 +133,8 @@ void DjIaVstEditor::initUI()
 	refreshTracks();
 	audioProcessor.onUIUpdateNeeded = [this]()
 	{
-		updateUIComponents();
+		juce::Timer::callAfterDelay(50, [this]()
+									{ updateUIComponents(); });
 	};
 }
 

@@ -34,10 +34,6 @@ public:
 		channelsViewport.setScrollBarsShown(false, true);
 
 		refreshMixerChannels();
-		audioProcessor.onUIUpdateNeeded = [this]()
-		{
-			updateAllMixerComponents();
-		};
 	}
 
 	void updateTrackName(const juce::String &trackId, const juce::String &newName)
@@ -111,10 +107,7 @@ public:
 			if (!trackData)
 				continue;
 
-			auto mixerChannel = std::make_unique<MixerChannel>(trackId, audioProcessor);
-			mixerChannel->setTrackData(trackData);
-			auto *channelPtr = mixerChannel.get();
-			refreshChannelsCallbacks(mixerChannel, channelPtr);
+			auto mixerChannel = std::make_unique<MixerChannel>(trackId, audioProcessor, static_cast<TrackData *>(trackData));
 			positionMixer(mixerChannel, xPos, channelWidth, channelSpacing);
 		}
 
@@ -138,61 +131,6 @@ public:
 		mixerChannels.push_back(std::move(mixerChannel));
 
 		xPos += channelWidth + channelSpacing;
-	}
-
-	void refreshChannelsCallbacks(std::unique_ptr<MixerChannel> &mixerChannel, MixerChannel *channelPtr)
-	{
-		mixerChannel->onSoloChanged = [this, channelPtr](const juce::String &id, bool solo)
-		{
-			for (auto &channel : mixerChannels)
-			{
-				channel->updateFromTrackData();
-				channel->repaint();
-			}
-		};
-
-		mixerChannel->onMuteChanged = [this, channelPtr](const juce::String &id, bool mute)
-		{
-			channelPtr->updateFromTrackData();
-			channelPtr->repaint();
-		};
-
-		mixerChannel->onPlayTrack = [this, channelPtr](const juce::String &id)
-		{
-			if (auto *track = audioProcessor.getTrack(id))
-			{
-				audioProcessor.startNotePlaybackForTrack(id, track->midiNote, 126.0);
-			}
-			juce::Timer::callAfterDelay(50, [channelPtr]()
-										{
-						if (channelPtr) {
-							channelPtr->updateFromTrackData();
-							channelPtr->repaint();
-						} });
-		};
-
-		mixerChannel->onStopTrack = [this, channelPtr](const juce::String &id)
-		{
-			if (auto *track = audioProcessor.getTrack(id))
-			{
-				track->isPlaying = false;
-				track->isArmed = false;
-			}
-			channelPtr->updateFromTrackData();
-			channelPtr->repaint();
-		};
-
-		mixerChannel->onFineChanged = [this](const juce::String &id, float fine)
-		{
-			if (auto *track = audioProcessor.getTrack(id))
-			{
-				track->fineOffset = fine;
-			}
-		};
-
-		mixerChannel->onMidiLearn = [this](const juce::String &trackId, int controlType) {
-
-		};
 	}
 
 	void paint(juce::Graphics &g) override

@@ -1,22 +1,208 @@
 #include "JuceHeader.h"
 #include "MixerChannel.h"
+#include <string>
 
-MixerChannel::MixerChannel(const juce::String &trackId, DjIaVstProcessor &processor) : trackId(trackId), track(nullptr), audioProcessor(processor)
+MixerChannel::MixerChannel(const juce::String &trackId, DjIaVstProcessor &processor, TrackData *trackData)
+	: trackId(trackId), audioProcessor(processor), track(trackData)
 {
 	setupUI();
+	updateFromTrackData();
 	setupMidiLearn();
 }
 
 MixerChannel::~MixerChannel()
 {
-	audioProcessor.getMidiLearnManager().removeMapping(&playButton);
-	audioProcessor.getMidiLearnManager().removeMapping(&stopButton);
-	audioProcessor.getMidiLearnManager().removeMapping(&muteButton);
-	audioProcessor.getMidiLearnManager().removeMapping(&soloButton);
-	audioProcessor.getMidiLearnManager().removeMapping(&volumeSlider);
-	audioProcessor.getMidiLearnManager().removeMapping(&pitchKnob);
-	audioProcessor.getMidiLearnManager().removeMapping(&fineKnob);
-	audioProcessor.getMidiLearnManager().removeMapping(&panKnob);
+	removeListener("Volume");
+	removeListener("Play");
+	removeListener("Stop");
+	removeListener("Mute");
+	removeListener("Solo");
+	removeListener("Pitch");
+	removeListener("Fine");
+	removeListener("Pan");
+}
+
+void MixerChannel::removeListener(juce::String name)
+{
+	if (!track || track->slotIndex == -1)
+		return;
+	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
+	auto *param = audioProcessor.getParameterTreeState().getParameter(paramName);
+	if (param)
+	{
+		param->removeListener(this);
+	}
+}
+
+void MixerChannel::addListener(juce::String name)
+{
+	if (!track || track->slotIndex == -1)
+		return;
+	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
+	auto *param = audioProcessor.getParameterTreeState().getParameter(paramName);
+	if (param)
+	{
+		param->addListener(this);
+	}
+}
+
+void MixerChannel::parameterValueChanged(int parameterIndex, float newValue)
+{
+	if (!track || track->slotIndex == -1)
+		return;
+
+	juce::String slotPrefix = "Slot " + juce::String(track->slotIndex + 1);
+	auto &allParams = audioProcessor.AudioProcessor::getParameters();
+
+	if (parameterIndex >= 0 && parameterIndex < allParams.size())
+	{
+		auto *param = allParams[parameterIndex];
+		juce::String paramName = param->getName(256);
+
+		if (juce::MessageManager::getInstance()->isThisTheMessageThread())
+		{
+			juce::Timer::callAfterDelay(50, [this, paramName, slotPrefix, newValue]()
+										{ updateUIFromParameter(paramName, slotPrefix, newValue); });
+		}
+		else
+		{
+			juce::MessageManager::callAsync([this, paramName, slotPrefix, newValue]()
+											{ juce::Timer::callAfterDelay(50, [this, paramName, slotPrefix, newValue]()
+																		  { updateUIFromParameter(paramName, slotPrefix, newValue); }); });
+		}
+	}
+}
+
+void MixerChannel::updateUIFromParameter(const juce::String &paramName,
+										 const juce::String &slotPrefix,
+										 float newValue)
+{
+	if (paramName == slotPrefix + " Volume")
+	{
+		volumeSlider.setValue(newValue, juce::dontSendNotification);
+	}
+	else if (paramName == slotPrefix + " Pan")
+	{
+		panKnob.setValue(newValue, juce::dontSendNotification);
+	}
+	else if (paramName == slotPrefix + " Pitch")
+	{
+		pitchKnob.setValue(newValue, juce::dontSendNotification);
+	}
+	else if (paramName == slotPrefix + " Fine")
+	{
+		fineKnob.setValue(newValue, juce::dontSendNotification);
+	}
+}
+
+void MixerChannel::parameterGestureChanged(int parameterIndex, bool gestureIsStarting)
+{
+}
+
+void MixerChannel::setSliderParameter(juce::String name, juce::Slider &slider)
+{
+	if (!track || track->slotIndex == -1)
+		return;
+	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
+	auto *param = audioProcessor.getParameters().getParameter(paramName);
+	param->setValueNotifyingHost(slider.getValue());
+}
+
+void MixerChannel::setButtonParameter(juce::String name, juce::Button &button)
+{
+	if (!track || track->slotIndex == -1)
+		return;
+
+	updateButtonColors();
+	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
+	auto *param = audioProcessor.getParameters().getParameter(paramName);
+
+	bool state = button.getToggleState();
+	param->setValueNotifyingHost(state ? 1.0f : 0.0f);
+}
+
+void MixerChannel::addEventListeners()
+{
+	volumeSlider.onValueChange = [this]()
+	{
+		setSliderParameter("Volume", volumeSlider);
+	};
+	pitchKnob.onValueChange = [this]()
+	{
+		setSliderParameter("Pitch", pitchKnob);
+	};
+	fineKnob.onValueChange = [this]()
+	{
+		setSliderParameter("Fine", fineKnob);
+	};
+	panKnob.onValueChange = [this]()
+	{
+		setSliderParameter("Pan", panKnob);
+	};
+	playButton.onClick = [this]()
+	{
+		if (track)
+		{
+			if (!track->isPlaying.load())
+			{
+				bool shouldArm = playButton.getToggleState();
+				track->isArmed = shouldArm;
+				if (!shouldArm)
+				{
+					track->isPlaying = false;
+				}
+			}
+			setButtonParameter("Play", playButton);
+		}
+	};
+	stopButton.onClick = [this]()
+	{
+		if (track)
+		{
+			if (track->isPlaying.load() && !track->isArmedToStop.load())
+			{
+				track->isArmed = false;
+				track->isArmedToStop = true;
+				playButton.setToggleState(false, juce::dontSendNotification);
+
+				isBlinking = true;
+				startTimer(300);
+			}
+			setButtonParameter("Stop", stopButton);
+		}
+	};
+	muteButton.onClick = [this]()
+	{
+		setButtonParameter("Mute", muteButton);
+	};
+	soloButton.onClick = [this]()
+	{
+		setButtonParameter("Solo", soloButton);
+	};
+	addListener("Volume");
+	addListener("Play");
+	addListener("Stop");
+	addListener("Mute");
+	addListener("Solo");
+	addListener("Pitch");
+	addListener("Fine");
+	addListener("Pan");
+}
+
+void MixerChannel::timerCallback()
+{
+	if (isBlinking && track && track->isArmedToStop)
+	{
+		blinkState = !blinkState;
+		stopButton.setColour(juce::TextButton::buttonColourId,
+							 blinkState ? juce::Colours::red : juce::Colours::darkred);
+	}
+	else
+	{
+		stopTimer();
+		isBlinking = false;
+		updateButtonColors();
+	}
 }
 
 void MixerChannel::updateVUMeters()
@@ -28,22 +214,6 @@ void MixerChannel::updateVUMeters()
 void MixerChannel::setTrackData(TrackData *trackData)
 {
 	track = trackData;
-	if (track)
-	{
-		juce::WeakReference<MixerChannel> weakThis(this);
-		track->onPlayStateChanged = [weakThis](bool isPlaying)
-		{
-			if (weakThis != nullptr)
-			{
-				juce::MessageManager::callAsync([weakThis]()
-												{
-								if (weakThis != nullptr && !weakThis->isUpdatingButtons) {
-									weakThis->updateButtonColors();
-								} });
-			}
-		};
-	}
-	updateFromTrackData();
 }
 
 void MixerChannel::updateFromTrackData()
@@ -290,66 +460,18 @@ void MixerChannel::setupUI()
 	addAndMakeVisible(playButton);
 	playButton.setButtonText("ARM");
 	playButton.setClickingTogglesState(true);
-	playButton.onClick = [this]()
-	{
-		if (track)
-		{
-			if (!track->isPlaying.load())
-			{
-				bool shouldArm = playButton.getToggleState();
-				track->isArmed = shouldArm;
-				if (!shouldArm)
-				{
-					track->isPlaying = false;
-				}
-			}
-			if (track->isPlaying.load() && !track->isArmedToStop.load())
-			{
-				armToStop();
-			}
-			updateButtonColors();
-		}
-	};
 
 	addAndMakeVisible(stopButton);
 	stopButton.setButtonText("STP");
 	stopButton.setClickingTogglesState(false);
-	stopButton.onClick = [this]()
-	{
-		if (track)
-		{
-			if (track->isPlaying.load() && !track->isArmedToStop.load())
-			{
-				armToStop();
-			}
-			updateButtonColors();
-		}
-	};
 
 	addAndMakeVisible(muteButton);
 	muteButton.setButtonText("M");
 	muteButton.setClickingTogglesState(true);
-	muteButton.onClick = [this]()
-	{
-		if (track)
-		{
-			track->isMuted = muteButton.getToggleState();
-			updateButtonColors();
-		}
-	};
 
 	addAndMakeVisible(soloButton);
 	soloButton.setButtonText("S");
 	soloButton.setClickingTogglesState(true);
-	soloButton.onClick = [this]()
-	{
-		if (track)
-		{
-			bool newSoloState = soloButton.getToggleState();
-			track->isSolo = newSoloState;
-			updateButtonColors();
-		}
-	};
 
 	addAndMakeVisible(volumeSlider);
 	volumeSlider.setRange(0.0, 1.0, 0.01);
@@ -358,13 +480,6 @@ void MixerChannel::setupUI()
 	volumeSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
 	volumeSlider.setColour(juce::Slider::thumbColourId, juce::Colour(0xff00ff88));
 	volumeSlider.setColour(juce::Slider::trackColourId, juce::Colour(0xff404040));
-	volumeSlider.onValueChange = [this]()
-	{
-		if (track)
-		{
-			track->volume = volumeSlider.getValue();
-		}
-	};
 
 	addAndMakeVisible(pitchKnob);
 	pitchKnob.setRange(-12.0, 12.0, 0.1);
@@ -398,13 +513,6 @@ void MixerChannel::setupUI()
 	panKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 	panKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
 	panKnob.setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xff00ff88));
-	panKnob.onValueChange = [this]()
-	{
-		if (track)
-		{
-			track->pan = panKnob.getValue();
-		}
-	};
 
 	addAndMakeVisible(panLabel);
 	panLabel.setText("PAN", juce::dontSendNotification);
@@ -412,79 +520,14 @@ void MixerChannel::setupUI()
 	panLabel.setJustificationType(juce::Justification::centred);
 	panLabel.setFont(juce::Font(9.0f));
 
-	pitchKnob.onValueChange = [this]()
-	{
-		if (track)
-		{
-			track->bpmOffset = pitchKnob.getValue();
-			if (onPitchChanged)
-			{
-				onPitchChanged(trackId, pitchKnob.getValue());
-			}
-		}
-	};
-	fineKnob.onValueChange = [this]()
-	{
-		if (track)
-		{
-			float fineBpmOffset = fineKnob.getValue() / 100.0f;
-			track->fineOffset = fineBpmOffset;
-			if (onFineChanged)
-			{
-				onFineChanged(trackId, fineBpmOffset);
-			}
-		}
-	};
-	panKnob.onValueChange = [this]()
-	{
-		if (track)
-		{
-			track->pan.store(panKnob.getValue());
-			if (onPanChanged)
-			{
-				onPanChanged(trackId, track->pan.load());
-			}
-		}
-	};
-}
-
-void MixerChannel::armToStop()
-{
-	track->isArmed = false;
-	track->isArmedToStop = true;
-	playButton.setToggleState(false, juce::dontSendNotification);
-
-	isBlinking = true;
-	startTimer(300);
-}
-
-void MixerChannel::timerCallback()
-{
-	if (isBlinking && track && track->isArmedToStop)
-	{
-		blinkState = !blinkState;
-		stopButton.setColour(juce::TextButton::buttonColourId,
-							 blinkState ? juce::Colours::red : juce::Colours::darkred);
-	}
-	else
-	{
-		stopTimer();
-		isBlinking = false;
-		updateButtonColors();
-	}
+	addEventListeners();
 }
 
 void MixerChannel::updateButtonColors()
 {
-	bool expected = false;
-	if (!isUpdatingButtons.compare_exchange_strong(expected, true))
-	{
-		return;
-	}
 
 	if (!track)
 	{
-		isUpdatingButtons = false;
 		return;
 	}
 	bool isArmed = track->isArmed.load();
@@ -492,6 +535,7 @@ void MixerChannel::updateButtonColors()
 	bool isMuted = track->isMuted.load();
 	bool isSolo = track->isSolo.load();
 
+	DBG("🔍 Reading isPlaying = " << (isPlaying ? "true" : "false") << " for " << track->trackName);
 	playButton.setToggleState(isArmed || isPlaying, juce::dontSendNotification);
 
 	if (isPlaying)
@@ -528,101 +572,51 @@ void MixerChannel::updateButtonColors()
 
 	stopButton.setColour(juce::TextButton::buttonColourId,
 						 (isArmed || isPlaying) ? juce::Colour(0xffaa4400) : juce::Colour(0xff404040));
-	isUpdatingButtons = false;
+}
+
+void MixerChannel::learn(juce::String param, std::function<void(float)> uiCallback)
+{
+	if (audioProcessor.getActiveEditor() && track && track->slotIndex != -1)
+	{
+		juce::String parameterName = "slot" + juce::String(track->slotIndex + 1) + param;
+		juce::String description = "Slot " + juce::String(track->slotIndex + 1) + " " + param;
+		audioProcessor.getMidiLearnManager()
+			.startLearning(parameterName, &audioProcessor, uiCallback, description);
+	}
 }
 
 void MixerChannel::setupMidiLearn()
 {
 	playButton.onMidiLearn = [this]()
 	{
-		if (audioProcessor.getActiveEditor())
-		{
-			audioProcessor.getMidiLearnManager().startLearning(&playButton, [this](float value)
-															   {
-                if (value > 0.5f) {
-                    playButton.triggerClick();
-                } }, "Play Button");
-		}
+		learn("Play");
 	};
 	muteButton.onMidiLearn = [this]()
 	{
-		if (audioProcessor.getActiveEditor())
-		{
-			audioProcessor.getMidiLearnManager().startLearning(&muteButton, [this](float value)
-															   {
-                if (value > 0.5f) {
-                    muteButton.triggerClick();
-                } }, "Mute Button");
-		}
+		learn("Mute");
 	};
 	stopButton.onMidiLearn = [this]()
 	{
-		if (audioProcessor.getActiveEditor())
-		{
-			audioProcessor.getMidiLearnManager().startLearning(&stopButton, [this](float value)
-															   {
-                if (value > 0.5f) {
-                    stopButton.triggerClick();
-                } }, "Stop Button");
-		}
+		learn("Stop");
 	};
 	soloButton.onMidiLearn = [this]()
 	{
-		if (audioProcessor.getActiveEditor())
-		{
-			audioProcessor.getMidiLearnManager().startLearning(&soloButton, [this](float value)
-															   {
-                if (value > 0.5f) {
-                    soloButton.triggerClick();
-                } }, "Solo Button");
-		}
+		learn("Solo");
 	};
 	volumeSlider.onMidiLearn = [this]()
 	{
-		if (audioProcessor.getActiveEditor())
-		{
-			audioProcessor.getMidiLearnManager().startLearning(&volumeSlider, [this](float value)
-															   {
-            double min = volumeSlider.getMinimum();
-            double max = volumeSlider.getMaximum();
-            double scaledValue = min + (value * (max - min));
-            volumeSlider.setValue(scaledValue, juce::sendNotification); }, "Volume Slider");
-		}
+		learn("Volume");
 	};
 	pitchKnob.onMidiLearn = [this]()
 	{
-		if (audioProcessor.getActiveEditor())
-		{
-			audioProcessor.getMidiLearnManager().startLearning(&pitchKnob, [this](float value)
-															   {
-            double min = pitchKnob.getMinimum();
-            double max = pitchKnob.getMaximum();
-            double scaledValue = min + (value * (max - min));
-            pitchKnob.setValue(scaledValue, juce::sendNotification); }, "Pitch Knob");
-		}
+		learn("Pitch");
 	};
 	fineKnob.onMidiLearn = [this]()
 	{
-		if (audioProcessor.getActiveEditor())
-		{
-			audioProcessor.getMidiLearnManager().startLearning(&fineKnob, [this](float value)
-															   {
-            double min = fineKnob.getMinimum();
-            double max = fineKnob.getMaximum();
-            double scaledValue = min + (value * (max - min));
-            fineKnob.setValue(scaledValue, juce::sendNotification); }, "Fine Knob");
-		}
+		learn("Fine");
 	};
 	panKnob.onMidiLearn = [this]()
 	{
-		if (audioProcessor.getActiveEditor())
-		{
-			audioProcessor.getMidiLearnManager().startLearning(&panKnob, [this](float value)
-															   {
-            double min = panKnob.getMinimum();
-            double max = panKnob.getMaximum();
-            double scaledValue = min + (value * (max - min));
-            panKnob.setValue(scaledValue, juce::sendNotification); }, "Pan Knob");
-		}
+		learn("Pan");
 	};
 }

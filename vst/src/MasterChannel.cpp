@@ -9,11 +9,11 @@ MasterChannel::MasterChannel(DjIaVstProcessor &processor) : audioProcessor(proce
 
 MasterChannel::~MasterChannel()
 {
-    audioProcessor.getMidiLearnManager().removeMapping(&masterVolumeSlider);
-    audioProcessor.getMidiLearnManager().removeMapping(&masterPanKnob);
-    audioProcessor.getMidiLearnManager().removeMapping(&highKnob);
-    audioProcessor.getMidiLearnManager().removeMapping(&midKnob);
-    audioProcessor.getMidiLearnManager().removeMapping(&lowKnob);
+    // audioProcessor.getMidiLearnManager().removeMapping(&masterVolumeSlider);
+    // audioProcessor.getMidiLearnManager().removeMapping(&masterPanKnob);
+    // audioProcessor.getMidiLearnManager().removeMapping(&highKnob);
+    // audioProcessor.getMidiLearnManager().removeMapping(&midKnob);
+    // audioProcessor.getMidiLearnManager().removeMapping(&lowKnob);
 }
 
 void MasterChannel::setupUI()
@@ -314,64 +314,19 @@ void MasterChannel::updateMasterLevels()
 
 void MasterChannel::setupMidiLearn()
 {
-    masterVolumeSlider.onMidiLearn = [this]()
-    {
-        if (audioProcessor.getActiveEditor())
-        {
-            audioProcessor.getMidiLearnManager().startLearning(&masterVolumeSlider, [this](float value)
-                                                               {
-            double min = masterVolumeSlider.getMinimum();
-            double max = masterVolumeSlider.getMaximum();
-            double scaledValue = min + (value * (max - min));
-            masterVolumeSlider.setValue(scaledValue, juce::sendNotification); }, "Master Volume Slider");
-        };
+    masterVolumeSlider.onMidiLearn = [this]() {
+
     };
-    masterPanKnob.onMidiLearn = [this]()
-    {
-        if (audioProcessor.getActiveEditor())
-        {
-            audioProcessor.getMidiLearnManager().startLearning(&masterPanKnob, [this](float value)
-                                                               {
-            double min = masterPanKnob.getMinimum();
-            double max = masterPanKnob.getMaximum();
-            double scaledValue = min + (value * (max - min));
-            masterPanKnob.setValue(scaledValue, juce::sendNotification); }, "Master Pan Knob");
-        }
+    masterPanKnob.onMidiLearn = [this]() {
+
     };
-    highKnob.onMidiLearn = [this]()
-    {
-        if (audioProcessor.getActiveEditor())
-        {
-            audioProcessor.getMidiLearnManager().startLearning(&highKnob, [this](float value)
-                                                               {
-            double min = highKnob.getMinimum();
-            double max = highKnob.getMaximum();
-            double scaledValue = min + (value * (max - min));
-            highKnob.setValue(scaledValue, juce::sendNotification); }, "High Knob");
-        }
+    highKnob.onMidiLearn = [this]() {
+
     };
-    midKnob.onMidiLearn = [this]()
-    {
-        if (audioProcessor.getActiveEditor())
-        {
-            audioProcessor.getMidiLearnManager().startLearning(&midKnob, [this](float value)
-                                                               {
-            double min = midKnob.getMinimum();
-            double max = midKnob.getMaximum();
-            double scaledValue = min + (value * (max - min));
-            midKnob.setValue(scaledValue, juce::sendNotification); }, "Mid Knob");
-        }
+    midKnob.onMidiLearn = [this]() {
+
     };
-    lowKnob.onMidiLearn = [this]()
-    {
-        if (audioProcessor.getActiveEditor())
-        {
-            audioProcessor.getMidiLearnManager().startLearning(&lowKnob, [this](float value)
-                                                               {
-            double min = lowKnob.getMinimum();
-            double max = lowKnob.getMaximum();
-            double scaledValue = min + (value * (max - min));
-            lowKnob.setValue(scaledValue, juce::sendNotification); }, "Low Knob");
-        }
+    lowKnob.onMidiLearn = [this]() {
+
     };
 }

@@ -1,5 +1,6 @@
 ﻿#include <JuceHeader.h>
 #include "MidiLearnManager.h"
+#include "PluginProcessor.h"
 
 MidiLearnManager::MidiLearnManager()
 {
@@ -10,35 +11,19 @@ MidiLearnManager::~MidiLearnManager()
     stopLearning();
 }
 
-void MidiLearnManager::startLearning(juce::Component *component, std::function<void(float)> callback, const juce::String &description)
+void MidiLearnManager::startLearning(const juce::String &parameterName,
+                                     DjIaVstProcessor *processor,
+                                     std::function<void(float)> uiCallback,
+                                     const juce::String &description)
 {
     stopLearning();
-
-    learningComponent = component;
-    learningCallback = callback;
+    learningParameter = parameterName;
+    learningProcessor = processor;
+    learningUiCallback = uiCallback;
     learningDescription = description;
     isLearning = true;
     learnStartTime = juce::Time::currentTimeMillis();
-
-    if (learningComponent)
-    {
-        juce::MessageManager::callAsync([this, component]()
-                                        {
-            if (auto *button = dynamic_cast<juce::Button *>(component))
-            {
-                originalColourId = juce::TextButton::buttonColourId;
-                originalColour = button->findColour(originalColourId);
-            }
-            else if (auto *slider = dynamic_cast<juce::Slider *>(component))
-            {
-                originalColourId = juce::Slider::thumbColourId;
-                originalColour = slider->findColour(originalColourId);
-            } });
-
-        startTimer(300);
-    }
-
-    DBG("MIDI Learn started for: " + description);
+    DBG("MIDI Learn started for parameter: " + parameterName);
 }
 
 void MidiLearnManager::stopLearning()
@@ -48,30 +33,7 @@ void MidiLearnManager::stopLearning()
 
     isLearning = false;
     stopTimer();
-
-    if (learningComponent)
-    {
-        juce::MessageManager::callAsync([this, component = learningComponent,
-                                         originalColour = this->originalColour,
-                                         originalColourId = this->originalColourId]()
-                                        {
-            if (component != nullptr)
-            {
-                if (auto* button = dynamic_cast<juce::Button*>(component))
-                {
-                    button->setColour(originalColourId, originalColour);
-                }
-                else if (auto* slider = dynamic_cast<juce::Slider*>(component))
-                {
-                    slider->setColour(originalColourId, originalColour);
-                }
-                
-                component->repaint();
-            } });
-    }
-
-    learningComponent = nullptr;
-    learningCallback = nullptr;
+    learningUiCallback = nullptr;
     learningDescription.clear();
 
     DBG("MIDI Learn stopped");
@@ -85,28 +47,11 @@ void MidiLearnManager::timerCallback()
         stopLearning();
         return;
     }
-
-    if (learningComponent)
-    {
-        flashState = !flashState;
-        juce::Colour flashColour = flashState ? juce::Colours::red : juce::Colours::orange;
-
-        if (auto *button = dynamic_cast<juce::Button *>(learningComponent))
-        {
-            button->setColour(originalColourId, flashColour);
-        }
-        else if (auto *slider = dynamic_cast<juce::Slider *>(learningComponent))
-        {
-            slider->setColour(originalColourId, flashColour);
-        }
-
-        learningComponent->repaint();
-    }
 }
 
 bool MidiLearnManager::processMidiForLearning(const juce::MidiMessage &message)
 {
-    if (!isLearning || !learningComponent)
+    if (!isLearning)
     {
         return false;
     }
@@ -135,15 +80,16 @@ bool MidiLearnManager::processMidiForLearning(const juce::MidiMessage &message)
         return false;
     }
 
-    removeMapping(learningComponent);
+    removeMapping(learningParameter);
 
     MidiMapping mapping;
     mapping.midiType = midiType;
     mapping.midiNumber = midiNumber;
     mapping.midiChannel = midiChannel;
-    mapping.targetComponent = learningComponent;
-    mapping.callback = learningCallback;
+    mapping.processor = learningProcessor;
+    mapping.uiCallback = learningUiCallback;
     mapping.description = learningDescription;
+    mapping.parameterName = learningParameter;
 
     mappings.push_back(mapping);
 
@@ -199,28 +145,58 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
             value = (message.getPitchWheelValue() + 8192) / 16383.0f;
         }
 
-        if (matches && mapping.targetComponent && mapping.callback)
+        if (matches && mapping.processor)
         {
-            if (mapping.targetComponent != nullptr)
+            auto *param = mapping.processor->getParameterTreeState().getParameter(mapping.parameterName);
+
+            if (param)
             {
-                juce::MessageManager::callAsync([callback = mapping.callback, value]()
-                                                { callback(value); });
-            }
-            else
-            {
-                removeMapping(mapping.targetComponent);
+                param->setValueNotifyingHost(value);
             }
         }
     }
 }
 
-void MidiLearnManager::removeMapping(juce::Component *component)
+void MidiLearnManager::clearUICallbacks()
+{
+    registeredUICallbacks.clear();
+    for (auto &mapping : mappings)
+    {
+        mapping.uiCallback = nullptr;
+    }
+    DBG("UI callbacks cleared");
+}
+
+void MidiLearnManager::registerUICallback(const juce::String &parameterName,
+                                          std::function<void(float)> callback)
+{
+    registeredUICallbacks[parameterName] = callback;
+}
+
+void MidiLearnManager::restoreUICallbacks()
+{
+    for (auto &mapping : mappings)
+    {
+        auto it = registeredUICallbacks.find(mapping.parameterName);
+        if (it != registeredUICallbacks.end())
+        {
+            mapping.uiCallback = it->second;
+        }
+    }
+}
+
+void MidiLearnManager::addMapping(const MidiMapping &midiMapping)
+{
+    mappings.push_back(midiMapping);
+}
+
+void MidiLearnManager::removeMapping(juce::String parameterName)
 {
     mappings.erase(
         std::remove_if(mappings.begin(), mappings.end(),
-                       [component](const MidiMapping &mapping)
+                       [parameterName](const MidiMapping &mapping)
                        {
-                           return mapping.targetComponent == component;
+                           return mapping.parameterName == parameterName;
                        }),
         mappings.end());
 }
@@ -229,21 +205,4 @@ void MidiLearnManager::clearAllMappings()
 {
     mappings.clear();
     DBG("All MIDI mappings cleared");
-}
-
-void MidiLearnManager::recreateMapping(int midiType, int midiNumber, int midiChannel,
-                                       juce::Component *component, std::function<void(float)> callback,
-                                       const juce::String &description)
-{
-    MidiMapping mapping;
-    mapping.midiType = midiType;
-    mapping.midiNumber = midiNumber;
-    mapping.midiChannel = midiChannel;
-    mapping.targetComponent = component;
-    mapping.callback = callback;
-    mapping.description = description;
-
-    mappings.push_back(mapping);
-
-    DBG("MIDI mapping recreated: " + description);
 }

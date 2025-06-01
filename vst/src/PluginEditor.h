@@ -31,6 +31,7 @@ public:
 		return trackComponents;
 	}
 	void onGenerationComplete(const juce::String &selectedTrackId, const juce::String &notification);
+	MixerPanel *getMixerPanel() { return mixerPanel.get(); }
 
 private:
 	DjIaVstProcessor &audioProcessor;

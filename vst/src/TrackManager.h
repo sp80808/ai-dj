@@ -126,7 +126,7 @@ public:
 				tempIndividualBuffer.clear();
 
 				renderSingleTrack(*track, tempMixBuffer, tempIndividualBuffer,
-								  numSamples, hostSampleRate);
+								  numSamples, hostSampleRate, trackIndex);
 
 				bool shouldHearTrack = !track->isMuted.load() &&
 									   (!anyTrackSolo || track->isSolo.load());
@@ -189,6 +189,7 @@ public:
 			trackState.setProperty("isPlaying", track->isPlaying.load(), nullptr);
 			trackState.setProperty("isArmed", track->isArmed.load(), nullptr);
 			trackState.setProperty("isArmedToStop", track->isArmedToStop.load(), nullptr);
+			trackState.setProperty("isCurrentlyPlaying", track->isCurrentlyPlaying.load(), nullptr);
 
 			if (track->numSamples > 0)
 			{
@@ -255,6 +256,7 @@ public:
 			track->isPlaying = trackState.getProperty("isplaying", false);
 			track->isArmed = trackState.getProperty("isArmed", false);
 			track->isArmedToStop = trackState.getProperty("isArmedToStop", false);
+			track->isCurrentlyPlaying = trackState.getProperty("isCurrentlyPlaying", false);
 
 			juce::String audioDataBase64 = trackState.getProperty("audioData", "");
 			if (audioDataBase64.isNotEmpty())
@@ -278,6 +280,10 @@ public:
 						}
 					}
 				}
+			}
+			if (track->slotIndex < 0 || track->slotIndex >= 8 || usedSlots[track->slotIndex])
+			{
+				track->slotIndex = findFreeSlot();
 			}
 			if (track->slotIndex >= 0 && track->slotIndex < 8)
 			{
@@ -306,7 +312,7 @@ private:
 	void renderSingleTrack(TrackData &track,
 						   juce::AudioBuffer<float> &mixOutput,
 						   juce::AudioBuffer<float> &individualOutput,
-						   int numSamples, double hostSampleRate)
+						   int numSamples, double hostSampleRate, int trackIndex)
 	{
 		if (track.numSamples == 0 || !track.isPlaying.load())
 			return;
@@ -376,14 +382,14 @@ private:
 
 			if (absolutePosition >= endSample)
 			{
-				track.isPlaying = false;
-				break;
+				currentPosition = 0.0;
+				absolutePosition = startSample;
 			}
 
 			if (absolutePosition >= track.numSamples)
 			{
-				track.isPlaying = false;
-				break;
+				currentPosition = 0.0;
+				absolutePosition = startSample;
 			}
 
 			for (int ch = 0; ch < std::min(2, track.audioBuffer.getNumChannels()); ++ch)

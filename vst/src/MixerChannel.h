@@ -3,21 +3,13 @@
 #include "PluginProcessor.h"
 #include "MidiLearnableComponents.h"
 
-class MixerChannel : public juce::Component, public juce::Timer
+class MixerChannel : public juce::Component, public juce::Timer, public juce::AudioProcessorParameter::Listener
 {
 public:
-	MixerChannel(const juce::String &trackId, DjIaVstProcessor &processor);
+	MixerChannel(const juce::String &trackId, DjIaVstProcessor &processor, TrackData *trackData);
 	~MixerChannel() override;
 	juce::String getTrackId() const { return trackId; }
 	juce::Label trackNameLabel;
-	std::function<void(const juce::String &, bool)> onSoloChanged;
-	std::function<void(const juce::String &, bool)> onMuteChanged;
-	std::function<void(const juce::String &)> onPlayTrack;
-	std::function<void(const juce::String &)> onStopTrack;
-	std::function<void(const juce::String &, int)> onMidiLearn;
-	std::function<void(const juce::String &, float)> onPitchChanged;
-	std::function<void(const juce::String &, float)> onFineChanged;
-	std::function<void(const juce::String &, float)> onPanChanged;
 
 	float getCurrentAudioLevel() const { return currentAudioLevel; }
 	float getPeakLevel() const { return peakHold; }
@@ -25,6 +17,7 @@ public:
 	void updateFromTrackData();
 	void updateVUMeters();
 	void setTrackData(TrackData *trackData);
+	void updateButtonColors();
 
 private:
 	DjIaVstProcessor &audioProcessor;
@@ -64,11 +57,20 @@ private:
 	void updateVUMeter();
 	float calculateInstantLevel();
 	void setCurrentLevel(float level);
-	void armToStop();
-	void updateButtonColors();
 	void timerCallback() override;
 	void setupMidiLearn();
 	void setupUI();
+	void parameterValueChanged(int parameterIndex, float newValue) override;
+	void parameterGestureChanged(int parameterIndex, bool gestureIsStarting) override;
+	void addEventListeners();
+	void learn(juce::String param, std::function<void(float)> uiCallback = nullptr);
+	void removeListener(juce::String name);
+	void addListener(juce::String name);
+	void setSliderParameter(juce::String name, juce::Slider &slider);
+	void setButtonParameter(juce::String name, juce::Button &button);
+	void updateUIFromParameter(const juce::String &paramName,
+							   const juce::String &slotPrefix,
+							   float newValue);
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MixerChannel)
 	JUCE_DECLARE_WEAK_REFERENCEABLE(MixerChannel)

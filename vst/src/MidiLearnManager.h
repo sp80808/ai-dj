@@ -1,49 +1,47 @@
 #pragma once
 #include <JuceHeader.h>
+#include "MidiMapping.h"
 #include <vector>
 #include <functional>
 
 class MidiLearnManager : public juce::Timer
 {
 public:
-    struct MidiMapping
-    {
-        int midiType;
-        int midiNumber;
-        int midiChannel;
-        juce::Component *targetComponent;
-        std::function<void(float)> callback;
-        juce::String description;
-    };
-
     MidiLearnManager();
     ~MidiLearnManager();
 
-    void startLearning(juce::Component *component, std::function<void(float)> callback, const juce::String &description = "");
-    void recreateMapping(int midiType, int midiNumber, int midiChannel,
-                         juce::Component *component, std::function<void(float)> callback,
-                         const juce::String &description);
+    void startLearning(const juce::String &parameterName,
+                       DjIaVstProcessor *processor,
+                       std::function<void(float)> uiCallback = nullptr,
+                       const juce::String &description = "");
     void stopLearning();
     bool processMidiForLearning(const juce::MidiMessage &message);
     void processMidiMappings(const juce::MidiMessage &message);
-    void removeMapping(juce::Component *component);
+    void removeMapping(juce::String parameterName);
     void clearAllMappings();
     std::vector<MidiMapping> getAllMappings() const { return mappings; }
     bool isLearningActive() const { return isLearning; }
-    juce::Component *getLearningComponent() const { return learningComponent; }
+    void clearUICallbacks();
+    void registerUICallback(const juce::String &parameterName,
+                            std::function<void(float)> callback);
+    void restoreUICallbacks();
+    void addMapping(const MidiMapping &midiMapping);
 
 private:
     void timerCallback() override;
     bool isLearning = false;
-    juce::Component *learningComponent = nullptr;
-    std::function<void(float)> learningCallback;
+    std::map<juce::String, std::function<void(float)>> registeredUICallbacks;
+    std::function<void(float)> learningUiCallback;
+    DjIaVstProcessor *learningProcessor = nullptr;
     juce::String learningDescription;
+    juce::String learningParameter;
     std::vector<MidiMapping> mappings;
     bool flashState = false;
     juce::Colour originalColour;
     int originalColourId = 0;
     static constexpr int LEARN_TIMEOUT_MS = 10000;
     juce::int64 learnStartTime = 0;
+    MidiMapping learningMapping;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MidiLearnManager)
 };

@@ -6,6 +6,7 @@ struct TrackData
 	std::atomic<bool> isPlaying{false};
 	std::atomic<bool> isArmed{false};
 	std::atomic<bool> isArmedToStop{false};
+	std::atomic<bool> isCurrentlyPlaying{false};
 	float fineOffset = 0.0f;
 	std::atomic<double> cachedPlaybackRatio{1.0};
 	juce::AudioSampleBuffer stagingBuffer;

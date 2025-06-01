@@ -11,8 +11,6 @@ TrackComponent::TrackComponent(const juce::String &trackId, DjIaVstProcessor &pr
 
 TrackComponent::~TrackComponent()
 {
-    audioProcessor.getMidiLearnManager().removeMapping(&bpmOffsetSlider);
-    audioProcessor.getMidiLearnManager().removeMapping(&generateButton);
 }
 
 void TrackComponent::setTrackData(TrackData *trackData)
@@ -42,26 +40,6 @@ void TrackComponent::calculateHostBasedDisplay()
     {
         waveformDisplay->setOriginalBpm(track->originalBpm);
         waveformDisplay->setSampleBpm(effectiveBpm);
-    }
-}
-
-void TrackComponent::updateRealTimeDisplay()
-{
-    if (!track)
-        return;
-
-    bool isCurrentlyPlaying = track->isPlaying.load();
-
-    if (isCurrentlyPlaying && track->numSamples > 0 && track->sampleRate > 0)
-    {
-        double readPos = track->readPosition.load();
-        double startSample = track->loopStart * track->sampleRate;
-        double currentTimeInSection = (startSample + readPos) / track->sampleRate;
-
-        if (waveformDisplay && showWaveformButton.getToggleState())
-        {
-            waveformDisplay->setPlaybackPosition(currentTimeInSection, true);
-        }
     }
 }
 
@@ -141,19 +119,6 @@ void TrackComponent::updatePlaybackPosition(double timeInSeconds)
     }
 }
 
-void TrackComponent::refreshWaveformIfNeeded()
-{
-    if (waveformDisplay && showWaveformButton.getToggleState() && track && track->numSamples > 0)
-    {
-        static int lastNumSamples = 0;
-        if (track->numSamples != lastNumSamples)
-        {
-            refreshWaveformDisplay();
-            lastNumSamples = track->numSamples;
-        }
-    }
-}
-
 void TrackComponent::updateFromTrackData()
 {
     if (!track)
@@ -174,8 +139,8 @@ void TrackComponent::updateFromTrackData()
 
     calculateHostBasedDisplay();
     bool isCurrentlyPlaying = track->isPlaying.load();
-
     bool isMuted = track->isMuted.load();
+
     if (waveformDisplay)
     {
         bool shouldLock = isCurrentlyPlaying && !isMuted;
@@ -188,8 +153,6 @@ void TrackComponent::updateFromTrackData()
             waveformDisplay->setPlaybackPosition(currentTimeInSection, isCurrentlyPlaying);
         }
     }
-
-    updateRealTimeDisplay();
     updateTrackInfo();
 }
 
@@ -579,27 +542,10 @@ void TrackComponent::updateBpmSliderVisibility()
 void TrackComponent::setupMidiLearn()
 {
 
-    generateButton.onMidiLearn = [this]()
-    {
-        if (audioProcessor.getActiveEditor())
-        {
-            audioProcessor.getMidiLearnManager().startLearning(&generateButton, [this](float value)
-                                                               {
-                if (value > 0.5f) {
-                    generateButton.triggerClick();
-                } }, "Generate Button");
-        }
+    generateButton.onMidiLearn = [this]() {
+
     };
-    bpmOffsetSlider.onMidiLearn = [this]()
-    {
-        if (audioProcessor.getActiveEditor())
-        {
-            audioProcessor.getMidiLearnManager().startLearning(&bpmOffsetSlider, [this](float value)
-                                                               {
-            double min = bpmOffsetSlider.getMinimum();
-            double max = bpmOffsetSlider.getMaximum();
-            double scaledValue = min + (value * (max - min));
-            bpmOffsetSlider.setValue(scaledValue, juce::sendNotification); }, "BPM Offset Slider");
-        }
+    bpmOffsetSlider.onMidiLearn = [this]() {
+
     };
 }

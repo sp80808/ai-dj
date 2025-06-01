@@ -93,7 +93,6 @@ public:
 	TrackData *getTrack(const juce::String &trackId) { return trackManager.getTrack(trackId); }
 	void generateLoop(const DjIaClient::LoopRequest &request, const juce::String &targetTrackId = "");
 	void startNotePlaybackForTrack(const juce::String &trackId, int noteNumber, double hostBpm = 126.0);
-	void stopNotePlaybackForTrack(int noteNumber);
 	void setApiKey(const juce::String &key);
 	void setServerUrl(const juce::String &url);
 	double getHostBpm() const;
@@ -128,10 +127,10 @@ public:
 	bool isStateReady() const { return stateLoaded; }
 	MidiLearnManager &getMidiLearnManager() { return midiLearnManager; }
 	juce::ValueTree pendingMidiMappings;
-	void loadMidiMappings(const juce::ValueTree &mappingsState);
+	juce::AudioProcessorValueTreeState &getParameterTreeState() { return parameters; }
+	std::atomic<bool> needsUIUpdate{false};
 
 private:
-	std::atomic<bool> needsUIUpdate{false};
 	std::atomic<double> cachedHostBpm{126.0};
 	std::atomic<bool> stateLoaded{false};
 	static juce::AudioProcessor::BusesProperties createBusLayout();
@@ -200,10 +199,10 @@ private:
 	void processMidiMessages(juce::MidiBuffer &midiMessages, bool hostIsPlaying, double hostBpm);
 	void playTrack(const juce::MidiMessage &message, double hostBpm);
 	void updateTimeStretchRatios(double hostBpm);
-	void recreateMidiMapping(const juce::ValueTree &mappingState, DjIaVstEditor *editor);
 	TrackComponent *findTrackComponentByName(const juce::String &trackName, DjIaVstEditor *editor);
 	juce::Button *findGenerateButtonInTrack(TrackComponent *trackComponent);
 	juce::Slider *findBpmOffsetSliderInTrack(TrackComponent *trackComponent);
+	void stopNotePlaybackForTrack(int noteNumber);
 	std::atomic<float> *masterVolumeParam = nullptr;
 	std::atomic<float> *masterPanParam = nullptr;
 	std::atomic<float> *masterHighParam = nullptr;
