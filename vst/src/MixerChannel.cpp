@@ -602,9 +602,13 @@ void MixerChannel::updateButtonColors()
 
 	muteButton.setToggleState(isMuted, juce::dontSendNotification);
 	muteButton.setColour(juce::TextButton::buttonOnColourId,
-						 isMuted ? juce::Colour(0xffaa0000) : juce::Colour(0xff404040));
+						 juce::Colour(0xffaa0000));
+	muteButton.setColour(juce::TextButton::textColourOnId,
+						 juce::Colours::white);
 	muteButton.setColour(juce::TextButton::buttonColourId,
 						 juce::Colour(0xff404040));
+	muteButton.setColour(juce::TextButton::textColourOffId,
+						 juce::Colours::white);
 
 	soloButton.setToggleState(isSolo, juce::dontSendNotification);
 	soloButton.setColour(juce::TextButton::buttonOnColourId,
