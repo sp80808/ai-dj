@@ -3,9 +3,10 @@
 #include <string>
 
 MixerChannel::MixerChannel(const juce::String &trackId, DjIaVstProcessor &processor, TrackData *trackData)
-	: trackId(trackId), audioProcessor(processor), track(trackData)
+	: trackId(trackId), audioProcessor(processor), track(nullptr)
 {
 	setupUI();
+	setTrackData(trackData);
 	updateFromTrackData();
 	setupMidiLearn();
 }
@@ -20,6 +21,27 @@ MixerChannel::~MixerChannel()
 	removeListener("Pitch");
 	removeListener("Fine");
 	removeListener("Pan");
+}
+
+void MixerChannel::setTrackData(TrackData *trackData)
+{
+	track = trackData;
+	if (track)
+	{
+		juce::WeakReference<MixerChannel> weakThis(this);
+		track->onPlayStateChanged = [weakThis](bool isPlaying)
+		{
+			if (weakThis != nullptr)
+			{
+				juce::MessageManager::callAsync([weakThis]()
+												{
+                    if (weakThis != nullptr && !weakThis->isUpdatingButtons) {
+                        weakThis->updateButtonColors(); 
+                    } });
+			}
+		};
+	}
+	updateFromTrackData();
 }
 
 void MixerChannel::removeListener(juce::String name)
@@ -209,11 +231,6 @@ void MixerChannel::updateVUMeters()
 {
 	updateVUMeter();
 	repaint();
-}
-
-void MixerChannel::setTrackData(TrackData *trackData)
-{
-	track = trackData;
 }
 
 void MixerChannel::updateFromTrackData()
