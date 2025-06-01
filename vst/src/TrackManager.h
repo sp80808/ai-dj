@@ -7,6 +7,8 @@ class TrackManager
 public:
 	TrackManager() = default;
 
+	std::function<void(int slot, TrackData *track)> parameterUpdateCallback;
+
 	juce::String createTrack(const juce::String &name = "Track")
 	{
 		juce::ScopedLock lock(tracksLock);
@@ -321,6 +323,14 @@ private:
 		const float pan = juce::jlimit(-1.0f, 1.0f, track.pan.load());
 		double currentPosition = track.readPosition.load();
 		double playbackRatio = 1.0;
+		if (parameterUpdateCallback && track.isPlaying.load())
+		{
+			int slot = track.slotIndex;
+			if (slot != -1)
+			{
+				parameterUpdateCallback(slot, &track);
+			}
+		}
 
 		switch (track.timeStretchMode)
 		{

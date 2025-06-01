@@ -23,6 +23,10 @@ DjIaVstProcessor::DjIaVstProcessor()
 	loadParameters();
 	initTracks();
 	initDummySynth();
+	trackManager.parameterUpdateCallback = [this](int slot, TrackData *track)
+	{
+		handleSampleParams(slot, track);
+	};
 	startTimerHz(30);
 }
 
@@ -423,19 +427,27 @@ void DjIaVstProcessor::playTrack(const juce::MidiMessage &message, double hostBp
 			}
 			if (track->numSamples > 0)
 			{
-				handleSampleParams(slot, track, trackId, noteNumber, hostBpm, trackFound, noteName);
+				startNotePlaybackForTrack(trackId, noteNumber, hostBpm);
+				trackFound = true;
+
+				if (midiIndicatorCallback && track->isPlaying)
+				{
+					midiIndicatorCallback(">> " + track->trackName + " (" + noteName + ") - BPM:" + juce::String(hostBpm, 0));
+				}
 			}
 			break;
 		}
 	}
 }
 
-void DjIaVstProcessor::handleSampleParams(int slot, TrackData *track, const juce::String &trackId, int noteNumber, double hostBpm, bool &trackFound, juce::String &noteName)
+void DjIaVstProcessor::handleSampleParams(int slot, TrackData *track)
 {
 	float paramVolume = slotVolumeParams[slot]->load();
 	float paramPan = slotPanParams[slot]->load();
 	float paramPitch = slotPitchParams[slot]->load();
 	float paramFine = slotFineParams[slot]->load();
+	float paramSolo = slotSoloParams[slot]->load();
+	float paramMute = slotMuteParams[slot]->load();
 
 	if (std::abs(track->volume.load() - paramVolume) > 0.01f)
 	{
@@ -456,13 +468,20 @@ void DjIaVstProcessor::handleSampleParams(int slot, TrackData *track, const juce
 	{
 		track->fineOffset = paramFine * 0.1f;
 	}
+	bool isSolo = paramSolo > 0.5f;
+	bool isMuted = paramMute > 0.5f;
 
-	startNotePlaybackForTrack(trackId, noteNumber, hostBpm);
-	trackFound = true;
-
-	if (midiIndicatorCallback && track->isPlaying)
+	if (track->isSolo.load() != isSolo)
 	{
-		midiIndicatorCallback(">> " + track->trackName + " (" + noteName + ") - BPM:" + juce::String(hostBpm, 0));
+		track->isSolo = isSolo;
+		if (onUIUpdateNeeded)
+			onUIUpdateNeeded();
+	}
+	if (track->isMuted.load() != isMuted)
+	{
+		track->isMuted = isMuted;
+		if (onUIUpdateNeeded)
+			onUIUpdateNeeded();
 	}
 }
 

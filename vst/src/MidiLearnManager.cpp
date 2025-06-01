@@ -128,7 +128,26 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
             if (message.getNoteNumber() == mapping.midiNumber)
             {
                 matches = true;
-                value = message.isNoteOn() ? (message.getVelocity() / 127.0f) : 0.0f;
+
+                if (message.isNoteOn() && isBooleanParameter(mapping.parameterName))
+                {
+                    auto *param = mapping.processor->getParameterTreeState().getParameter(mapping.parameterName);
+                    if (param)
+                    {
+                        float currentValue = param->getValue();
+                        value = (currentValue > 0.5f) ? 0.0f : 1.0f;
+                    }
+                }
+                else if (message.isNoteOn())
+                {
+                    value = message.getVelocity() / 127.0f;
+                }
+                else
+                {
+                    if (isBooleanParameter(mapping.parameterName))
+                        continue;
+                    value = 0.0f;
+                }
             }
         }
         else if (mapping.midiType == 1 && message.isController() && mapping.midiChannel == midiChannel)
@@ -155,6 +174,15 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
             }
         }
     }
+}
+
+bool MidiLearnManager::isBooleanParameter(const juce::String &parameterName)
+{
+    return parameterName.contains("Play") ||
+           parameterName.contains("Stop") ||
+           parameterName.contains("Mute") ||
+           parameterName.contains("Solo") ||
+           parameterName.contains("Generate");
 }
 
 void MidiLearnManager::clearUICallbacks()

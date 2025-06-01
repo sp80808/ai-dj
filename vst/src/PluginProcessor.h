@@ -129,6 +129,7 @@ public:
 	juce::ValueTree pendingMidiMappings;
 	juce::AudioProcessorValueTreeState &getParameterTreeState() { return parameters; }
 	std::atomic<bool> needsUIUpdate{false};
+	void handleSampleParams(int slot, TrackData *track);
 
 private:
 	std::atomic<double> cachedHostBpm{126.0};
@@ -218,7 +219,6 @@ private:
 	std::atomic<float> *slotPitchParams[8] = {nullptr};
 	std::atomic<float> *slotFineParams[8] = {nullptr};
 	std::atomic<float> *slotBpmOffsetParams[8] = {nullptr};
-	void handleSampleParams(int slot, TrackData *track, const juce::String &trackId, int noteNumber, double hostBpm, bool &trackFound, juce::String &noteName);
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor)
 };

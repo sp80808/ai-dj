@@ -26,6 +26,7 @@ public:
                             std::function<void(float)> callback);
     void restoreUICallbacks();
     void addMapping(const MidiMapping &midiMapping);
+    bool isBooleanParameter(const juce::String &parameterName);
 
 private:
     void timerCallback() override;

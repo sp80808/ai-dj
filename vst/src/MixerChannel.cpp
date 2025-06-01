@@ -32,13 +32,15 @@ void MixerChannel::setTrackData(TrackData *trackData)
 		juce::WeakReference<MixerChannel> weakThis(this);
 		track->onPlayStateChanged = [weakThis](bool isPlaying)
 		{
+			DBG("🔄 onPlayStateChanged called with: " << (isPlaying ? "true" : "false"));
 			if (weakThis != nullptr)
 			{
 				juce::MessageManager::callAsync([weakThis]()
 												{
-                    if (weakThis != nullptr && !weakThis->isUpdatingButtons) {
-                        weakThis->updateButtonColors(); 
-                    } });
+            if (weakThis != nullptr && !weakThis->isUpdatingButtons) {
+                DBG("🎨 Calling updateButtonColors from onPlayStateChanged");
+                weakThis->updateButtonColors(); 
+            } });
 			}
 		};
 	}
@@ -126,8 +128,17 @@ void MixerChannel::updateUIFromParameter(const juce::String &paramName,
 		float denormalizedFine = newValue * 100.0f - 50.0f;
 		fineKnob.setValue(denormalizedFine, juce::dontSendNotification);
 	}
+	else if (paramName == slotPrefix + " Mute")
+	{
+		bool isMuted = newValue > 0.5f;
+		muteButton.setToggleState(isMuted, juce::dontSendNotification);
+	}
+	else if (paramName == slotPrefix + " Solo")
+	{
+		bool isSolo = newValue > 0.5f;
+		soloButton.setToggleState(isSolo, juce::dontSendNotification);
+	}
 }
-
 void MixerChannel::parameterGestureChanged(int parameterIndex, bool gestureIsStarting)
 {
 }
@@ -209,7 +220,6 @@ void MixerChannel::addEventListeners()
 		if (track)
 		{
 			track->isMuted = muteButton.getToggleState();
-			updateButtonColors();
 		}
 		setButtonParameter("Mute", muteButton);
 	};
@@ -219,7 +229,6 @@ void MixerChannel::addEventListeners()
 		{
 			bool newSoloState = soloButton.getToggleState();
 			track->isSolo = newSoloState;
-			updateButtonColors();
 		}
 		setButtonParameter("Solo", soloButton);
 	};
