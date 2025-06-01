@@ -394,11 +394,11 @@ void DjIaVstProcessor::playTrack(const juce::MidiMessage &message, double hostBp
 		// bool paramPlay = slotPlayParams[slot]->load() > 0.5f;
 		// bool paramStop = slotStopParams[slot]->load() > 0.5f;
 
-		// if (paramStop && !track->isArmed.load() && track->isCurrentlyPlaying.load() && !track->isArmedToStop.load())
+		// if (paramStop && !track->isArmed.load() && track->isPlaying.load() && !track->isArmedToStop.load())
 		// {
 		// 	track->isArmedToStop.store(true);
 		// }
-		// else if (!paramStop && track->isCurrentlyPlaying.load() && !track->isArmed.load() && track->isArmedToStop.load())
+		// else if (!paramStop && track->isPlaying.load() && !track->isArmed.load() && track->isArmedToStop.load())
 		// {
 		// 	track->isArmedToStop.store(false);
 		// }
@@ -423,17 +423,46 @@ void DjIaVstProcessor::playTrack(const juce::MidiMessage &message, double hostBp
 			}
 			if (track->numSamples > 0)
 			{
-				track->volume = slotVolumeParams[slot]->load();
-				startNotePlaybackForTrack(trackId, noteNumber, hostBpm);
-				trackFound = true;
-
-				if (midiIndicatorCallback && track->isPlaying)
-				{
-					midiIndicatorCallback(">> " + track->trackName + " (" + noteName + ") - BPM:" + juce::String(hostBpm, 0));
-				}
+				handleSampleParams(slot, track, trackId, noteNumber, hostBpm, trackFound, noteName);
 			}
 			break;
 		}
+	}
+}
+
+void DjIaVstProcessor::handleSampleParams(int slot, TrackData *track, const juce::String &trackId, int noteNumber, double hostBpm, bool &trackFound, juce::String &noteName)
+{
+	float paramVolume = slotVolumeParams[slot]->load();
+	float paramPan = slotPanParams[slot]->load();
+	float paramPitch = slotPitchParams[slot]->load();
+	float paramFine = slotFineParams[slot]->load();
+
+	if (std::abs(track->volume.load() - paramVolume) > 0.01f)
+	{
+		track->volume = paramVolume;
+	}
+
+	if (std::abs(track->pan.load() - paramPan) > 0.01f)
+	{
+		track->pan = paramPan;
+	}
+
+	if (std::abs(track->bpmOffset - paramPitch) > 0.01f)
+	{
+		track->bpmOffset = paramPitch;
+	}
+
+	if (std::abs(track->fineOffset - paramFine) > 0.01f)
+	{
+		track->fineOffset = paramFine * 0.1f;
+	}
+
+	startNotePlaybackForTrack(trackId, noteNumber, hostBpm);
+	trackFound = true;
+
+	if (midiIndicatorCallback && track->isPlaying)
+	{
+		midiIndicatorCallback(">> " + track->trackName + " (" + noteName + ") - BPM:" + juce::String(hostBpm, 0));
 	}
 }
 

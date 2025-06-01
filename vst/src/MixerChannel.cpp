@@ -7,6 +7,7 @@ MixerChannel::MixerChannel(const juce::String &trackId, DjIaVstProcessor &proces
 {
 	setupUI();
 	setTrackData(trackData);
+	addEventListeners();
 	updateFromTrackData();
 	setupMidiLearn();
 }
@@ -57,8 +58,14 @@ void MixerChannel::removeListener(juce::String name)
 
 void MixerChannel::addListener(juce::String name)
 {
+	DBG("🔍 addListener called for: " << name);
+	DBG("🔍 track exists: " << (track ? "YES" : "NO"));
 	if (!track || track->slotIndex == -1)
+	{
+		DBG("❌ Early return - no track or slotIndex = -1");
 		return;
+	}
+	DBG("🔍 slotIndex: " << track->slotIndex);
 	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
 	auto *param = audioProcessor.getParameterTreeState().getParameter(paramName);
 	if (param)
@@ -98,21 +105,26 @@ void MixerChannel::updateUIFromParameter(const juce::String &paramName,
 										 const juce::String &slotPrefix,
 										 float newValue)
 {
+	DBG("📥 Raw parameter value: " << paramName << " = " << newValue);
+
 	if (paramName == slotPrefix + " Volume")
 	{
 		volumeSlider.setValue(newValue, juce::dontSendNotification);
 	}
 	else if (paramName == slotPrefix + " Pan")
 	{
-		panKnob.setValue(newValue, juce::dontSendNotification);
+		float denormalizedPan = newValue * 2.0f - 1.0f;
+		panKnob.setValue(denormalizedPan, juce::dontSendNotification);
 	}
 	else if (paramName == slotPrefix + " Pitch")
 	{
-		pitchKnob.setValue(newValue, juce::dontSendNotification);
+		float denormalizedPitch = newValue * 24.0f - 12.0f;
+		pitchKnob.setValue(denormalizedPitch, juce::dontSendNotification);
 	}
 	else if (paramName == slotPrefix + " Fine")
 	{
-		fineKnob.setValue(newValue, juce::dontSendNotification);
+		float denormalizedFine = newValue * 100.0f - 50.0f;
+		fineKnob.setValue(denormalizedFine, juce::dontSendNotification);
 	}
 }
 
@@ -522,7 +534,7 @@ void MixerChannel::setupUI()
 	pitchLabel.setFont(juce::Font(9.0f));
 
 	addAndMakeVisible(fineKnob);
-	fineKnob.setRange(-100.0, 100.0, 1.0);
+	fineKnob.setRange(-50.0, 50.0, 1.0);
 	fineKnob.setValue(track ? track->fineOffset : 0.0, juce::dontSendNotification);
 	fineKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 	fineKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
@@ -546,8 +558,6 @@ void MixerChannel::setupUI()
 	panLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
 	panLabel.setJustificationType(juce::Justification::centred);
 	panLabel.setFont(juce::Font(9.0f));
-
-	addEventListeners();
 }
 
 void MixerChannel::updateButtonColors()
