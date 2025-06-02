@@ -344,10 +344,16 @@ void TrackComponent::setupUI()
     addAndMakeVisible(selectButton);
     selectButton.setButtonText("Select");
     selectButton.onClick = [this]()
-    {
-        if (onSelectTrack)
-            onSelectTrack(trackId);
-    };
+        {
+            DBG("=== SELECT BUTTON CLICKED ===");
+            DBG("TrackComponent trackId: " << trackId);
+            DBG("Track data trackId: " << (track ? track->trackId : "NULL"));
+            DBG("Track data trackName: " << (track ? track->trackName : "NULL"));
+            DBG("Track data slotIndex: " << (track ? juce::String(track->slotIndex) : "NULL"));
+
+            if (onSelectTrack)
+                onSelectTrack(trackId);
+        };
 
     addAndMakeVisible(trackNameLabel);
     trackNameLabel.setText(track ? track->trackName : "Track", juce::dontSendNotification);

@@ -15,6 +15,7 @@ MixerChannel::MixerChannel(const juce::String &trackId, DjIaVstProcessor &proces
 
 void MixerChannel::cleanup()
 {
+	isDestroyed.store(true);
 	volumeSlider.onValueChange = nullptr;
 	pitchKnob.onValueChange = nullptr;
 	fineKnob.onValueChange = nullptr;
@@ -189,6 +190,8 @@ void MixerChannel::updateUIFromParameter(const juce::String &paramName,
 										 const juce::String &slotPrefix,
 										 float newValue)
 {
+	if (isDestroyed.load())
+		return;
 	DBG("📥 Raw parameter value: " << paramName << " = " << newValue);
 	if (paramName == slotPrefix + " Volume")
 	{

@@ -19,7 +19,7 @@ public:
 	std::function<void(const juce::String &)> onSelectTrack;
 	std::function<void(const juce::String &)> onGenerateForTrack;
 	std::function<void(const juce::String &, const juce::String &)> onTrackRenamed;
-
+	juce::TextButton showWaveformButton;
 	TrackData *getTrack() const { return track; }
 
 	std::function<void(const juce::String &, const juce::String &)> onReorderTrack;
@@ -45,7 +45,6 @@ private:
 	TrackData *track;
 	bool isSelected = false;
 	std::unique_ptr<WaveformDisplay> waveformDisplay;
-	juce::TextButton showWaveformButton;
 	DjIaVstProcessor &audioProcessor;
 
 	juce::TextButton selectButton;

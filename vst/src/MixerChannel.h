@@ -22,6 +22,7 @@ public:
 
 private:
 	DjIaVstProcessor &audioProcessor;
+	std::atomic<bool> isDestroyed{false};
 	juce::String trackId;
 	TrackData *track;
 	bool isSelected = false;

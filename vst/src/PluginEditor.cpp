@@ -930,14 +930,27 @@ void DjIaVstEditor::refreshTrackComponents()
 {
 
 	auto trackIds = audioProcessor.getAllTrackIds();
+	DBG("🔍 BEFORE sorting - Raw track order:");
+	for (const auto &trackId : trackIds)
+	{
+		TrackData *track = audioProcessor.getTrack(trackId);
+		if (track)
+		{
+			DBG("  Track " << track->trackName << " → slotIndex: " << track->slotIndex << " (ID: " << trackId.substring(0, 8) << ")");
+		}
+	}
+
 	std::sort(trackIds.begin(), trackIds.end(),
 			  [this](const juce::String &a, const juce::String &b)
 			  {
 				  TrackData *trackA = audioProcessor.getTrack(a);
 				  TrackData *trackB = audioProcessor.getTrack(b);
-
 				  if (!trackA || !trackB)
 					  return false;
+				  if (trackA->slotIndex == trackB->slotIndex)
+				  {
+					  DBG("⚠️ SLOT CONFLICT: " << trackA->trackName << " and " << trackB->trackName << " both have slotIndex " << trackA->slotIndex);
+				  }
 
 				  return trackA->slotIndex < trackB->slotIndex;
 			  });
@@ -1024,7 +1037,6 @@ void DjIaVstEditor::refreshTrackComponents()
 		{
 			trackComp->setSelected(true);
 		}
-
 		tracksContainer.addAndMakeVisible(trackComp.get());
 		trackComponents.push_back(std::move(trackComp));
 
@@ -1045,6 +1057,32 @@ void DjIaVstEditor::refreshTrackComponents()
 	tracksContainer.repaint();
 }
 
+void DjIaVstEditor::toggleWaveFormButtonOnTrack()
+{
+	auto trackIds = audioProcessor.getAllTrackIds();
+	for (const auto &trackId : trackIds)
+	{
+		TrackData *track = audioProcessor.getTrack(trackId);
+		if (track)
+		{
+			track->showWaveform = false;
+		}
+	}
+	for (auto &trackComponent : trackComponents)
+	{
+		trackComponent->showWaveformButton.setToggleState(false, juce::dontSendNotification);
+	}
+}
+
+void DjIaVstEditor::setStatusWithTimeout(const juce::String &message, int timeoutMs)
+{
+	statusLabel.setText(message, juce::dontSendNotification);
+	juce::Timer::callAfterDelay(timeoutMs, [safeThis = juce::Component::SafePointer<DjIaVstEditor>(this)]()
+								{
+        if (auto* editor = safeThis.getComponent())
+            editor->statusLabel.setText("Ready", juce::dontSendNotification); });
+}
+
 void DjIaVstEditor::onAddTrack()
 {
 	try
@@ -1056,47 +1094,49 @@ void DjIaVstEditor::onAddTrack()
 		{
 			mixerPanel->trackAdded(newTrackId);
 		}
-
-		statusLabel.setText("New track created", juce::dontSendNotification);
+		toggleWaveFormButtonOnTrack();
+		setStatusWithTimeout("New track created");
 	}
 	catch (const std::exception &e)
 	{
-		statusLabel.setText("Error: " + juce::String(e.what()), juce::dontSendNotification);
-	}
-}
-
-void DjIaVstEditor::onDeleteTrack(const juce::String &trackId)
-{
-	if (audioProcessor.getAllTrackIds().size() > 1)
-	{
-		audioProcessor.deleteTrack(trackId);
-		if (mixerPanel)
-		{
-			mixerPanel->trackRemoved(trackId);
-		}
-
-		juce::Timer::callAfterDelay(10, [this]()
-									{ refreshTrackComponents(); });
+		setStatusWithTimeout("Error: " + juce::String(e.what()));
 	}
 }
 
 void DjIaVstEditor::updateSelectedTrack()
 {
+	DBG("🔍 updateSelectedTrack called");
+
 	for (auto &trackComp : trackComponents)
 	{
 		trackComp->setSelected(false);
 	}
 
 	juce::String selectedId = audioProcessor.getSelectedTrackId();
-	auto trackIds = audioProcessor.getAllTrackIds();
-	for (int i = 0; i < trackIds.size() && i < trackComponents.size(); ++i)
+	DBG("🎯 Looking for selectedId: " << selectedId);
+
+	for (int i = 0; i < trackComponents.size(); ++i)
 	{
-		if (trackIds[i] == selectedId)
+		DBG("📦 TrackComponent[" << i << "] trackId: " << trackComponents[i]->getTrackId() << " (track name: " << (trackComponents[i]->getTrack() ? trackComponents[i]->getTrack()->trackName : "NULL") << ")");
+	}
+
+	bool found = false;
+	for (auto &trackComp : trackComponents)
+	{
+		if (trackComp->getTrackId() == selectedId)
 		{
-			trackComponents[i]->setSelected(true);
+			trackComp->setSelected(true);
+			found = true;
+			DBG("✅ Found and selected: " << trackComp->getTrackId());
 			break;
 		}
 	}
+
+	if (!found)
+	{
+		DBG("❌ Could not find trackComponent with selectedId: " << selectedId);
+	}
+
 	if (mixerPanel)
 	{
 		mixerPanel->trackSelected(selectedId);

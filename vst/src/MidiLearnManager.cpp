@@ -63,6 +63,35 @@ void MidiLearnManager::timerCallback()
     }
 }
 
+void MidiLearnManager::removeMappingsForSlot(int slotNumber)
+{
+    juce::String slotPrefix = "slot" + juce::String(slotNumber);
+    for (int i = mappings.size() - 1; i >= 0; --i)
+    {
+        if (mappings[i].parameterName.startsWith(slotPrefix))
+        {
+            DBG("🗑️ Removing MIDI mapping: " << mappings[i].parameterName);
+            mappings.erase(mappings.begin() + i);
+        }
+    }
+}
+
+void MidiLearnManager::moveMappingsFromSlotToSlot(int fromSlot, int toSlot)
+{
+    juce::String fromPrefix = "slot" + juce::String(fromSlot);
+    juce::String toPrefix = "slot" + juce::String(toSlot);
+
+    for (auto &mapping : mappings)
+    {
+        if (mapping.parameterName.startsWith(fromPrefix))
+        {
+            juce::String suffix = mapping.parameterName.substring(fromPrefix.length());
+            mapping.parameterName = toPrefix + suffix;
+            DBG("🔄 Moved MIDI mapping: " << fromPrefix << suffix << " → " << mapping.parameterName);
+        }
+    }
+}
+
 bool MidiLearnManager::processMidiForLearning(const juce::MidiMessage &message)
 {
     if (!isLearning)
@@ -138,6 +167,10 @@ bool MidiLearnManager::processMidiForLearning(const juce::MidiMessage &message)
 void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
 {
     int midiChannel = message.getChannel() - 1;
+    if (message.isController())
+    {
+        DBG("🎹 MIDI received: CC" << message.getControllerNumber() << " value=" << message.getControllerValue() << " channel=" << (midiChannel + 1));
+    }
     for (auto &mapping : mappings)
     {
         bool matches = false;
@@ -182,6 +215,7 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
                 value = message.getControllerValue() / 127.0f;
                 statusMessage = "CC" + juce::String(mapping.midiNumber) + " → " + mapping.parameterName +
                                 " (" + juce::String(message.getControllerValue()) + ")";
+                DBG("🎯 MIDI mapping found: CC" << mapping.midiNumber << " → " << mapping.parameterName << " (value=" << value << ")");
             }
         }
         else if (mapping.midiType == 2 && message.isPitchWheel() && mapping.midiChannel == midiChannel)
@@ -197,6 +231,26 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
             auto *param = mapping.processor->getParameterTreeState().getParameter(mapping.parameterName);
             if (param)
             {
+                DBG("🔧 Setting parameter: " << mapping.parameterName << " to value: " << value);
+                if (mapping.parameterName.startsWith("slot"))
+                {
+                    juce::String slotPart = mapping.parameterName.substring(0, 5);
+                    DBG("📍 Slot parameter detected: " << slotPart << " (full param: " << mapping.parameterName << ")");
+                    auto trackIds = mapping.processor->getAllTrackIds();
+                    for (const auto &trackId : trackIds)
+                    {
+                        TrackData *track = mapping.processor->getTrack(trackId);
+                        if (track)
+                        {
+                            juce::String expectedSlot = "slot" + juce::String(track->slotIndex + 1);
+                            if (slotPart == expectedSlot)
+                            {
+                                DBG("✅ This affects track: " << track->trackName << " (trackId: " << trackId << ", slotIndex: " << track->slotIndex << ")");
+                                break;
+                            }
+                        }
+                    }
+                }
                 param->setValueNotifyingHost(value);
                 juce::MessageManager::callAsync([mapping, statusMessage]()
                                                 {

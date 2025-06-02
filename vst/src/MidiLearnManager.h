@@ -37,6 +37,8 @@ public:
     bool removeMappingForParameter(const juce::String &parameterName);
     bool hasMappingForParameter(const juce::String &parameterName) const;
     juce::String getMappingDescription(const juce::String &parameterName) const;
+    void removeMappingsForSlot(int slotNumber);
+    void moveMappingsFromSlotToSlot(int fromSlot, int toSlot);
 
 private:
     void timerCallback() override;

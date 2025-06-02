@@ -32,6 +32,8 @@ public:
 	}
 	void onGenerationComplete(const juce::String &selectedTrackId, const juce::String &notification);
 	MixerPanel *getMixerPanel() { return mixerPanel.get(); }
+	void toggleWaveFormButtonOnTrack();
+	void setStatusWithTimeout(const juce::String &message, int timeoutMs = 2000);
 
 private:
 	DjIaVstProcessor &audioProcessor;
@@ -54,7 +56,6 @@ private:
 	void loadSessionList();
 	void saveCurrentSession(const juce::String &sessionName);
 	void loadSession(const juce::String &sessionName);
-	void onDeleteTrack(const juce::String &trackId);
 	void updateUIComponents();
 	void setAllGenerateButtonsEnabled(bool enabled);
 	void updateServerSidePreTreatment();

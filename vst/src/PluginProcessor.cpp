@@ -609,9 +609,14 @@ void DjIaVstProcessor::deleteTrack(const juce::String &trackId)
 
 void DjIaVstProcessor::performTrackDeletion(const juce::String &trackId)
 {
+	TrackData *trackToDelete = trackManager.getTrack(trackId);
+	if (!trackToDelete)
+		return;
+
+	int slotIndex = trackToDelete->slotIndex;
+
 	auto trackIds = trackManager.getAllTrackIds();
 	int deletedTrackIndex = -1;
-
 	for (int i = 0; i < trackIds.size(); ++i)
 	{
 		if (trackIds[i] == trackId)
@@ -639,28 +644,54 @@ void DjIaVstProcessor::performTrackDeletion(const juce::String &trackId)
 			selectedTrackId = trackManager.createTrack("Track");
 		}
 	}
+
+	if (slotIndex != -1)
+	{
+		getMidiLearnManager().removeMappingsForSlot(slotIndex + 1);
+	}
+
 	trackManager.removeTrack(trackId);
+
 	reassignTrackOutputsAndMidi();
 
 	juce::MessageManager::callAsync([this]()
 									{
-			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
-			{
-				editor->refreshTrackComponents();
-			} });
+        if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
+        {
+            editor->refreshTrackComponents();
+            editor->toggleWaveFormButtonOnTrack();
+            editor->setStatusWithTimeout("Track deleted");
+        } });
 }
 
 void DjIaVstProcessor::reassignTrackOutputsAndMidi()
 {
 	auto trackIds = trackManager.getAllTrackIds();
+
+	DBG("🔄 REASSIGNING TRACKS AND MIDI MAPPINGS");
+
 	for (int i = 0; i < trackIds.size(); ++i)
 	{
 		TrackData *track = trackManager.getTrack(trackIds[i]);
 		if (track)
 		{
+			int oldSlotIndex = track->slotIndex;
+			int newSlotIndex = i;
+
+			DBG("Track " << track->trackName << ": slot" << (oldSlotIndex + 1) << " → slot" << (newSlotIndex + 1));
+
+			if (oldSlotIndex != newSlotIndex && oldSlotIndex != -1)
+			{
+				getMidiLearnManager().moveMappingsFromSlotToSlot(oldSlotIndex + 1, newSlotIndex + 1);
+			}
+
+			track->slotIndex = newSlotIndex;
 			track->midiNote = 60 + i;
+			trackManager.usedSlots[newSlotIndex] = true;
 		}
 	}
+
+	DBG("🔄 REASSIGNMENT COMPLETE");
 }
 
 void DjIaVstProcessor::selectTrack(const juce::String &trackId)

@@ -12,6 +12,17 @@ public:
 	juce::String createTrack(const juce::String &name = "Track")
 	{
 		juce::ScopedLock lock(tracksLock);
+		for (int i = 0; i < 8; ++i)
+		{
+			usedSlots[i] = false;
+		}
+		for (const auto &pair : tracks)
+		{
+			if (pair.second->slotIndex >= 0 && pair.second->slotIndex < 8)
+			{
+				usedSlots[pair.second->slotIndex] = true;
+			}
+		}
 
 		auto track = std::make_unique<TrackData>();
 		track->trackName = name + " " + juce::String(tracks.size() + 1);
@@ -20,13 +31,13 @@ public:
 		juce::String trackId = track->trackId;
 		std::string stdId = trackId.toStdString();
 		track->slotIndex = findFreeSlot();
+
 		if (track->slotIndex != -1)
 		{
 			usedSlots[track->slotIndex] = true;
 		}
 		tracks[stdId] = std::move(track);
 		trackOrder.push_back(stdId);
-
 		return trackId;
 	}
 
@@ -296,19 +307,51 @@ public:
 			trackOrder.push_back(stdId);
 		}
 	}
+	std::array<bool, 8> usedSlots{false};
 
 private:
 	mutable juce::CriticalSection tracksLock;
 	std::unordered_map<std::string, std::unique_ptr<TrackData>> tracks;
 	std::vector<std::string> trackOrder;
-	std::array<bool, 8> usedSlots{false};
+
 	int findFreeSlot()
 	{
+		DBG("🔍 Finding free slot - Current usedSlots state:");
+		for (int i = 0; i < 8; ++i)
+		{
+			DBG("  Slot " << i << ": " << (usedSlots[i] ? "USED" : "FREE"));
+		}
+
+		DBG("🔍 Actual slot usage from tracks:");
+		std::vector<bool> actualUsage(8, false);
+		for (const auto &pair : tracks)
+		{
+			const auto &track = pair.second;
+			if (track->slotIndex >= 0 && track->slotIndex < 8)
+			{
+				actualUsage[track->slotIndex] = true;
+				DBG("  Slot " << track->slotIndex << ": USED by " << track->trackName);
+			}
+		}
+
+		for (int i = 0; i < 8; ++i)
+		{
+			if (usedSlots[i] != actualUsage[i])
+			{
+				DBG("❌ INCONSISTENCY: Slot " << i << " - usedSlots[" << i << "]=" << (usedSlots[i] ? "USED" : "FREE") << " but actually " << (actualUsage[i] ? "USED" : "FREE"));
+			}
+		}
+
 		for (int i = 0; i < 8; ++i)
 		{
 			if (!usedSlots[i])
+			{
+				DBG("✅ Found free slot: " << i);
 				return i;
+			}
 		}
+
+		DBG("❌ No free slots available!");
 		return -1;
 	}
 	void renderSingleTrack(TrackData &track,
