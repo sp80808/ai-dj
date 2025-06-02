@@ -145,6 +145,7 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
                 else
                 {
                     if (isBooleanParameter(mapping.parameterName))
+                        mustCheckForMidiEvent.store(true);
                         continue;
                     value = 0.0f;
                 }

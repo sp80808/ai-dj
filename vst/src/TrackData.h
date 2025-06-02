@@ -13,6 +13,8 @@ struct TrackData
 	std::atomic<bool> hasStagingData{false};
 	std::atomic<bool> swapRequested{false};
 	std::function<void(bool)> onPlayStateChanged;
+	std::function<void(bool)> onArmedStateChanged;
+	std::function<void(bool)> onArmedToStopStateChanged;
 	std::atomic<int> stagingNumSamples{0};
 	std::atomic<double> stagingSampleRate{48000.0};
 	float stagingOriginalBpm = 126.0f;
@@ -71,6 +73,34 @@ struct TrackData
 					if (onPlayStateChanged) {
 						onPlayStateChanged(playing);
 					} });
+		}
+	}
+
+	void setArmed(bool armed)
+	{
+		bool wasArmed = isArmed.load();
+		isArmed = armed;
+		if (wasArmed != armed && onArmedStateChanged)
+		{
+			juce::MessageManager::callAsync([this, armed]()
+											{
+                if (onArmedStateChanged) {
+                    onArmedStateChanged(armed);
+                } });
+		}
+	}
+
+	void setArmedToStop(bool armedToStop)
+	{
+		bool wasArmedToStop = isArmedToStop.load();
+		isArmedToStop = armedToStop;
+		if (wasArmedToStop != armedToStop && onArmedToStopStateChanged)
+		{
+			juce::MessageManager::callAsync([this, armedToStop]()
+											{
+                if (onArmedToStopStateChanged) {
+                    onArmedToStopStateChanged(armedToStop);
+                } });
 		}
 	}
 };

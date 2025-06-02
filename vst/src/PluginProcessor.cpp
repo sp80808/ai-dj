@@ -373,6 +373,7 @@ void DjIaVstProcessor::processMidiMessages(juce::MidiBuffer &midiMessages, bool 
 			continue;
 		}
 		midiLearnManager.processMidiMappings(message);
+		handlePlayAndStop();
 		if (message.isNoteOn())
 		{
 			playTrack(message, hostBpm);
@@ -395,30 +396,6 @@ void DjIaVstProcessor::playTrack(const juce::MidiMessage &message, double hostBp
 	{
 		TrackData *track = trackManager.getTrack(trackId);
 		int slot = track->slotIndex;
-		// bool paramPlay = slotPlayParams[slot]->load() > 0.5f;
-		// bool paramStop = slotStopParams[slot]->load() > 0.5f;
-
-		// if (paramStop && !track->isArmed.load() && track->isPlaying.load() && !track->isArmedToStop.load())
-		// {
-		// 	track->isArmedToStop.store(true);
-		// }
-		// else if (!paramStop && track->isPlaying.load() && !track->isArmed.load() && track->isArmedToStop.load())
-		// {
-		// 	track->isArmedToStop.store(false);
-		// }
-		// else if (paramPlay && !track->isArmed.load() && !track->isPlaying.load())
-		// {
-		// 	track->isArmed.store(true);
-		// }
-		// else if (!paramPlay && track->isArmed.load() && !track->isPlaying.load())
-		// {
-		// 	track->isArmed.store(false);
-		// }
-		// else if (paramPlay && !track->isArmed.load() && track->isPlaying.load() && !track->isArmedToStop.load())
-		// {
-		// 	track->isArmedToStop.store(true);
-		// }
-
 		if (track && track->midiNote == noteNumber)
 		{
 			if (trackId == trackIdWaitingForLoad)
@@ -437,6 +414,31 @@ void DjIaVstProcessor::playTrack(const juce::MidiMessage &message, double hostBp
 			}
 			break;
 		}
+	}
+}
+
+void DjIaVstProcessor::handlePlayAndStop()
+{
+	if (midiLearnManager.mustCheckForMidiEvent.load())
+	{
+		auto trackIds = trackManager.getAllTrackIds();
+		for (const auto &trackId : trackIds)
+		{
+			TrackData *track = trackManager.getTrack(trackId);
+			int slot = track->slotIndex;
+			bool paramPlay = slotPlayParams[slot]->load() > 0.5f;
+			// bool paramStop = slotStopParams[slot]->load() > 0.5f;
+			if (paramPlay && !track->isArmed.load() && !track->isPlaying.load())
+			{
+				track->setArmed(true);
+			}
+			else if (!paramPlay && track->isArmed.load() && track->isPlaying.load())
+			{
+				track->setArmedToStop(true);
+				track->setArmed(false);
+			}
+		}
+		midiLearnManager.mustCheckForMidiEvent.store(false);
 	}
 }
 

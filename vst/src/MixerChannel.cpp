@@ -43,6 +43,30 @@ void MixerChannel::setTrackData(TrackData *trackData)
             } });
 			}
 		};
+		track->onArmedStateChanged = [weakThis](bool isArmed)
+		{
+			if (weakThis != nullptr)
+			{
+				juce::MessageManager::callAsync([weakThis]()
+												{
+                    if (weakThis != nullptr) {
+						weakThis->isBlinking = true;
+				 		weakThis->startTimer(300);
+                    } });
+			}
+		};
+
+		track->onArmedToStopStateChanged = [weakThis](bool isArmedToStop)
+		{
+			if (weakThis != nullptr)
+			{
+				juce::MessageManager::callAsync([weakThis]()
+												{
+                    if (weakThis != nullptr) {
+                        weakThis->updateButtonColors();
+                    } });
+			}
+		};
 	}
 }
 
@@ -580,8 +604,14 @@ void MixerChannel::updateButtonColors()
 	bool isPlaying = track->isPlaying.load();
 	bool isMuted = track->isMuted.load();
 	bool isSolo = track->isSolo.load();
+	bool isArmedToStop = track->isArmedToStop.load();
 
 	DBG("🔍 Reading isPlaying = " << (isPlaying ? "true" : "false") << " for " << track->trackName);
+	DBG("🔍 Reading isArmed = " << (isArmed ? "true" : "false") << " for " << track->trackName);
+	DBG("🔍 Reading isMuted = " << (isMuted ? "true" : "false") << " for " << track->trackName);
+	DBG("🔍 Reading isSolo = " << (isSolo ? "true" : "false") << " for " << track->trackName);
+	DBG("🔍 Reading isArmedToStop = " << (isArmedToStop ? "true" : "false") << " for " << track->trackName);
+
 	playButton.setToggleState(isArmed || isPlaying, juce::dontSendNotification);
 
 	if (isPlaying)

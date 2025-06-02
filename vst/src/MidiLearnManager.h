@@ -27,6 +27,7 @@ public:
     void restoreUICallbacks();
     void addMapping(const MidiMapping &midiMapping);
     bool isBooleanParameter(const juce::String &parameterName);
+    std::atomic<bool> mustCheckForMidiEvent{ false };
 
 private:
     void timerCallback() override;
