@@ -18,6 +18,7 @@ public:
 	void updateVUMeters();
 	void setTrackData(TrackData *trackData);
 	void updateButtonColors();
+	void cleanup();
 
 private:
 	DjIaVstProcessor &audioProcessor;

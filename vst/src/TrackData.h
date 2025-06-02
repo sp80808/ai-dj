@@ -49,6 +49,13 @@ struct TrackData
 		onPlayStateChanged = nullptr;
 	}
 
+	~TrackData()
+	{
+		onPlayStateChanged = nullptr;
+		onArmedStateChanged = nullptr;
+		onArmedToStopStateChanged = nullptr;
+	}
+
 	void reset()
 	{
 		audioBuffer.setSize(0, 0);

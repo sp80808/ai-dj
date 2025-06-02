@@ -13,16 +13,73 @@ MixerChannel::MixerChannel(const juce::String &trackId, DjIaVstProcessor &proces
 	setupMidiLearn();
 }
 
+void MixerChannel::cleanup()
+{
+	volumeSlider.onValueChange = nullptr;
+	pitchKnob.onValueChange = nullptr;
+	fineKnob.onValueChange = nullptr;
+	panKnob.onValueChange = nullptr;
+
+	playButton.onClick = nullptr;
+	stopButton.onClick = nullptr;
+	muteButton.onClick = nullptr;
+	soloButton.onClick = nullptr;
+
+	playButton.onMidiLearn = nullptr;
+	muteButton.onMidiLearn = nullptr;
+	soloButton.onMidiLearn = nullptr;
+	volumeSlider.onMidiLearn = nullptr;
+	pitchKnob.onMidiLearn = nullptr;
+	fineKnob.onMidiLearn = nullptr;
+	panKnob.onMidiLearn = nullptr;
+
+	playButton.onMidiRemove = nullptr;
+	muteButton.onMidiRemove = nullptr;
+	soloButton.onMidiRemove = nullptr;
+	volumeSlider.onMidiRemove = nullptr;
+	pitchKnob.onMidiRemove = nullptr;
+	fineKnob.onMidiRemove = nullptr;
+	panKnob.onMidiRemove = nullptr;
+
+	stopTimer();
+
+	try
+	{
+		if (track && track->slotIndex != -1)
+		{
+			removeListener("Volume");
+			removeListener("Play");
+			removeListener("Stop");
+			removeListener("Mute");
+			removeListener("Solo");
+			removeListener("Pitch");
+			removeListener("Fine");
+			removeListener("Pan");
+		}
+		else
+		{
+			auto &allParams = audioProcessor.AudioProcessor::getParameters();
+			for (int i = 0; i < allParams.size(); ++i)
+			{
+				auto *param = allParams[i];
+				if (param)
+				{
+					param->removeListener(this);
+				}
+			}
+		}
+	}
+	catch (...)
+	{
+		DBG("Exception during listener cleanup in destructor");
+	}
+
+	track = nullptr;
+}
+
 MixerChannel::~MixerChannel()
 {
-	removeListener("Volume");
-	removeListener("Play");
-	removeListener("Stop");
-	removeListener("Mute");
-	removeListener("Solo");
-	removeListener("Pitch");
-	removeListener("Fine");
-	removeListener("Pan");
+	cleanup();
 }
 
 void MixerChannel::setTrackData(TrackData *trackData)
@@ -181,22 +238,50 @@ void MixerChannel::setSliderParameter(juce::String name, juce::Slider &slider)
 {
 	if (!track || track->slotIndex == -1)
 		return;
+	if (this == nullptr)
+		return;
 	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
-	auto *param = audioProcessor.getParameters().getParameter(paramName);
-	param->setValueNotifyingHost(slider.getValue());
+	try
+	{
+		auto &parameterTreeState = audioProcessor.getParameterTreeState();
+		auto *param = parameterTreeState.getParameter(paramName);
+
+		if (param != nullptr)
+		{
+			float value = slider.getValue();
+			if (!std::isnan(value) && !std::isinf(value))
+			{
+				param->setValueNotifyingHost(value);
+			}
+		}
+	}
+	catch (...)
+	{
+		DBG("Exception in setSliderParameter for " << paramName);
+	}
 }
 
 void MixerChannel::setButtonParameter(juce::String name, juce::Button &button)
 {
 	if (!track || track->slotIndex == -1)
 		return;
-
+	if (this == nullptr)
+		return;
 	updateButtonColors();
 	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
-	auto *param = audioProcessor.getParameters().getParameter(paramName);
-
-	bool state = button.getToggleState();
-	param->setValueNotifyingHost(state ? 1.0f : 0.0f);
+	try
+	{
+		auto *param = audioProcessor.getParameters().getParameter(paramName);
+		if (param != nullptr)
+		{
+			bool state = button.getToggleState();
+			param->setValueNotifyingHost(state ? 1.0f : 0.0f);
+		}
+	}
+	catch (...)
+	{
+		DBG("Exception in setButtonParameter for " << paramName);
+	}
 }
 
 void MixerChannel::addEventListeners()

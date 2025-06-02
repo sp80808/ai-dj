@@ -89,39 +89,38 @@ public:
 			masterChannel->setRealAudioLevel(0.0f);
 		}
 	}
-
 	void refreshMixerChannels()
 	{
+		for (auto &mixerChannel : mixerChannels)
+		{
+			if (mixerChannel)
+				mixerChannel->cleanup();
+		}
+		channelsContainer.removeAllChildren();
+		mixerChannels.clear();
+
 		auto trackIds = audioProcessor.getAllTrackIds();
 		std::sort(trackIds.begin(), trackIds.end(),
 				  [this](const juce::String &a, const juce::String &b)
 				  {
 					  TrackData *trackA = audioProcessor.getTrack(a);
 					  TrackData *trackB = audioProcessor.getTrack(b);
-
 					  if (!trackA || !trackB)
 						  return false;
-
 					  return trackA->slotIndex < trackB->slotIndex;
 				  });
-
-		channelsContainer.removeAllChildren();
-		mixerChannels.clear();
 
 		int xPos = 5;
 		const int channelWidth = 90;
 		const int channelSpacing = 5;
-
 		for (const auto &trackId : trackIds)
 		{
 			TrackData *trackData = audioProcessor.getTrack(trackId);
 			if (!trackData)
 				continue;
-
 			auto mixerChannel = std::make_unique<MixerChannel>(trackId, audioProcessor, static_cast<TrackData *>(trackData));
 			positionMixer(mixerChannel, xPos, channelWidth, channelSpacing);
 		}
-
 		displayChannelsContainer(xPos);
 	}
 
