@@ -929,7 +929,17 @@ void DjIaVstEditor::updateLoadButtonState()
 void DjIaVstEditor::refreshTrackComponents()
 {
 	auto trackIds = audioProcessor.getAllTrackIds();
+	std::sort(trackIds.begin(), trackIds.end(),
+			  [this](const juce::String &a, const juce::String &b)
+			  {
+				  TrackData *trackA = audioProcessor.getTrack(a);
+				  TrackData *trackB = audioProcessor.getTrack(b);
 
+				  if (!trackA || !trackB)
+					  return false;
+
+				  return trackA->slotIndex < trackB->slotIndex;
+			  });
 	if (trackComponents.size() == trackIds.size())
 	{
 		bool allVisible = true;
