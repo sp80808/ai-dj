@@ -87,7 +87,7 @@ public:
 	}
 	void renderAllTracks(juce::AudioBuffer<float> &outputBuffer,
 						 std::vector<juce::AudioBuffer<float>> &individualOutputs,
-						 double hostSampleRate)
+						 double hostSampleRate, double hostBpm)
 	{
 		const int numSamples = outputBuffer.getNumSamples();
 		bool anyTrackSolo = false;
@@ -128,7 +128,7 @@ public:
 				tempIndividualBuffer.clear();
 
 				renderSingleTrack(*track, tempMixBuffer, tempIndividualBuffer,
-								  numSamples, hostSampleRate, trackIndex);
+								  numSamples, hostSampleRate, trackIndex, hostBpm);
 
 				bool shouldHearTrack = !track->isMuted.load() &&
 									   (!anyTrackSolo || track->isSolo.load());
@@ -314,7 +314,7 @@ private:
 	void renderSingleTrack(TrackData &track,
 						   juce::AudioBuffer<float> &mixOutput,
 						   juce::AudioBuffer<float> &individualOutput,
-						   int numSamples, double hostSampleRate, int trackIndex)
+						   int numSamples, double hostSampleRate, int trackIndex, double hostBpm)
 	{
 		if (track.numSamples == 0 || !track.isPlaying.load())
 			return;
@@ -348,14 +348,18 @@ private:
 			break;
 
 		case 3:
-			playbackRatio = 1.0;
+			if (track.originalBpm > 0.0f && hostBpm > 0.0)
+			{
+				playbackRatio = hostBpm / track.originalBpm;
+			}
 			break;
 
 		case 4:
-			if (track.originalBpm > 0.0f)
+			if (track.originalBpm > 0.0f && hostBpm > 0.0)
 			{
 				float totalManualAdjust = track.bpmOffset + track.fineOffset;
-				playbackRatio = (track.originalBpm + totalManualAdjust) / track.originalBpm;
+				float effectiveHostBpm = hostBpm + totalManualAdjust;
+				playbackRatio = effectiveHostBpm / track.originalBpm;
 			}
 			break;
 		}

@@ -236,7 +236,7 @@ void DjIaVstProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::Midi
 
 	updateTimeStretchRatios(hostBpm);
 
-	trackManager.renderAllTracks(mainOutput, individualOutputBuffers, hostSampleRate);
+	trackManager.renderAllTracks(mainOutput, individualOutputBuffers, hostSampleRate, hostBpm);
 
 	copyTracksToIndividualOutputs(buffer);
 	applyMasterEffects(mainOutput);
