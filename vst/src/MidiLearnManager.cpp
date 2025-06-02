@@ -1,6 +1,7 @@
 ﻿#include <JuceHeader.h>
 #include "MidiLearnManager.h"
 #include "PluginProcessor.h"
+#include "PluginEditor.h"
 
 MidiLearnManager::MidiLearnManager()
 {
@@ -107,7 +108,14 @@ bool MidiLearnManager::processMidiForLearning(const juce::MidiMessage &message)
         break;
     }
 
-    DBG("MIDI mapping created: " + midiDescription + " → " + learningDescription);
+    juce::String fullMessage = "MIDI mapping created: " + midiDescription + " → " + learningDescription;
+    DBG(fullMessage);
+    juce::MessageManager::callAsync([mapping, fullMessage]()
+                                    {
+                    if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor()))
+                    {
+                        editor->statusLabel.setText(fullMessage, juce::dontSendNotification);
+                    } });
 
     stopLearning();
 
@@ -117,17 +125,18 @@ bool MidiLearnManager::processMidiForLearning(const juce::MidiMessage &message)
 void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
 {
     int midiChannel = message.getChannel() - 1;
-
     for (auto &mapping : mappings)
     {
         bool matches = false;
         float value = 0.0f;
+        juce::String statusMessage = "";
 
         if (mapping.midiType == 0 && message.isNoteOnOrOff() && mapping.midiChannel == midiChannel)
         {
             if (message.getNoteNumber() == mapping.midiNumber)
             {
                 matches = true;
+                statusMessage = "Note " + juce::String(mapping.midiNumber) + " → " + mapping.parameterName;
 
                 if (message.isNoteOn() && isBooleanParameter(mapping.parameterName))
                 {
@@ -136,18 +145,19 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
                     {
                         float currentValue = param->getValue();
                         value = (currentValue > 0.5f) ? 0.0f : 1.0f;
+                        statusMessage += " (toggle: " + juce::String(value > 0.5f ? "ON" : "OFF") + ")";
                     }
                 }
                 else if (message.isNoteOn())
                 {
                     value = message.getVelocity() / 127.0f;
+                    statusMessage += " (vel: " + juce::String(message.getVelocity()) + ")";
                 }
                 else
                 {
                     if (isBooleanParameter(mapping.parameterName))
                         mustCheckForMidiEvent.store(true);
                     continue;
-                    value = 0.0f;
                 }
             }
         }
@@ -157,26 +167,35 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
             {
                 matches = true;
                 value = message.getControllerValue() / 127.0f;
+                statusMessage = "CC" + juce::String(mapping.midiNumber) + " → " + mapping.parameterName +
+                                " (" + juce::String(message.getControllerValue()) + ")";
             }
         }
         else if (mapping.midiType == 2 && message.isPitchWheel() && mapping.midiChannel == midiChannel)
         {
             matches = true;
             value = (message.getPitchWheelValue() + 8192) / 16383.0f;
+            statusMessage = "Pitch Wheel → " + mapping.parameterName +
+                            " (" + juce::String(message.getPitchWheelValue()) + ")";
         }
 
         if (matches && mapping.processor)
         {
             auto *param = mapping.processor->getParameterTreeState().getParameter(mapping.parameterName);
-
             if (param)
             {
                 param->setValueNotifyingHost(value);
+                juce::MessageManager::callAsync([mapping, statusMessage]()
+                                                {
+                    if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor()))
+                    {
+                        editor->statusLabel.setText(statusMessage, juce::dontSendNotification);
+                    } });
+
                 if (mapping.parameterName.contains("slot") && mapping.parameterName.contains("Play"))
                 {
                     juce::String slotStr = mapping.parameterName.substring(4, 5);
                     int slotNumber = slotStr.getIntValue();
-
                     if (slotNumber >= 1 && slotNumber <= 8)
                     {
                         changedSlotIndex.store(slotNumber - 1);

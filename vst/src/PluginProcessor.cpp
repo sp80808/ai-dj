@@ -994,7 +994,9 @@ double DjIaVstProcessor::getHostBpm() const
 
 juce::AudioProcessorEditor *DjIaVstProcessor::createEditor()
 {
-	return new DjIaVstEditor(*this);
+	currentEditor = new DjIaVstEditor(*this);
+	midiLearnManager.setEditor(currentEditor);
+	return currentEditor;
 }
 
 void DjIaVstProcessor::addCustomPrompt(const juce::String &prompt)

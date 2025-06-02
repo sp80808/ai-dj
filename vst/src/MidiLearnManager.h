@@ -4,6 +4,9 @@
 #include <vector>
 #include <functional>
 
+class DjIaVstEditor;
+class DjIaVstProcessor;
+
 class MidiLearnManager : public juce::Timer
 {
 public:
@@ -27,8 +30,10 @@ public:
     void restoreUICallbacks();
     void addMapping(const MidiMapping &midiMapping);
     bool isBooleanParameter(const juce::String &parameterName);
-    std::atomic<bool> mustCheckForMidiEvent{ false };
-    std::atomic<int> changedSlotIndex{ -1 };
+    std::atomic<bool> mustCheckForMidiEvent{false};
+    std::atomic<int> changedSlotIndex{-1};
+    void setEditor(DjIaVstEditor *editor) { currentEditor = editor; }
+    DjIaVstEditor *getEditor() const { return currentEditor; }
 
 private:
     void timerCallback() override;
@@ -45,6 +50,7 @@ private:
     static constexpr int LEARN_TIMEOUT_MS = 10000;
     juce::int64 learnStartTime = 0;
     MidiMapping learningMapping;
+    DjIaVstEditor *currentEditor = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MidiLearnManager)
 };

@@ -220,6 +220,15 @@ void MixerChannel::addEventListeners()
 					track->isPlaying = false;
 				}
 			}
+			else if (track->isPlaying.load())
+			{
+				track->isArmed = false;
+				track->isArmedToStop = true;
+				playButton.setToggleState(false, juce::dontSendNotification);
+
+				isBlinking = true;
+				startTimer(300);
+			}
 			setButtonParameter("Play", playButton);
 		}
 	};

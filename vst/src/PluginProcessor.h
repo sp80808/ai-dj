@@ -133,6 +133,7 @@ public:
 
 private:
 	std::atomic<double> cachedHostBpm{126.0};
+	DjIaVstEditor *currentEditor = nullptr;
 	std::atomic<bool> stateLoaded{false};
 	static juce::AudioProcessor::BusesProperties createBusLayout();
 	static const int MAX_TRACKS = 8;
