@@ -115,6 +115,11 @@ bool MidiLearnManager::processMidiForLearning(const juce::MidiMessage &message)
                     if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor()))
                     {
                         editor->statusLabel.setText(fullMessage, juce::dontSendNotification);
+                        juce::Timer::callAfterDelay(2000, [mapping]() {
+                            if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor())) {
+                                editor->statusLabel.setText("Ready", juce::dontSendNotification);
+                            }
+                        });
                     } });
 
     stopLearning();
@@ -190,6 +195,11 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
                     if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor()))
                     {
                         editor->statusLabel.setText(statusMessage, juce::dontSendNotification);
+                        juce::Timer::callAfterDelay(2000, [mapping]() {
+                            if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor())) {
+                                editor->statusLabel.setText("Ready", juce::dontSendNotification);
+                            }
+                        });
                     } });
 
                 if (mapping.parameterName.contains("slot") && mapping.parameterName.contains("Play"))
