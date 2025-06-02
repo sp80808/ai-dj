@@ -6,7 +6,6 @@ TrackComponent::TrackComponent(const juce::String &trackId, DjIaVstProcessor &pr
     : trackId(trackId), track(nullptr), audioProcessor(processor)
 {
     setupUI();
-    setupMidiLearn();
 }
 
 TrackComponent::~TrackComponent()
@@ -539,13 +538,15 @@ void TrackComponent::updateBpmSliderVisibility()
     resized();
 }
 
-void TrackComponent::setupMidiLearn()
+void TrackComponent::refreshWaveformIfNeeded()
 {
-
-    generateButton.onMidiLearn = [this]() {
-
-    };
-    bpmOffsetSlider.onMidiLearn = [this]() {
-
-    };
+    if (waveformDisplay && showWaveformButton.getToggleState() && track && track->numSamples > 0)
+    {
+        static int lastNumSamples = 0;
+        if (track->numSamples != lastNumSamples)
+        {
+            refreshWaveformDisplay();
+            lastNumSamples = track->numSamples;
+        }
+    }
 }

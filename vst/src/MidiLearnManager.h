@@ -28,6 +28,7 @@ public:
     void addMapping(const MidiMapping &midiMapping);
     bool isBooleanParameter(const juce::String &parameterName);
     std::atomic<bool> mustCheckForMidiEvent{ false };
+    std::atomic<int> changedSlotIndex{ -1 };
 
 private:
     void timerCallback() override;

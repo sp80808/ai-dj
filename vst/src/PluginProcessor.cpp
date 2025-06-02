@@ -1,4 +1,4 @@
-#include "PluginProcessor.h"
+﻿#include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "AudioAnalyzer.h"
 #include "DummySynth.h"
@@ -419,26 +419,29 @@ void DjIaVstProcessor::playTrack(const juce::MidiMessage &message, double hostBp
 
 void DjIaVstProcessor::handlePlayAndStop()
 {
-	if (midiLearnManager.mustCheckForMidiEvent.load())
+	int changedSlot = midiLearnManager.changedSlotIndex.load();
+	if (changedSlot >= 0)
 	{
 		auto trackIds = trackManager.getAllTrackIds();
 		for (const auto &trackId : trackIds)
 		{
 			TrackData *track = trackManager.getTrack(trackId);
-			int slot = track->slotIndex;
-			bool paramPlay = slotPlayParams[slot]->load() > 0.5f;
-			// bool paramStop = slotStopParams[slot]->load() > 0.5f;
-			if (paramPlay && !track->isArmed.load() && !track->isPlaying.load())
+			if (track->slotIndex == changedSlot)
 			{
-				track->setArmed(true);
-			}
-			else if (!paramPlay && track->isArmed.load() && track->isPlaying.load())
-			{
-				track->setArmedToStop(true);
-				track->setArmed(false);
+				bool paramPlay = slotPlayParams[changedSlot]->load() > 0.5f;
+				if (paramPlay && !track->isArmed.load() && !track->isPlaying.load())
+				{
+					track->setArmed(true);
+				}
+				else if (!paramPlay && track->isArmed.load() && track->isPlaying.load())
+				{
+					track->setArmedToStop(true);
+					track->setArmed(false);
+				}
+				break;
 			}
 		}
-		midiLearnManager.mustCheckForMidiEvent.store(false);
+		midiLearnManager.changedSlotIndex.store(-1);
 	}
 }
 
@@ -1067,6 +1070,29 @@ void DjIaVstProcessor::getStateInformation(juce::MemoryBlock &destData)
 	auto tracksState = trackManager.saveState();
 	state.appendChild(tracksState, nullptr);
 
+	juce::ValueTree parametersState("Parameters");
+	juce::StringArray booleanParamIds = {
+		"generate", "play", "autoload",
+		"slot1Mute", "slot1Solo", "slot1Play", "slot1Stop", "slot1Generate",
+		"slot2Mute", "slot2Solo", "slot2Play", "slot2Stop", "slot2Generate",
+		"slot3Mute", "slot3Solo", "slot3Play", "slot3Stop", "slot3Generate",
+		"slot4Mute", "slot4Solo", "slot4Play", "slot4Stop", "slot4Generate",
+		"slot5Mute", "slot5Solo", "slot5Play", "slot5Stop", "slot5Generate",
+		"slot6Mute", "slot6Solo", "slot6Play", "slot6Stop", "slot6Generate",
+		"slot7Mute", "slot7Solo", "slot7Play", "slot7Stop", "slot7Generate",
+		"slot8Mute", "slot8Solo", "slot8Play", "slot8Stop", "slot8Generate"};
+
+	auto &params = getParameterTreeState();
+	for (const auto &paramId : booleanParamIds)
+	{
+		auto *param = params.getParameter(paramId);
+		if (param)
+		{
+			parametersState.setProperty(paramId, param->getValue(), nullptr);
+		}
+	}
+	state.appendChild(parametersState, nullptr);
+
 	std::unique_ptr<juce::XmlElement> xml(state.createXml());
 	copyXmlToBinary(*xml, destData);
 }
@@ -1170,6 +1196,35 @@ void DjIaVstProcessor::setStateInformation(const void *data, int sizeInBytes)
 			mapping.processor = this;
 			mapping.uiCallback = nullptr;
 			midiLearnManager.addMapping(mapping);
+		}
+	}
+
+	auto parametersState = state.getChildWithName("Parameters");
+	if (parametersState.isValid())
+	{
+		juce::StringArray booleanParamIds = {
+			"generate", "play", "autoload",
+			"slot1Mute", "slot1Solo", "slot1Play", "slot1Stop", "slot1Generate",
+			"slot2Mute", "slot2Solo", "slot2Play", "slot2Stop", "slot2Generate",
+			"slot3Mute", "slot3Solo", "slot3Play", "slot3Stop", "slot3Generate",
+			"slot4Mute", "slot4Solo", "slot4Play", "slot4Stop", "slot4Generate",
+			"slot5Mute", "slot5Solo", "slot5Play", "slot5Stop", "slot5Generate",
+			"slot6Mute", "slot6Solo", "slot6Play", "slot6Stop", "slot6Generate",
+			"slot7Mute", "slot7Solo", "slot7Play", "slot7Stop", "slot7Generate",
+			"slot8Mute", "slot8Solo", "slot8Play", "slot8Stop", "slot8Generate"};
+
+		auto &params = getParameterTreeState();
+		for (const auto &paramId : booleanParamIds)
+		{
+			if (parametersState.hasProperty(paramId))
+			{
+				auto *param = params.getParameter(paramId);
+				if (param)
+				{
+					float value = parametersState.getProperty(paramId, 0.0f);
+					param->setValueNotifyingHost(value);
+				}
+			}
 		}
 	}
 

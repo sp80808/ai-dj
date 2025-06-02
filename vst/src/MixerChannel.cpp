@@ -675,10 +675,6 @@ void MixerChannel::setupMidiLearn()
 	{
 		learn("Mute");
 	};
-	stopButton.onMidiLearn = [this]()
-	{
-		learn("Stop");
-	};
 	soloButton.onMidiLearn = [this]()
 	{
 		learn("Solo");

@@ -1,6 +1,5 @@
 #pragma once
 #include "JuceHeader.h"
-#include "MidiLearnableComponents.h"
 #include "PluginProcessor.h"
 
 class MasterChannel : public juce::Component
@@ -21,9 +20,9 @@ public:
 
 private:
 	DjIaVstProcessor &audioProcessor;
-	MidiLearnableSlider masterVolumeSlider;
-	MidiLearnableSlider masterPanKnob;
-	MidiLearnableSlider highKnob, midKnob, lowKnob;
+	juce::Slider masterVolumeSlider;
+	juce::Slider masterPanKnob;
+	juce::Slider highKnob, midKnob, lowKnob;
 
 	float realAudioLevel = 0.0f;
 	bool hasRealAudio = false;

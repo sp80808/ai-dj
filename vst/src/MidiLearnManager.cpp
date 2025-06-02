@@ -146,7 +146,7 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
                 {
                     if (isBooleanParameter(mapping.parameterName))
                         mustCheckForMidiEvent.store(true);
-                        continue;
+                    continue;
                     value = 0.0f;
                 }
             }
@@ -172,6 +172,17 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
             if (param)
             {
                 param->setValueNotifyingHost(value);
+                if (mapping.parameterName.contains("slot") && mapping.parameterName.contains("Play"))
+                {
+                    juce::String slotStr = mapping.parameterName.substring(4, 5);
+                    int slotNumber = slotStr.getIntValue();
+
+                    if (slotNumber >= 1 && slotNumber <= 8)
+                    {
+                        changedSlotIndex.store(slotNumber - 1);
+                        mustCheckForMidiEvent.store(true);
+                    }
+                }
             }
         }
     }

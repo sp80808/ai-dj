@@ -2,7 +2,6 @@
 #include "JuceHeader.h"
 #include "WaveformDisplay.h"
 #include "TrackManager.h"
-#include "MidiLearnableComponents.h"
 
 class DjIaVstProcessor;
 
@@ -34,12 +33,12 @@ public:
 	void updateFromTrackData();
 	void setGenerateButtonEnabled(bool enabled);
 	void updateWaveformWithTimeStretch();
-	void refreshWaveformIfNeeded();
 	void updatePlaybackPosition(double timeInSeconds);
 	void toggleWaveformDisplay();
+	void refreshWaveformIfNeeded();
 
-	MidiLearnableButton *getGenerateButton() { return &generateButton; }
-	MidiLearnableSlider *getBpmOffsetSlider() { return &bpmOffsetSlider; }
+	juce::TextButton *getGenerateButton() { return &generateButton; }
+	juce::Slider *getBpmOffsetSlider() { return &bpmOffsetSlider; }
 
 private:
 	juce::String trackId;
@@ -52,12 +51,12 @@ private:
 	juce::TextButton selectButton;
 	juce::Label trackNameLabel;
 	juce::TextButton deleteButton;
-	MidiLearnableButton generateButton;
+	juce::TextButton generateButton;
 	juce::Label infoLabel;
 
 	juce::ComboBox timeStretchModeSelector;
 
-	MidiLearnableSlider bpmOffsetSlider;
+	juce::Slider bpmOffsetSlider;
 	juce::Label bpmOffsetLabel;
 
 	juce::TextEditor trackNameEditor;
@@ -67,7 +66,6 @@ private:
 	bool blinkState = false;
 
 	void calculateHostBasedDisplay();
-	void updateRealTimeDisplay();
 	float calculateEffectiveBpm();
 	void paint(juce::Graphics &g);
 	void resized();

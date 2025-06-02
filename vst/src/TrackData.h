@@ -82,11 +82,12 @@ struct TrackData
 		isArmed = armed;
 		if (wasArmed != armed && onArmedStateChanged)
 		{
+			DBG("🎯 setArmed called on Track " << trackName << " slot " << slotIndex << " -> " << (armed ? "true" : "false"));
 			juce::MessageManager::callAsync([this, armed]()
 											{
-                if (onArmedStateChanged) {
-                    onArmedStateChanged(armed);
-                } });
+            if (onArmedStateChanged) {
+                onArmedStateChanged(armed);
+            } });
 		}
 	}
 
@@ -96,11 +97,12 @@ struct TrackData
 		isArmedToStop = armedToStop;
 		if (wasArmedToStop != armedToStop && onArmedToStopStateChanged)
 		{
+			DBG("🛑 setArmedToStop called on Track " << trackName << " slot " << slotIndex << " -> " << (armedToStop ? "true" : "false"));
 			juce::MessageManager::callAsync([this, armedToStop]()
 											{
-                if (onArmedToStopStateChanged) {
-                    onArmedToStopStateChanged(armedToStop);
-                } });
+            if (onArmedToStopStateChanged) {
+                onArmedToStopStateChanged(armedToStop);
+            } });
 		}
 	}
 };

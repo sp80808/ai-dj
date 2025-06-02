@@ -46,7 +46,6 @@ DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor &p)
 DjIaVstEditor::~DjIaVstEditor()
 {
 	audioProcessor.onUIUpdateNeeded = nullptr;
-	audioProcessor.getMidiLearnManager().clearUICallbacks();
 }
 
 void DjIaVstEditor::updateMidiIndicator(const juce::String &noteInfo)
@@ -72,8 +71,23 @@ void DjIaVstEditor::updateMidiIndicator(const juce::String &noteInfo)
 
 void DjIaVstEditor::updateUIComponents()
 {
-	static bool wasGenerating = false;
-	bool isCurrentlyGenerating = generateButton.isEnabled() == false;
+	for (auto &trackComp : trackComponents)
+	{
+		if (trackComp->isShowing())
+		{
+			TrackData *track = audioProcessor.getTrack(trackComp->getTrackId());
+			if (track && track->isPlaying.load())
+			{
+				trackComp->updateFromTrackData();
+			}
+		}
+	}
+
+	if (mixerPanel)
+	{
+		mixerPanel->updateAllMixerComponents();
+	}
+
 	if (!lastMidiNote.isEmpty())
 	{
 		static int midiBlinkCounter = 0;
@@ -102,13 +116,43 @@ void DjIaVstEditor::updateUIComponents()
 	for (auto &trackComp : trackComponents)
 	{
 		TrackData *track = audioProcessor.getTrack(trackComp->getTrackId());
-		if (track)
+		if (track && track->isPlaying.load() && track->numSamples > 0)
 		{
-			trackComp->updateFromTrackData();
+			double startSample = track->loopStart * track->sampleRate;
+			double currentTimeInSection = (startSample + track->readPosition.load()) / track->sampleRate;
+
+			trackComp->updatePlaybackPosition(currentTimeInSection);
 		}
 	}
-	mixerPanel->updateAllMixerComponents();
+
+	static bool wasGenerating = false;
+	bool isCurrentlyGenerating = generateButton.isEnabled() == false;
+	if (wasGenerating && !isCurrentlyGenerating)
+	{
+		for (auto &trackComp : trackComponents)
+		{
+			trackComp->refreshWaveformIfNeeded();
+		}
+	}
 	wasGenerating = isCurrentlyGenerating;
+}
+
+void DjIaVstEditor::onGenerationComplete(const juce::String &selectedTrackId, const juce::String &notification)
+{
+	juce::MessageManager::callAsync([this, selectedTrackId, notification]()
+									{
+		for (auto& trackComp : trackComponents) {
+			if (trackComp->getTrackId() == selectedTrackId) {
+				trackComp->stopGeneratingAnimation();
+				trackComp->updateFromTrackData();
+				trackComp->repaint();
+				break;
+			}
+		}
+		statusLabel.setText(notification,
+			juce::dontSendNotification);
+		generateButton.setEnabled(true);
+		setAllGenerateButtonsEnabled(true); });
 }
 
 void DjIaVstEditor::refreshTracks()
@@ -133,12 +177,7 @@ void DjIaVstEditor::initUI()
 	refreshTracks();
 	audioProcessor.onUIUpdateNeeded = [this]()
 	{
-		juce::WeakReference<DjIaVstEditor> weakThis(this);
-		juce::Timer::callAfterDelay(50, [weakThis]()
-									{
-        if (weakThis != nullptr) {
-            weakThis->updateUIComponents();
-        } });
+		updateUIComponents();
 	};
 }
 
@@ -707,6 +746,23 @@ void DjIaVstEditor::onGenerateButtonClicked()
 
 				juce::String targetTrackId = audioProcessor.getSelectedTrackId();
 				audioProcessor.generateLoop(request, targetTrackId);
+
+				juce::MessageManager::callAsync([this, selectedTrackId]() {
+					for (auto& trackComp : trackComponents) {
+						if (trackComp->getTrackId() == selectedTrackId) {
+							trackComp->stopGeneratingAnimation();
+							trackComp->updateFromTrackData();
+							trackComp->repaint();
+							break;
+						}
+					}
+					statusLabel.setText("Loop generated successfully! Press Play to listen.",
+						juce::dontSendNotification);
+					generateButton.setEnabled(true);
+					setAllGenerateButtonsEnabled(true);
+					audioProcessor.setIsGenerating(false);
+					audioProcessor.setGeneratingTrackId("");
+					});
 			}
 			catch (const std::exception& e)
 			{
@@ -725,24 +781,6 @@ void DjIaVstEditor::onGenerateButtonClicked()
 					audioProcessor.setGeneratingTrackId("");
 					});
 			} });
-}
-
-void DjIaVstEditor::onGenerationComplete(const juce::String &selectedTrackId, const juce::String &notification)
-{
-	juce::MessageManager::callAsync([this, selectedTrackId, notification]()
-									{
-		for (auto& trackComp : trackComponents) {
-			if (trackComp->getTrackId() == selectedTrackId) {
-				trackComp->stopGeneratingAnimation();
-				trackComp->updateFromTrackData();
-				trackComp->repaint();
-				break;
-			}
-		}
-		statusLabel.setText(notification,
-			juce::dontSendNotification);
-		generateButton.setEnabled(true);
-		setAllGenerateButtonsEnabled(true); });
 }
 
 void DjIaVstEditor::loadPromptPresets()

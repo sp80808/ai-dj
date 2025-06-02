@@ -4,16 +4,10 @@
 MasterChannel::MasterChannel(DjIaVstProcessor &processor) : audioProcessor(processor)
 {
     setupUI();
-    setupMidiLearn();
 }
 
 MasterChannel::~MasterChannel()
 {
-    // audioProcessor.getMidiLearnManager().removeMapping(&masterVolumeSlider);
-    // audioProcessor.getMidiLearnManager().removeMapping(&masterPanKnob);
-    // audioProcessor.getMidiLearnManager().removeMapping(&highKnob);
-    // audioProcessor.getMidiLearnManager().removeMapping(&midKnob);
-    // audioProcessor.getMidiLearnManager().removeMapping(&lowKnob);
 }
 
 void MasterChannel::setupUI()
@@ -310,23 +304,4 @@ void MasterChannel::updateMasterLevels()
     isClipping = (masterPeakHold >= 0.95f);
 
     repaint();
-}
-
-void MasterChannel::setupMidiLearn()
-{
-    masterVolumeSlider.onMidiLearn = [this]() {
-
-    };
-    masterPanKnob.onMidiLearn = [this]() {
-
-    };
-    highKnob.onMidiLearn = [this]() {
-
-    };
-    midKnob.onMidiLearn = [this]() {
-
-    };
-    lowKnob.onMidiLearn = [this]() {
-
-    };
 }
