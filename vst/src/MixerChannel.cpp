@@ -1,6 +1,7 @@
 #include "JuceHeader.h"
 #include "MixerChannel.h"
 #include <string>
+#include "PluginEditor.h"
 
 MixerChannel::MixerChannel(const juce::String &trackId, DjIaVstProcessor &processor, TrackData *trackData)
 	: trackId(trackId), audioProcessor(processor), track(nullptr)
@@ -132,25 +133,34 @@ void MixerChannel::updateUIFromParameter(const juce::String &paramName,
 										 float newValue)
 {
 	DBG("📥 Raw parameter value: " << paramName << " = " << newValue);
-
 	if (paramName == slotPrefix + " Volume")
 	{
-		volumeSlider.setValue(newValue, juce::dontSendNotification);
+		if (!volumeSlider.isMouseButtonDown())
+			volumeSlider.setValue(newValue, juce::dontSendNotification);
 	}
 	else if (paramName == slotPrefix + " Pan")
 	{
-		float denormalizedPan = newValue * 2.0f - 1.0f;
-		panKnob.setValue(denormalizedPan, juce::dontSendNotification);
+		if (!panKnob.isMouseButtonDown())
+		{
+			float denormalizedPan = newValue * 2.0f - 1.0f;
+			panKnob.setValue(denormalizedPan, juce::dontSendNotification);
+		}
 	}
 	else if (paramName == slotPrefix + " Pitch")
 	{
-		float denormalizedPitch = newValue * 24.0f - 12.0f;
-		pitchKnob.setValue(denormalizedPitch, juce::dontSendNotification);
+		if (!pitchKnob.isMouseButtonDown())
+		{
+			float denormalizedPitch = newValue * 24.0f - 12.0f;
+			pitchKnob.setValue(denormalizedPitch, juce::dontSendNotification);
+		}
 	}
 	else if (paramName == slotPrefix + " Fine")
 	{
-		float denormalizedFine = newValue * 100.0f - 50.0f;
-		fineKnob.setValue(denormalizedFine, juce::dontSendNotification);
+		if (!fineKnob.isMouseButtonDown())
+		{
+			float denormalizedFine = newValue * 100.0f - 50.0f;
+			fineKnob.setValue(denormalizedFine, juce::dontSendNotification);
+		}
 	}
 	else if (paramName == slotPrefix + " Mute")
 	{
@@ -669,8 +679,23 @@ void MixerChannel::learn(juce::String param, std::function<void(float)> uiCallba
 	{
 		juce::String parameterName = "slot" + juce::String(track->slotIndex + 1) + param;
 		juce::String description = "Slot " + juce::String(track->slotIndex + 1) + " " + param;
+		juce::MessageManager::callAsync([this, description]()
+										{
+           if (auto* editor = dynamic_cast<DjIaVstEditor*>(audioProcessor.getActiveEditor()))
+           {
+               editor->statusLabel.setText("Learning MIDI for " + description + "...", juce::dontSendNotification);
+           } });
 		audioProcessor.getMidiLearnManager()
 			.startLearning(parameterName, &audioProcessor, uiCallback, description);
+	}
+}
+
+void MixerChannel::removeMidiMapping(const juce::String &param)
+{
+	if (track && track->slotIndex != -1)
+	{
+		juce::String parameterName = "slot" + juce::String(track->slotIndex + 1) + param;
+		bool removed = audioProcessor.getMidiLearnManager().removeMappingForParameter(parameterName);
 	}
 }
 
@@ -703,5 +728,39 @@ void MixerChannel::setupMidiLearn()
 	panKnob.onMidiLearn = [this]()
 	{
 		learn("Pan");
+	};
+	playButton.onMidiRemove = [this]()
+	{
+		removeMidiMapping("Play");
+	};
+
+	muteButton.onMidiRemove = [this]()
+	{
+		removeMidiMapping("Mute");
+	};
+
+	soloButton.onMidiRemove = [this]()
+	{
+		removeMidiMapping("Solo");
+	};
+
+	volumeSlider.onMidiRemove = [this]()
+	{
+		removeMidiMapping("Volume");
+	};
+
+	pitchKnob.onMidiRemove = [this]()
+	{
+		removeMidiMapping("Pitch");
+	};
+
+	fineKnob.onMidiRemove = [this]()
+	{
+		removeMidiMapping("Fine");
+	};
+
+	panKnob.onMidiRemove = [this]()
+	{
+		removeMidiMapping("Pan");
 	};
 }

@@ -28,6 +28,7 @@ DjIaVstProcessor::DjIaVstProcessor()
 		handleSampleParams(slot, track);
 	};
 	startTimerHz(30);
+	stateLoaded = true;
 }
 
 void DjIaVstProcessor::initDummySynth()
@@ -1232,6 +1233,12 @@ void DjIaVstProcessor::setStateInformation(const void *data, int sizeInBytes)
 
 	midiLearnManager.restoreUICallbacks();
 	stateLoaded = true;
+	juce::MessageManager::callAsync([this]()
+									{
+        if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+            editor->refreshTrackComponents(); 
+            editor->updateUIFromProcessor();
+        } });
 }
 
 TrackComponent *DjIaVstProcessor::findTrackComponentByName(const juce::String &trackName, DjIaVstEditor *editor)

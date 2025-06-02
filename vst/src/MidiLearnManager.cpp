@@ -24,6 +24,7 @@ void MidiLearnManager::startLearning(const juce::String &parameterName,
     learningDescription = description;
     isLearning = true;
     learnStartTime = juce::Time::currentTimeMillis();
+    startTimerHz(10);
     DBG("MIDI Learn started for parameter: " + parameterName);
 }
 
@@ -45,6 +46,18 @@ void MidiLearnManager::timerCallback()
     if (juce::Time::currentTimeMillis() - learnStartTime > LEARN_TIMEOUT_MS)
     {
         DBG("MIDI Learn timeout");
+        juce::MessageManager::callAsync([this]()
+                                        {
+            if (auto* editor = dynamic_cast<DjIaVstEditor*>(learningProcessor->getActiveEditor()))
+            {
+                editor->statusLabel.setText("MIDI Learn timeout - no controller received", juce::dontSendNotification);
+                juce::Timer::callAfterDelay(2000, [this]() {
+                    if (auto* editor = dynamic_cast<DjIaVstEditor*>(learningProcessor->getActiveEditor())) {
+                        editor->statusLabel.setText("Ready", juce::dontSendNotification);
+                    }
+                });
+            } });
+
         stopLearning();
         return;
     }
@@ -56,17 +69,12 @@ bool MidiLearnManager::processMidiForLearning(const juce::MidiMessage &message)
     {
         return false;
     }
-
+    DBG("MIDI received: " + message.getDescription());
     int midiType = -1;
     int midiNumber = 0;
     int midiChannel = message.getChannel() - 1;
 
-    if (message.isNoteOn())
-    {
-        midiType = 0;
-        midiNumber = message.getNoteNumber();
-    }
-    else if (message.isController())
+    if (message.isController())
     {
         midiType = 1;
         midiNumber = message.getControllerNumber();
@@ -274,4 +282,76 @@ void MidiLearnManager::clearAllMappings()
 {
     mappings.clear();
     DBG("All MIDI mappings cleared");
+}
+
+bool MidiLearnManager::removeMappingForParameter(const juce::String &parameterName)
+{
+    auto mappingIt = std::find_if(mappings.begin(), mappings.end(),
+                                  [parameterName](const MidiMapping &mapping)
+                                  {
+                                      return mapping.parameterName == parameterName;
+                                  });
+
+    if (mappingIt == mappings.end())
+    {
+        return false;
+    }
+
+    DjIaVstProcessor *processor = mappingIt->processor;
+    juce::String description = mappingIt->description;
+
+    mappings.erase(mappingIt);
+    juce::String statusMessage = "MIDI mapping removed: " + description;
+    DBG(statusMessage);
+    juce::MessageManager::callAsync([processor, statusMessage]()
+                                    {
+        if (auto* editor = dynamic_cast<DjIaVstEditor*>(processor->getActiveEditor()))
+        {
+            editor->statusLabel.setText(statusMessage, juce::dontSendNotification);
+            juce::Timer::callAfterDelay(2000, [processor]() {
+                if (auto* editor = dynamic_cast<DjIaVstEditor*>(processor->getActiveEditor())) {
+                    editor->statusLabel.setText("Ready", juce::dontSendNotification);
+                }
+            });
+        } });
+
+    return true;
+}
+
+bool MidiLearnManager::hasMappingForParameter(const juce::String &parameterName) const
+{
+    return std::any_of(mappings.begin(), mappings.end(),
+                       [parameterName](const MidiMapping &mapping)
+                       {
+                           return mapping.parameterName == parameterName;
+                       });
+}
+
+juce::String MidiLearnManager::getMappingDescription(const juce::String &parameterName) const
+{
+    auto it = std::find_if(mappings.begin(), mappings.end(),
+                           [parameterName](const MidiMapping &mapping)
+                           {
+                               return mapping.parameterName == parameterName;
+                           });
+
+    if (it != mappings.end())
+    {
+        juce::String midiDescription;
+        switch (it->midiType)
+        {
+        case 0:
+            midiDescription = "Note " + juce::MidiMessage::getMidiNoteName(it->midiNumber, true, true, 3);
+            break;
+        case 1:
+            midiDescription = "CC " + juce::String(it->midiNumber);
+            break;
+        case 2:
+            midiDescription = "Pitchbend";
+            break;
+        }
+        return midiDescription + " (Ch." + juce::String(it->midiChannel + 1) + ")";
+    }
+
+    return juce::String();
 }

@@ -34,6 +34,9 @@ public:
     std::atomic<int> changedSlotIndex{-1};
     void setEditor(DjIaVstEditor *editor) { currentEditor = editor; }
     DjIaVstEditor *getEditor() const { return currentEditor; }
+    bool removeMappingForParameter(const juce::String &parameterName);
+    bool hasMappingForParameter(const juce::String &parameterName) const;
+    juce::String getMappingDescription(const juce::String &parameterName) const;
 
 private:
     void timerCallback() override;

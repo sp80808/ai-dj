@@ -36,7 +36,7 @@ private:
 	bool blinkState = false;
 
 	MidiLearnableButton playButton;
-	MidiLearnableButton stopButton;
+	juce::TextButton stopButton;
 	MidiLearnableButton muteButton;
 	MidiLearnableButton soloButton;
 
@@ -71,6 +71,7 @@ private:
 	void updateUIFromParameter(const juce::String &paramName,
 							   const juce::String &slotPrefix,
 							   float newValue);
+	void removeMidiMapping(const juce::String &param);
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MixerChannel)
 	JUCE_DECLARE_WEAK_REFERENCEABLE(MixerChannel)
