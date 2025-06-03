@@ -232,6 +232,21 @@ void MixerChannel::updateUIFromParameter(const juce::String &paramName,
 		bool isSolo = newValue > 0.5f;
 		soloButton.setToggleState(isSolo, juce::dontSendNotification);
 	}
+	else if (paramName == slotPrefix + " Play")
+	{
+		if (newValue < 0.5 && !track->isPlaying.load()) {
+			playButton.setToggleState(false, juce::dontSendNotification);
+			playButton.setButtonText("ARM");
+			playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff404040));
+			stopButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff404040));
+		}
+		else if (newValue > 0.5 && !track->isPlaying.load()) {
+			playButton.setToggleState(true, juce::dontSendNotification);
+			playButton.setButtonText("ARM");
+			playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffff6600));
+			stopButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffaa4400));
+		}
+	}
 }
 void MixerChannel::parameterGestureChanged(int parameterIndex, bool gestureIsStarting)
 {

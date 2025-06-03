@@ -113,6 +113,21 @@ bool MidiLearnManager::processMidiForLearning(const juce::MidiMessage &message)
         midiType = 2;
         midiNumber = 0;
     }
+    else if (message.isNoteOnOrOff())
+    {
+        int noteNumber = message.getNoteNumber();
+        bool isInSampleRange = (noteNumber >= 60 && noteNumber <= 67);
+
+        if (!isInSampleRange)
+        {
+            midiType = 0;
+            midiNumber = noteNumber;
+        }
+        else
+        {
+            return false;
+        }
+    }
     else
     {
         return false;
@@ -179,6 +194,14 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
 
         if (mapping.midiType == 0 && message.isNoteOnOrOff() && mapping.midiChannel == midiChannel)
         {
+            int noteNumber = message.getNoteNumber();
+            bool isInSampleRange = (noteNumber >= 60 && noteNumber <= 67);
+
+            if (isInSampleRange)
+            {
+                continue;
+            }
+
             if (message.getNoteNumber() == mapping.midiNumber)
             {
                 matches = true;

@@ -1409,7 +1409,17 @@ void DjIaVstEditor::menuItemSelected(int menuItemID, int topLevelMenuIndex)
 							 "2. Add tracks and assign MIDI notes\n"
 							 "3. Generate loops with prompts\n"
 							 "4. Play with MIDI keyboard!\n\n"
-							 "Each track can be triggered by its assigned MIDI note.")
+							 "Each track can be triggered by its assigned MIDI note.\n\n"
+							 "MIDI Learn:\n"
+							 "- Samples: C3-G3 (notes 60-67) reserved for track triggers\n"
+							 "- Controls: Use notes 0-59 or 68-127 for MIDI mapping\n"
+							 "- Assignable controls: Play, Mute, Solo, Pitch, Fine, Pan\n"
+							 "- Right-click any control, Enable MIDI Learn, Press MIDI control\n\n"
+							 "Play Button Behavior:\n"
+							 "- First click: Arms sample to start on next MIDI note\n"
+							 "- Second click: Arms sample to stop on next MIDI note\n"
+							 "- Stop button: Arms for immediate stop on next MIDI note\n"
+							 "- No separate Stop in MIDI Learn - Play button handles both!")
 				.withButton("OK"),
 			nullptr);
 		break;
