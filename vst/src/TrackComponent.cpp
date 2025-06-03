@@ -540,8 +540,6 @@ void TrackComponent::updateBpmSliderVisibility()
     bool shouldShow = (track->timeStretchMode == 2 || track->timeStretchMode == 4);
     bpmOffsetSlider.setVisible(shouldShow);
     bpmOffsetLabel.setVisible(shouldShow);
-
-    resized();
 }
 
 void TrackComponent::refreshWaveformIfNeeded()

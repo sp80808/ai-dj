@@ -21,7 +21,9 @@ public:
     {
         sampleBpm = bpm;
         calculateStretchRatio();
-        repaint();
+        juce::MessageManager::callAsync([this]() {
+            repaint();
+            });
     }
 
     void setOriginalBpm(float bpm)
@@ -47,14 +49,18 @@ public:
         {
             loopStart = startTime;
             loopEnd = endTime;
-            repaint();
+            juce::MessageManager::callAsync([this]() {
+                repaint();
+                });
         }
     }
 
     void lockLoopPoints(bool locked)
     {
         loopPointsLocked = locked;
-        repaint();
+        juce::MessageManager::callAsync([this]() {
+            repaint();
+            });
     }
 
     void calculateStretchRatio()
@@ -93,7 +99,9 @@ public:
             }
         }
 
-        repaint();
+        juce::MessageManager::callAsync([this]() {
+            repaint();
+            });
     }
 
     std::function<void(double, double)> onLoopPointsChanged;
