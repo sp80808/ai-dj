@@ -13,7 +13,7 @@ class GenerateRequest(BaseModel):
 
 
 class GenerateResponse(BaseModel):
-    audio_data: str
+    audio_data: bytes
     duration: float
     bpm: float
     key: str

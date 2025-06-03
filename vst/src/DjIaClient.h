@@ -28,7 +28,7 @@ public:
 
 	struct LoopResponse
 	{
-		juce::MemoryBlock audioData;
+		juce::File audioData;
 		float duration;
 		float bpm;
 		juce::String key;
@@ -91,13 +91,11 @@ public:
 				}
 
 				LoopResponse result;
-
-				juce::String audioBase64 = jsonResponse.getProperty("audio_data", "").toString();
-				if (audioBase64.isNotEmpty())
+				result.audioData = juce::File::createTempFile(".wav");
+				juce::FileOutputStream stream(result.audioData);
+				if (stream.openedOk())
 				{
-					juce::MemoryOutputStream decoded;
-					juce::Base64::convertFromBase64(decoded, audioBase64);
-					result.audioData = decoded.getMemoryBlock();
+					stream.writeFromInputStream(*response, response->getTotalLength());
 				}
 
 				result.duration = jsonResponse.getProperty("duration", 0.0);
@@ -122,8 +120,6 @@ public:
 		{
 			DBG("API Error: " + juce::String(e.what()));
 			LoopResponse emptyResponse;
-			emptyResponse.audioData = juce::MemoryBlock();
-			emptyResponse.duration = 0.0;
 			return emptyResponse;
 		}
 	}

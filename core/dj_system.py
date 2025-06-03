@@ -41,7 +41,8 @@ class DJSystem:
             "history": [],
         }
         self.dj_brain = DJAILL(self.model_path, initial_llm_state)
-
+        if not os.path.exists(self.output_dir_base):
+            os.makedirs(self.output_dir_base)
         print("Loading sample generator...")
         self.music_gen = MusicGenerator(model_name=self.audio_model)
 
@@ -50,9 +51,6 @@ class DJSystem:
             output_dir=os.path.join(self.output_dir_base, "layers"),
         )
         self.layer_manager.set_master_tempo(initial_llm_state["current_tempo"])
-
-        if not os.path.exists(self.output_dir_base):
-            os.makedirs(self.output_dir_base)
 
         self.initialized = True
         print("✅ OBSIDIAN system initialized successfully (Singleton)")

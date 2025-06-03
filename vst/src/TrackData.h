@@ -5,6 +5,7 @@ struct TrackData
 	int slotIndex = -1;
 	std::atomic<bool> isPlaying{false};
 	std::atomic<bool> isArmed{false};
+	juce::String audioFilePath;
 	std::atomic<bool> isArmedToStop{false};
 	std::atomic<bool> isCurrentlyPlaying{false};
 	float fineOffset = 0.0f;

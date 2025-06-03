@@ -18,9 +18,6 @@ class LayerManager:
     ):
         self.sample_rate = sample_rate
         self.output_dir = output_dir
-        if not os.path.exists(self.output_dir):
-            os.makedirs(self.output_dir)
-
         self.master_tempo: float = 126.0
 
     def find_kick_attack_start(self, audio, sr, onset_position, layer_id):

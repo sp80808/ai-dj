@@ -1,5 +1,5 @@
-import base64
 import time
+import os
 import librosa
 import hashlib
 from fastapi import APIRouter, HTTPException, Depends, Security, Request
@@ -62,14 +62,12 @@ async def generate_loop(
         duration = len(audio_data) / sr
 
         with open(processed_path, "rb") as f:
-            audio_bytes = f.read()
-
-        audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+            wav_data = f.read()
 
         print(f"[{request_id}] ✅ SUCCESS: {duration:.1f}")
 
         return {
-            "audio_data": audio_base64,
+            "audio_data": wav_data,
             "duration": duration,
             "bpm": request.bpm,
             "key": request.key,
@@ -81,3 +79,7 @@ async def generate_loop(
     except Exception as e:
         print(f"❌ ERROR #{request_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if os.path.exists(processed_path):
+            os.remove(processed_path)

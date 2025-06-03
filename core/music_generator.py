@@ -151,9 +151,6 @@ class MusicGenerator:
                 )
 
                 del output, output_normalized
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-                gc.collect()
 
             print(f"✅ Generation complete!")
 
@@ -161,7 +158,6 @@ class MusicGenerator:
                 "type": sample_type,
                 "tempo": tempo,
                 "prompt": musicgen_prompt,
-                "should_start_with_kick": True,
             }
 
             return sample_audio, sample_info

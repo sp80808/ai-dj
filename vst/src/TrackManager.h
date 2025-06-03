@@ -203,25 +203,13 @@ public:
 			trackState.setProperty("isArmed", track->isArmed.load(), nullptr);
 			trackState.setProperty("isArmedToStop", track->isArmedToStop.load(), nullptr);
 			trackState.setProperty("isCurrentlyPlaying", track->isCurrentlyPlaying.load(), nullptr);
-
-			if (track->numSamples > 0)
+			if (track->numSamples > 0 && !track->audioFilePath.isEmpty())
 			{
-				juce::MemoryBlock audioData;
-				juce::MemoryOutputStream stream(audioData, false);
-
-				stream.writeDouble(track->sampleRate);
-				stream.writeInt(track->audioBuffer.getNumChannels());
-				stream.writeInt(track->numSamples);
-
-				for (int ch = 0; ch < track->audioBuffer.getNumChannels(); ++ch)
-				{
-					stream.write(track->audioBuffer.getReadPointer(ch),
-								 track->numSamples * sizeof(float));
-				}
-
-				trackState.setProperty("audioData", audioData.toBase64Encoding(), nullptr);
+				trackState.setProperty("audioFilePath", track->audioFilePath, nullptr);
+				trackState.setProperty("sampleRate", track->sampleRate, nullptr);
+				trackState.setProperty("numSamples", track->numSamples, nullptr);
+				trackState.setProperty("numChannels", track->audioBuffer.getNumChannels(), nullptr);
 			}
-
 			state.appendChild(trackState, nullptr);
 		}
 
@@ -271,27 +259,16 @@ public:
 			track->isArmedToStop = trackState.getProperty("isArmedToStop", false);
 			track->isCurrentlyPlaying = trackState.getProperty("isCurrentlyPlaying", false);
 
-			juce::String audioDataBase64 = trackState.getProperty("audioData", "");
-			if (audioDataBase64.isNotEmpty())
+			juce::String audioFilePath = trackState.getProperty("audioFilePath", "");
+			if (audioFilePath.isNotEmpty())
 			{
-				juce::MemoryBlock audioData;
-				if (audioData.fromBase64Encoding(audioDataBase64))
+				juce::File audioFile(audioFilePath);
+				if (audioFile.existsAsFile())
 				{
-					juce::MemoryInputStream stream(audioData, false);
-					track->sampleRate = stream.readDouble();
-					int numChannels = stream.readInt();
-					track->numSamples = stream.readInt();
-
-					if (track->numSamples > 0 && numChannels > 0)
-					{
-						track->audioBuffer.setSize(numChannels, track->numSamples);
-
-						for (int ch = 0; ch < numChannels; ++ch)
-						{
-							stream.read(track->audioBuffer.getWritePointer(ch),
-										track->numSamples * sizeof(float));
-						}
-					}
+					track->audioFilePath = audioFilePath;
+					track->sampleRate = trackState.getProperty("sampleRate", 48000.0);
+					track->numSamples = trackState.getProperty("numSamples", 0);
+					loadAudioFileForTrack(track.get(), audioFile);
 				}
 			}
 			if (track->slotIndex < 0 || track->slotIndex >= 8 || usedSlots[track->slotIndex])
@@ -353,6 +330,22 @@ private:
 
 		DBG("❌ No free slots available!");
 		return -1;
+	}
+	void loadAudioFileForTrack(TrackData *track, const juce::File &audioFile)
+	{
+		juce::AudioFormatManager formatManager;
+		formatManager.registerBasicFormats();
+
+		if (auto reader = formatManager.createReaderFor(audioFile))
+		{
+			int numChannels = reader->numChannels;
+			int numSamples = static_cast<int>(reader->lengthInSamples);
+
+			track->audioBuffer.setSize(numChannels, numSamples);
+			reader->read(&track->audioBuffer, 0, numSamples, 0, true, true);
+			track->numSamples = numSamples;
+			track->sampleRate = reader->sampleRate;
+		}
 	}
 	void renderSingleTrack(TrackData &track,
 						   juce::AudioBuffer<float> &mixOutput,
