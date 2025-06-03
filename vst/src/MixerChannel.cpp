@@ -391,6 +391,11 @@ void MixerChannel::addEventListeners()
 			}
 			setButtonParameter("Solo", soloButton);
 		};
+	pitchKnob.setDoubleClickReturnValue(true, 0.0);
+	fineKnob.setDoubleClickReturnValue(true, 0.0);
+	panKnob.setDoubleClickReturnValue(true, 0.0);
+	volumeSlider.setDoubleClickReturnValue(true, 0.8);
+
 	addListener("Volume");
 	addListener("Play");
 	addListener("Stop");

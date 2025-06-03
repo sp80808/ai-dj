@@ -488,6 +488,7 @@ void DjIaVstEditor::addEventListeners()
 			}
 			refreshTracks();
 		};
+
 }
 
 void DjIaVstEditor::updateUIFromProcessor()
