@@ -33,7 +33,6 @@ public:
 		float bpm;
 		juce::String key;
 		std::vector<juce::String> stemsUsed;
-		juce::String llmReasoning;
 		double sampleRate;
 
 		LoopResponse()
@@ -83,7 +82,11 @@ public:
 			if (auto response = url.createInputStream(options))
 			{
 				LoopResponse result;
-				result.audioData = juce::File::createTempFile(".wav");
+				auto tempDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+								   .getChildFile("OBSIDIAN")
+								   .getChildFile("TempAudio");
+				tempDir.createDirectory();
+				result.audioData = tempDir.getChildFile("temp_" + juce::Uuid().toString() + ".wav");
 
 				juce::FileOutputStream stream(result.audioData);
 				if (stream.openedOk())
@@ -96,7 +99,6 @@ public:
 				result.key = request.key;
 				result.sampleRate = 48000.0;
 				result.stemsUsed = request.preferredStems;
-				result.llmReasoning = "Generated successfully";
 
 				DBG("WAV file created: " + result.audioData.getFullPathName() +
 					" (" + juce::String(result.audioData.getSize()) + " bytes)");

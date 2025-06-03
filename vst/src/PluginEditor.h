@@ -64,7 +64,6 @@ private:
 	void showFirstTimeSetup();
 	void enterServerUrlAndApiKey(juce::AlertWindow* alertWindow);
 	void showConfigDialog();
-
 	juce::File getSessionsDirectory();
 	std::unique_ptr<MixerPanel> mixerPanel;
 	juce::TextButton showMixerButton;

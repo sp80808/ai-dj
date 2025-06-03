@@ -76,7 +76,6 @@ async def generate_loop(
                 "X-Key": str(request.key or ""),
                 "X-Sample-Rate": "48000",
                 "X-Stems-Used": ",".join(used_stems) if used_stems else "",
-                "X-LLM-Reasoning": llm_decision.get("reasoning", "")[:200],
             },
         )
 

@@ -11,23 +11,23 @@ juce::AudioProcessor::BusesProperties DjIaVstProcessor::createBusLayout()
 	for (int i = 0; i < MAX_TRACKS; ++i)
 	{
 		layout = layout.withOutput("Track " + juce::String(i + 1),
-								   juce::AudioChannelSet::stereo(), false);
+			juce::AudioChannelSet::stereo(), false);
 	}
 	return layout;
 }
 
 DjIaVstProcessor::DjIaVstProcessor()
 	: AudioProcessor(createBusLayout()),
-	  parameters(*this, nullptr, "Parameters", {std::make_unique<juce::AudioParameterBool>("generate", "Generate Loop", false), std::make_unique<juce::AudioParameterBool>("play", "Play Loop", false), std::make_unique<juce::AudioParameterBool>("autoload", "Auto-Load", true), std::make_unique<juce::AudioParameterFloat>("bpm", "BPM", 60.0f, 200.0f, 126.0f), std::make_unique<juce::AudioParameterFloat>("masterVolume", "Master Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("masterPan", "Master Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("masterHigh", "Master High EQ", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("masterMid", "Master Mid EQ", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("masterLow", "Master Low EQ", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot1Volume", "Slot 1 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot1Pan", "Slot 1 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot1Mute", "Slot 1 Mute", false), std::make_unique<juce::AudioParameterBool>("slot1Solo", "Slot 1 Solo", false), std::make_unique<juce::AudioParameterBool>("slot1Play", "Slot 1 Play", false), std::make_unique<juce::AudioParameterBool>("slot1Stop", "Slot 1 Stop", false), std::make_unique<juce::AudioParameterBool>("slot1Generate", "Slot 1 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot1Pitch", "Slot 1 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot1Fine", "Slot 1 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot1BpmOffset", "Slot 1 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot2Volume", "Slot 2 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot2Pan", "Slot 2 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot2Mute", "Slot 2 Mute", false), std::make_unique<juce::AudioParameterBool>("slot2Solo", "Slot 2 Solo", false), std::make_unique<juce::AudioParameterBool>("slot2Play", "Slot 2 Play", false), std::make_unique<juce::AudioParameterBool>("slot2Stop", "Slot 2 Stop", false), std::make_unique<juce::AudioParameterBool>("slot2Generate", "Slot 2 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot2Pitch", "Slot 2 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot2Fine", "Slot 2 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot2BpmOffset", "Slot 2 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot3Volume", "Slot 3 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot3Pan", "Slot 3 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot3Mute", "Slot 3 Mute", false), std::make_unique<juce::AudioParameterBool>("slot3Solo", "Slot 3 Solo", false), std::make_unique<juce::AudioParameterBool>("slot3Play", "Slot 3 Play", false), std::make_unique<juce::AudioParameterBool>("slot3Stop", "Slot 3 Stop", false), std::make_unique<juce::AudioParameterBool>("slot3Generate", "Slot 3 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot3Pitch", "Slot 3 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot3Fine", "Slot 3 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot3BpmOffset", "Slot 3 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot4Volume", "Slot 4 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot4Pan", "Slot 4 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot4Mute", "Slot 4 Mute", false), std::make_unique<juce::AudioParameterBool>("slot4Solo", "Slot 4 Solo", false), std::make_unique<juce::AudioParameterBool>("slot4Play", "Slot 4 Play", false), std::make_unique<juce::AudioParameterBool>("slot4Stop", "Slot 4 Stop", false), std::make_unique<juce::AudioParameterBool>("slot4Generate", "Slot 4 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot4Pitch", "Slot 4 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot4Fine", "Slot 4 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot4BpmOffset", "Slot 4 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot5Volume", "Slot 5 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot5Pan", "Slot 5 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot5Mute", "Slot 5 Mute", false), std::make_unique<juce::AudioParameterBool>("slot5Solo", "Slot 5 Solo", false), std::make_unique<juce::AudioParameterBool>("slot5Play", "Slot 5 Play", false), std::make_unique<juce::AudioParameterBool>("slot5Stop", "Slot 5 Stop", false), std::make_unique<juce::AudioParameterBool>("slot5Generate", "Slot 5 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot5Pitch", "Slot 5 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot5Fine", "Slot 5 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot5BpmOffset", "Slot 5 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot6Volume", "Slot 6 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot6Pan", "Slot 6 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot6Mute", "Slot 6 Mute", false), std::make_unique<juce::AudioParameterBool>("slot6Solo", "Slot 6 Solo", false), std::make_unique<juce::AudioParameterBool>("slot6Play", "Slot 6 Play", false), std::make_unique<juce::AudioParameterBool>("slot6Stop", "Slot 6 Stop", false), std::make_unique<juce::AudioParameterBool>("slot6Generate", "Slot 6 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot6Pitch", "Slot 6 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot6Fine", "Slot 6 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot6BpmOffset", "Slot 6 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot7Volume", "Slot 7 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot7Pan", "Slot 7 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot7Mute", "Slot 7 Mute", false), std::make_unique<juce::AudioParameterBool>("slot7Solo", "Slot 7 Solo", false), std::make_unique<juce::AudioParameterBool>("slot7Play", "Slot 7 Play", false), std::make_unique<juce::AudioParameterBool>("slot7Stop", "Slot 7 Stop", false), std::make_unique<juce::AudioParameterBool>("slot7Generate", "Slot 7 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot7Pitch", "Slot 7 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot7Fine", "Slot 7 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot7BpmOffset", "Slot 7 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot8Volume", "Slot 8 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot8Pan", "Slot 8 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot8Mute", "Slot 8 Mute", false), std::make_unique<juce::AudioParameterBool>("slot8Solo", "Slot 8 Solo", false), std::make_unique<juce::AudioParameterBool>("slot8Play", "Slot 8 Play", false), std::make_unique<juce::AudioParameterBool>("slot8Stop", "Slot 8 Stop", false), std::make_unique<juce::AudioParameterBool>("slot8Generate", "Slot 8 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot8Pitch", "Slot 8 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot8Fine", "Slot 8 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot8BpmOffset", "Slot 8 BPM Offset", -20.0f, 20.0f, 0.0f)})
+	parameters(*this, nullptr, "Parameters", { std::make_unique<juce::AudioParameterBool>("generate", "Generate Loop", false), std::make_unique<juce::AudioParameterBool>("play", "Play Loop", false), std::make_unique<juce::AudioParameterBool>("autoload", "Auto-Load", true), std::make_unique<juce::AudioParameterFloat>("bpm", "BPM", 60.0f, 200.0f, 126.0f), std::make_unique<juce::AudioParameterFloat>("masterVolume", "Master Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("masterPan", "Master Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("masterHigh", "Master High EQ", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("masterMid", "Master Mid EQ", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("masterLow", "Master Low EQ", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot1Volume", "Slot 1 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot1Pan", "Slot 1 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot1Mute", "Slot 1 Mute", false), std::make_unique<juce::AudioParameterBool>("slot1Solo", "Slot 1 Solo", false), std::make_unique<juce::AudioParameterBool>("slot1Play", "Slot 1 Play", false), std::make_unique<juce::AudioParameterBool>("slot1Stop", "Slot 1 Stop", false), std::make_unique<juce::AudioParameterBool>("slot1Generate", "Slot 1 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot1Pitch", "Slot 1 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot1Fine", "Slot 1 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot1BpmOffset", "Slot 1 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot2Volume", "Slot 2 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot2Pan", "Slot 2 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot2Mute", "Slot 2 Mute", false), std::make_unique<juce::AudioParameterBool>("slot2Solo", "Slot 2 Solo", false), std::make_unique<juce::AudioParameterBool>("slot2Play", "Slot 2 Play", false), std::make_unique<juce::AudioParameterBool>("slot2Stop", "Slot 2 Stop", false), std::make_unique<juce::AudioParameterBool>("slot2Generate", "Slot 2 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot2Pitch", "Slot 2 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot2Fine", "Slot 2 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot2BpmOffset", "Slot 2 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot3Volume", "Slot 3 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot3Pan", "Slot 3 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot3Mute", "Slot 3 Mute", false), std::make_unique<juce::AudioParameterBool>("slot3Solo", "Slot 3 Solo", false), std::make_unique<juce::AudioParameterBool>("slot3Play", "Slot 3 Play", false), std::make_unique<juce::AudioParameterBool>("slot3Stop", "Slot 3 Stop", false), std::make_unique<juce::AudioParameterBool>("slot3Generate", "Slot 3 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot3Pitch", "Slot 3 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot3Fine", "Slot 3 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot3BpmOffset", "Slot 3 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot4Volume", "Slot 4 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot4Pan", "Slot 4 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot4Mute", "Slot 4 Mute", false), std::make_unique<juce::AudioParameterBool>("slot4Solo", "Slot 4 Solo", false), std::make_unique<juce::AudioParameterBool>("slot4Play", "Slot 4 Play", false), std::make_unique<juce::AudioParameterBool>("slot4Stop", "Slot 4 Stop", false), std::make_unique<juce::AudioParameterBool>("slot4Generate", "Slot 4 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot4Pitch", "Slot 4 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot4Fine", "Slot 4 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot4BpmOffset", "Slot 4 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot5Volume", "Slot 5 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot5Pan", "Slot 5 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot5Mute", "Slot 5 Mute", false), std::make_unique<juce::AudioParameterBool>("slot5Solo", "Slot 5 Solo", false), std::make_unique<juce::AudioParameterBool>("slot5Play", "Slot 5 Play", false), std::make_unique<juce::AudioParameterBool>("slot5Stop", "Slot 5 Stop", false), std::make_unique<juce::AudioParameterBool>("slot5Generate", "Slot 5 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot5Pitch", "Slot 5 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot5Fine", "Slot 5 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot5BpmOffset", "Slot 5 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot6Volume", "Slot 6 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot6Pan", "Slot 6 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot6Mute", "Slot 6 Mute", false), std::make_unique<juce::AudioParameterBool>("slot6Solo", "Slot 6 Solo", false), std::make_unique<juce::AudioParameterBool>("slot6Play", "Slot 6 Play", false), std::make_unique<juce::AudioParameterBool>("slot6Stop", "Slot 6 Stop", false), std::make_unique<juce::AudioParameterBool>("slot6Generate", "Slot 6 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot6Pitch", "Slot 6 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot6Fine", "Slot 6 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot6BpmOffset", "Slot 6 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot7Volume", "Slot 7 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot7Pan", "Slot 7 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot7Mute", "Slot 7 Mute", false), std::make_unique<juce::AudioParameterBool>("slot7Solo", "Slot 7 Solo", false), std::make_unique<juce::AudioParameterBool>("slot7Play", "Slot 7 Play", false), std::make_unique<juce::AudioParameterBool>("slot7Stop", "Slot 7 Stop", false), std::make_unique<juce::AudioParameterBool>("slot7Generate", "Slot 7 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot7Pitch", "Slot 7 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot7Fine", "Slot 7 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot7BpmOffset", "Slot 7 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot8Volume", "Slot 8 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot8Pan", "Slot 8 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot8Mute", "Slot 8 Mute", false), std::make_unique<juce::AudioParameterBool>("slot8Solo", "Slot 8 Solo", false), std::make_unique<juce::AudioParameterBool>("slot8Play", "Slot 8 Play", false), std::make_unique<juce::AudioParameterBool>("slot8Stop", "Slot 8 Stop", false), std::make_unique<juce::AudioParameterBool>("slot8Generate", "Slot 8 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot8Pitch", "Slot 8 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot8Fine", "Slot 8 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot8BpmOffset", "Slot 8 BPM Offset", -20.0f, 20.0f, 0.0f) })
 {
 	loadParameters();
 	initTracks();
 	initDummySynth();
 	loadGlobalConfig();
-	trackManager.parameterUpdateCallback = [this](int slot, TrackData *track)
-	{
-		handleSampleParams(slot, track);
-	};
+	trackManager.parameterUpdateCallback = [this](int slot, TrackData* track)
+		{
+			handleSampleParams(slot, track);
+		};
 	startTimerHz(30);
 	stateLoaded = true;
 }
@@ -38,7 +38,7 @@ void DjIaVstProcessor::loadGlobalConfig()
 	if (configFile.existsAsFile())
 	{
 		auto configJson = juce::JSON::parse(configFile);
-		if (auto *object = configJson.getDynamicObject())
+		if (auto* object = configJson.getDynamicObject())
 		{
 			apiKey = object->getProperty("apiKey").toString();
 			serverUrl = object->getProperty("serverUrl").toString();
@@ -74,7 +74,7 @@ void DjIaVstProcessor::initTracks()
 {
 	selectedTrackId = trackManager.createTrack("Track 1");
 	individualOutputBuffers.resize(MAX_TRACKS);
-	for (auto &buffer : individualOutputBuffers)
+	for (auto& buffer : individualOutputBuffers)
 	{
 		buffer.setSize(2, 512);
 	}
@@ -166,7 +166,7 @@ DjIaVstProcessor::~DjIaVstProcessor()
 	{
 		cleanProcessor();
 	}
-	catch (const std::exception &e)
+	catch (const std::exception& e)
 	{
 		std::cout << "Error: " << e.what() << std::endl;
 	}
@@ -174,21 +174,38 @@ DjIaVstProcessor::~DjIaVstProcessor()
 
 void DjIaVstProcessor::cleanProcessor()
 {
+	hasPendingAudioData = false;
+	waitingForMidiToLoad = false;
+
+	juce::Thread::sleep(100);
+
 	parameters.removeParameterListener("generate", this);
 	parameters.removeParameterListener("play", this);
 	parameters.removeParameterListener("autoload", this);
+
 	for (int i = 1; i <= 8; ++i)
 	{
 		parameters.removeParameterListener("slot" + juce::String(i) + "Generate", this);
 	}
 
 	isNotePlaying = false;
-	hasPendingAudioData = false;
 	hasUnloadedSample = false;
 	midiIndicatorCallback = nullptr;
 	individualOutputBuffers.clear();
 	synth.clearVoices();
 	synth.clearSounds();
+
+	const juce::ScopedLock lock(apiLock);
+
+	if (pendingAudioFile.existsAsFile())
+	{
+		pendingAudioFile.deleteFile();
+		DBG("Deleted temp file: " + pendingAudioFile.getFullPathName());
+	}
+
+	pendingAudioFile = juce::File();
+	pendingTrackId.clear();
+	hasPendingAudioData = false;
 }
 
 void DjIaVstProcessor::timerCallback()
@@ -206,7 +223,7 @@ void DjIaVstProcessor::prepareToPlay(double newSampleRate, int samplesPerBlock)
 {
 	hostSampleRate = newSampleRate;
 	synth.setCurrentPlaybackSampleRate(newSampleRate);
-	for (auto &buffer : individualOutputBuffers)
+	for (auto& buffer : individualOutputBuffers)
 	{
 		buffer.setSize(2, samplesPerBlock);
 		buffer.clear();
@@ -216,13 +233,13 @@ void DjIaVstProcessor::prepareToPlay(double newSampleRate, int samplesPerBlock)
 
 void DjIaVstProcessor::releaseResources()
 {
-	for (auto &buffer : individualOutputBuffers)
+	for (auto& buffer : individualOutputBuffers)
 	{
 		buffer.setSize(0, 0);
 	}
 }
 
-bool DjIaVstProcessor::isBusesLayoutSupported(const BusesLayout &layouts) const
+bool DjIaVstProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 {
 	if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
 	{
@@ -239,7 +256,7 @@ bool DjIaVstProcessor::isBusesLayoutSupported(const BusesLayout &layouts) const
 	return true;
 }
 
-void DjIaVstProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::MidiBuffer &midiMessages)
+void DjIaVstProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
 	checkAndSwapStagingBuffers();
 	for (auto i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
@@ -277,13 +294,15 @@ void DjIaVstProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::Midi
 	checkIfUIUpdateNeeded(midiMessages);
 }
 
-void DjIaVstProcessor::checkIfUIUpdateNeeded(juce::MidiBuffer &midiMessages)
+
+
+void DjIaVstProcessor::checkIfUIUpdateNeeded(juce::MidiBuffer& midiMessages)
 {
 	bool anyTrackPlaying = false;
 	auto trackIds = trackManager.getAllTrackIds();
-	for (const auto &trackId : trackIds)
+	for (const auto& trackId : trackIds)
 	{
-		TrackData *track = trackManager.getTrack(trackId);
+		TrackData* track = trackManager.getTrack(trackId);
 		if (track && track->isPlaying.load())
 		{
 			anyTrackPlaying = true;
@@ -297,7 +316,7 @@ void DjIaVstProcessor::checkIfUIUpdateNeeded(juce::MidiBuffer &midiMessages)
 	}
 }
 
-void DjIaVstProcessor::applyMasterEffects(juce::AudioSampleBuffer &mainOutput)
+void DjIaVstProcessor::applyMasterEffects(juce::AudioSampleBuffer& mainOutput)
 {
 	updateMasterEQ();
 	masterEQ.processBlock(mainOutput);
@@ -318,7 +337,7 @@ void DjIaVstProcessor::applyMasterEffects(juce::AudioSampleBuffer &mainOutput)
 	}
 }
 
-void DjIaVstProcessor::copyTracksToIndividualOutputs(juce::AudioSampleBuffer &buffer)
+void DjIaVstProcessor::copyTracksToIndividualOutputs(juce::AudioSampleBuffer& buffer)
 {
 	for (int busIndex = 1; busIndex < getTotalNumOutputChannels() / 2; ++busIndex)
 	{
@@ -332,14 +351,14 @@ void DjIaVstProcessor::copyTracksToIndividualOutputs(juce::AudioSampleBuffer &bu
 				for (int ch = 0; ch < std::min(busBuffer.getNumChannels(), 2); ++ch)
 				{
 					busBuffer.copyFrom(ch, 0, individualOutputBuffers[trackIndex], ch, 0,
-									   buffer.getNumSamples());
+						buffer.getNumSamples());
 				}
 			}
 		}
 	}
 }
 
-void DjIaVstProcessor::clearOutputBuffers(juce::AudioSampleBuffer &buffer)
+void DjIaVstProcessor::clearOutputBuffers(juce::AudioSampleBuffer& buffer)
 {
 	for (int busIndex = 0; busIndex < getTotalNumOutputChannels() / 2; ++busIndex)
 	{
@@ -351,9 +370,9 @@ void DjIaVstProcessor::clearOutputBuffers(juce::AudioSampleBuffer &buffer)
 	}
 }
 
-void DjIaVstProcessor::resizeIndividualsBuffers(juce::AudioSampleBuffer &buffer)
+void DjIaVstProcessor::resizeIndividualsBuffers(juce::AudioSampleBuffer& buffer)
 {
-	for (auto &indivBuffer : individualOutputBuffers)
+	for (auto& indivBuffer : individualOutputBuffers)
 	{
 		if (indivBuffer.getNumSamples() != buffer.getNumSamples())
 		{
@@ -363,7 +382,7 @@ void DjIaVstProcessor::resizeIndividualsBuffers(juce::AudioSampleBuffer &buffer)
 	}
 }
 
-void DjIaVstProcessor::getDawInformations(juce::AudioPlayHead *playHead, bool &hostIsPlaying, double &hostBpm, double &hostPpqPosition)
+void DjIaVstProcessor::getDawInformations(juce::AudioPlayHead* playHead, bool& hostIsPlaying, double& hostBpm, double& hostPpqPosition)
 {
 	if (auto positionInfo = playHead->getPosition())
 	{
@@ -387,7 +406,7 @@ void DjIaVstProcessor::updateMasterEQ()
 	masterEQ.setLowGain(masterLowEQ.load());
 }
 
-void DjIaVstProcessor::processMidiMessages(juce::MidiBuffer &midiMessages, bool hostIsPlaying, double hostBpm)
+void DjIaVstProcessor::processMidiMessages(juce::MidiBuffer& midiMessages, bool hostIsPlaying, double hostBpm)
 {
 	static int totalBlocks = 0;
 	totalBlocks++;
@@ -419,15 +438,15 @@ void DjIaVstProcessor::processMidiMessages(juce::MidiBuffer &midiMessages, bool 
 	}
 }
 
-void DjIaVstProcessor::playTrack(const juce::MidiMessage &message, double hostBpm)
+void DjIaVstProcessor::playTrack(const juce::MidiMessage& message, double hostBpm)
 {
 	int noteNumber = message.getNoteNumber();
 	juce::String noteName = juce::MidiMessage::getMidiNoteName(noteNumber, true, true, 3);
 	bool trackFound = false;
 	auto trackIds = trackManager.getAllTrackIds();
-	for (const auto &trackId : trackIds)
+	for (const auto& trackId : trackIds)
 	{
-		TrackData *track = trackManager.getTrack(trackId);
+		TrackData* track = trackManager.getTrack(trackId);
 		int slot = track->slotIndex;
 		if (track && track->midiNote == noteNumber)
 		{
@@ -456,9 +475,9 @@ void DjIaVstProcessor::handlePlayAndStop(bool hostIsPlaying)
 	if (changedSlot >= 0)
 	{
 		auto trackIds = trackManager.getAllTrackIds();
-		for (const auto &trackId : trackIds)
+		for (const auto& trackId : trackIds)
 		{
-			TrackData *track = trackManager.getTrack(trackId);
+			TrackData* track = trackManager.getTrack(trackId);
 			if (track->slotIndex == changedSlot)
 			{
 				bool paramPlay = slotPlayParams[changedSlot]->load() > 0.5f;
@@ -478,7 +497,7 @@ void DjIaVstProcessor::handlePlayAndStop(bool hostIsPlaying)
 	}
 }
 
-void DjIaVstProcessor::handleSampleParams(int slot, TrackData *track)
+void DjIaVstProcessor::handleSampleParams(int slot, TrackData* track)
 {
 	float paramVolume = slotVolumeParams[slot]->load();
 	float paramPan = slotPanParams[slot]->load();
@@ -522,9 +541,9 @@ void DjIaVstProcessor::handleSampleParams(int slot, TrackData *track)
 void DjIaVstProcessor::updateTimeStretchRatios(double hostBpm)
 {
 	auto trackIds = trackManager.getAllTrackIds();
-	for (const auto &trackId : trackIds)
+	for (const auto& trackId : trackIds)
 	{
-		TrackData *track = trackManager.getTrack(trackId);
+		TrackData* track = trackManager.getTrack(trackId);
 		if (!track)
 			continue;
 
@@ -553,9 +572,9 @@ void DjIaVstProcessor::updateTimeStretchRatios(double hostBpm)
 	}
 }
 
-void DjIaVstProcessor::startNotePlaybackForTrack(const juce::String &trackId, int noteNumber, double hostBpm)
+void DjIaVstProcessor::startNotePlaybackForTrack(const juce::String& trackId, int noteNumber, double hostBpm)
 {
-	TrackData *track = trackManager.getTrack(trackId);
+	TrackData* track = trackManager.getTrack(trackId);
 	if (!track || track->numSamples == 0)
 		return;
 	if (track->isArmedToStop.load())
@@ -587,7 +606,7 @@ void DjIaVstProcessor::stopNotePlaybackForTrack(int noteNumber)
 	auto it = playingTracks.find(noteNumber);
 	if (it != playingTracks.end())
 	{
-		TrackData *track = trackManager.getTrack(it->second);
+		TrackData* track = trackManager.getTrack(it->second);
 		if (track)
 		{
 			track->isPlaying = false;
@@ -596,7 +615,7 @@ void DjIaVstProcessor::stopNotePlaybackForTrack(int noteNumber)
 	}
 }
 
-juce::String DjIaVstProcessor::createNewTrack(const juce::String &name)
+juce::String DjIaVstProcessor::createNewTrack(const juce::String& name)
 {
 	auto trackIds = trackManager.getAllTrackIds();
 	if (trackIds.size() >= MAX_TRACKS)
@@ -608,40 +627,40 @@ juce::String DjIaVstProcessor::createNewTrack(const juce::String &name)
 	return trackId;
 }
 
-void DjIaVstProcessor::reorderTracks(const juce::String &fromTrackId, const juce::String &toTrackId)
+void DjIaVstProcessor::reorderTracks(const juce::String& fromTrackId, const juce::String& toTrackId)
 {
 	trackManager.reorderTracks(fromTrackId, toTrackId);
 }
 
-void DjIaVstProcessor::deleteTrack(const juce::String &trackId)
+void DjIaVstProcessor::deleteTrack(const juce::String& trackId)
 {
-	TrackData *trackToDelete = trackManager.getTrack(trackId);
+	TrackData* trackToDelete = trackManager.getTrack(trackId);
 	if (!trackToDelete)
 		return;
 
 	juce::String trackName = trackToDelete->trackName;
 
 	juce::MessageManager::callAsync([this, trackId, trackName]()
-									{ juce::AlertWindow::showAsync(
-										  juce::MessageBoxOptions()
-											  .withIconType(juce::MessageBoxIconType::QuestionIcon)
-											  .withTitle("Delete Track")
-											  .withMessage("Are you sure you want to delete '" + trackName + "'?\n\n"
-																											 "This action cannot be undone.")
-											  .withButton("Delete")
-											  .withButton("Cancel"),
-										  [this, trackId](int result)
-										  {
-											  if (result == 1)
-											  {
-												  performTrackDeletion(trackId);
-											  }
-										  }); });
+		{ juce::AlertWindow::showAsync(
+			juce::MessageBoxOptions()
+			.withIconType(juce::MessageBoxIconType::QuestionIcon)
+			.withTitle("Delete Track")
+			.withMessage("Are you sure you want to delete '" + trackName + "'?\n\n"
+				"This action cannot be undone.")
+			.withButton("Delete")
+			.withButton("Cancel"),
+			[this, trackId](int result)
+			{
+				if (result == 1)
+				{
+					performTrackDeletion(trackId);
+				}
+			}); });
 }
 
-void DjIaVstProcessor::performTrackDeletion(const juce::String &trackId)
+void DjIaVstProcessor::performTrackDeletion(const juce::String& trackId)
 {
-	TrackData *trackToDelete = trackManager.getTrack(trackId);
+	TrackData* trackToDelete = trackManager.getTrack(trackId);
 	if (!trackToDelete)
 		return;
 
@@ -687,7 +706,7 @@ void DjIaVstProcessor::performTrackDeletion(const juce::String &trackId)
 	reassignTrackOutputsAndMidi();
 
 	juce::MessageManager::callAsync([this]()
-									{
+		{
 			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
 			{
 				editor->refreshTrackComponents();
@@ -704,7 +723,7 @@ void DjIaVstProcessor::reassignTrackOutputsAndMidi()
 
 	for (int i = 0; i < trackIds.size(); ++i)
 	{
-		TrackData *track = trackManager.getTrack(trackIds[i]);
+		TrackData* track = trackManager.getTrack(trackIds[i]);
 		if (track)
 		{
 			int oldSlotIndex = track->slotIndex;
@@ -726,7 +745,7 @@ void DjIaVstProcessor::reassignTrackOutputsAndMidi()
 	DBG("🔄 REASSIGNMENT COMPLETE");
 }
 
-void DjIaVstProcessor::selectTrack(const juce::String &trackId)
+void DjIaVstProcessor::selectTrack(const juce::String& trackId)
 {
 	if (trackManager.getTrack(trackId))
 	{
@@ -734,7 +753,7 @@ void DjIaVstProcessor::selectTrack(const juce::String &trackId)
 	}
 }
 
-void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest &request, const juce::String &targetTrackId)
+void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest& request, const juce::String& targetTrackId)
 {
 	juce::String trackId = targetTrackId.isEmpty() ? selectedTrackId : targetTrackId;
 
@@ -747,29 +766,36 @@ void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest &request, cons
 			setIsGenerating(false);
 			setGeneratingTrackId("");
 			juce::MessageManager::callAsync([this, trackId]()
-											{
-                    if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
-                        editor->onGenerationComplete(trackId, "Empty response from API");
-                    } });
-			return;
+				{
+					if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+						editor->onGenerationComplete(trackId, "Empty response from API");
+					} });
+					return;
 		}
-		{
-			const juce::ScopedLock lock(apiLock);
-			pendingTrackId = trackId;
-			pendingAudioFile = response.audioData;
-			audioSampleRate = response.sampleRate;
-			hasPendingAudioData = true;
-			waitingForMidiToLoad = true;
-			trackIdWaitingForLoad = trackId;
-			correctMidiNoteReceived = false;
-		}
-		if (TrackData *track = trackManager.getTrack(trackId))
+		juce::Thread::launch([this, trackId, tempFile = response.audioData, requestBpm = request.bpm]() {
+			auto permanentFile = getTrackAudioFile(trackId);
+			processAndSaveAudioFile(tempFile, permanentFile, requestBpm);
+			juce::MessageManager::callAsync([this, trackId, permanentFile]() {
+				{
+					const juce::ScopedLock lock(apiLock);
+					pendingTrackId = trackId;
+					pendingAudioFile = permanentFile;
+					audioSampleRate = 48000.0;
+					hasPendingAudioData = true;
+					waitingForMidiToLoad = true;
+					trackIdWaitingForLoad = trackId;
+					correctMidiNoteReceived = false;
+				}
+				DBG("🎵 Audio ready for playback");
+				});
+			});
+		if (TrackData* track = trackManager.getTrack(trackId))
 		{
 			track->prompt = request.prompt;
 			track->bpm = request.bpm;
 
 			juce::String stems;
-			for (const auto &stem : request.preferredStems)
+			for (const auto& stem : request.preferredStems)
 			{
 				if (!stems.isEmpty())
 					stems += ", ";
@@ -780,12 +806,12 @@ void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest &request, cons
 		setIsGenerating(false);
 		setGeneratingTrackId("");
 		juce::MessageManager::callAsync([this, trackId]()
-										{
+			{
 				if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
 					editor->onGenerationComplete(trackId, "Loop generated successfully! Press Play to listen.");
 				} });
 	}
-	catch (const std::exception &e)
+	catch (const std::exception& e)
 	{
 		hasPendingAudioData = false;
 		waitingForMidiToLoad = false;
@@ -794,11 +820,106 @@ void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest &request, cons
 		setIsGenerating(false);
 		setGeneratingTrackId("");
 		juce::MessageManager::callAsync([this, error = juce::String(e.what())]()
-										{
+			{
 				if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
 				{
 					editor->statusLabel.setText("Error: " + error, juce::dontSendNotification);
 				} });
+	}
+}
+
+void DjIaVstProcessor::processAndSaveAudioFile(const juce::File& tempFile, const juce::File& permanentFile, float requestBpm)
+{
+	juce::AudioBuffer<float> buffer;
+	std::atomic<double> sampleRate = 48000;
+	loadWavFileToBuffer(tempFile, buffer, sampleRate);
+
+	double hostBpm = cachedHostBpm.load();
+	if (hostBpm > 0.0 && requestBpm > 0.0f && std::abs(hostBpm - requestBpm) > 1.0)
+	{
+		double stretchRatio = hostBpm / requestBpm;
+		AudioAnalyzer::timeStretchBuffer(buffer, stretchRatio, sampleRate);
+	}
+
+	saveBufferToWavFile(buffer, permanentFile, sampleRate);
+
+	tempFile.deleteFile();
+
+	DBG("🎵 Processed and saved: " + permanentFile.getFullPathName());
+}
+
+void DjIaVstProcessor::loadWavFileToBuffer(const juce::File& audioFile, juce::AudioBuffer<float>& buffer, std::atomic<double>& sampleRate)
+{
+	juce::AudioFormatManager formatManager;
+	formatManager.registerBasicFormats();
+
+	std::unique_ptr<juce::AudioFormatReader> reader(
+		formatManager.createReaderFor(audioFile));
+
+	if (!reader)
+	{
+		DBG("Failed to create reader for: " + audioFile.getFullPathName());
+		return;
+	}
+
+	int numChannels = reader->numChannels;
+	int numSamples = static_cast<int>(reader->lengthInSamples);
+	sampleRate = reader->sampleRate;
+
+	// Force stéréo
+	buffer.setSize(2, numSamples);
+	buffer.clear();
+
+	// Lire l'audio
+	reader->read(&buffer, 0, numSamples, 0, true, true); // Force stéréo
+
+	// Si mono, copier vers canal droit
+	if (numChannels == 1)
+	{
+		buffer.copyFrom(1, 0, buffer, 0, 0, numSamples);
+	}
+
+	DBG("📁 Loaded WAV: " + audioFile.getFileName() +
+		" (" + juce::String(numSamples) + " samples, " +
+		juce::String(sampleRate) + " Hz)");
+}
+
+void DjIaVstProcessor::saveBufferToWavFile(const juce::AudioBuffer<float>& buffer, const juce::File& outputFile, double sampleRate)
+{
+	if (buffer.getNumSamples() == 0)
+	{
+		DBG("❌ Empty buffer, nothing to save");
+		return;
+	}
+
+	outputFile.getParentDirectory().createDirectory();
+
+	juce::WavAudioFormat format;
+	auto fileStream = outputFile.createOutputStream();
+
+	if (fileStream == nullptr)
+	{
+		DBG("❌ Failed to create output stream");
+		return;
+	}
+
+	std::unique_ptr<juce::AudioFormatWriter> writer(
+		format.createWriterFor(fileStream.release(), // Transfer ownership
+			sampleRate,
+			buffer.getNumChannels(),
+			16,
+			{},
+			0));
+
+	if (writer != nullptr)
+	{
+		writer->writeFromAudioSampleBuffer(buffer, 0, buffer.getNumSamples());
+		DBG("💾 Saved WAV: " + outputFile.getFullPathName() +
+			" (" + juce::String(buffer.getNumSamples()) + " samples)");
+	}
+	else
+	{
+		DBG("❌ Failed to create WAV writer");
 	}
 }
 
@@ -813,7 +934,7 @@ void DjIaVstProcessor::processIncomingAudio()
 	{
 		return;
 	}
-	TrackData *track = trackManager.getTrack(pendingTrackId);
+	TrackData* track = trackManager.getTrack(pendingTrackId);
 	if (!track)
 	{
 		return;
@@ -829,27 +950,27 @@ void DjIaVstProcessor::processIncomingAudio()
 	}
 
 	juce::MessageManager::callAsync([this]()
-									{
+		{
 			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
 				editor->statusLabel.setText("Loading sample...", juce::dontSendNotification);
 			} });
-	juce::Thread::launch([this, trackId = pendingTrackId, audioFile = pendingAudioFile]()
-						 { loadAudioFileAsync(trackId, audioFile); });
+			juce::Thread::launch([this, trackId = pendingTrackId, audioFile = pendingAudioFile]()
+				{ loadAudioFileAsync(trackId, audioFile); });
 
-	clearPendingAudio();
-	hasUnloadedSample = false;
-	waitingForMidiToLoad = false;
-	correctMidiNoteReceived = false;
-	trackIdWaitingForLoad.clear();
+			clearPendingAudio();
+			hasUnloadedSample = false;
+			waitingForMidiToLoad = false;
+			correctMidiNoteReceived = false;
+			trackIdWaitingForLoad.clear();
 }
 
 void DjIaVstProcessor::checkAndSwapStagingBuffers()
 {
 	auto trackIds = trackManager.getAllTrackIds();
 
-	for (const auto &trackId : trackIds)
+	for (const auto& trackId : trackIds)
 	{
-		TrackData *track = trackManager.getTrack(trackId);
+		TrackData* track = trackManager.getTrack(trackId);
 		if (!track)
 			continue;
 		if (track->swapRequested.exchange(false))
@@ -862,7 +983,7 @@ void DjIaVstProcessor::checkAndSwapStagingBuffers()
 	}
 }
 
-void DjIaVstProcessor::performAtomicSwap(TrackData *track, const juce::String &trackId)
+void DjIaVstProcessor::performAtomicSwap(TrackData* track, const juce::String& trackId)
 {
 	std::swap(track->audioBuffer, track->stagingBuffer);
 
@@ -889,14 +1010,14 @@ void DjIaVstProcessor::performAtomicSwap(TrackData *track, const juce::String &t
 	track->hasStagingData = false;
 	track->stagingBuffer.setSize(0, 0);
 	juce::MessageManager::callAsync([this, trackId]()
-									{ updateWaveformDisplay(trackId); });
+		{ updateWaveformDisplay(trackId); });
 }
 
-void DjIaVstProcessor::updateWaveformDisplay(const juce::String &trackId)
+void DjIaVstProcessor::updateWaveformDisplay(const juce::String& trackId)
 {
-	if (auto *editor = dynamic_cast<DjIaVstEditor *>(getActiveEditor()))
+	if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
 	{
-		for (auto &trackComp : editor->getTrackComponents())
+		for (auto& trackComp : editor->getTrackComponents())
 		{
 			if (trackComp->getTrackId() == trackId)
 			{
@@ -910,9 +1031,9 @@ void DjIaVstProcessor::updateWaveformDisplay(const juce::String &trackId)
 	}
 }
 
-void DjIaVstProcessor::loadAudioFileAsync(const juce::String &trackId, const juce::File &audioFile)
+void DjIaVstProcessor::loadAudioFileAsync(const juce::String& trackId, const juce::File& audioFile)
 {
-	TrackData *track = trackManager.getTrack(trackId);
+	TrackData* track = trackManager.getTrack(trackId);
 	if (!track)
 	{
 		return;
@@ -920,59 +1041,51 @@ void DjIaVstProcessor::loadAudioFileAsync(const juce::String &trackId, const juc
 
 	try
 	{
-		juce::AudioFormatManager formatManager;
-		formatManager.registerBasicFormats();
+		loadWavFileToBuffer(audioFile, track->stagingBuffer, track->stagingSampleRate);
+		track->stagingNumSamples = track->stagingBuffer.getNumSamples();
 
-		std::unique_ptr<juce::AudioFormatReader> reader(
-			formatManager.createReaderFor(audioFile));
-
-		if (!reader)
-		{
-			return;
-		}
-
-		auto permanentFile = getTrackAudioFile(trackId);
-		if (audioFile != permanentFile)
-		{
-			permanentFile.getParentDirectory().createDirectory();
-			audioFile.copyFileTo(permanentFile);
-		}
-
-		track->audioFilePath = permanentFile.getFullPathName();
-
-		loadAudioToStagingBuffer(reader, track);
-		processAudioBPMAndSync(track);
+		track->audioFilePath = audioFile.getFullPathName();
 		track->hasStagingData = true;
 		track->swapRequested = true;
 
+
 		juce::MessageManager::callAsync([this]()
-										{
-                if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
-                    editor->statusLabel.setText("Sample loaded! Ready to play.", juce::dontSendNotification);
-                    juce::Timer::callAfterDelay(2000, [this]() {
-                        if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
-                            editor->statusLabel.setText("Ready", juce::dontSendNotification);
-                        }
-                    });
-                } });
+			{
+				if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+					editor->statusLabel.setText("Sample loaded! Ready to play.", juce::dontSendNotification);
+					juce::Timer::callAfterDelay(2000, [this]() {
+						if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+							editor->statusLabel.setText("Ready", juce::dontSendNotification);
+						}
+						});
+				} });
 	}
-	catch (const std::exception &e)
+	catch (const std::exception& e)
 	{
 		track->hasStagingData = false;
 		track->swapRequested = false;
 	}
 }
 
-juce::File DjIaVstProcessor::getTrackAudioFile(const juce::String &trackId)
+juce::File DjIaVstProcessor::getTrackAudioFileWithUuid(const juce::String& trackId, const juce::String& uuid)
 {
 	auto audioDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-						.getChildFile("OBSIDIAN")
-						.getChildFile("AudioCache");
+		.getChildFile("OBSIDIAN")
+		.getChildFile("AudioCache");
+
+	return audioDir.getChildFile(trackId + "_" + uuid + ".wav");
+}
+
+juce::File DjIaVstProcessor::getTrackAudioFile(const juce::String& trackId)
+{
+	auto audioDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+		.getChildFile("OBSIDIAN")
+		.getChildFile("AudioCache");
 
 	return audioDir.getChildFile(trackId + ".wav");
 }
 
-void DjIaVstProcessor::processAudioBPMAndSync(TrackData *track)
+void DjIaVstProcessor::processAudioBPMAndSync(TrackData* track)
 {
 	float detectedBPM = AudioAnalyzer::detectBPM(track->stagingBuffer, track->stagingSampleRate);
 
@@ -990,7 +1103,7 @@ void DjIaVstProcessor::processAudioBPMAndSync(TrackData *track)
 	}
 }
 
-void DjIaVstProcessor::loadAudioToStagingBuffer(std::unique_ptr<juce::AudioFormatReader> &reader, TrackData *track)
+void DjIaVstProcessor::loadAudioToStagingBuffer(std::unique_ptr<juce::AudioFormatReader>& reader, TrackData* track)
 {
 	int numChannels = reader->numChannels;
 	int numSamples = static_cast<int>(reader->lengthInSamples);
@@ -999,9 +1112,9 @@ void DjIaVstProcessor::loadAudioToStagingBuffer(std::unique_ptr<juce::AudioForma
 	track->stagingBuffer.setSize(2, numSamples, false, false, true);
 	track->stagingBuffer.clear();
 
-	reader->read(&track->stagingBuffer, 0, numSamples, 0, true, numChannels == 1);
+	reader->read(&track->stagingBuffer, 0, numSamples, 0, true, true);
 
-	if (numChannels == 1 && track->stagingBuffer.getNumChannels() > 1)
+	if (numChannels == 1)
 	{
 		track->stagingBuffer.copyFrom(1, 0, track->stagingBuffer, 0, 0, numSamples);
 	}
@@ -1037,13 +1150,13 @@ void DjIaVstProcessor::setServerSidePreTreatment(bool enabled)
 	serverSidePreTreatment = enabled;
 }
 
-void DjIaVstProcessor::setApiKey(const juce::String &key)
+void DjIaVstProcessor::setApiKey(const juce::String& key)
 {
 	apiKey = key;
 	apiClient = DjIaClient(apiKey, serverUrl);
 }
 
-void DjIaVstProcessor::setServerUrl(const juce::String &url)
+void DjIaVstProcessor::setServerUrl(const juce::String& url)
 {
 	serverUrl = url;
 	apiClient = DjIaClient(apiKey, serverUrl);
@@ -1065,14 +1178,14 @@ double DjIaVstProcessor::getHostBpm() const
 	return 0.0;
 }
 
-juce::AudioProcessorEditor *DjIaVstProcessor::createEditor()
+juce::AudioProcessorEditor* DjIaVstProcessor::createEditor()
 {
 	currentEditor = new DjIaVstEditor(*this);
 	midiLearnManager.setEditor(currentEditor);
 	return currentEditor;
 }
 
-void DjIaVstProcessor::addCustomPrompt(const juce::String &prompt)
+void DjIaVstProcessor::addCustomPrompt(const juce::String& prompt)
 {
 	if (!prompt.isEmpty() && !customPrompts.contains(prompt))
 	{
@@ -1090,13 +1203,13 @@ void DjIaVstProcessor::clearCustomPrompts()
 	customPrompts.clear();
 }
 
-void DjIaVstProcessor::getStateInformation(juce::MemoryBlock &destData)
+void DjIaVstProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
 	auto trackIds = trackManager.getAllTrackIds();
 
-	for (const auto &id : trackIds)
+	for (const auto& id : trackIds)
 	{
-		TrackData *track = trackManager.getTrack(id);
+		TrackData* track = trackManager.getTrack(id);
 	}
 
 	juce::ValueTree state("DjIaVstState");
@@ -1125,7 +1238,7 @@ void DjIaVstProcessor::getStateInformation(juce::MemoryBlock &destData)
 	auto mappings = midiLearnManager.getAllMappings();
 	for (int i = 0; i < mappings.size(); ++i)
 	{
-		const auto &mapping = mappings[i];
+		const auto& mapping = mappings[i];
 		juce::ValueTree mappingState("Mapping");
 		mappingState.setProperty("midiType", mapping.midiType, nullptr);
 		mappingState.setProperty("midiNumber", mapping.midiNumber, nullptr);
@@ -1155,12 +1268,12 @@ void DjIaVstProcessor::getStateInformation(juce::MemoryBlock &destData)
 		"slot5Mute", "slot5Solo", "slot5Play", "slot5Stop", "slot5Generate",
 		"slot6Mute", "slot6Solo", "slot6Play", "slot6Stop", "slot6Generate",
 		"slot7Mute", "slot7Solo", "slot7Play", "slot7Stop", "slot7Generate",
-		"slot8Mute", "slot8Solo", "slot8Play", "slot8Stop", "slot8Generate"};
+		"slot8Mute", "slot8Solo", "slot8Play", "slot8Stop", "slot8Generate" };
 
-	auto &params = getParameterTreeState();
-	for (const auto &paramId : booleanParamIds)
+	auto& params = getParameterTreeState();
+	for (const auto& paramId : booleanParamIds)
 	{
-		auto *param = params.getParameter(paramId);
+		auto* param = params.getParameter(paramId);
 		if (param)
 		{
 			parametersState.setProperty(paramId, param->getValue(), nullptr);
@@ -1172,7 +1285,7 @@ void DjIaVstProcessor::getStateInformation(juce::MemoryBlock &destData)
 	copyXmlToBinary(*xml, destData);
 }
 
-void DjIaVstProcessor::setStateInformation(const void *data, int sizeInBytes)
+void DjIaVstProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
 	std::unique_ptr<juce::XmlElement> xml(getXmlFromBinary(data, sizeInBytes));
 	if (!xml || !xml->hasTagName("DjIaVstState"))
@@ -1213,10 +1326,10 @@ void DjIaVstProcessor::setStateInformation(const void *data, int sizeInBytes)
 			addCustomPromptsToIndexedPrompts(promptsState, indexedPrompts);
 
 			std::sort(indexedPrompts.begin(), indexedPrompts.end(),
-					  [](const auto &a, const auto &b)
-					  { return a.first < b.first; });
+				[](const auto& a, const auto& b)
+				{ return a.first < b.first; });
 
-			for (const auto &pair : indexedPrompts)
+			for (const auto& pair : indexedPrompts)
 			{
 				customPrompts.add(pair.second);
 			}
@@ -1286,14 +1399,14 @@ void DjIaVstProcessor::setStateInformation(const void *data, int sizeInBytes)
 			"slot5Mute", "slot5Solo", "slot5Play", "slot5Stop", "slot5Generate",
 			"slot6Mute", "slot6Solo", "slot6Play", "slot6Stop", "slot6Generate",
 			"slot7Mute", "slot7Solo", "slot7Play", "slot7Stop", "slot7Generate",
-			"slot8Mute", "slot8Solo", "slot8Play", "slot8Stop", "slot8Generate"};
+			"slot8Mute", "slot8Solo", "slot8Play", "slot8Stop", "slot8Generate" };
 
-		auto &params = getParameterTreeState();
-		for (const auto &paramId : booleanParamIds)
+		auto& params = getParameterTreeState();
+		for (const auto& paramId : booleanParamIds)
 		{
 			if (parametersState.hasProperty(paramId))
 			{
-				auto *param = params.getParameter(paramId);
+				auto* param = params.getParameter(paramId);
 				if (param)
 				{
 					float value = parametersState.getProperty(paramId, 0.0f);
@@ -1306,18 +1419,18 @@ void DjIaVstProcessor::setStateInformation(const void *data, int sizeInBytes)
 	midiLearnManager.restoreUICallbacks();
 	stateLoaded = true;
 	juce::MessageManager::callAsync([this]()
-									{
+		{
 			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
 				editor->refreshTrackComponents();
 				editor->updateUIFromProcessor();
 			} });
 }
 
-TrackComponent *DjIaVstProcessor::findTrackComponentByName(const juce::String &trackName, DjIaVstEditor *editor)
+TrackComponent* DjIaVstProcessor::findTrackComponentByName(const juce::String& trackName, DjIaVstEditor* editor)
 {
-	for (auto &trackComp : editor->getTrackComponents())
+	for (auto& trackComp : editor->getTrackComponents())
 	{
-		if (auto *track = trackComp->getTrack())
+		if (auto* track = trackComp->getTrack())
 		{
 			if (track->trackName == trackName)
 				return trackComp.get();
@@ -1326,23 +1439,23 @@ TrackComponent *DjIaVstProcessor::findTrackComponentByName(const juce::String &t
 	return nullptr;
 }
 
-juce::Button *DjIaVstProcessor::findGenerateButtonInTrack(TrackComponent *trackComponent)
+juce::Button* DjIaVstProcessor::findGenerateButtonInTrack(TrackComponent* trackComponent)
 {
 	return trackComponent->getGenerateButton();
 }
 
-juce::Slider *DjIaVstProcessor::findBpmOffsetSliderInTrack(TrackComponent *trackComponent)
+juce::Slider* DjIaVstProcessor::findBpmOffsetSliderInTrack(TrackComponent* trackComponent)
 {
 	return trackComponent->getBpmOffsetSlider();
 }
 
 void DjIaVstProcessor::updateUI()
 {
-	if (auto *editor = dynamic_cast<DjIaVstEditor *>(getActiveEditor()))
+	if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
 	{
 		editor->updateUIFromProcessor();
 		juce::Timer::callAfterDelay(50, [this]()
-									{
+			{
 				if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
 				{
 					editor->refreshTrackComponents();
@@ -1354,7 +1467,7 @@ void DjIaVstProcessor::updateUI()
 	}
 }
 
-void DjIaVstProcessor::addCustomPromptsToIndexedPrompts(juce::ValueTree &promptsState, juce::Array<std::pair<int, juce::String>> &indexedPrompts)
+void DjIaVstProcessor::addCustomPromptsToIndexedPrompts(juce::ValueTree& promptsState, juce::Array<std::pair<int, juce::String>>& indexedPrompts)
 {
 	for (int i = 0; i < promptsState.getNumProperties(); ++i)
 	{
@@ -1367,13 +1480,13 @@ void DjIaVstProcessor::addCustomPromptsToIndexedPrompts(juce::ValueTree &prompts
 
 			if (prompt.isNotEmpty())
 			{
-				indexedPrompts.add({index, prompt});
+				indexedPrompts.add({ index, prompt });
 			}
 		}
 	}
 }
 
-void DjIaVstProcessor::loadCustomPromptsByCountProperty(juce::ValueTree &promptsState)
+void DjIaVstProcessor::loadCustomPromptsByCountProperty(juce::ValueTree& promptsState)
 {
 	int count = promptsState.getProperty("count", 0);
 
@@ -1393,12 +1506,12 @@ void DjIaVstProcessor::loadCustomPromptsByCountProperty(juce::ValueTree &prompts
 
 void DjIaVstProcessor::updateAllWaveformsAfterLoad()
 {
-	if (auto *editor = dynamic_cast<DjIaVstEditor *>(getActiveEditor()))
+	if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
 	{
 		auto trackIds = trackManager.getAllTrackIds();
-		for (const auto &trackId : trackIds)
+		for (const auto& trackId : trackIds)
 		{
-			TrackData *track = trackManager.getTrack(trackId);
+			TrackData* track = trackManager.getTrack(trackId);
 			if (track && track->numSamples > 0)
 			{
 				updateWaveformDisplay(trackId);
@@ -1407,12 +1520,12 @@ void DjIaVstProcessor::updateAllWaveformsAfterLoad()
 	}
 }
 
-void DjIaVstProcessor::parameterChanged(const juce::String &parameterID, float newValue)
+void DjIaVstProcessor::parameterChanged(const juce::String& parameterID, float newValue)
 {
 	if (parameterID == "generate" && newValue > 0.5f)
 	{
 		juce::MessageManager::callAsync([this]()
-										{ parameters.getParameter("generate")->setValueNotifyingHost(0.0f); });
+			{ parameters.getParameter("generate")->setValueNotifyingHost(0.0f); });
 	}
 	else if (parameterID == "autoload")
 	{

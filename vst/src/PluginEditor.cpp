@@ -60,7 +60,8 @@ void DjIaVstEditor::updateMidiIndicator(const juce::String& noteInfo)
 			if (midiIndicator.isShowing())
 			{
 				midiIndicator.setText("MIDI: " + noteInfo, juce::dontSendNotification);
-				midiIndicator.setColour(juce::Label::backgroundColourId, juce::Colours::green);
+				auto greenWithOpacity = juce::Colours::green.withAlpha(0.3f);
+				midiIndicator.setColour(juce::Label::backgroundColourId, greenWithOpacity);
 
 				juce::Timer::callAfterDelay(200, [this]()
 					{
@@ -69,7 +70,8 @@ void DjIaVstEditor::updateMidiIndicator(const juce::String& noteInfo)
 							midiIndicator.setColour(juce::Label::backgroundColourId, juce::Colours::black);
 						}
 					});
-			} });
+			}
+		});
 }
 
 void DjIaVstEditor::updateUIComponents()
@@ -339,7 +341,7 @@ void DjIaVstEditor::setupUI()
 	getLookAndFeel().setColour(juce::Slider::trackColourId, juce::Colour(0xff404040));
 
 	addAndMakeVisible(pluginNameLabel);
-	pluginNameLabel.setText("NEURAL SOUND ENGINE - v1.0", juce::dontSendNotification);
+	pluginNameLabel.setText("NEURAL SOUND ENGINE", juce::dontSendNotification);
 	pluginNameLabel.setFont(juce::Font("Courier New", 22.0f, juce::Font::bold));
 	pluginNameLabel.setColour(juce::Label::textColourId, juce::Colour(0xff00aaff));
 	pluginNameLabel.setJustificationType(juce::Justification::left);
@@ -721,7 +723,7 @@ void DjIaVstEditor::resized()
 	area = area.reduced(padding);
 	auto configArea = area.removeFromTop(70);
 
-	this->bannerArea = configArea; 
+	this->bannerArea = configArea;
 
 	auto logoSpace = configArea.removeFromLeft(80);
 	auto nameArea = configArea.removeFromLeft(300);
