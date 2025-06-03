@@ -374,7 +374,7 @@ void DjIaVstProcessor::processMidiMessages(juce::MidiBuffer &midiMessages, bool 
 			continue;
 		}
 		midiLearnManager.processMidiMappings(message);
-		handlePlayAndStop();
+		handlePlayAndStop(hostIsPlaying);
 		if (message.isNoteOn())
 		{
 			playTrack(message, hostBpm);
@@ -418,7 +418,7 @@ void DjIaVstProcessor::playTrack(const juce::MidiMessage &message, double hostBp
 	}
 }
 
-void DjIaVstProcessor::handlePlayAndStop()
+void DjIaVstProcessor::handlePlayAndStop(bool hostIsPlaying)
 {
 	int changedSlot = midiLearnManager.changedSlotIndex.load();
 	if (changedSlot >= 0)
@@ -430,11 +430,11 @@ void DjIaVstProcessor::handlePlayAndStop()
 			if (track->slotIndex == changedSlot)
 			{
 				bool paramPlay = slotPlayParams[changedSlot]->load() > 0.5f;
-				if (paramPlay && !track->isArmed.load() && !track->isPlaying.load())
+				if (paramPlay)
 				{
 					track->setArmed(true);
 				}
-				else if (!paramPlay && track->isArmed.load() && track->isPlaying.load())
+				else if (!paramPlay)
 				{
 					track->setArmedToStop(true);
 					track->setArmed(false);

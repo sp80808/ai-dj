@@ -73,7 +73,7 @@ struct TrackData
 	{
 		bool wasPlaying = isPlaying.load();
 		isPlaying = playing;
-		if (wasPlaying != playing && onPlayStateChanged)
+		if (wasPlaying != playing && onPlayStateChanged && audioBuffer.getNumChannels() > 0 && isPlaying.load())
 		{
 			juce::MessageManager::callAsync([this, playing]()
 											{
@@ -87,7 +87,7 @@ struct TrackData
 	{
 		bool wasArmed = isArmed.load();
 		isArmed = armed;
-		if (wasArmed != armed && onArmedStateChanged)
+		if (wasArmed != armed && onArmedStateChanged && audioBuffer.getNumChannels() > 0 && isPlaying.load())
 		{
 			DBG("🎯 setArmed called on Track " << trackName << " slot " << slotIndex << " -> " << (armed ? "true" : "false"));
 			juce::MessageManager::callAsync([this, armed]()
@@ -102,7 +102,7 @@ struct TrackData
 	{
 		bool wasArmedToStop = isArmedToStop.load();
 		isArmedToStop = armedToStop;
-		if (wasArmedToStop != armedToStop && onArmedToStopStateChanged)
+		if (wasArmedToStop != armedToStop && onArmedToStopStateChanged && audioBuffer.getNumChannels() > 0 && isPlaying.load())
 		{
 			DBG("🛑 setArmedToStop called on Track " << trackName << " slot " << slotIndex << " -> " << (armedToStop ? "true" : "false"));
 			juce::MessageManager::callAsync([this, armedToStop]()

@@ -303,5 +303,7 @@ void MasterChannel::updateMasterLevels()
 
     isClipping = (masterPeakHold >= 0.95f);
 
-    repaint();
+    juce::MessageManager::callAsync([this]() {
+        repaint();
+    });
 }

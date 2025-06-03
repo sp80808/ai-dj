@@ -406,8 +406,16 @@ void MixerChannel::timerCallback()
 
 void MixerChannel::updateVUMeters()
 {
+	if (isDestroyed.load())
+		return;
+
 	updateVUMeter();
-	repaint();
+
+	juce::MessageManager::callAsync([this]() {
+		if (!isDestroyed.load()) {
+			repaint();
+		}
+		});
 }
 
 void MixerChannel::updateFromTrackData()

@@ -200,7 +200,7 @@ private:
 	void clearPendingAudio();
 	void processMidiMessages(juce::MidiBuffer &midiMessages, bool hostIsPlaying, double hostBpm);
 	void playTrack(const juce::MidiMessage &message, double hostBpm);
-	void handlePlayAndStop();
+	void handlePlayAndStop(bool hostIsPlaying);
 	void updateTimeStretchRatios(double hostBpm);
 	TrackComponent *findTrackComponentByName(const juce::String &trackName, DjIaVstEditor *editor);
 	juce::Button *findGenerateButtonInTrack(TrackComponent *trackComponent);
