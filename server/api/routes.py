@@ -3,7 +3,8 @@ import os
 import librosa
 import hashlib
 from fastapi import APIRouter, HTTPException, Depends, Security, Request
-from .models import GenerateRequest, GenerateResponse
+from fastapi.responses import Response
+from .models import GenerateRequest
 from config.config import API_KEYS, API_KEY_HEADER, ENVIRONMENT, audio_lock, llm_lock
 from server.api.api_request_handler import APIRequestHandler
 
@@ -38,7 +39,7 @@ async def verify_key(_: str = Depends(verify_api_key)):
     return {"status": "valid", "message": "API Key valid"}
 
 
-@router.post("/generate", response_model=GenerateResponse)
+@router.post("/generate")
 async def generate_loop(
     request: GenerateRequest,
     api_key: str = Depends(verify_api_key),
@@ -66,15 +67,18 @@ async def generate_loop(
 
         print(f"[{request_id}] ✅ SUCCESS: {duration:.1f}")
 
-        return {
-            "audio_data": wav_data,
-            "duration": duration,
-            "bpm": request.bpm,
-            "key": request.key,
-            "stems_used": used_stems,
-            "sample_rate": 48000,
-            "llm_reasoning": llm_decision.get("reasoning", ""),
-        }
+        return Response(
+            content=wav_data,
+            media_type="audio/wav",
+            headers={
+                "X-Duration": str(duration),
+                "X-BPM": str(request.bpm),
+                "X-Key": str(request.key or ""),
+                "X-Sample-Rate": "48000",
+                "X-Stems-Used": ",".join(used_stems) if used_stems else "",
+                "X-LLM-Reasoning": llm_decision.get("reasoning", "")[:200],
+            },
+        )
 
     except Exception as e:
         print(f"❌ ERROR #{request_id}: {str(e)}")

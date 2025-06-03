@@ -10,13 +10,3 @@ class GenerateRequest(BaseModel):
     preferred_stems: Optional[List[str]] = None
     generation_duration: Optional[int] = 6
     server_side_pre_treatment: Optional[bool] = False
-
-
-class GenerateResponse(BaseModel):
-    audio_data: bytes
-    duration: float
-    bpm: float
-    key: str
-    stems_used: Optional[List[str]] = None
-    llm_reasoning: Optional[str] = None
-    sample_rate: int

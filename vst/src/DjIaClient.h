@@ -82,33 +82,25 @@ public:
 
 			if (auto response = url.createInputStream(options))
 			{
-				auto responseString = response->readEntireStreamAsString();
-				auto jsonResponse = juce::JSON::parse(responseString);
-
-				if (jsonResponse.hasProperty("detail"))
-				{
-					throw std::runtime_error(jsonResponse["detail"].toString().toStdString());
-				}
-
 				LoopResponse result;
 				result.audioData = juce::File::createTempFile(".wav");
+
 				juce::FileOutputStream stream(result.audioData);
 				if (stream.openedOk())
 				{
 					stream.writeFromInputStream(*response, response->getTotalLength());
 				}
 
-				result.duration = jsonResponse.getProperty("duration", 0.0);
-				result.bpm = jsonResponse.getProperty("bpm", 120.0);
-				result.key = jsonResponse.getProperty("key", "");
-				result.llmReasoning = jsonResponse.getProperty("llm_reasoning", "");
-				result.sampleRate = static_cast<double>(jsonResponse.getProperty("sample_rate", 48000.0));
+				result.duration = request.generationDuration;
+				result.bpm = request.bpm;
+				result.key = request.key;
+				result.sampleRate = 48000.0;
+				result.stemsUsed = request.preferredStems;
+				result.llmReasoning = "Generated successfully";
 
-				if (auto stemsArray = jsonResponse.getProperty("stems_used", juce::var()).getArray())
-				{
-					for (const auto &stem : *stemsArray)
-						result.stemsUsed.push_back(stem.toString());
-				}
+				DBG("WAV file created: " + result.audioData.getFullPathName() +
+					" (" + juce::String(result.audioData.getSize()) + " bytes)");
+
 				return result;
 			}
 			else
