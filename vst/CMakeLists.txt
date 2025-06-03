@@ -57,3 +57,10 @@ target_link_libraries(ObsidianVST
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
+
+find_program(CLANG_TIDY_EXE NAMES clang-tidy)
+if(CLANG_TIDY_EXE)
+    set_target_properties(ObsidianVST PROPERTIES
+        CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-checks=-*,readability-*,performance-*,bugprone-*,clang-analyzer-*"
+    )
+endif()

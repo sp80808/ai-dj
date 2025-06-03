@@ -1282,6 +1282,7 @@ void DjIaVstProcessor::getStateInformation(juce::MemoryBlock& destData)
 	state.appendChild(parametersState, nullptr);
 
 	std::unique_ptr<juce::XmlElement> xml(state.createXml());
+
 	copyXmlToBinary(*xml, destData);
 }
 

@@ -263,13 +263,26 @@ public:
 			if (audioFilePath.isNotEmpty())
 			{
 				juce::File audioFile(audioFilePath);
+				DBG("🔍 LOADING STATE - audioFilePath: " + audioFilePath);
+				DBG("🔍 File exists: " + juce::String(audioFile.existsAsFile() ? "YES" : "NO"));
+
 				if (audioFile.existsAsFile())
 				{
 					track->audioFilePath = audioFilePath;
 					track->sampleRate = trackState.getProperty("sampleRate", 48000.0);
 					track->numSamples = trackState.getProperty("numSamples", 0);
 					loadAudioFileForTrack(track.get(), audioFile);
+
+					DBG("✅ Loaded track audio from: " + audioFilePath);
 				}
+				else
+				{
+					DBG("❌ Audio file not found: " + audioFilePath);
+				}
+			}
+			else
+			{
+				DBG("❌ No audioFilePath in state for track: " + track->trackName);
 			}
 			if (track->slotIndex < 0 || track->slotIndex >= 8 || usedSlots[track->slotIndex])
 			{
