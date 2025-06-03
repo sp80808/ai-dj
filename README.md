@@ -1,8 +1,14 @@
-# 🎧 DJ-IA VST: Real-Time AI Multi-Sampler Plugin
+# 🎧 OBSIDIAN: Real-Time AI Multi-Sampler Plugin
 
-![DJ-IA VST Interface](./screenshot.png)
+_Formerly AI-DJ, now evolved into OBSIDIAN - Neural Sound Engine_
 
-DJ-IA VST is a live music generation plugin that uses AI to create music loops in real-time directly in your DAW. The core innovation is the **LLM-driven prompt generation** that feeds **Stable Audio Open** to create contextually intelligent music that evolves with your session.
+![OBSIDIAN Interface](./screenshot.png)
+
+OBSIDIAN is a live music generation plugin that uses AI to create music loops in real-time directly in your DAW. The core innovation is the **LLM-driven prompt generation** that feeds **Stable Audio Open** to create contextually intelligent music that evolves with your session.
+
+## 🔮 From AI-DJ to OBSIDIAN
+
+This project started as "AI-DJ" and has evolved into **OBSIDIAN - Neural Sound Engine v1.0**, a more sophisticated real-time AI music generation system.
 
 ⚠️ **Proof of Concept** - Currently in active development
 
@@ -122,7 +128,7 @@ python main.py --audio-model stable-audio-open --clean
 
 **API Keys are optional** and only needed for:
 
-- **External server access** - Allow remote connections to your DJ-IA server
+- **External server access** - Allow remote connections to your OBSIDIAN server
 - **Shared usage** - Give API keys to friends/collaborators for access
 - **Production deployment** - Secure your server when hosting publicly
 
@@ -134,7 +140,7 @@ python main.py --audio-model stable-audio-open --clean
 ### **1. Start Server & Load Plugin**
 
 - Start the AI server with `python main.py`
-- Add DJ-IA VST to a track in your DAW
+- Add OBSIDIAN to a track in your DAW
 - Set server URL to `http://localhost:8000` in plugin
 - Add API key if using external server access
 
@@ -191,7 +197,7 @@ python main.py --audio-model stable-audio-open --clean
 
 ## 🎵 Why Stable Audio Open?
 
-**Stable Audio Open** is optimized for DJ-IA because:
+**Stable Audio Open** is optimized for OBSIDIAN because:
 
 - **Higher quality** than MusicGen for electronic music
 - **Better stereo imaging** and spatial characteristics
@@ -221,7 +227,7 @@ dark atmosphere, minimal hi-hats, rolling bassline"
 
 ## 🎯 Live Performance Focus
 
-DJ-IA is designed for **intelligent live performance**:
+OBSIDIAN is designed for **intelligent live performance**:
 
 - Generate contextually aware loops
 - LLM understands musical progression needs

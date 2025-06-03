@@ -2,12 +2,15 @@
 #include "PluginEditor.h"
 #include "BinaryData.h"
 
+
 DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor& p)
 	: AudioProcessorEditor(&p), audioProcessor(p)
 {
 	setSize(1300, 800);
 	logoImage = juce::ImageCache::getFromMemory(BinaryData::logo_png,
 		BinaryData::logo_pngSize);
+	bannerImage = juce::ImageCache::getFromMemory(BinaryData::cyber_banner_png,
+		BinaryData::cyber_banner_pngSize);
 	if (audioProcessor.isStateReady())
 	{
 		initUI();
@@ -168,6 +171,14 @@ void DjIaVstEditor::refreshTracks()
 void DjIaVstEditor::initUI()
 {
 	setupUI();
+	serverUrlInput.setText(audioProcessor.getServerUrl(), juce::dontSendNotification);
+	apiKeyInput.setText(audioProcessor.getApiKey(), juce::dontSendNotification);
+
+	if (audioProcessor.getApiKey().isEmpty() || audioProcessor.getServerUrl().isEmpty())
+	{
+		juce::Timer::callAfterDelay(500, [this]()
+			{ showFirstTimeSetup(); });
+	}
 	juce::WeakReference<DjIaVstEditor> weakThis(this);
 	audioProcessor.setMidiIndicatorCallback([weakThis](const juce::String& noteInfo)
 		{
@@ -177,8 +188,94 @@ void DjIaVstEditor::initUI()
 			refreshTracks();
 			audioProcessor.onUIUpdateNeeded = [this]()
 				{
-					updateUIComponents();
+					juce::MessageManager::callAsync([this]()
+						{ updateUIComponents(); });
 				};
+}
+
+void DjIaVstEditor::showFirstTimeSetup()
+{
+	auto alertWindow = std::make_unique<juce::AlertWindow>(
+		"OBSIDIAN Configuration",
+		"Welcome! Please configure your API settings:",
+		juce::MessageBoxIconType::InfoIcon);
+
+	alertWindow->addTextEditor("serverUrl", audioProcessor.getServerUrl(), "Server URL:");
+	alertWindow->addTextEditor("apiKey", "", "API Key:");
+
+	if (auto* apiKeyEditor = alertWindow->getTextEditor("apiKey"))
+	{
+		apiKeyEditor->setPasswordCharacter('*');
+	}
+
+	alertWindow->addButton("Save & Continue", 1);
+	alertWindow->addButton("Skip for now", 0);
+
+	auto* windowPtr = alertWindow.get();
+
+	alertWindow.release()->enterModalState(true, juce::ModalCallbackFunction::create([this, windowPtr](int result)
+		{
+			if (result == 1) {
+				auto* urlEditor = windowPtr->getTextEditor("serverUrl");
+				auto* keyEditor = windowPtr->getTextEditor("apiKey");
+
+				if (urlEditor && keyEditor) {
+					audioProcessor.setServerUrl(urlEditor->getText());
+					audioProcessor.setApiKey(keyEditor->getText());
+					audioProcessor.saveGlobalConfig();
+					statusLabel.setText("Configuration saved!", juce::dontSendNotification);
+					juce::Timer::callAfterDelay(2000, [this]() {
+						statusLabel.setText("Ready", juce::dontSendNotification);
+						});
+				}
+			}
+			windowPtr->exitModalState(result);
+			delete windowPtr; }));
+}
+
+void DjIaVstEditor::showConfigDialog()
+{
+	auto alertWindow = std::make_unique<juce::AlertWindow>(
+		"Update API Configuration",
+		"Update your API settings:",
+		juce::MessageBoxIconType::QuestionIcon);
+
+	alertWindow->addTextEditor("serverUrl", audioProcessor.getServerUrl(), "Server URL:");
+	alertWindow->addTextEditor("apiKey", "", "API Key (leave blank to keep current):");
+
+	if (auto* apiKeyEditor = alertWindow->getTextEditor("apiKey"))
+	{
+		apiKeyEditor->setPasswordCharacter('*');
+	}
+
+	alertWindow->addButton("Update", 1);
+	alertWindow->addButton("Cancel", 0);
+
+	auto* windowPtr = alertWindow.get();
+
+	alertWindow.release()->enterModalState(true, juce::ModalCallbackFunction::create([this, windowPtr](int result)
+		{
+			if (result == 1) {
+				auto* urlEditor = windowPtr->getTextEditor("serverUrl");
+				auto* keyEditor = windowPtr->getTextEditor("apiKey");
+
+				if (urlEditor && keyEditor) {
+					juce::String newKey = keyEditor->getText();
+					if (newKey.isEmpty()) {
+						newKey = audioProcessor.getApiKey();
+					}
+
+					audioProcessor.setServerUrl(urlEditor->getText());
+					audioProcessor.setApiKey(newKey);
+					audioProcessor.saveGlobalConfig();
+					statusLabel.setText("Configuration updated!", juce::dontSendNotification);
+					juce::Timer::callAfterDelay(2000, [this]() {
+						statusLabel.setText("Ready", juce::dontSendNotification);
+						});
+				}
+			}
+			windowPtr->exitModalState(result);
+			delete windowPtr; }));
 }
 
 void DjIaVstEditor::timerCallback()
@@ -241,6 +338,18 @@ void DjIaVstEditor::setupUI()
 	getLookAndFeel().setColour(juce::Slider::thumbColourId, juce::Colour(0xff00ff88));
 	getLookAndFeel().setColour(juce::Slider::trackColourId, juce::Colour(0xff404040));
 
+	addAndMakeVisible(pluginNameLabel);
+	pluginNameLabel.setText("NEURAL SOUND ENGINE - v1.0", juce::dontSendNotification);
+	pluginNameLabel.setFont(juce::Font("Courier New", 22.0f, juce::Font::bold));
+	pluginNameLabel.setColour(juce::Label::textColourId, juce::Colour(0xff00aaff));
+	pluginNameLabel.setJustificationType(juce::Justification::left);
+
+	addAndMakeVisible(developerLabel);
+	developerLabel.setText("Developed by InnerMost47", juce::dontSendNotification);
+	developerLabel.setFont(juce::Font("Courier New", 14.0f, juce::Font::italic));
+	developerLabel.setColour(juce::Label::textColourId, juce::Colour(0xffffffff));
+	developerLabel.setJustificationType(juce::Justification::left);
+
 	menuBar = std::make_unique<juce::MenuBarComponent>(this);
 	addAndMakeVisible(*menuBar);
 	addAndMakeVisible(promptPresetSelector);
@@ -300,18 +409,11 @@ void DjIaVstEditor::setupUI()
 	addAndMakeVisible(generateButton);
 	generateButton.setButtonText("Generate Loop");
 
-	addAndMakeVisible(serverUrlLabel);
-	serverUrlLabel.setText("Server URL:", juce::dontSendNotification);
-
-	addAndMakeVisible(serverUrlInput);
-	serverUrlInput.setText(audioProcessor.getServerUrl());
-
-	addAndMakeVisible(apiKeyLabel);
-	apiKeyLabel.setText("API Key:", juce::dontSendNotification);
-
-	addAndMakeVisible(apiKeyInput);
-	apiKeyInput.setText(audioProcessor.getApiKey());
-	apiKeyInput.setPasswordCharacter('*');
+	addAndMakeVisible(configButton);
+	configButton.setButtonText("API Config");
+	configButton.setTooltip("Configure API settings globally");
+	configButton.onClick = [this]()
+		{ showConfigDialog(); };
 
 	addAndMakeVisible(stemsLabel);
 	stemsLabel.setText("Stems:", juce::dontSendNotification);
@@ -407,12 +509,6 @@ void DjIaVstEditor::addEventListeners()
 	loadSessionButton.onClick = [this]()
 		{ onLoadSession(); };
 
-	apiKeyInput.onReturnKey = [this]
-		{
-			audioProcessor.setApiKey(apiKeyInput.getText());
-			statusLabel.setText("API Key updated", juce::dontSendNotification);
-		};
-
 	autoLoadButton.onClick = [this]
 		{ onAutoLoadToggled(); };
 
@@ -427,12 +523,6 @@ void DjIaVstEditor::addEventListeners()
 
 	generateButton.onClick = [this]
 		{ onGenerateButtonClicked(); };
-
-	serverUrlInput.onReturnKey = [this]
-		{
-			audioProcessor.setServerUrl(serverUrlInput.getText());
-			statusLabel.setText("Server URL updated", juce::dontSendNotification);
-		};
 
 	savePresetButton.onClick = [this]
 		{ onSavePreset(); };
@@ -488,7 +578,6 @@ void DjIaVstEditor::addEventListeners()
 			}
 			refreshTracks();
 		};
-
 }
 
 void DjIaVstEditor::updateUIFromProcessor()
@@ -540,9 +629,30 @@ void DjIaVstEditor::paint(juce::Graphics& g)
 	g.setGradientFill(gradient);
 	g.fillAll();
 
+	if (bannerImage.isValid()) {
+		int sourceWidth = bannerImage.getWidth();
+		int sourceHeight = (int)((bannerImage.getHeight() - 300) * 0.1f);
+		auto sourceArea = juce::Rectangle<int>(0, 0, sourceWidth, sourceHeight);
+
+		juce::Path roundedRect;
+		roundedRect.addRoundedRectangle(bannerArea.toFloat(), 6.0f);
+
+		g.saveState();
+		g.reduceClipRegion(roundedRect);
+
+		g.drawImage(bannerImage,
+			bannerArea.getX(), bannerArea.getY(),
+			bannerArea.getWidth(), bannerArea.getHeight(),
+			0, 0,
+			sourceWidth, sourceHeight,
+			false);
+
+		g.restoreState();
+	}
+
 	if (logoImage.isValid())
 	{
-		auto logoArea = juce::Rectangle<int>(getWidth() - 110, 35, 100, 30);
+		auto logoArea = juce::Rectangle<int>(0, 40, 100, 60);
 		g.drawImage(logoImage, logoArea.toFloat(),
 			juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize);
 	}
@@ -609,30 +719,30 @@ void DjIaVstEditor::resized()
 	}
 
 	area = area.reduced(padding);
+	auto configArea = area.removeFromTop(70);
 
-	auto configArea = area.removeFromTop(40);
+	this->bannerArea = configArea; 
 
-	auto logoSpace = configArea.removeFromRight(120);
-	auto configRow = configArea.removeFromTop(35);
+	auto logoSpace = configArea.removeFromLeft(80);
+	auto nameArea = configArea.removeFromLeft(300);
+	auto titleArea = nameArea.removeFromTop(30);
+	auto devArea = nameArea.removeFromTop(10);
+	pluginNameLabel.setBounds(titleArea);
+	developerLabel.setBounds(devArea);
 
-	auto serverSection = configRow.removeFromLeft(configRow.getWidth() * 0.45f);
-	serverUrlLabel.setBounds(serverSection.removeFromLeft(50));
-	serverUrlInput.setBounds(serverSection.reduced(reducing));
+	auto configButtonArea = configArea.removeFromRight(150);
+	configButton.setBounds(configButtonArea.reduced(16));
 
-	configRow.removeFromLeft(10);
-
-	apiKeyLabel.setBounds(configRow.removeFromLeft(50));
-	apiKeyInput.setBounds(configRow.reduced(reducing));
-
-	area.removeFromTop(spacing);
+	area = area.reduced(padding);
 
 	auto promptAndConfigArea = area.removeFromTop(80);
 	auto leftSection = promptAndConfigArea.removeFromLeft(promptAndConfigArea.getWidth() / 2);
 	promptAndConfigArea.removeFromLeft(20);
 	auto rightSection = promptAndConfigArea;
 
-	layoutPromptSection(leftSection, spacing);
-	layoutConfigSection(rightSection, reducing);
+	layoutPromptSection(rightSection, spacing);
+	layoutConfigSection(leftSection, reducing);
+
 
 	area.removeFromTop(spacing);
 
@@ -808,7 +918,7 @@ void DjIaVstEditor::loadPromptPresets()
 	}
 	else
 	{
-		promptPresetSelector.setSelectedId(0, juce::dontSendNotification);
+		promptPresetSelector.setSelectedId(1, juce::dontSendNotification);
 	}
 	juce::String selectedPresetText = promptPresetSelector.getText();
 	promptInput.setText(selectedPresetText, juce::dontSendNotification);
@@ -1296,7 +1406,7 @@ void DjIaVstEditor::loadSessionList()
 juce::File DjIaVstEditor::getSessionsDirectory()
 {
 	return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
-		.getChildFile("DJ-IA VST")
+		.getChildFile("OBSIDIAN")
 		.getChildFile("Sessions");
 }
 
@@ -1328,7 +1438,7 @@ juce::PopupMenu DjIaVstEditor::getMenuForIndex(int topLevelMenuIndex, const juce
 	}
 	else if (topLevelMenuIndex == 2)
 	{
-		menu.addItem(aboutDjIa, "About DJ-IA", true);
+		menu.addItem(aboutDjIa, "About OBSIDIAN", true);
 		menu.addItem(showHelp, "Show Help", true);
 	}
 
@@ -1394,8 +1504,11 @@ void DjIaVstEditor::menuItemSelected(int menuItemID, int topLevelMenuIndex)
 		juce::AlertWindow::showAsync(
 			juce::MessageBoxOptions()
 			.withIconType(juce::MessageBoxIconType::InfoIcon)
-			.withTitle("About DJ-IA VST")
-			.withMessage("DJ-IA VST v1.0\n\nAI-powered music generation plugin\nwith real-time contextual loop creation.\n\nDeveloped with love.")
+			.withTitle("About OBSIDIAN")
+			.withMessage("OBSIDIAN v1.0\n\n"
+				"Because writing melodies is hard\n"
+				"Let the robots do the work while you take credit\n\n"
+				"InnerMost47 - Probably overthinking this")
 			.withButton("OK"),
 			nullptr);
 		break;
@@ -1404,7 +1517,7 @@ void DjIaVstEditor::menuItemSelected(int menuItemID, int topLevelMenuIndex)
 		juce::AlertWindow::showAsync(
 			juce::MessageBoxOptions()
 			.withIconType(juce::MessageBoxIconType::InfoIcon)
-			.withTitle("DJ-IA Help")
+			.withTitle("OBSIDIAN Help")
 			.withMessage("Quick Start:\n"
 				"1. Configure server URL and API key\n"
 				"2. Add tracks and assign MIDI notes\n"

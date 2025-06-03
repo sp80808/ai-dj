@@ -1,21 +1,23 @@
-cmake_minimum_required(VERSION 3.16)
+﻿cmake_minimum_required(VERSION 3.16)
 project(DjIaVst VERSION 1.0.0)
 
 add_subdirectory(JUCE)
 add_subdirectory(soundtouch)
 
-juce_add_plugin(DjIaVst
+juce_add_plugin(ObsidianVST
     VERSION "1.0.0"
-    PLUGIN_MANUFACTURER_CODE "DJIA"
-    PLUGIN_CODE "Djia"
+    PLUGIN_MANUFACTURER_CODE "OBSI"
+    PLUGIN_CODE "Obsi"
+    COMPANY_NAME "InnerMost47"
+    BUNDLE_ID "com.innermost47.obsidian-vst" 
     FORMATS VST3 Standalone
-    PRODUCT_NAME "DJ-IA VST"
+    PRODUCT_NAME "OBSIDIAN"
     IS_SYNTH TRUE
     WANTS_MIDI_INPUT TRUE
     PRODUCES_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE)
 
-target_sources(DjIaVst
+target_sources(ObsidianVST
     PRIVATE
         src/PluginProcessor.cpp
         src/PluginEditor.cpp
@@ -27,12 +29,12 @@ target_sources(DjIaVst
         src/MasterChannel.cpp
         )
 
-target_include_directories(DjIaVst
+target_include_directories(ObsidianVST
     PRIVATE
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}/soundtouch/include)
 
-target_compile_definitions(DjIaVst
+target_compile_definitions(ObsidianVST
     PRIVATE
         JucePlugin_IsSynth=1
         JucePlugin_WantsMidiInput=1
@@ -45,7 +47,7 @@ target_compile_definitions(DjIaVst
         JUCE_VST3_CAN_REPLACE_VST2=0
         JUCE_DISPLAY_SPLASH_SCREEN=0)
 
-target_link_libraries(DjIaVst
+target_link_libraries(ObsidianVST 
     PRIVATE
         juce::juce_audio_utils
         juce::juce_audio_processors

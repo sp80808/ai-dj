@@ -13,10 +13,10 @@ class DJSystem:
     @classmethod
     def get_instance(cls, *args, **kwargs):
         if cls._instance is None:
-            print("✨ First initialization of the DJ-IA system (Singleton)...")
+            print("✨ First initialization of the OBSIDIAN system (Singleton)...")
             cls._instance = cls(*args, **kwargs)
         else:
-            print("♻️ Reusing existing DJ-IA instance (Singleton)...")
+            print("♻️ Reusing existing OBSIDIAN instance (Singleton)...")
         return cls._instance
 
     def __init__(self, args):
@@ -27,7 +27,7 @@ class DJSystem:
         self.output_dir_base = args.output_dir
         self.audio_model = args.audio_model
 
-        print("Initializing DJ-IA system...")
+        print("Initializing OBSIDIAN system...")
         self.stems_manager = StemsManager()
 
         initial_llm_state = {
@@ -55,4 +55,4 @@ class DJSystem:
             os.makedirs(self.output_dir_base)
 
         self.initialized = True
-        print("✅ DJ-IA system initialized successfully (Singleton)")
+        print("✅ OBSIDIAN system initialized successfully (Singleton)")

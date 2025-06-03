@@ -23,12 +23,41 @@ DjIaVstProcessor::DjIaVstProcessor()
 	loadParameters();
 	initTracks();
 	initDummySynth();
+	loadGlobalConfig();
 	trackManager.parameterUpdateCallback = [this](int slot, TrackData* track)
 		{
 			handleSampleParams(slot, track);
 		};
 	startTimerHz(30);
 	stateLoaded = true;
+}
+
+void DjIaVstProcessor::loadGlobalConfig()
+{
+	auto configFile = getGlobalConfigFile();
+	if (configFile.existsAsFile()) {
+		auto configJson = juce::JSON::parse(configFile);
+		if (auto* object = configJson.getDynamicObject()) {
+			apiKey = object->getProperty("apiKey").toString();
+			serverUrl = object->getProperty("serverUrl").toString();
+			apiClient = DjIaClient(apiKey, serverUrl);
+		}
+	}
+}
+
+void DjIaVstProcessor::saveGlobalConfig()
+{
+	auto configFile = getGlobalConfigFile();
+	configFile.getParentDirectory().createDirectory();
+
+	juce::DynamicObject::Ptr config = new juce::DynamicObject();
+	config->setProperty("apiKey", apiKey);
+	config->setProperty("serverUrl", serverUrl);
+
+	juce::FileOutputStream stream(configFile);
+	if (stream.openedOk()) {
+		juce::JSON::writeToStream(stream, juce::var(config.get()));
+	}
 }
 
 void DjIaVstProcessor::initDummySynth()

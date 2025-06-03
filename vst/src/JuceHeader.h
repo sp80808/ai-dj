@@ -1,8 +1,8 @@
 #pragma once
 
-#define JucePlugin_Name "DJ-IA VST"
+#define JucePlugin_Name "OBSIDIAN"
 #define JucePlugin_Desc "AI Loop Generator Instrument"
-#define JucePlugin_Manufacturer "Anthony"
+#define JucePlugin_Manufacturer "InnerMost47"
 #define JucePlugin_ManufacturerCode 0x4D616E75
 #define JucePlugin_PluginCode 0x44656D80
 #define JucePlugin_VSTUniqueID JucePlugin_PluginCode

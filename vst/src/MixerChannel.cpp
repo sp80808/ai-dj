@@ -565,7 +565,7 @@ void MixerChannel::resized()
 
 	area.removeFromTop(5);
 
-	auto volumeArea = area.removeFromTop(270);
+	auto volumeArea = area.removeFromTop(220);
 	volumeSlider.setBounds(volumeArea.reduced(width / 4, 0));
 
 	area.removeFromTop(5);
