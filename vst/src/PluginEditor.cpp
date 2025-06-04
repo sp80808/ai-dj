@@ -532,6 +532,8 @@ void DjIaVstEditor::addEventListeners()
 	promptPresetSelector.onChange = [this]
 		{ onPresetSelected(); };
 
+	promptPresetSelector.addMouseListener(this, false);
+
 	promptInput.onTextChange = [this]
 		{
 			audioProcessor.setLastPrompt(promptInput.getText());
@@ -580,6 +582,77 @@ void DjIaVstEditor::addEventListeners()
 			}
 			refreshTracks();
 		};
+}
+
+void DjIaVstEditor::mouseDown(const juce::MouseEvent& event)
+{
+	if (event.eventComponent == &promptPresetSelector && event.mods.isPopupMenu()) {
+		juce::String selectedPrompt = promptPresetSelector.getText();
+		auto customPrompts = audioProcessor.getCustomPrompts();
+
+		if (customPrompts.contains(selectedPrompt)) {
+			juce::PopupMenu menu;
+			menu.addItem(1, "Edit");
+			menu.addItem(2, "Delete");
+
+			menu.showMenuAsync(juce::PopupMenu::Options(), [this, selectedPrompt](int result) {
+				if (result == 1) {
+					editCustomPromptDialog(selectedPrompt);
+				}
+				else if (result == 2) {
+					juce::MessageManager::callAsync([this, selectedPrompt]()
+						{
+							juce::AlertWindow::showAsync(
+								juce::MessageBoxOptions()
+								.withIconType(juce::MessageBoxIconType::WarningIcon)
+								.withTitle("Delete Custom Prompt")
+								.withMessage("Are you sure you want to delete this prompt?\n\n'" + selectedPrompt + "'")
+								.withButton("Delete")
+								.withButton("Cancel"),
+								[this, selectedPrompt](int result)
+								{
+									if (result == 1)
+									{
+										audioProcessor.removeCustomPrompt(selectedPrompt);
+										loadPromptPresets();
+									}
+								});
+						});
+
+				}
+				});
+		}
+	}
+}
+
+void DjIaVstEditor::editCustomPromptDialog(const juce::String& selectedPrompt)
+{
+	auto alertWindow = std::make_unique<juce::AlertWindow>(
+		"Edit Custom Prompt",
+		"Edit your prompt:",
+		juce::MessageBoxIconType::InfoIcon);
+
+	alertWindow->addTextEditor("promptText", selectedPrompt, "Prompt text:");
+	alertWindow->addButton("Save", 1);
+	alertWindow->addButton("Cancel", 0);
+
+	auto* windowPtr = alertWindow.get();
+	alertWindow.release()->enterModalState(true,
+		juce::ModalCallbackFunction::create([this, windowPtr, selectedPrompt](int result)
+			{
+				if (result == 1) {
+					auto* promptEditor = windowPtr->getTextEditor("promptText");
+					if (promptEditor) {
+						juce::String newPrompt = promptEditor->getText();
+						if (!newPrompt.isEmpty()) {
+							audioProcessor.editCustomPrompt(selectedPrompt, newPrompt);
+							loadPromptPresets();
+						}
+					}
+				}
+				windowPtr->exitModalState(result);
+				delete windowPtr;
+			}));
 }
 
 void DjIaVstEditor::updateUIFromProcessor()
@@ -906,14 +979,13 @@ void DjIaVstEditor::loadPromptPresets()
 	{
 		if (!allPrompts.contains(customPrompt))
 		{
-			allPrompts.insert(-1, customPrompt);
+			allPrompts.add(customPrompt);
 		}
 	}
 	for (int i = 0; i < allPrompts.size(); ++i)
 	{
 		promptPresetSelector.addItem(allPrompts[i], i + 1);
 	}
-	promptPresets = allPrompts;
 	int lastPresetIndex = audioProcessor.getLastPresetIndex();
 	if (lastPresetIndex >= 1 && lastPresetIndex <= allPrompts.size())
 	{
@@ -931,9 +1003,9 @@ void DjIaVstEditor::onPresetSelected()
 {
 	int selectedId = promptPresetSelector.getSelectedId();
 	audioProcessor.setLastPresetIndex(selectedId);
-	if (selectedId > 0 && selectedId <= promptPresets.size())
+	juce::String selectedPrompt = promptPresetSelector.getText();
+	if (!selectedPrompt.isEmpty())
 	{
-		juce::String selectedPrompt = promptPresets[selectedId - 1];
 		promptInput.setText(selectedPrompt);
 		statusLabel.setText("Preset loaded: " + selectedPrompt, juce::dontSendNotification);
 	}

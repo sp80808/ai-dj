@@ -132,6 +132,8 @@ public:
 	void handleSampleParams(int slot, TrackData* track);
 	void loadGlobalConfig();
 	void saveGlobalConfig();
+	void removeCustomPrompt(const juce::String& prompt);
+	void editCustomPrompt(const juce::String& oldPrompt, const juce::String& newPrompt);
 
 private:
 	DjIaVstEditor* currentEditor = nullptr;
