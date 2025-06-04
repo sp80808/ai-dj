@@ -1144,7 +1144,7 @@ void DjIaVstEditor::refreshTrackComponents()
 			};
 
 		int fullWidth = tracksContainer.getWidth() - 4;
-		trackComp->setBounds(2, yPos, fullWidth, 80);
+		trackComp->setBounds(2, yPos, fullWidth, 60);
 
 		if (trackId == audioProcessor.getSelectedTrackId())
 		{

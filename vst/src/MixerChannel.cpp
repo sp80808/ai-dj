@@ -442,7 +442,6 @@ void MixerChannel::updateFromTrackData()
 		return;
 
 	trackNameLabel.setText(track->trackName, juce::dontSendNotification);
-
 	auto& params = audioProcessor.getParameterTreeState();
 	juce::String slotPrefix = "slot" + juce::String(track->slotIndex + 1);
 

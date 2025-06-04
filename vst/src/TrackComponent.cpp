@@ -95,7 +95,7 @@ void TrackComponent::toggleWaveformDisplay()
 			{
 				if (auto* trackComp = dynamic_cast<TrackComponent*>(parentContainer->getChildComponent(i)))
 				{
-					int trackHeight = trackComp->showWaveformButton.getToggleState() ? 160 : 80;
+					int trackHeight = trackComp->showWaveformButton.getToggleState() ? 110 : 60;
 					trackComp->setSize(trackComp->getWidth(), trackHeight);
 					trackComp->setBounds(trackComp->getX(), totalHeight, trackComp->getWidth(), trackHeight);
 					totalHeight += trackHeight + 5;
@@ -134,9 +134,11 @@ void TrackComponent::updateFromTrackData()
 
 	bpmOffsetSlider.setValue(track->bpmOffset, juce::dontSendNotification);
 	timeStretchModeSelector.setSelectedId(track->timeStretchMode, juce::dontSendNotification);
-	updateBpmSliderVisibility();
+	trackNumberLabel.setText(juce::String(track->slotIndex + 1), juce::dontSendNotification);
+	trackNumberLabel.setColour(juce::Label::backgroundColourId, getTrackColour(track->slotIndex));
 
 	calculateHostBasedDisplay();
+
 	bool isCurrentlyPlaying = track->isPlaying.load();
 	bool isMuted = track->isMuted.load();
 
@@ -153,6 +155,24 @@ void TrackComponent::updateFromTrackData()
 		}
 	}
 	updateTrackInfo();
+}
+
+juce::Colour TrackComponent::getTrackColour(int trackIndex)
+{
+	static const std::vector<juce::Colour> trackColours = {
+		juce::Colour(0xff5a7a9a),
+		juce::Colour(0xff9a7a5a),
+		juce::Colour(0xff6a8a6a),
+		juce::Colour(0xff8a5a6a),
+		juce::Colour(0xff7a6a8a),
+		juce::Colour(0xff5a8a8a),
+		juce::Colour(0xff7a8a6a),
+		juce::Colour(0xff8a6a7a),
+		juce::Colour(0xff8a6a5a),
+		juce::Colour(0xff6a7a8a),
+	};
+
+	return trackColours[trackIndex % trackColours.size()];
 }
 
 float TrackComponent::calculateEffectiveBpm()
@@ -251,10 +271,15 @@ void TrackComponent::resized()
 {
 	auto area = getLocalBounds().reduced(6);
 
-	auto headerArea = area.removeFromTop(25);
+	auto trackNumberArea = area.removeFromLeft(40);
+	trackNumberLabel.setBounds(trackNumberArea);
+	area.removeFromLeft(5);
 
-	selectButton.setBounds(headerArea.removeFromLeft(60));
-	trackNameLabel.setBounds(headerArea.removeFromLeft(100));
+	auto headerArea = area.removeFromTop(30);
+
+	selectButton.setBounds(headerArea.removeFromLeft(70).reduced(2));
+	trackNameLabel.setBounds(headerArea.removeFromLeft(55));
+	infoLabel.setBounds(headerArea.removeFromLeft(250));
 
 	headerArea.removeFromLeft(10);
 
@@ -268,26 +293,10 @@ void TrackComponent::resized()
 	headerArea.removeFromRight(5);
 	midiNoteSelector.setBounds(headerArea.removeFromRight(65));
 
-	area.removeFromTop(5);
-
-	auto controlsArea = area.removeFromTop(25);
-
-	if (bpmOffsetSlider.isVisible())
-	{
-		controlsArea.removeFromLeft(5);
-		bpmOffsetLabel.setBounds(controlsArea.removeFromLeft(50));
-		bpmOffsetSlider.setBounds(controlsArea.removeFromLeft(300));
-	}
-
-	area.removeFromTop(5);
-
-	infoLabel.setBounds(area.removeFromTop(20));
-
 	if (waveformDisplay && showWaveformButton.getToggleState())
 	{
 		area.removeFromTop(5);
-		auto waveformArea = area.removeFromTop(80);
-		waveformDisplay->setBounds(waveformArea);
+		waveformDisplay->setBounds(area.removeFromTop(80));
 		waveformDisplay->setVisible(true);
 	}
 	else if (waveformDisplay)
@@ -345,12 +354,6 @@ void TrackComponent::setupUI()
 	selectButton.setButtonText("Select");
 	selectButton.onClick = [this]()
 		{
-			DBG("=== SELECT BUTTON CLICKED ===");
-			DBG("TrackComponent trackId: " << trackId);
-			DBG("Track data trackId: " << (track ? track->trackId : "NULL"));
-			DBG("Track data trackName: " << (track ? track->trackName : "NULL"));
-			DBG("Track data slotIndex: " << (track ? juce::String(track->slotIndex) : "NULL"));
-
 			if (onSelectTrack)
 				onSelectTrack(trackId);
 		};
@@ -374,9 +377,9 @@ void TrackComponent::setupUI()
 		};
 
 	addAndMakeVisible(infoLabel);
-	infoLabel.setText("Empty track", juce::dontSendNotification);
+	infoLabel.setText("Empty track - Generate your sample!", juce::dontSendNotification);
 	infoLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
-	infoLabel.setFont(juce::Font(10.0f));
+	infoLabel.setFont(juce::Font(12.0f));
 
 	addAndMakeVisible(midiNoteSelector);
 	for (int note = 60; note < 72; ++note)
@@ -414,35 +417,11 @@ void TrackComponent::setupUI()
 			if (track)
 			{
 				track->timeStretchMode = timeStretchModeSelector.getSelectedId();
-				updateBpmSliderVisibility();
 				calculateHostBasedDisplay();
 				adjustLoopPointsToTempo();
 			}
 		};
 	timeStretchModeSelector.setSelectedId(3, juce::dontSendNotification);
-	addAndMakeVisible(bpmOffsetSlider);
-	bpmOffsetSlider.setRange(-20.0, 20.0, 00.1);
-	bpmOffsetSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-	bpmOffsetSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 20);
-	bpmOffsetSlider.setTextValueSuffix(" BPM");
-	bpmOffsetSlider.onValueChange = [this]()
-		{
-			if (track)
-			{
-				track->bpmOffset = bpmOffsetSlider.getValue();
-				calculateHostBasedDisplay();
-				updateTrackInfo();
-				adjustLoopPointsToTempo();
-			}
-		};
-	bpmOffsetSlider.setValue(0.0, juce::dontSendNotification);
-	addAndMakeVisible(bpmOffsetLabel);
-	bpmOffsetLabel.setText("BPM offset:", juce::dontSendNotification);
-	bpmOffsetLabel.setFont(juce::Font(9.0f));
-	bpmOffsetLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
-
-	updateBpmSliderVisibility();
-
 
 	addAndMakeVisible(trackNameLabel);
 	trackNameLabel.setText(track ? track->trackName : "Track", juce::dontSendNotification);
@@ -466,6 +445,13 @@ void TrackComponent::setupUI()
 		isEditingLabel = false;
 		};
 	trackNameLabel.toFront(false);
+
+	addAndMakeVisible(trackNumberLabel);
+	trackNumberLabel.setText(juce::String(track ? track->slotIndex + 1 : 1), juce::dontSendNotification);
+	trackNumberLabel.setJustificationType(juce::Justification::centred);
+	trackNumberLabel.setFont(juce::Font(16.0f, juce::Font::bold));
+	trackNumberLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+	trackNumberLabel.setColour(juce::Label::backgroundColourId, juce::Colour(0xff5a7a9a));
 }
 
 void TrackComponent::adjustLoopPointsToTempo()
@@ -527,23 +513,13 @@ void TrackComponent::updateTrackInfo()
 		case 4:
 			stretchIndicator = (track->bpmOffset > 0) ? " +" : (track->bpmOffset < 0) ? " -"
 				: "";
-			bpmInfo = " | Host+" + juce::String(track->bpmOffset, 1) + stretchIndicator;
+			bpmInfo = " | Host+ " + juce::String(track->bpmOffset, 1) + stretchIndicator;
 			break;
 		}
 
-		infoLabel.setText("Prompt: " + track->prompt.substring(0, 15) + "..." + bpmInfo,
+		infoLabel.setText(track->prompt.substring(0, 30) + "..." + bpmInfo,
 			juce::dontSendNotification);
 	}
-}
-
-void TrackComponent::updateBpmSliderVisibility()
-{
-	if (!track)
-		return;
-
-	bool shouldShow = (track->timeStretchMode == 2 || track->timeStretchMode == 4);
-	bpmOffsetSlider.setVisible(shouldShow);
-	bpmOffsetLabel.setVisible(shouldShow);
 }
 
 void TrackComponent::refreshWaveformIfNeeded()
