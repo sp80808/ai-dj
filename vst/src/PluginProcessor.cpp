@@ -35,11 +35,9 @@ DjIaVstProcessor::DjIaVstProcessor()
 void DjIaVstProcessor::loadGlobalConfig()
 {
 	auto configFile = getGlobalConfigFile();
-	if (configFile.existsAsFile())
-	{
+	if (configFile.existsAsFile()) {
 		auto configJson = juce::JSON::parse(configFile);
-		if (auto* object = configJson.getDynamicObject())
-		{
+		if (auto* object = configJson.getDynamicObject()) {
 			apiKey = object->getProperty("apiKey").toString();
 			serverUrl = object->getProperty("serverUrl").toString();
 			apiClient = DjIaClient(apiKey, serverUrl);
@@ -57,8 +55,7 @@ void DjIaVstProcessor::saveGlobalConfig()
 	config->setProperty("serverUrl", serverUrl);
 
 	juce::FileOutputStream stream(configFile);
-	if (stream.openedOk())
-	{
+	if (stream.openedOk()) {
 		juce::JSON::writeToStream(stream, juce::var(config.get()));
 	}
 }
@@ -174,38 +171,21 @@ DjIaVstProcessor::~DjIaVstProcessor()
 
 void DjIaVstProcessor::cleanProcessor()
 {
-	hasPendingAudioData = false;
-	waitingForMidiToLoad = false;
-
-	juce::Thread::sleep(100);
-
 	parameters.removeParameterListener("generate", this);
 	parameters.removeParameterListener("play", this);
 	parameters.removeParameterListener("autoload", this);
-
 	for (int i = 1; i <= 8; ++i)
 	{
 		parameters.removeParameterListener("slot" + juce::String(i) + "Generate", this);
 	}
 
 	isNotePlaying = false;
+	hasPendingAudioData = false;
 	hasUnloadedSample = false;
 	midiIndicatorCallback = nullptr;
 	individualOutputBuffers.clear();
 	synth.clearVoices();
 	synth.clearSounds();
-
-	const juce::ScopedLock lock(apiLock);
-
-	if (pendingAudioFile.existsAsFile())
-	{
-		pendingAudioFile.deleteFile();
-		DBG("Deleted temp file: " + pendingAudioFile.getFullPathName());
-	}
-
-	pendingAudioFile = juce::File();
-	pendingTrackId.clear();
-	hasPendingAudioData = false;
 }
 
 void DjIaVstProcessor::timerCallback()
@@ -293,8 +273,6 @@ void DjIaVstProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
 
 	checkIfUIUpdateNeeded(midiMessages);
 }
-
-
 
 void DjIaVstProcessor::checkIfUIUpdateNeeded(juce::MidiBuffer& midiMessages)
 {
@@ -769,26 +747,20 @@ void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest& request, cons
 				{
 					if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
 						editor->onGenerationComplete(trackId, "Empty response from API");
-					} });
-					return;
-		}
-		juce::Thread::launch([this, trackId, tempFile = response.audioData, requestBpm = request.bpm]() {
-			auto permanentFile = getTrackAudioFile(trackId);
-			processAndSaveAudioFile(tempFile, permanentFile, requestBpm);
-			juce::MessageManager::callAsync([this, trackId, permanentFile]() {
-				{
-					const juce::ScopedLock lock(apiLock);
-					pendingTrackId = trackId;
-					pendingAudioFile = permanentFile;
-					audioSampleRate = 48000.0;
-					hasPendingAudioData = true;
-					waitingForMidiToLoad = true;
-					trackIdWaitingForLoad = trackId;
-					correctMidiNoteReceived = false;
-				}
-				DBG("🎵 Audio ready for playback");
+					}
 				});
-			});
+			return;
+		}
+		{
+			const juce::ScopedLock lock(apiLock);
+			pendingTrackId = trackId;
+			pendingAudioFile = response.audioData;
+			audioSampleRate = response.sampleRate;
+			hasPendingAudioData = true;
+			waitingForMidiToLoad = true;
+			trackIdWaitingForLoad = trackId;
+			correctMidiNoteReceived = false;
+		}
 		if (TrackData* track = trackManager.getTrack(trackId))
 		{
 			track->prompt = request.prompt;
@@ -828,112 +800,17 @@ void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest& request, cons
 	}
 }
 
-void DjIaVstProcessor::processAndSaveAudioFile(const juce::File& tempFile, const juce::File& permanentFile, float requestBpm)
-{
-	juce::AudioBuffer<float> buffer;
-	std::atomic<double> sampleRate = 48000;
-	loadWavFileToBuffer(tempFile, buffer, sampleRate);
-
-	double hostBpm = cachedHostBpm.load();
-	if (hostBpm > 0.0 && requestBpm > 0.0f && std::abs(hostBpm - requestBpm) > 1.0)
-	{
-		double stretchRatio = hostBpm / requestBpm;
-		AudioAnalyzer::timeStretchBuffer(buffer, stretchRatio, sampleRate);
-	}
-
-	saveBufferToWavFile(buffer, permanentFile, sampleRate);
-
-	tempFile.deleteFile();
-
-	DBG("🎵 Processed and saved: " + permanentFile.getFullPathName());
-}
-
-void DjIaVstProcessor::loadWavFileToBuffer(const juce::File& audioFile, juce::AudioBuffer<float>& buffer, std::atomic<double>& sampleRate)
-{
-	juce::AudioFormatManager formatManager;
-	formatManager.registerBasicFormats();
-
-	std::unique_ptr<juce::AudioFormatReader> reader(
-		formatManager.createReaderFor(audioFile));
-
-	if (!reader)
-	{
-		DBG("Failed to create reader for: " + audioFile.getFullPathName());
-		return;
-	}
-
-	int numChannels = reader->numChannels;
-	int numSamples = static_cast<int>(reader->lengthInSamples);
-	sampleRate = reader->sampleRate;
-
-	// Force stéréo
-	buffer.setSize(2, numSamples);
-	buffer.clear();
-
-	// Lire l'audio
-	reader->read(&buffer, 0, numSamples, 0, true, true); // Force stéréo
-
-	// Si mono, copier vers canal droit
-	if (numChannels == 1)
-	{
-		buffer.copyFrom(1, 0, buffer, 0, 0, numSamples);
-	}
-
-	DBG("📁 Loaded WAV: " + audioFile.getFileName() +
-		" (" + juce::String(numSamples) + " samples, " +
-		juce::String(sampleRate) + " Hz)");
-}
-
-void DjIaVstProcessor::saveBufferToWavFile(const juce::AudioBuffer<float>& buffer, const juce::File& outputFile, double sampleRate)
-{
-	if (buffer.getNumSamples() == 0)
-	{
-		DBG("❌ Empty buffer, nothing to save");
-		return;
-	}
-
-	outputFile.getParentDirectory().createDirectory();
-
-	juce::WavAudioFormat format;
-	auto fileStream = outputFile.createOutputStream();
-
-	if (fileStream == nullptr)
-	{
-		DBG("❌ Failed to create output stream");
-		return;
-	}
-
-	std::unique_ptr<juce::AudioFormatWriter> writer(
-		format.createWriterFor(fileStream.release(), // Transfer ownership
-			sampleRate,
-			buffer.getNumChannels(),
-			16,
-			{},
-			0));
-
-	if (writer != nullptr)
-	{
-		writer->writeFromAudioSampleBuffer(buffer, 0, buffer.getNumSamples());
-		DBG("💾 Saved WAV: " + outputFile.getFullPathName() +
-			" (" + juce::String(buffer.getNumSamples()) + " samples)");
-	}
-	else
-	{
-		DBG("❌ Failed to create WAV writer");
-	}
-}
-
 void DjIaVstProcessor::processIncomingAudio()
 {
 	if (!hasPendingAudioData.load())
 	{
 		return;
 	}
-
 	if (pendingTrackId.isEmpty())
 	{
 		return;
 	}
+
 	TrackData* track = trackManager.getTrack(pendingTrackId);
 	if (!track)
 	{
@@ -953,15 +830,19 @@ void DjIaVstProcessor::processIncomingAudio()
 		{
 			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
 				editor->statusLabel.setText("Loading sample...", juce::dontSendNotification);
-			} });
-			juce::Thread::launch([this, trackId = pendingTrackId, audioFile = pendingAudioFile]()
-				{ loadAudioFileAsync(trackId, audioFile); });
+			}
+		});
 
-			clearPendingAudio();
-			hasUnloadedSample = false;
-			waitingForMidiToLoad = false;
-			correctMidiNoteReceived = false;
-			trackIdWaitingForLoad.clear();
+	juce::Thread::launch([this, trackId = pendingTrackId, audioFile = pendingAudioFile]()
+		{
+			loadAudioFileAsync(trackId, audioFile);
+		});
+
+	clearPendingAudio();
+	hasUnloadedSample = false;
+	waitingForMidiToLoad = false;
+	correctMidiNoteReceived = false;
+	trackIdWaitingForLoad.clear();
 }
 
 void DjIaVstProcessor::checkAndSwapStagingBuffers()
@@ -1041,13 +922,42 @@ void DjIaVstProcessor::loadAudioFileAsync(const juce::String& trackId, const juc
 
 	try
 	{
-		loadWavFileToBuffer(audioFile, track->stagingBuffer, track->stagingSampleRate);
-		track->stagingNumSamples = track->stagingBuffer.getNumSamples();
+		juce::AudioFormatManager formatManager;
+		formatManager.registerBasicFormats();
 
-		track->audioFilePath = audioFile.getFullPathName();
+		std::unique_ptr<juce::AudioFormatReader> reader(
+			formatManager.createReaderFor(audioFile));
+
+		if (!reader)
+		{
+			return;
+		}
+
+		loadAudioToStagingBuffer(reader, track);
+		processAudioBPMAndSync(track);
+
+		saveBufferToFile(track->stagingBuffer, audioFile, track->stagingSampleRate);
+
+		auto permanentFile = getTrackAudioFile(trackId);
+		juce::String trackId = track->trackId;
+		juce::AudioBuffer<float> bufferCopy = track->stagingBuffer;
+		double sampleRate = track->stagingSampleRate;
+		juce::File audioFileCopy = audioFile;
+
+		juce::MessageManager::callAsync([this, audioFileCopy, bufferCopy, sampleRate, trackId]() mutable {
+			saveBufferToFile(bufferCopy, audioFileCopy, sampleRate);
+
+			auto permanentFile = getTrackAudioFile(trackId);
+			if (audioFileCopy != permanentFile)
+			{
+				permanentFile.getParentDirectory().createDirectory();
+				audioFileCopy.copyFileTo(permanentFile);
+			}
+			});
+
+		track->audioFilePath = permanentFile.getFullPathName();
 		track->hasStagingData = true;
 		track->swapRequested = true;
-
 
 		juce::MessageManager::callAsync([this]()
 			{
@@ -1058,7 +968,8 @@ void DjIaVstProcessor::loadAudioFileAsync(const juce::String& trackId, const juc
 							editor->statusLabel.setText("Ready", juce::dontSendNotification);
 						}
 						});
-				} });
+				}
+			});
 	}
 	catch (const std::exception& e)
 	{
@@ -1067,13 +978,27 @@ void DjIaVstProcessor::loadAudioFileAsync(const juce::String& trackId, const juc
 	}
 }
 
-juce::File DjIaVstProcessor::getTrackAudioFileWithUuid(const juce::String& trackId, const juce::String& uuid)
+void DjIaVstProcessor::saveBufferToFile(const juce::AudioBuffer<float>& buffer,
+	const juce::File& outputFile,
+	double sampleRate)
 {
-	auto audioDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-		.getChildFile("OBSIDIAN")
-		.getChildFile("AudioCache");
+	juce::WavAudioFormat wavFormat;
+	std::unique_ptr<juce::FileOutputStream> fileStream(
+		new juce::FileOutputStream(outputFile));
 
-	return audioDir.getChildFile(trackId + "_" + uuid + ".wav");
+	if (fileStream->openedOk())
+	{
+		std::unique_ptr<juce::AudioFormatWriter> writer(
+			wavFormat.createWriterFor(fileStream.get(),
+				sampleRate,
+				buffer.getNumChannels(),
+				16, {}, 0));
+		if (writer != nullptr)
+		{
+			fileStream.release();
+			writer->writeFromAudioSampleBuffer(buffer, 0, buffer.getNumSamples());
+		}
+	}
 }
 
 juce::File DjIaVstProcessor::getTrackAudioFile(const juce::String& trackId)
@@ -1135,7 +1060,7 @@ void DjIaVstProcessor::loadPendingSample()
 void DjIaVstProcessor::clearPendingAudio()
 {
 	const juce::ScopedLock lock(apiLock);
-	pendingAudioData.reset();
+	pendingAudioFile = juce::File();
 	pendingTrackId.clear();
 	hasPendingAudioData = false;
 }
@@ -1282,7 +1207,6 @@ void DjIaVstProcessor::getStateInformation(juce::MemoryBlock& destData)
 	state.appendChild(parametersState, nullptr);
 
 	std::unique_ptr<juce::XmlElement> xml(state.createXml());
-
 	copyXmlToBinary(*xml, destData);
 }
 
@@ -1352,7 +1276,7 @@ void DjIaVstProcessor::setStateInformation(const void* data, int sizeInBytes)
 	auto tracksState = state.getChildWithName("TrackManager");
 	if (tracksState.isValid())
 	{
-		trackManager.loadState(tracksState);
+		trackManager.loadState(tracksState, cachedHostBpm.load());
 	}
 
 	selectedTrackId = state.getProperty("selectedTrackId", "").toString();

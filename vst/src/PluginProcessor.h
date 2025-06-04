@@ -23,6 +23,9 @@ public:
 	DjIaVstProcessor();
 	~DjIaVstProcessor() override;
 
+	juce::ValueTree pendingMidiMappings;
+	juce::AudioProcessorValueTreeState& getParameterTreeState() { return parameters; }
+	std::atomic<bool> needsUIUpdate{ false };
 	void initDummySynth();
 	void initTracks();
 	void loadParameters();
@@ -126,97 +129,81 @@ public:
 	void setGeneratingTrackId(const juce::String& trackId) { generatingTrackId = trackId; }
 	bool isStateReady() const { return stateLoaded; }
 	MidiLearnManager& getMidiLearnManager() { return midiLearnManager; }
-	juce::ValueTree pendingMidiMappings;
-	juce::AudioProcessorValueTreeState& getParameterTreeState() { return parameters; }
-	std::atomic<bool> needsUIUpdate{ false };
 	void handleSampleParams(int slot, TrackData* track);
 	void loadGlobalConfig();
 	void saveGlobalConfig();
 
 private:
-	std::atomic<double> cachedHostBpm{ 126.0 };
 	DjIaVstEditor* currentEditor = nullptr;
-	std::atomic<bool> stateLoaded{ false };
+	SimpleEQ masterEQ;
+	TrackManager trackManager;
+	MidiLearnManager midiLearnManager;
+	DjIaClient apiClient;
+
+	juce::Synthesiser synth;
+
+
 	static juce::AudioProcessor::BusesProperties createBusLayout();
-	juce::File DjIaVstProcessor::getTrackAudioFile(const juce::String& trackId);
 	static const int MAX_TRACKS = 8;
+
+	juce::StringArray customPrompts;
+
+	double lastBpm = 126.0;
+	double hostSampleRate = 0.0;
+	double audioSampleRate = 0.0;
 	double lastDuration = 6.0;
-	juce::File pendingAudioFile;
-	void updateMasterEQ();
-	void loadAudioFileAsync(const juce::String& trackId, const juce::File& audioFile);
-	void processAudioBPMAndSync(TrackData* track);
-	void loadAudioToStagingBuffer(std::unique_ptr<juce::AudioFormatReader>& reader, TrackData* track);
-	void checkAndSwapStagingBuffers();
-	void performAtomicSwap(TrackData* track, const juce::String& trackId);
-	void updateWaveformDisplay(const juce::String& trackId);
-	void performTrackDeletion(const juce::String& trackId);
-	void reassignTrackOutputsAndMidi();
-	void saveAllTracksBeforeDeath();
-	void saveTrackAudioFromMainBuffer(TrackData* track, const juce::File& outputFile);
-	juce::File getTrackAudioFileWithUuid(const juce::String& trackId, const juce::String& uuid);
-	void cleanupTempFiles();
+
+	bool hostBpmEnabled = false;
 	bool drumsEnabled = false;
 	bool bassEnabled = false;
 	bool otherEnabled = false;
 	bool vocalsEnabled = false;
 	bool guitarEnabled = false;
 	bool pianoEnabled = false;
-	int lastKeyIndex = 1;
 	bool isGenerating = false;
-	juce::String generatingTrackId = "";
-	std::unordered_map<int, juce::String> playingTracks;
-	juce::StringArray customPrompts;
-	TrackManager trackManager;
-	MidiLearnManager midiLearnManager;
-	juce::String selectedTrackId;
-	std::vector<juce::AudioBuffer<float>> individualOutputBuffers;
-	std::atomic<bool> isNotePlaying{ false };
-	std::atomic<int> currentNoteNumber{ -1 };
-	juce::String lastPrompt = "";
-	juce::String lastKey = "C minor";
-	double lastBpm = 126.0;
+
+	int lastKeyIndex = 1;
 	int lastPresetIndex = -1;
-	bool hostBpmEnabled = false;
-	double hostSampleRate = 0.0;
-	double audioSampleRate = 0.0;
+
+	juce::CriticalSection apiLock;
+	juce::File pendingAudioFile;
+	juce::AudioProcessorValueTreeState parameters;
 	juce::String serverUrl = "http://localhost:8000";
 	juce::String apiKey;
-	DjIaClient apiClient;
-	juce::CriticalSection apiLock;
-	juce::MemoryBlock pendingAudioData;
+	juce::String lastPrompt = "";
+	juce::String lastKey = "C minor";
+	juce::String trackIdWaitingForLoad;
 	juce::String pendingTrackId;
+	juce::String selectedTrackId;
+	juce::String generatingTrackId = "";
+
+	std::function<void(const juce::String&)> midiIndicatorCallback;
+
+	std::atomic<double> cachedHostBpm{ 126.0 };
+
+	std::vector<juce::AudioBuffer<float>> individualOutputBuffers;
+
+	std::unordered_map<int, juce::String> playingTracks;
+
+	std::atomic<int> currentNoteNumber{ -1 };
+
 	std::atomic<bool> hasPendingAudioData{ false };
 	std::atomic<bool> autoLoadEnabled{ true };
 	std::atomic<bool> hasUnloadedSample{ false };
 	std::atomic<bool> serverSidePreTreatment{ true };
-	juce::Synthesiser synth;
-	std::function<void(const juce::String&)> midiIndicatorCallback;
-	juce::AudioProcessorValueTreeState parameters;
+	std::atomic<bool> waitingForMidiToLoad{ false };
+	std::atomic<bool> isNotePlaying{ false };
+	std::atomic<bool> correctMidiNoteReceived{ false };
+	std::atomic<bool> stateLoaded{ false };
+
 	std::atomic<float>* generateParam = nullptr;
 	std::atomic<float>* playParam = nullptr;
 	std::atomic<float>* autoLoadParam = nullptr;
-	SimpleEQ masterEQ;
 	std::atomic<float> masterVolume{ 0.8f };
 	std::atomic<float> masterPan{ 0.0f };
 	std::atomic<float> masterHighEQ{ 0.0f };
 	std::atomic<float> masterMidEQ{ 0.0f };
 	std::atomic<float> masterLowEQ{ 0.0f };
-	std::atomic<bool> waitingForMidiToLoad{ false };
-	juce::String trackIdWaitingForLoad;
-	std::atomic<bool> correctMidiNoteReceived{ false };
-	void processIncomingAudio();
-	void clearPendingAudio();
-	void processMidiMessages(juce::MidiBuffer& midiMessages, bool hostIsPlaying, double hostBpm);
-	void playTrack(const juce::MidiMessage& message, double hostBpm);
-	void handlePlayAndStop(bool hostIsPlaying);
-	void updateTimeStretchRatios(double hostBpm);
-	TrackComponent* findTrackComponentByName(const juce::String& trackName, DjIaVstEditor* editor);
-	juce::Button* findGenerateButtonInTrack(TrackComponent* trackComponent);
-	juce::Slider* findBpmOffsetSliderInTrack(TrackComponent* trackComponent);
-	void stopNotePlaybackForTrack(int noteNumber);
-	void processAndSaveAudioFile(const juce::File& tempFile, const juce::File& permanentFile, float requestBpm);
-	void loadWavFileToBuffer(const juce::File& audioFile, juce::AudioBuffer<float>& buffer, std::atomic<double>& sampleRate);
-	void saveBufferToWavFile(const juce::AudioBuffer<float>& buffer, const juce::File& outputFile, double sampleRate);
 	std::atomic<float>* masterVolumeParam = nullptr;
 	std::atomic<float>* masterPanParam = nullptr;
 	std::atomic<float>* masterHighParam = nullptr;
@@ -232,12 +219,40 @@ private:
 	std::atomic<float>* slotPitchParams[8] = { nullptr };
 	std::atomic<float>* slotFineParams[8] = { nullptr };
 	std::atomic<float>* slotBpmOffsetParams[8] = { nullptr };
-	static juce::File getGlobalConfigFile()
-	{
+
+	static juce::File getGlobalConfigFile() {
 		return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
 			.getChildFile("OBSIDIAN")
 			.getChildFile("global_config.json");
 	}
+
+	void processIncomingAudio();
+	void clearPendingAudio();
+	void processMidiMessages(juce::MidiBuffer& midiMessages, bool hostIsPlaying, double hostBpm);
+	void playTrack(const juce::MidiMessage& message, double hostBpm);
+	void handlePlayAndStop(bool hostIsPlaying);
+	void updateTimeStretchRatios(double hostBpm);
+	void updateMasterEQ();
+	void loadAudioFileAsync(const juce::String& trackId, const juce::File& audioData);
+	void processAudioBPMAndSync(TrackData* track);
+	void loadAudioToStagingBuffer(std::unique_ptr<juce::AudioFormatReader>& reader, TrackData* track);
+	void checkAndSwapStagingBuffers();
+	void performAtomicSwap(TrackData* track, const juce::String& trackId);
+	void updateWaveformDisplay(const juce::String& trackId);
+	void performTrackDeletion(const juce::String& trackId);
+	void reassignTrackOutputsAndMidi();
+	void stopNotePlaybackForTrack(int noteNumber);
+	void saveBufferToFile(const juce::AudioBuffer<float>& buffer,
+		const juce::File& outputFile,
+		double sampleRate);
+
+	TrackComponent* findTrackComponentByName(const juce::String& trackName, DjIaVstEditor* editor);
+
+	juce::Button* findGenerateButtonInTrack(TrackComponent* trackComponent);
+
+	juce::Slider* findBpmOffsetSliderInTrack(TrackComponent* trackComponent);
+
+	juce::File getTrackAudioFile(const juce::String& trackId);
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor)
 };

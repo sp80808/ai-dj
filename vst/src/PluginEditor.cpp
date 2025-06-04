@@ -617,6 +617,7 @@ void DjIaVstEditor::updateUIFromProcessor()
 	{
 		bpmSlider.setEnabled(false);
 	}
+	serverSidePreTreatmentButton.setToggleState(audioProcessor.getServerSidePreTreatment(), juce::dontSendNotification);
 	refreshTrackComponents();
 }
 

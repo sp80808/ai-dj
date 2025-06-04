@@ -216,7 +216,7 @@ public:
 		return state;
 	}
 
-	void loadState(const juce::ValueTree& state)
+	void loadState(const juce::ValueTree& state, std::atomic<bool> cachedHostBpm)
 	{
 		juce::ScopedLock lock(tracksLock);
 		tracks.clear();
@@ -263,26 +263,31 @@ public:
 			if (audioFilePath.isNotEmpty())
 			{
 				juce::File audioFile(audioFilePath);
-				DBG("🔍 LOADING STATE - audioFilePath: " + audioFilePath);
-				DBG("🔍 File exists: " + juce::String(audioFile.existsAsFile() ? "YES" : "NO"));
+				DBG("🔍 LOADING STATE - audioFilePath: " + audioFilePath.toStdString());
+				if (audioFile.existsAsFile()) {
+					DBG("🔍 File exists: YES");
+				}
+				else {
+					DBG("🔍 File exists: NO");
+				}
 
 				if (audioFile.existsAsFile())
 				{
 					track->audioFilePath = audioFilePath;
 					track->sampleRate = trackState.getProperty("sampleRate", 48000.0);
 					track->numSamples = trackState.getProperty("numSamples", 0);
-					loadAudioFileForTrack(track.get(), audioFile);
+					loadAudioFileForTrack(track.get(), audioFile, cachedHostBpm.load());
 
-					DBG("✅ Loaded track audio from: " + audioFilePath);
+					DBG("✅ Loaded track audio from: " + audioFilePath.toStdString());
 				}
 				else
 				{
-					DBG("❌ Audio file not found: " + audioFilePath);
+					DBG("❌ Audio file not found: " + audioFilePath.toStdString());
 				}
 			}
 			else
 			{
-				DBG("❌ No audioFilePath in state for track: " + track->trackName);
+				DBG("❌ No audioFilePath in state for track with slot index: " << juce::String(track->slotIndex));
 			}
 			if (track->slotIndex < 0 || track->slotIndex >= 8 || usedSlots[track->slotIndex])
 			{
@@ -345,25 +350,34 @@ private:
 		return -1;
 	}
 
-	void loadAudioFileForTrack(TrackData* track, const juce::File& audioFile)
+	void loadAudioFileForTrack(TrackData* track, const juce::File& audioFile, std::atomic<bool> cachedHostBpm)
 	{
 		juce::AudioFormatManager formatManager;
 		formatManager.registerBasicFormats();
 
-		if (auto reader = formatManager.createReaderFor(audioFile))
+		std::unique_ptr<juce::AudioFormatReader> reader(
+			formatManager.createReaderFor(audioFile));
+
+		if (reader != nullptr)
 		{
 			int numChannels = reader->numChannels;
 			int numSamples = static_cast<int>(reader->lengthInSamples);
+
 			track->audioBuffer.setSize(2, numSamples);
 			reader->read(&track->audioBuffer, 0, numSamples, 0, true, true);
+
 			if (numChannels == 1) {
 				track->audioBuffer.copyFrom(1, 0, track->audioBuffer, 0, 0, numSamples);
 			}
-			track->numSamples = numSamples;
+
+			track->numSamples = track->audioBuffer.getNumSamples();
 			track->sampleRate = reader->sampleRate;
+
 			DBG("Loaded audio file: " + audioFile.getFullPathName() +
 				" (" + juce::String(numSamples) + " samples, " +
 				juce::String(track->sampleRate) + " Hz)");
+
+			reader.reset();
 		}
 		else
 		{
