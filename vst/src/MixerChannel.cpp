@@ -438,14 +438,36 @@ void MixerChannel::updateVUMeters()
 
 void MixerChannel::updateFromTrackData()
 {
-	if (!track)
+	if (!track || track->slotIndex == -1)
 		return;
 
 	trackNameLabel.setText(track->trackName, juce::dontSendNotification);
-	volumeSlider.setValue(track->volume.load(), juce::dontSendNotification);
-	pitchKnob.setValue(track->bpmOffset, juce::dontSendNotification);
-	fineKnob.setValue(track->fineOffset, juce::dontSendNotification);
-	panKnob.setValue(track->pan.load(), juce::dontSendNotification);
+
+	auto& params = audioProcessor.getParameterTreeState();
+	juce::String slotPrefix = "slot" + juce::String(track->slotIndex + 1);
+
+	if (auto* volumeParam = params.getParameter(slotPrefix + "Volume")) {
+		volumeSlider.setValue(volumeParam->getValue(), juce::dontSendNotification);
+	}
+
+	if (auto* pitchParam = params.getParameter(slotPrefix + "Pitch")) {
+		float normalizedPitch = pitchParam->getValue();
+		float denormalizedPitch = normalizedPitch * 24.0f - 12.0f;
+		pitchKnob.setValue(denormalizedPitch, juce::dontSendNotification);
+	}
+
+	if (auto* fineParam = params.getParameter(slotPrefix + "Fine")) {
+		float normalizedFine = fineParam->getValue();
+		float denormalizedFine = normalizedFine * 100.0f - 50.0f;
+		fineKnob.setValue(denormalizedFine, juce::dontSendNotification);
+	}
+
+	if (auto* panParam = params.getParameter(slotPrefix + "Pan")) {
+		float normalizedPan = panParam->getValue();
+		float denormalizedPan = normalizedPan * 2.0f - 1.0f;
+		panKnob.setValue(denormalizedPan, juce::dontSendNotification);
+	}
+
 	muteButton.setToggleState(track->isMuted.load(), juce::dontSendNotification);
 	soloButton.setToggleState(track->isSolo.load(), juce::dontSendNotification);
 

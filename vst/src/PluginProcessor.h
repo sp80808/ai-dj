@@ -177,6 +177,30 @@ private:
 	juce::String selectedTrackId;
 	juce::String generatingTrackId = "";
 
+	juce::StringArray booleanParamIds = {
+		"generate", "play", "autoload",
+		"slot1Mute", "slot1Solo", "slot1Play", "slot1Stop", "slot1Generate",
+		"slot2Mute", "slot2Solo", "slot2Play", "slot2Stop", "slot2Generate",
+		"slot3Mute", "slot3Solo", "slot3Play", "slot3Stop", "slot3Generate",
+		"slot4Mute", "slot4Solo", "slot4Play", "slot4Stop", "slot4Generate",
+		"slot5Mute", "slot5Solo", "slot5Play", "slot5Stop", "slot5Generate",
+		"slot6Mute", "slot6Solo", "slot6Play", "slot6Stop", "slot6Generate",
+		"slot7Mute", "slot7Solo", "slot7Play", "slot7Stop", "slot7Generate",
+		"slot8Mute", "slot8Solo", "slot8Play", "slot8Stop", "slot8Generate"
+	};
+
+	juce::StringArray floatParamIds = {
+		"bpm", "masterVolume", "masterPan", "masterHigh", "masterMid", "masterLow",
+		"slot1Volume", "slot1Pan", "slot1Pitch", "slot1Fine", "slot1BpmOffset",
+		"slot2Volume", "slot2Pan", "slot2Pitch", "slot2Fine", "slot2BpmOffset",
+		"slot3Volume", "slot3Pan", "slot3Pitch", "slot3Fine", "slot3BpmOffset",
+		"slot4Volume", "slot4Pan", "slot4Pitch", "slot4Fine", "slot4BpmOffset",
+		"slot5Volume", "slot5Pan", "slot5Pitch", "slot5Fine", "slot5BpmOffset",
+		"slot6Volume", "slot6Pan", "slot6Pitch", "slot6Fine", "slot6BpmOffset",
+		"slot7Volume", "slot7Pan", "slot7Pitch", "slot7Fine", "slot7BpmOffset",
+		"slot8Volume", "slot8Pan", "slot8Pitch", "slot8Fine", "slot8BpmOffset"
+	};
+
 	juce::CriticalSection filesToDeleteLock;
 
 	std::function<void(const juce::String&)> midiIndicatorCallback;

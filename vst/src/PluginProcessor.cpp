@@ -1184,16 +1184,6 @@ void DjIaVstProcessor::getStateInformation(juce::MemoryBlock& destData)
 	state.appendChild(tracksState, nullptr);
 
 	juce::ValueTree parametersState("Parameters");
-	juce::StringArray booleanParamIds = {
-		"generate", "play", "autoload",
-		"slot1Mute", "slot1Solo", "slot1Play", "slot1Stop", "slot1Generate",
-		"slot2Mute", "slot2Solo", "slot2Play", "slot2Stop", "slot2Generate",
-		"slot3Mute", "slot3Solo", "slot3Play", "slot3Stop", "slot3Generate",
-		"slot4Mute", "slot4Solo", "slot4Play", "slot4Stop", "slot4Generate",
-		"slot5Mute", "slot5Solo", "slot5Play", "slot5Stop", "slot5Generate",
-		"slot6Mute", "slot6Solo", "slot6Play", "slot6Stop", "slot6Generate",
-		"slot7Mute", "slot7Solo", "slot7Play", "slot7Stop", "slot7Generate",
-		"slot8Mute", "slot8Solo", "slot8Play", "slot8Stop", "slot8Generate" };
 
 	auto& params = getParameterTreeState();
 	for (const auto& paramId : booleanParamIds)
@@ -1201,6 +1191,12 @@ void DjIaVstProcessor::getStateInformation(juce::MemoryBlock& destData)
 		auto* param = params.getParameter(paramId);
 		if (param)
 		{
+			parametersState.setProperty(paramId, param->getValue(), nullptr);
+		}
+	}
+	for (const auto& paramId : floatParamIds) {
+		auto* param = params.getParameter(paramId);
+		if (param) {
 			parametersState.setProperty(paramId, param->getValue(), nullptr);
 		}
 	}
@@ -1315,17 +1311,6 @@ void DjIaVstProcessor::setStateInformation(const void* data, int sizeInBytes)
 	auto parametersState = state.getChildWithName("Parameters");
 	if (parametersState.isValid())
 	{
-		juce::StringArray booleanParamIds = {
-			"generate", "play", "autoload",
-			"slot1Mute", "slot1Solo", "slot1Play", "slot1Stop", "slot1Generate",
-			"slot2Mute", "slot2Solo", "slot2Play", "slot2Stop", "slot2Generate",
-			"slot3Mute", "slot3Solo", "slot3Play", "slot3Stop", "slot3Generate",
-			"slot4Mute", "slot4Solo", "slot4Play", "slot4Stop", "slot4Generate",
-			"slot5Mute", "slot5Solo", "slot5Play", "slot5Stop", "slot5Generate",
-			"slot6Mute", "slot6Solo", "slot6Play", "slot6Stop", "slot6Generate",
-			"slot7Mute", "slot7Solo", "slot7Play", "slot7Stop", "slot7Generate",
-			"slot8Mute", "slot8Solo", "slot8Play", "slot8Stop", "slot8Generate" };
-
 		auto& params = getParameterTreeState();
 		for (const auto& paramId : booleanParamIds)
 		{
@@ -1336,6 +1321,14 @@ void DjIaVstProcessor::setStateInformation(const void* data, int sizeInBytes)
 				{
 					float value = parametersState.getProperty(paramId, 0.0f);
 					param->setValueNotifyingHost(value);
+				}
+			}
+		}
+		for (const auto& paramId : floatParamIds) {
+			if (parametersState.hasProperty(paramId)) {
+				auto* param = params.getParameter(paramId);
+				if (param) {
+					param->setValueNotifyingHost(parametersState.getProperty(paramId, 0.0f));
 				}
 			}
 		}
