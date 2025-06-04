@@ -162,33 +162,11 @@ DjIaVstProcessor::~DjIaVstProcessor()
 	try
 	{
 		cleanProcessor();
-		cleanupTemporaryFiles();
 	}
 	catch (const std::exception& e)
 	{
 		std::cout << "Error: " << e.what() << std::endl;
 	}
-}
-
-void DjIaVstProcessor::cleanupTemporaryFiles()
-{
-	juce::ScopedLock lock(filesToDeleteLock);
-
-	int deletedCount = 0;
-	for (const auto& file : filesToDeleteOnExit) {
-		if (file.existsAsFile()) {
-			if (file.deleteFile()) {
-				deletedCount++;
-				DBG("🗑️ Deleted: " + file.getFileName());
-			}
-		}
-	}
-
-	if (deletedCount > 0) {
-		DBG("✅ Cleanup finished: " + juce::String(deletedCount) + " files deleted");
-	}
-
-	filesToDeleteOnExit.clear();
 }
 
 void DjIaVstProcessor::cleanProcessor()
@@ -658,16 +636,6 @@ void DjIaVstProcessor::deleteTrack(const juce::String& trackId)
 			}); });
 }
 
-void DjIaVstProcessor::markFileForDeletion(const juce::File& file)
-{
-	juce::ScopedLock lock(filesToDeleteLock);
-
-	if (std::find(filesToDeleteOnExit.begin(), filesToDeleteOnExit.end(), file)
-		== filesToDeleteOnExit.end()) {
-		filesToDeleteOnExit.push_back(file);
-		DBG("📝 File marked for deletion on exit: " + file.getFileName());
-	}
-}
 
 void DjIaVstProcessor::performTrackDeletion(const juce::String& trackId)
 {
@@ -676,9 +644,6 @@ void DjIaVstProcessor::performTrackDeletion(const juce::String& trackId)
 		return;
 
 	int slotIndex = trackToDelete->slotIndex;
-	if (trackToDelete && trackToDelete->audioFilePath.isNotEmpty()) {
-		markFileForDeletion(juce::File(trackToDelete->audioFilePath));
-	}
 	auto trackIds = trackManager.getAllTrackIds();
 	int deletedTrackIndex = -1;
 	for (int i = 0; i < trackIds.size(); ++i)
@@ -972,13 +937,6 @@ void DjIaVstProcessor::loadAudioFileAsync(const juce::String& trackId, const juc
 		processAudioBPMAndSync(track);
 
 		saveBufferToFile(track->stagingBuffer, audioFile, track->stagingSampleRate);
-
-		if (track->audioFilePath.isNotEmpty()) {
-			juce::File oldFile(track->audioFilePath);
-			if (oldFile.existsAsFile()) {
-				markFileForDeletion(oldFile);
-			}
-		}
 
 		auto permanentFile = getTrackAudioFile(trackId);
 		juce::String trackId = track->trackId;

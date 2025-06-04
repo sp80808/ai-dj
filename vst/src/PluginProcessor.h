@@ -185,8 +185,6 @@ private:
 
 	std::vector<juce::AudioBuffer<float>> individualOutputBuffers;
 
-	std::vector<juce::File> filesToDeleteOnExit;
-
 	std::unordered_map<int, juce::String> playingTracks;
 
 	std::atomic<int> currentNoteNumber{ -1 };
@@ -249,8 +247,6 @@ private:
 	void saveBufferToFile(const juce::AudioBuffer<float>& buffer,
 		const juce::File& outputFile,
 		double sampleRate);
-	void markFileForDeletion(const juce::File& file);
-	void cleanupTemporaryFiles();
 
 	TrackComponent* findTrackComponentByName(const juce::String& trackName, DjIaVstEditor* editor);
 

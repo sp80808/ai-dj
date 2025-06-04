@@ -4,702 +4,689 @@
 class WaveformDisplay : public juce::Component
 {
 public:
-    WaveformDisplay()
-    {
-        setSize(400, 80);
+	WaveformDisplay()
+	{
+		setSize(400, 80);
 
-        zoomFactor = 1.0;
-        viewStartTime = 0.0;
-        sampleRate = 48000.0;
-    }
+		zoomFactor = 1.0;
+		viewStartTime = 0.0;
+		sampleRate = 48000.0;
+	}
 
-    ~WaveformDisplay()
-    {
-    }
+	~WaveformDisplay()
+	{
+	}
 
-    void setSampleBpm(float bpm)
-    {
-        sampleBpm = bpm;
-        calculateStretchRatio();
-        juce::MessageManager::callAsync([this]() {
-            repaint();
-            });
-    }
+	void setSampleBpm(float bpm)
+	{
+		sampleBpm = bpm;
+		calculateStretchRatio();
+		juce::MessageManager::callAsync([this]() {
+			repaint();
+			});
+	}
 
-    void setOriginalBpm(float bpm)
-    {
-        originalBpm = bpm;
-    }
+	void setOriginalBpm(float bpm)
+	{
+		originalBpm = bpm;
+	}
 
-    void setAudioData(const juce::AudioBuffer<float> &audioBuffer, double sampleRate)
-    {
-        this->audioBuffer = audioBuffer;
-        this->sampleRate = sampleRate;
+	void setAudioData(const juce::AudioBuffer<float>& audioBuffer, double sampleRate)
+	{
+		this->audioBuffer = audioBuffer;
+		this->sampleRate = sampleRate;
 
-        zoomFactor = 1.0;
-        viewStartTime = 0.0;
+		zoomFactor = 1.0;
+		viewStartTime = 0.0;
 
-        generateThumbnail();
-        repaint();
-    }
+		generateThumbnail();
+		repaint();
+	}
 
-    void setLoopPoints(double startTime, double endTime)
-    {
-        if (!loopPointsLocked)
-        {
-            loopStart = startTime;
-            loopEnd = endTime;
-            juce::MessageManager::callAsync([this]() {
-                repaint();
-                });
-        }
-    }
+	void setLoopPoints(double startTime, double endTime)
+	{
+		if (!loopPointsLocked)
+		{
+			loopStart = startTime;
+			loopEnd = endTime;
+			juce::MessageManager::callAsync([this]() {
+				repaint();
+				});
+		}
+	}
 
-    void lockLoopPoints(bool locked)
-    {
-        loopPointsLocked = locked;
-        juce::MessageManager::callAsync([this]() {
-            repaint();
-            });
-    }
+	void lockLoopPoints(bool locked)
+	{
+		loopPointsLocked = locked;
+		juce::MessageManager::callAsync([this]() {
+			repaint();
+			});
+	}
 
-    void calculateStretchRatio()
-    {
-        if (originalBpm > 0.0f && sampleBpm > 0.0f)
-        {
-            stretchRatio = sampleBpm / originalBpm;
-        }
-        else
-        {
-            stretchRatio = 1.0f;
-        }
-    }
+	void calculateStretchRatio()
+	{
+		if (originalBpm > 0.0f && sampleBpm > 0.0f)
+		{
+			stretchRatio = sampleBpm / originalBpm;
+		}
+		else
+		{
+			stretchRatio = 1.0f;
+		}
+	}
 
-    void setPlaybackPosition(double timeInSeconds, bool isPlaying)
-    {
-        double adjustedPosition = timeInSeconds;
-        if (stretchRatio > 0.0f && stretchRatio != 1.0f)
-        {
-            adjustedPosition = timeInSeconds / stretchRatio;
-        }
+	void setPlaybackPosition(double timeInSeconds, bool isPlaying)
+	{
+		double adjustedPosition = timeInSeconds;
+		if (stretchRatio > 0.0f && stretchRatio != 1.0f)
+		{
+			adjustedPosition = timeInSeconds / stretchRatio;
+		}
 
-        playbackPosition = adjustedPosition;
-        isCurrentlyPlaying = isPlaying;
+		playbackPosition = adjustedPosition;
+		isCurrentlyPlaying = isPlaying;
 
-        if (isPlaying && zoomFactor > 1.0)
-        {
-            double viewDuration = getTotalDuration() / zoomFactor;
-            double viewEndTime = viewStartTime + viewDuration;
+		juce::MessageManager::callAsync([this]() {
+			repaint();
+			});
+	}
 
-            if (playbackPosition < viewStartTime || playbackPosition > viewEndTime)
-            {
-                viewStartTime = juce::jlimit(0.0, getTotalDuration() - viewDuration,
-                                             playbackPosition - viewDuration * 0.5);
-                generateThumbnail();
-            }
-        }
+	std::function<void(double, double)> onLoopPointsChanged;
 
-        juce::MessageManager::callAsync([this]() {
-            repaint();
-            });
-    }
+	void paint(juce::Graphics& g) override
+	{
+		auto bounds = getLocalBounds();
 
-    std::function<void(double, double)> onLoopPointsChanged;
+		g.setColour(juce::Colours::black);
+		g.fillRect(bounds);
 
-    void paint(juce::Graphics &g) override
-    {
-        auto bounds = getLocalBounds();
+		if (thumbnail.empty())
+		{
+			g.setColour(juce::Colours::grey);
+			g.setFont(12.0f);
+			g.drawText("No audio data", bounds.reduced(5).removeFromTop(20), juce::Justification::centred);
 
-        g.setColour(juce::Colours::black);
-        g.fillRect(bounds);
+			g.setColour(juce::Colours::lightgrey);
+			g.setFont(10.0f);
+			g.drawText("Ctrl+Wheel: Zoom | Wheel: Scroll | Right-click: Lock/Unlock",
+				bounds.reduced(5).removeFromBottom(15), juce::Justification::centred);
+			return;
+		}
 
-        if (thumbnail.empty())
-        {
-            g.setColour(juce::Colours::grey);
-            g.setFont(12.0f);
-            g.drawText("No audio data", bounds.reduced(5).removeFromTop(20), juce::Justification::centred);
+		g.setColour(juce::Colours::lightblue);
 
-            g.setColour(juce::Colours::lightgrey);
-            g.setFont(10.0f);
-            g.drawText("Ctrl+Wheel: Zoom | Wheel: Scroll | Right-click: Lock/Unlock",
-                       bounds.reduced(5).removeFromBottom(15), juce::Justification::centred);
-            return;
-        }
+		drawWaveform(g);
+		drawLoopMarkers(g);
+		drawBeatMarkers(g);
+		drawPlaybackHead(g);
 
-        g.setColour(juce::Colours::lightblue);
+		if (zoomFactor > 1.0)
+		{
+			g.setColour(juce::Colours::yellow);
+			g.setFont(10.0f);
+			g.drawText("Zoom: " + juce::String(zoomFactor, 1) + "x", 5, getHeight() - 15, 60, 15, juce::Justification::left);
+		}
 
-        drawWaveform(g);
-        drawLoopMarkers(g);
-        drawBeatMarkers(g);
-        drawPlaybackHead(g);
+		if (loopPointsLocked)
+		{
+			g.setColour(juce::Colours::red);
+			g.setFont(10.0f);
+			g.drawText("LOCKED", getWidth() - 60, getHeight() - 15, 55, 15, juce::Justification::right);
+		}
+	}
 
-        if (zoomFactor > 1.0)
-        {
-            g.setColour(juce::Colours::yellow);
-            g.setFont(10.0f);
-            g.drawText("Zoom: " + juce::String(zoomFactor, 1) + "x", 5, getHeight() - 15, 60, 15, juce::Justification::left);
-        }
+	void mouseDown(const juce::MouseEvent& e) override
+	{
+		if (e.mods.isRightButtonDown())
+		{
+			loopPointsLocked = !loopPointsLocked;
+			repaint();
+			return;
+		}
 
-        if (loopPointsLocked)
-        {
-            g.setColour(juce::Colours::red);
-            g.setFont(10.0f);
-            g.drawText("LOCKED", getWidth() - 60, getHeight() - 15, 55, 15, juce::Justification::right);
-        }
-    }
+		if (loopPointsLocked)
+			return;
 
-    void mouseDown(const juce::MouseEvent &e) override
-    {
-        if (e.mods.isRightButtonDown())
-        {
-            loopPointsLocked = !loopPointsLocked;
-            repaint();
-            return;
-        }
+		float startX = timeToX(loopStart);
+		float endX = timeToX(loopEnd);
 
-        if (loopPointsLocked)
-            return;
+		float tolerance = 15.0f;
 
-        float startX = timeToX(loopStart);
-        float endX = timeToX(loopEnd);
+		if (std::abs(e.x - startX) < tolerance)
+		{
+			draggingStart = true;
+		}
+		else if (std::abs(e.x - endX) < tolerance)
+		{
+			draggingEnd = true;
+		}
+		else
+		{
+			double clickTime = xToTime(e.x);
+			double distToStart = std::abs(clickTime - loopStart);
+			double distToEnd = std::abs(clickTime - loopEnd);
 
-        float tolerance = 15.0f;
+			if (distToStart < distToEnd)
+			{
+				loopStart = clickTime;
+				if (loopStart >= loopEnd)
+				{
+					loopStart = loopEnd - getMinLoopDuration();
+				}
+			}
+			else
+			{
+				loopEnd = clickTime;
+				if (loopEnd <= loopStart)
+				{
+					loopEnd = loopStart + getMinLoopDuration();
+				}
+			}
 
-        if (std::abs(e.x - startX) < tolerance)
-        {
-            draggingStart = true;
-        }
-        else if (std::abs(e.x - endX) < tolerance)
-        {
-            draggingEnd = true;
-        }
-        else
-        {
-            double clickTime = xToTime(e.x);
-            double distToStart = std::abs(clickTime - loopStart);
-            double distToEnd = std::abs(clickTime - loopEnd);
+			if (onLoopPointsChanged)
+			{
+				onLoopPointsChanged(loopStart, loopEnd);
+			}
+			repaint();
+		}
+	}
 
-            if (distToStart < distToEnd)
-            {
-                loopStart = clickTime;
-                if (loopStart >= loopEnd)
-                {
-                    loopStart = loopEnd - getMinLoopDuration();
-                }
-            }
-            else
-            {
-                loopEnd = clickTime;
-                if (loopEnd <= loopStart)
-                {
-                    loopEnd = loopStart + getMinLoopDuration();
-                }
-            }
+	void mouseDrag(const juce::MouseEvent& e) override
+	{
+		if (loopPointsLocked || trackBpm <= 0.0f)
+			return;
 
-            if (onLoopPointsChanged)
-            {
-                onLoopPointsChanged(loopStart, loopEnd);
-            }
-            repaint();
-        }
-    }
+		if (draggingStart)
+		{
+			double newStart = xToTime(e.x);
 
-    void mouseDrag(const juce::MouseEvent &e) override
-    {
-        if (loopPointsLocked || trackBpm <= 0.0f)
-            return;
+			loopStart = juce::jlimit(getViewStartTime(), loopEnd - getMinLoopDuration(), newStart);
+			repaint();
 
-        if (draggingStart)
-        {
-            double newStart = xToTime(e.x);
+			if (onLoopPointsChanged)
+			{
+				onLoopPointsChanged(loopStart, loopEnd);
+			}
+		}
+		else if (draggingEnd)
+		{
+			double newEnd = xToTime(e.x);
 
-            loopStart = juce::jlimit(getViewStartTime(), loopEnd - getMinLoopDuration(), newStart);
-            repaint();
+			loopEnd = juce::jlimit(loopStart + getMinLoopDuration(), getViewEndTime(), newEnd);
+			repaint();
 
-            if (onLoopPointsChanged)
-            {
-                onLoopPointsChanged(loopStart, loopEnd);
-            }
-        }
-        else if (draggingEnd)
-        {
-            double newEnd = xToTime(e.x);
+			if (onLoopPointsChanged)
+			{
+				onLoopPointsChanged(loopStart, loopEnd);
+			}
+		}
+	}
 
-            loopEnd = juce::jlimit(loopStart + getMinLoopDuration(), getViewEndTime(), newEnd);
-            repaint();
+	double getMinLoopDuration() const
+	{
+		if (trackBpm <= 0.0f)
+			return 1.0;
 
-            if (onLoopPointsChanged)
-            {
-                onLoopPointsChanged(loopStart, loopEnd);
-            }
-        }
-    }
+		double beatDuration = 60.0 / trackBpm;
+		return beatDuration * 4.0;
+	}
+	void mouseUp(const juce::MouseEvent& e) override
+	{
+		draggingStart = false;
+		draggingEnd = false;
+	}
 
-    double getMinLoopDuration()
-    {
-        if (trackBpm <= 0.0f)
-            return 1.0;
+	void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override
+	{
+		if (e.mods.isCtrlDown())
+		{
+			if (getTotalDuration() <= 0.0)
+			{
+				return;
+			}
+			double mouseTime = xToTime(e.x);
+			mouseTime = juce::jlimit(0.0, getTotalDuration(), mouseTime);
+			double oldZoomFactor = zoomFactor;
 
-        double beatDuration = 60.0 / trackBpm;
-        return beatDuration * 4.0;
-    }
-    void mouseUp(const juce::MouseEvent &e) override
-    {
-        draggingStart = false;
-        draggingEnd = false;
-    }
+			if (wheel.deltaY > 0)
+			{
+				zoomFactor = juce::jlimit(1.0, 10.0, zoomFactor * 1.2);
+			}
+			else
+			{
+				zoomFactor = juce::jlimit(1.0, 10.0, zoomFactor / 1.2);
+			}
+			double newViewDuration = getTotalDuration() / zoomFactor;
+			if (newViewDuration <= 0.0)
+			{
+				zoomFactor = oldZoomFactor;
+				return;
+			}
 
-    void mouseWheelMove(const juce::MouseEvent &e, const juce::MouseWheelDetails &wheel) override
-    {
-        if (e.mods.isCtrlDown())
-        {
-            if (getTotalDuration() <= 0.0)
-            {
-                return;
-            }
-            double mouseTime = xToTime(e.x);
-            mouseTime = juce::jlimit(0.0, getTotalDuration(), mouseTime);
-            double oldZoomFactor = zoomFactor;
+			viewStartTime = mouseTime - (e.x / (double)getWidth()) * newViewDuration;
+			viewStartTime = juce::jlimit(0.0, getTotalDuration() - newViewDuration, viewStartTime);
 
-            if (wheel.deltaY > 0)
-            {
-                zoomFactor = juce::jlimit(1.0, 10.0, zoomFactor * 1.2);
-            }
-            else
-            {
-                zoomFactor = juce::jlimit(1.0, 10.0, zoomFactor / 1.2);
-            }
-            double newViewDuration = getTotalDuration() / zoomFactor;
-            if (newViewDuration <= 0.0)
-            {
-                zoomFactor = oldZoomFactor;
-                return;
-            }
+			generateThumbnail();
+			repaint();
+		}
+		else if (zoomFactor > 1.0)
+		{
+			double viewDuration = getTotalDuration() / zoomFactor;
+			double scrollAmount = wheel.deltaY * viewDuration * 0.1;
 
-            viewStartTime = mouseTime - (e.x / (double)getWidth()) * newViewDuration;
-            viewStartTime = juce::jlimit(0.0, getTotalDuration() - newViewDuration, viewStartTime);
+			viewStartTime = juce::jlimit(0.0, getTotalDuration() - viewDuration,
+				viewStartTime - scrollAmount);
 
-            generateThumbnail();
-            repaint();
-        }
-        else if (zoomFactor > 1.0)
-        {
-            double viewDuration = getTotalDuration() / zoomFactor;
-            double scrollAmount = wheel.deltaY * viewDuration * 0.1;
-
-            viewStartTime = juce::jlimit(0.0, getTotalDuration() - viewDuration,
-                                         viewStartTime - scrollAmount);
-
-            generateThumbnail();
-            repaint();
-        }
-    }
+			generateThumbnail();
+			repaint();
+		}
+	}
 
 private:
-    juce::AudioBuffer<float> audioBuffer;
-    double sampleRate = 48000.0;
-    std::vector<float> thumbnail;
-    double loopStart = 0.0;
-    double loopEnd = 4.0;
-    bool loopPointsLocked = false;
-    float trackBpm = 126.0f;
-    float sampleBpm = 126.0f;
-    float stretchRatio = 1.0f;
-    bool draggingStart = false;
-    bool draggingEnd = false;
-
-    float originalBpm = 126.0f;
-    float timeStretchRatio = 1.0f;
-
-    double zoomFactor = 1.0;
-    double viewStartTime = 0.0;
-
-    double playbackPosition = 0.0;
-    bool isCurrentlyPlaying = false;
-
-    void generateThumbnail()
-    {
-        thumbnail.clear();
-
-        if (audioBuffer.getNumSamples() == 0)
-            return;
-
-        double viewDuration = getTotalDuration() / zoomFactor;
-        double viewEndTime = juce::jlimit(viewStartTime, getTotalDuration(),
-                                          viewStartTime + viewDuration);
-
-        int startSample = (int)(viewStartTime * sampleRate);
-        int endSample = (int)(viewEndTime * sampleRate);
-        startSample = juce::jlimit(0, audioBuffer.getNumSamples() - 1, startSample);
-        endSample = juce::jlimit(startSample + 1, audioBuffer.getNumSamples(), endSample);
-
-        int viewSamples = endSample - startSample;
-
-        if (viewSamples <= 0)
-            return;
-
-        int targetPoints = getWidth() * 4;
-        int samplesPerPoint = std::max(1, viewSamples / targetPoints);
-        targetPoints = juce::jlimit(10, 10000, getWidth() * 4);
-        samplesPerPoint = juce::jlimit(1, viewSamples, viewSamples / targetPoints);
-
-        for (int point = 0; point < targetPoints; ++point)
-        {
-            int retFlag;
-            feedThumbnail(startSample, point, samplesPerPoint, retFlag);
-            if (retFlag == 2)
-                break;
-        }
-    }
-
-    void feedThumbnail(int startSample, int point, int samplesPerPoint, int &retFlag)
-    {
-        retFlag = 1;
-        int sampleStart = startSample + (point * samplesPerPoint);
-        int sampleEnd = std::min(sampleStart + samplesPerPoint, audioBuffer.getNumSamples());
-        if (sampleStart >= audioBuffer.getNumSamples())
-        {
-            {
-                retFlag = 2;
-                return;
-            };
-        }
-        float rmsSum = 0.0f;
-        float peak = 0.0f;
-        int count = 0;
-
-        for (int sample = sampleStart; sample < sampleEnd; ++sample)
-        {
-
-            if (sample >= audioBuffer.getNumSamples())
-            {
-                break;
-            }
-            for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
-            {
-                float val = audioBuffer.getSample(ch, sample);
-                rmsSum += val * val;
-                peak = std::max(peak, std::abs(val));
-                count++;
-            }
-        }
-
-        float rms = count > 0 ? std::sqrt(rmsSum / count) : 0.0f;
-        float finalValue = (rms * 0.7f) + (peak * 0.3f);
-
-        thumbnail.push_back(finalValue);
-    }
-
-    void drawWaveform(juce::Graphics &g)
-    {
-        if (thumbnail.empty())
-            return;
-
-        juce::Colour waveformColor;
-        setColorDependingTimeStretchRatio(waveformColor);
-
-        g.setColour(waveformColor);
-
-        juce::Path waveformPath;
-        bool pathStarted = false;
-
-        int thumbnailSize = thumbnail.size();
-        float pixelsPerPoint = (float)getWidth() / thumbnailSize;
-
-        for (int i = 0; i < thumbnailSize; ++i)
-        {
-            generateTopHalfPath(i, pixelsPerPoint, pathStarted, waveformPath, thumbnailSize);
-        }
-
-        g.strokePath(waveformPath, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
-
-        juce::Path bottomPath;
-        pathStarted = false;
-
-        for (int i = 0; i < thumbnailSize; ++i)
-        {
-            generateBottomHalfPath(i, pixelsPerPoint, pathStarted, bottomPath, thumbnailSize);
-        }
-
-        g.strokePath(bottomPath, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
-
-        g.setColour(juce::Colours::lightblue.withAlpha(0.3f));
-        g.drawLine(0, getHeight() * 0.5f, getWidth(), getHeight() * 0.5f, 0.5f);
-    }
-
-    void setColorDependingTimeStretchRatio(juce::Colour &waveformColor)
-    {
-        if (timeStretchRatio > 1.1f)
-        {
-            waveformColor = juce::Colours::orange;
-        }
-        else if (timeStretchRatio < 0.9f)
-        {
-            waveformColor = juce::Colours::lightblue;
-        }
-        else
-        {
-            waveformColor = juce::Colours::lightgreen;
-        }
-    }
-
-    void generateBottomHalfPath(int i, float pixelsPerPoint, bool &pathStarted, juce::Path &bottomPath, int thumbnailSize)
-    {
-        float x = i * pixelsPerPoint;
-        float amplitude = thumbnail[i];
-
-        float centerY = getHeight() * 0.5f;
-        float waveHeight = amplitude * centerY * 0.8f;
-        float bottomY = centerY + waveHeight;
-
-        if (!pathStarted)
-        {
-            bottomPath.startNewSubPath(x, centerY);
-            pathStarted = true;
-        }
-
-        if (i > 0 && i < thumbnailSize - 1)
-        {
-            float prevX = (i - 1) * pixelsPerPoint;
-            float nextX = (i + 1) * pixelsPerPoint;
-            float controlX = (prevX + nextX) * 0.5f;
-            bottomPath.quadraticTo(controlX, bottomY, x, bottomY);
-        }
-        else
-        {
-            bottomPath.lineTo(x, bottomY);
-        }
-    }
-
-    void generateTopHalfPath(int i, float pixelsPerPoint, bool &pathStarted, juce::Path &waveformPath, int thumbnailSize)
-    {
-        float x = i * pixelsPerPoint;
-        float amplitude = thumbnail[i];
-
-        float centerY = getHeight() * 0.5f;
-        float waveHeight = amplitude * centerY * 0.8f;
-
-        float topY = centerY - waveHeight;
-        float bottomY = centerY + waveHeight;
-
-        if (!pathStarted)
-        {
-            waveformPath.startNewSubPath(x, centerY);
-            pathStarted = true;
-        }
-        if (i > 0 && i < thumbnailSize - 1)
-        {
-            float prevX = (i - 1) * pixelsPerPoint;
-            float nextX = (i + 1) * pixelsPerPoint;
-
-            float controlX = (prevX + nextX) * 0.5f;
-            waveformPath.quadraticTo(controlX, topY, x, topY);
-        }
-        else
-        {
-            waveformPath.lineTo(x, topY);
-        }
-    }
-
-    void drawLoopMarkers(juce::Graphics &g)
-    {
-        float startX = timeToX(loopStart);
-        float endX = timeToX(loopEnd);
-
-        juce::Colour loopColour = loopPointsLocked ? juce::Colours::orange : juce::Colours::green;
-        g.setColour(loopColour.withAlpha(0.2f));
-        g.fillRect(startX, 0.0f, endX - startX, (float)getHeight());
-
-        float lineWidth = loopPointsLocked ? 3.0f : 2.0f;
-        g.setColour(loopColour);
-        g.drawLine(startX, 0, startX, getHeight(), lineWidth);
-        g.drawLine(endX, 0, endX, getHeight(), lineWidth);
-
-        if (trackBpm > 0.0f)
-        {
-            drawLoopBarLabels(g, startX, endX);
-        }
-        else
-        {
-            drawLoopTimeLabels(g, startX, endX);
-        }
-    }
-
-    void drawLoopTimeLabels(juce::Graphics &g, float startX, float endX)
-    {
-        g.setColour(juce::Colours::white);
-        g.setFont(10.0f);
-        g.drawText(juce::String(loopStart, 2) + "s", startX + 2, 2, 50, 15,
-                   juce::Justification::left);
-        g.drawText(juce::String(loopEnd, 2) + "s", endX - 50, 2, 48, 15,
-                   juce::Justification::right);
-    }
-
-    void drawLoopBarLabels(juce::Graphics &g, float startX, float endX)
-    {
-        double beatDuration = 60.0 / trackBpm;
-        double barDuration = beatDuration * 4.0;
-
-        int startBar = (int)(loopStart / barDuration) + 1;
-        int endBar = (int)(loopEnd / barDuration);
-        int totalBars = endBar - startBar + 1;
-
-        g.setColour(juce::Colours::white);
-        g.setFont(10.0f);
-
-        g.drawText("Bar " + juce::String(startBar), startX + 2, 2, 50, 15,
-                   juce::Justification::left);
-
-        g.drawText("Bar " + juce::String(endBar) + " (" + juce::String(totalBars) + " bars)",
-                   endX - 80, 2, 78, 15, juce::Justification::right);
-    }
-
-    void drawPlaybackHead(juce::Graphics &g)
-    {
-        if (isCurrentlyPlaying && playbackPosition >= 0.0)
-        {
-            double displayPosition = playbackPosition;
-            if (stretchRatio > 0.0f && stretchRatio != 1.0f)
-            {
-                displayPosition = playbackPosition / stretchRatio;
-            }
-            float headX = timeToX(displayPosition);
-
-            if (headX >= 0 && headX <= getWidth())
-            {
-                g.setColour(juce::Colours::red);
-                g.drawLine(headX, 0, headX, getHeight(), 4.0f);
-
-                juce::Path triangle;
-                triangle.addTriangle(headX - 8, 0, headX + 8, 0, headX, 16);
-                g.setColour(juce::Colours::yellow);
-                g.fillPath(triangle);
-
-                triangle.clear();
-                triangle.addTriangle(headX - 8, getHeight(), headX + 8, getHeight(), headX, getHeight() - 16);
-                g.fillPath(triangle);
-
-                g.setColour(juce::Colours::white);
-                g.setFont(14.0f);
-                g.drawText(juce::String(playbackPosition, 2) + "s", headX - 40, getHeight() / 2 - 10, 80, 20,
-                           juce::Justification::centred);
-            }
-        }
-    }
-
-    float timeToX(double time)
-    {
-        double totalDuration = getTotalDuration();
-        if (totalDuration <= 0.0)
-            return 0.0f;
-
-        double viewDuration = totalDuration / zoomFactor;
-        if (viewDuration <= 0.0)
-            return 0.0f;
-
-        double relativeTime = time - viewStartTime;
-        float result = juce::jmap(relativeTime, 0.0, viewDuration, 0.0, (double)getWidth());
-
-        return juce::jlimit(0.0f, (float)getWidth(), result);
-    }
-
-    void drawBeatMarkers(juce::Graphics &g)
-    {
-        if (thumbnail.empty() || sampleBpm <= 0.0f)
-            return;
-
-        float totalDuration = getTotalDuration();
-        float viewDuration = totalDuration / zoomFactor;
-        float viewEndTime = getViewEndTime();
-
-        float beatDuration = 60.0f / sampleBpm;
-        float barDuration = beatDuration * 4.0f;
-
-        g.setColour(juce::Colours::white.withAlpha(0.8f));
-        for (float time = 0.0f; time <= viewEndTime; time += barDuration)
-        {
-            drawMeasures(time, g, barDuration);
-        }
-
-        if (zoomFactor > 2.0)
-        {
-            drawBeats(g, beatDuration, viewEndTime, barDuration);
-        }
-    }
-
-    void drawMeasures(float time, juce::Graphics &g, float barDuration)
-    {
-        if (time >= viewStartTime)
-        {
-            float x = timeToX(time);
-            if (x >= 0 && x <= getWidth())
-            {
-                g.drawLine(x, 0, x, getHeight(), 2.0f);
-                int measureNumber = (int)(time / barDuration) + 1;
-                g.setFont(10.0f);
-                g.drawText(juce::String(measureNumber), x + 2, 2, 30, 15,
-                           juce::Justification::left);
-            }
-        }
-    }
-
-    void drawBeats(juce::Graphics &g, float beatDuration, float viewEndTime, float barDuration)
-    {
-        g.setColour(juce::Colours::white.withAlpha(0.4f));
-        for (float time = beatDuration; time <= viewEndTime; time += beatDuration)
-        {
-            if (fmod(time, barDuration) < 0.01f)
-                continue;
-
-            if (time >= viewStartTime)
-            {
-                float x = timeToX(time);
-                if (x >= 0 && x <= getWidth())
-                {
-                    g.drawLine(x, 0, x, getHeight(), 1.0f);
-                }
-            }
-        }
-    }
-
-    double xToTime(float x)
-    {
-        double totalDuration = getTotalDuration();
-        if (totalDuration <= 0.0)
-        {
-            return 0.0;
-        }
-
-        double viewDuration = totalDuration / zoomFactor;
-        if (viewDuration <= 0.0)
-        {
-            return 0.0;
-        }
-
-        double relativeTime = juce::jmap((double)x, 0.0, (double)getWidth(), 0.0, viewDuration);
-        double result = viewStartTime + relativeTime;
-
-        return juce::jlimit(0.0, totalDuration, result);
-    }
-
-    double getTotalDuration() const
-    {
-        if (audioBuffer.getNumSamples() == 0 || sampleRate <= 0)
-            return 0.0;
-
-        double originalDuration = audioBuffer.getNumSamples() / sampleRate;
-
-        return originalDuration / timeStretchRatio;
-    }
-
-    double getViewStartTime() const
-    {
-        return viewStartTime;
-    }
-
-    double getViewEndTime() const
-    {
-        return juce::jlimit(viewStartTime, getTotalDuration(),
-                            viewStartTime + (getTotalDuration() / zoomFactor));
-    }
+	juce::AudioBuffer<float> audioBuffer;
+	double sampleRate = 48000.0;
+	std::vector<float> thumbnail;
+	double loopStart = 0.0;
+	double loopEnd = 4.0;
+	bool loopPointsLocked = false;
+	float trackBpm = 126.0f;
+	float sampleBpm = 126.0f;
+	float stretchRatio = 1.0f;
+	bool draggingStart = false;
+	bool draggingEnd = false;
+
+	float originalBpm = 126.0f;
+	float timeStretchRatio = 1.0f;
+
+	double zoomFactor = 1.0;
+	double viewStartTime = 0.0;
+
+	double playbackPosition = 0.0;
+	bool isCurrentlyPlaying = false;
+
+	void generateThumbnail()
+	{
+		thumbnail.clear();
+
+		if (audioBuffer.getNumSamples() == 0)
+			return;
+
+		double viewDuration = getTotalDuration() / zoomFactor;
+		double viewEndTime = juce::jlimit(viewStartTime, getTotalDuration(),
+			viewStartTime + viewDuration);
+
+		int startSample = (int)(viewStartTime * sampleRate);
+		int endSample = (int)(viewEndTime * sampleRate);
+		startSample = juce::jlimit(0, audioBuffer.getNumSamples() - 1, startSample);
+		endSample = juce::jlimit(startSample + 1, audioBuffer.getNumSamples(), endSample);
+
+		int viewSamples = endSample - startSample;
+
+		if (viewSamples <= 0)
+			return;
+
+		int targetPoints = getWidth() * 4;
+		int samplesPerPoint = std::max(1, viewSamples / targetPoints);
+		targetPoints = juce::jlimit(10, 10000, getWidth() * 4);
+		samplesPerPoint = juce::jlimit(1, viewSamples, viewSamples / targetPoints);
+
+		for (int point = 0; point < targetPoints; ++point)
+		{
+			int retFlag;
+			feedThumbnail(startSample, point, samplesPerPoint, retFlag);
+			if (retFlag == 2)
+				break;
+		}
+	}
+
+	void feedThumbnail(int startSample, int point, int samplesPerPoint, int& retFlag)
+	{
+		retFlag = 1;
+		int sampleStart = startSample + (point * samplesPerPoint);
+		int sampleEnd = std::min(sampleStart + samplesPerPoint, audioBuffer.getNumSamples());
+		if (sampleStart >= audioBuffer.getNumSamples())
+		{
+			{
+				retFlag = 2;
+				return;
+			};
+		}
+		float rmsSum = 0.0f;
+		float peak = 0.0f;
+		int count = 0;
+
+		for (int sample = sampleStart; sample < sampleEnd; ++sample)
+		{
+
+			if (sample >= audioBuffer.getNumSamples())
+			{
+				break;
+			}
+			for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
+			{
+				float val = audioBuffer.getSample(ch, sample);
+				rmsSum += val * val;
+				peak = std::max(peak, std::abs(val));
+				count++;
+			}
+		}
+
+		float rms = count > 0 ? std::sqrt(rmsSum / count) : 0.0f;
+		float finalValue = (rms * 0.7f) + (peak * 0.3f);
+
+		thumbnail.push_back(finalValue);
+	}
+
+	void drawWaveform(juce::Graphics& g)
+	{
+		if (thumbnail.empty())
+			return;
+
+		juce::Colour waveformColor;
+		setColorDependingTimeStretchRatio(waveformColor);
+
+		g.setColour(waveformColor);
+
+		juce::Path waveformPath;
+		bool pathStarted = false;
+
+		int thumbnailSize = thumbnail.size();
+		float pixelsPerPoint = (float)getWidth() / thumbnailSize;
+
+		for (int i = 0; i < thumbnailSize; ++i)
+		{
+			generateTopHalfPath(i, pixelsPerPoint, pathStarted, waveformPath, thumbnailSize);
+		}
+
+		g.strokePath(waveformPath, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
+
+		juce::Path bottomPath;
+		pathStarted = false;
+
+		for (int i = 0; i < thumbnailSize; ++i)
+		{
+			generateBottomHalfPath(i, pixelsPerPoint, pathStarted, bottomPath, thumbnailSize);
+		}
+
+		g.strokePath(bottomPath, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
+
+		g.setColour(juce::Colours::lightblue.withAlpha(0.3f));
+		g.drawLine(0, getHeight() * 0.5f, getWidth(), getHeight() * 0.5f, 0.5f);
+	}
+
+	void setColorDependingTimeStretchRatio(juce::Colour& waveformColor) const
+	{
+		if (timeStretchRatio > 1.1f)
+		{
+			waveformColor = juce::Colours::orange;
+		}
+		else if (timeStretchRatio < 0.9f)
+		{
+			waveformColor = juce::Colours::lightblue;
+		}
+		else
+		{
+			waveformColor = juce::Colours::lightgreen;
+		}
+	}
+
+	void generateBottomHalfPath(int i, float pixelsPerPoint, bool& pathStarted, juce::Path& bottomPath, int thumbnailSize)
+	{
+		float x = i * pixelsPerPoint;
+		float amplitude = thumbnail[i];
+
+		float centerY = getHeight() * 0.5f;
+		float waveHeight = amplitude * centerY * 0.8f;
+		float bottomY = centerY + waveHeight;
+
+		if (!pathStarted)
+		{
+			bottomPath.startNewSubPath(x, centerY);
+			pathStarted = true;
+		}
+
+		if (i > 0 && i < thumbnailSize - 1)
+		{
+			float prevX = (i - 1) * pixelsPerPoint;
+			float nextX = (i + 1) * pixelsPerPoint;
+			float controlX = (prevX + nextX) * 0.5f;
+			bottomPath.quadraticTo(controlX, bottomY, x, bottomY);
+		}
+		else
+		{
+			bottomPath.lineTo(x, bottomY);
+		}
+	}
+
+	void generateTopHalfPath(int i, float pixelsPerPoint, bool& pathStarted, juce::Path& waveformPath, int thumbnailSize)
+	{
+		float x = i * pixelsPerPoint;
+		float amplitude = thumbnail[i];
+
+		float centerY = getHeight() * 0.5f;
+		float waveHeight = amplitude * centerY * 0.8f;
+
+		float topY = centerY - waveHeight;
+		float bottomY = centerY + waveHeight;
+
+		if (!pathStarted)
+		{
+			waveformPath.startNewSubPath(x, centerY);
+			pathStarted = true;
+		}
+		if (i > 0 && i < thumbnailSize - 1)
+		{
+			float prevX = (i - 1) * pixelsPerPoint;
+			float nextX = (i + 1) * pixelsPerPoint;
+
+			float controlX = (prevX + nextX) * 0.5f;
+			waveformPath.quadraticTo(controlX, topY, x, topY);
+		}
+		else
+		{
+			waveformPath.lineTo(x, topY);
+		}
+	}
+
+	void drawLoopMarkers(juce::Graphics& g)
+	{
+		float startX = timeToX(loopStart);
+		float endX = timeToX(loopEnd);
+
+		juce::Colour loopColour = loopPointsLocked ? juce::Colours::orange : juce::Colours::green;
+		g.setColour(loopColour.withAlpha(0.2f));
+		g.fillRect(startX, 0.0f, endX - startX, (float)getHeight());
+
+		float lineWidth = loopPointsLocked ? 3.0f : 2.0f;
+		g.setColour(loopColour);
+		g.drawLine(startX, 0, startX, getHeight(), lineWidth);
+		g.drawLine(endX, 0, endX, getHeight(), lineWidth);
+
+		if (trackBpm > 0.0f)
+		{
+			drawLoopBarLabels(g, startX, endX);
+		}
+		else
+		{
+			drawLoopTimeLabels(g, startX, endX);
+		}
+	}
+
+	void drawLoopTimeLabels(juce::Graphics& g, float startX, float endX)
+	{
+		g.setColour(juce::Colours::white);
+		g.setFont(10.0f);
+		g.drawText(juce::String(loopStart, 2) + "s", startX + 2, 2, 50, 15,
+			juce::Justification::left);
+		g.drawText(juce::String(loopEnd, 2) + "s", endX - 50, 2, 48, 15,
+			juce::Justification::right);
+	}
+
+	void drawLoopBarLabels(juce::Graphics& g, float startX, float endX) const
+	{
+		double beatDuration = 60.0 / trackBpm;
+		double barDuration = beatDuration * 4.0;
+
+		int startBar = (int)(loopStart / barDuration) + 1;
+		int endBar = (int)(loopEnd / barDuration);
+		int totalBars = endBar - startBar + 1;
+
+		g.setColour(juce::Colours::white);
+		g.setFont(10.0f);
+
+		g.drawText("Bar " + juce::String(startBar), startX + 2, 2, 50, 15,
+			juce::Justification::left);
+
+		g.drawText("Bar " + juce::String(endBar) + " (" + juce::String(totalBars) + " bars)",
+			endX - 80, 2, 78, 15, juce::Justification::right);
+	}
+
+	void drawPlaybackHead(juce::Graphics& g)
+	{
+		if (isCurrentlyPlaying && playbackPosition >= 0.0)
+		{
+			double displayPosition = playbackPosition;
+			if (stretchRatio > 0.0f && stretchRatio != 1.0f)
+			{
+				displayPosition = playbackPosition / stretchRatio;
+			}
+			float headX = timeToX(displayPosition);
+
+			if (headX >= 0 && headX <= getWidth())
+			{
+				g.setColour(juce::Colours::red);
+				g.drawLine(headX, 0, headX, getHeight(), 4.0f);
+
+				juce::Path triangle;
+				triangle.addTriangle(headX - 8, 0, headX + 8, 0, headX, 16);
+				g.setColour(juce::Colours::yellow);
+				g.fillPath(triangle);
+
+				triangle.clear();
+				triangle.addTriangle(headX - 8, getHeight(), headX + 8, getHeight(), headX, getHeight() - 16);
+				g.fillPath(triangle);
+
+				g.setColour(juce::Colours::white);
+				g.setFont(14.0f);
+				g.drawText(juce::String(playbackPosition, 2) + "s", headX - 40, getHeight() / 2 - 10, 80, 20,
+					juce::Justification::centred);
+			}
+		}
+	}
+
+	float timeToX(double time)
+	{
+		double totalDuration = getTotalDuration();
+		if (totalDuration <= 0.0)
+			return 0.0f;
+
+		double viewDuration = totalDuration / zoomFactor;
+		if (viewDuration <= 0.0)
+			return 0.0f;
+
+		double relativeTime = time - viewStartTime;
+		float result = juce::jmap(relativeTime, 0.0, viewDuration, 0.0, (double)getWidth());
+
+		return juce::jlimit(0.0f, (float)getWidth(), result);
+	}
+
+	void drawBeatMarkers(juce::Graphics& g)
+	{
+		if (thumbnail.empty() || sampleBpm <= 0.0f)
+			return;
+
+		float totalDuration = getTotalDuration();
+		float viewDuration = totalDuration / zoomFactor;
+		float viewEndTime = getViewEndTime();
+
+		float beatDuration = 60.0f / sampleBpm;
+		float barDuration = beatDuration * 4.0f;
+
+		g.setColour(juce::Colours::white.withAlpha(0.8f));
+		for (float time = 0.0f; time <= viewEndTime; time += barDuration)
+		{
+			drawMeasures(time, g, barDuration);
+		}
+
+		if (zoomFactor > 2.0)
+		{
+			drawBeats(g, beatDuration, viewEndTime, barDuration);
+		}
+	}
+
+	void drawMeasures(float time, juce::Graphics& g, float barDuration)
+	{
+		if (time >= viewStartTime)
+		{
+			float x = timeToX(time);
+			if (x >= 0 && x <= getWidth())
+			{
+				g.drawLine(x, 0, x, getHeight(), 2.0f);
+				int measureNumber = (int)(time / barDuration) + 1;
+				g.setFont(10.0f);
+				g.drawText(juce::String(measureNumber), x + 2, 2, 30, 15,
+					juce::Justification::left);
+			}
+		}
+	}
+
+	void drawBeats(juce::Graphics& g, float beatDuration, float viewEndTime, float barDuration)
+	{
+		g.setColour(juce::Colours::white.withAlpha(0.4f));
+		for (float time = beatDuration; time <= viewEndTime; time += beatDuration)
+		{
+			if (fmod(time, barDuration) < 0.01f)
+				continue;
+
+			if (time >= viewStartTime)
+			{
+				float x = timeToX(time);
+				if (x >= 0 && x <= getWidth())
+				{
+					g.drawLine(x, 0, x, getHeight(), 1.0f);
+				}
+			}
+		}
+	}
+
+	double xToTime(float x)
+	{
+		double totalDuration = getTotalDuration();
+		if (totalDuration <= 0.0)
+		{
+			return 0.0;
+		}
+
+		double viewDuration = totalDuration / zoomFactor;
+		if (viewDuration <= 0.0)
+		{
+			return 0.0;
+		}
+
+		double relativeTime = juce::jmap((double)x, 0.0, (double)getWidth(), 0.0, viewDuration);
+		double result = viewStartTime + relativeTime;
+
+		return juce::jlimit(0.0, totalDuration, result);
+	}
+
+	double getTotalDuration() const
+	{
+		if (audioBuffer.getNumSamples() == 0 || sampleRate <= 0)
+			return 0.0;
+
+		double originalDuration = audioBuffer.getNumSamples() / sampleRate;
+
+		return originalDuration / timeStretchRatio;
+	}
+
+	double getViewStartTime() const
+	{
+		return viewStartTime;
+	}
+
+	double getViewEndTime() const
+	{
+		return juce::jlimit(viewStartTime, getTotalDuration(),
+			viewStartTime + (getTotalDuration() / zoomFactor));
+	}
 };
