@@ -8,24 +8,24 @@ class DjIaVstProcessor;
 class TrackComponent : public juce::Component, public juce::Timer
 {
 public:
-	TrackComponent(const juce::String &trackId, DjIaVstProcessor &processor);
+	TrackComponent(const juce::String& trackId, DjIaVstProcessor& processor);
 	~TrackComponent();
 	juce::String getTrackId() const
 	{
 		return trackId;
 	}
 
-	std::function<void(const juce::String &)> onDeleteTrack;
-	std::function<void(const juce::String &)> onSelectTrack;
-	std::function<void(const juce::String &)> onGenerateForTrack;
-	std::function<void(const juce::String &, const juce::String &)> onTrackRenamed;
+	std::function<void(const juce::String&)> onDeleteTrack;
+	std::function<void(const juce::String&)> onSelectTrack;
+	std::function<void(const juce::String&)> onGenerateForTrack;
+	std::function<void(const juce::String&, const juce::String&)> onTrackRenamed;
 	juce::TextButton showWaveformButton;
-	TrackData *getTrack() const { return track; }
+	TrackData* getTrack() const { return track; }
 
-	std::function<void(const juce::String &, const juce::String &)> onReorderTrack;
+	std::function<void(const juce::String&, const juce::String&)> onReorderTrack;
 
 	void setSelected(bool selected);
-	void setTrackData(TrackData *trackData);
+	void setTrackData(TrackData* trackData);
 	void refreshWaveformDisplay();
 	bool isWaveformVisible() const;
 	void startGeneratingAnimation();
@@ -37,15 +37,17 @@ public:
 	void toggleWaveformDisplay();
 	void refreshWaveformIfNeeded();
 
-	juce::TextButton *getGenerateButton() { return &generateButton; }
-	juce::Slider *getBpmOffsetSlider() { return &bpmOffsetSlider; }
+	bool isEditingLabel = false;
+
+	juce::TextButton* getGenerateButton() { return &generateButton; }
+	juce::Slider* getBpmOffsetSlider() { return &bpmOffsetSlider; }
 
 private:
 	juce::String trackId;
-	TrackData *track;
+	TrackData* track;
 	bool isSelected = false;
 	std::unique_ptr<WaveformDisplay> waveformDisplay;
-	DjIaVstProcessor &audioProcessor;
+	DjIaVstProcessor& audioProcessor;
 
 	juce::TextButton selectButton;
 	juce::Label trackNameLabel;
@@ -58,7 +60,6 @@ private:
 	juce::Slider bpmOffsetSlider;
 	juce::Label bpmOffsetLabel;
 
-	juce::TextEditor trackNameEditor;
 	juce::ComboBox midiNoteSelector;
 
 	bool isGenerating = false;
@@ -66,7 +67,7 @@ private:
 
 	void calculateHostBasedDisplay();
 	float calculateEffectiveBpm();
-	void paint(juce::Graphics &g);
+	void paint(juce::Graphics& g);
 	void resized();
 	void timerCallback() override;
 	void setupUI();

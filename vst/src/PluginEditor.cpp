@@ -81,7 +81,7 @@ void DjIaVstEditor::updateUIComponents()
 		if (trackComp->isShowing())
 		{
 			TrackData* track = audioProcessor.getTrack(trackComp->getTrackId());
-			if (track && track->isPlaying.load())
+			if (track && track->isPlaying.load() && !trackComp->isEditingLabel)
 			{
 				trackComp->updateFromTrackData();
 			}
@@ -1042,7 +1042,6 @@ void DjIaVstEditor::updateLoadButtonState()
 
 void DjIaVstEditor::refreshTrackComponents()
 {
-
 	auto trackIds = audioProcessor.getAllTrackIds();
 	DBG("🔍 BEFORE sorting - Raw track order:");
 	for (const auto& trackId : trackIds)
