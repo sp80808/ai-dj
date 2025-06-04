@@ -177,11 +177,15 @@ private:
 	juce::String selectedTrackId;
 	juce::String generatingTrackId = "";
 
+	juce::CriticalSection filesToDeleteLock;
+
 	std::function<void(const juce::String&)> midiIndicatorCallback;
 
 	std::atomic<double> cachedHostBpm{ 126.0 };
 
 	std::vector<juce::AudioBuffer<float>> individualOutputBuffers;
+
+	std::vector<juce::File> filesToDeleteOnExit;
 
 	std::unordered_map<int, juce::String> playingTracks;
 
@@ -245,6 +249,8 @@ private:
 	void saveBufferToFile(const juce::AudioBuffer<float>& buffer,
 		const juce::File& outputFile,
 		double sampleRate);
+	void markFileForDeletion(const juce::File& file);
+	void cleanupTemporaryFiles();
 
 	TrackComponent* findTrackComponentByName(const juce::String& trackName, DjIaVstEditor* editor);
 
