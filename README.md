@@ -4,6 +4,8 @@
 
 OBSIDIAN transforms AI into a live music instrument using intelligent LLM prompts and Stable Audio Open to create contextually aware loops directly in your DAW.
 
+![OBSIDIAN Interface](./screenshot.png)
+
 ---
 
 ## 🔮 Key Features
