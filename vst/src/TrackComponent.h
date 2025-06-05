@@ -1,7 +1,8 @@
 #pragma once
 #include "JuceHeader.h"
-#include "WaveformDisplay.h"
 #include "TrackManager.h"
+
+class WaveformDisplay;
 
 class DjIaVstProcessor;
 

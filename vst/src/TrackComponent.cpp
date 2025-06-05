@@ -48,7 +48,7 @@ void TrackComponent::toggleWaveformDisplay()
 	{
 		if (!waveformDisplay)
 		{
-			waveformDisplay = std::make_unique<WaveformDisplay>();
+			waveformDisplay = std::make_unique<WaveformDisplay>(audioProcessor);
 			waveformDisplay->onLoopPointsChanged = [this](double start, double end)
 				{
 					if (track)
@@ -137,20 +137,19 @@ void TrackComponent::updateFromTrackData()
 	trackNumberLabel.setText(juce::String(track->slotIndex + 1), juce::dontSendNotification);
 	trackNumberLabel.setColour(juce::Label::backgroundColourId, getTrackColour(track->slotIndex));
 
-	calculateHostBasedDisplay();
-
-	bool isCurrentlyPlaying = track->isPlaying.load();
-	bool isMuted = track->isMuted.load();
-
 	if (waveformDisplay)
 	{
+		bool isCurrentlyPlaying = track->isPlaying.load();
+		bool isMuted = track->isMuted.load();
 		bool shouldLock = isCurrentlyPlaying && !isMuted;
+
 		waveformDisplay->lockLoopPoints(shouldLock);
 
 		if (track->numSamples > 0 && track->sampleRate > 0)
 		{
 			double startSample = track->loopStart * track->sampleRate;
 			double currentTimeInSection = (startSample + track->readPosition.load()) / track->sampleRate;
+			calculateHostBasedDisplay();
 			waveformDisplay->setPlaybackPosition(currentTimeInSection, isCurrentlyPlaying);
 		}
 	}

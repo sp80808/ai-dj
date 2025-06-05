@@ -390,14 +390,7 @@ private:
 		juce::AudioBuffer<float>& individualOutput,
 		int numSamples, double hostSampleRate, int trackIndex, double hostBpm) const
 	{
-		if (track.numSamples == 0 || !track.isPlaying.load())
-			return;
-
-		const float volume = juce::jlimit(0.0f, 1.0f, track.volume.load());
-		const float pan = juce::jlimit(-1.0f, 1.0f, track.pan.load());
-		double currentPosition = track.readPosition.load();
-		double playbackRatio = 1.0;
-		if (parameterUpdateCallback && track.isPlaying.load())
+		if (parameterUpdateCallback)
 		{
 			int slot = track.slotIndex;
 			if (slot != -1)
@@ -405,6 +398,13 @@ private:
 				parameterUpdateCallback(slot, &track);
 			}
 		}
+		if (track.numSamples == 0 || !track.isPlaying.load())
+			return;
+
+		const float volume = juce::jlimit(0.0f, 1.0f, track.volume.load());
+		const float pan = juce::jlimit(-1.0f, 1.0f, track.pan.load());
+		double currentPosition = track.readPosition.load();
+		double playbackRatio = 1.0;
 
 		switch (track.timeStretchMode)
 		{

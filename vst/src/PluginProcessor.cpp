@@ -539,11 +539,15 @@ void DjIaVstProcessor::handleSampleParams(int slot, TrackData* track)
 	if (std::abs(track->bpmOffset - paramPitch) > 0.01f)
 	{
 		track->bpmOffset = paramPitch;
+		needsUIUpdate = true;
+
 	}
 
 	if (std::abs(track->fineOffset - paramFine) > 0.01f)
 	{
-		track->fineOffset = paramFine * 0.1f;
+		track->fineOffset = paramFine * 0.05f;
+		track->bpmOffset = paramPitch + track->fineOffset;
+		needsUIUpdate = true;
 	}
 	bool isSolo = paramSolo > 0.5f;
 	bool isMuted = paramMute > 0.5f;
@@ -556,6 +560,7 @@ void DjIaVstProcessor::handleSampleParams(int slot, TrackData* track)
 	{
 		track->isMuted = isMuted;
 	}
+
 }
 
 void DjIaVstProcessor::updateTimeStretchRatios(double hostBpm)

@@ -82,7 +82,7 @@ void DjIaVstEditor::updateUIComponents()
 		if (trackComp->isShowing())
 		{
 			TrackData* track = audioProcessor.getTrack(trackComp->getTrackId());
-			if (track && track->isPlaying.load() && !trackComp->isEditingLabel)
+			if (track && !trackComp->isEditingLabel)
 			{
 				trackComp->updateFromTrackData();
 			}

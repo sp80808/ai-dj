@@ -27,6 +27,7 @@ target_sources(ObsidianVST
         src/MixerChannel.cpp
         src/TrackComponent.cpp
         src/MasterChannel.cpp
+        src/WaveformDisplay.cpp
         )
 
 target_include_directories(ObsidianVST
