@@ -25,12 +25,15 @@ public:
 		if (bypass)
 			return;
 
-		for (int ch = 0; ch < std::min(2, buffer.getNumChannels()); ++ch)
+		const int numChannels = std::min(2, buffer.getNumChannels());
+		const int numSamples = buffer.getNumSamples();
+
+		for (int ch = 0; ch < numChannels; ++ch)
 		{
 			auto* channelData = buffer.getWritePointer(ch);
-			lowFilters[ch].processSamples(channelData, buffer.getNumSamples());
-			midFilters[ch].processSamples(channelData, buffer.getNumSamples());
-			highFilters[ch].processSamples(channelData, buffer.getNumSamples());
+			lowFilters[ch].processSamples(channelData, numSamples);
+			midFilters[ch].processSamples(channelData, numSamples);
+			highFilters[ch].processSamples(channelData, numSamples);
 		}
 	}
 

@@ -155,6 +155,9 @@ private:
 	double audioSampleRate = 0.0;
 	double lastDuration = 6.0;
 
+	float smoothedMasterVol = 1.0f;
+	float smoothedMasterPan = 0.0f;
+
 	bool hostBpmEnabled = false;
 	bool drumsEnabled = false;
 	bool bassEnabled = false;
