@@ -6,6 +6,12 @@ OBSIDIAN transforms AI into a live music instrument using intelligent LLM prompt
 
 ![OBSIDIAN Interface](./screenshot.png)
 
+## 🎵 Live Demo
+
+[![OBSIDIAN Live Performance](https://img.youtube.com/vi/l4KMC5adxVA/maxresdefault.jpg)](https://www.youtube.com/watch?v=l4KMC5adxVA)
+
+_Click to watch: World's First AI Jam Partner in action!_
+
 ---
 
 ## 🔮 Key Features
