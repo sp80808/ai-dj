@@ -4,6 +4,14 @@
 
 OBSIDIAN transforms AI into a live music instrument using intelligent LLM prompts and Stable Audio Open to create contextually aware loops directly in your DAW.
 
+## 🏆 Press Coverage
+
+📰 **[Featured on Bedroom Producers Blog](https://bedroomproducersblog.com/2025/06/06/obsidian-neural-sound-engine/)** - _"OBSIDIAN Neural Sound Engine, a FREE AI-powered jam partner"_
+
+> "Too many AI projects focus on the things AI can save you from doing rather than how AI can help you get better at what you do." - James Nugent, BPB
+
+---
+
 ![OBSIDIAN Interface](./screenshot.png)
 
 ## 🎵 Live Demo
