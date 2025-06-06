@@ -122,16 +122,6 @@ void SequencerComponent::paint(juce::Graphics& g)
 			g.drawText(juce::String(i + 1), stepBounds, juce::Justification::centred);
 		}
 	}
-
-	auto headerBounds = juce::Rectangle<int>(10, 10, 200, 20);
-	g.setColour(trackColour);
-	g.setFont(juce::Font(10.0f, juce::Font::bold));
-	g.drawText("SEQ", headerBounds.removeFromLeft(50), juce::Justification::centredLeft);
-
-	g.setColour(juce::Colours::white.withAlpha(0.8f));
-	g.setFont(juce::Font(9.0f));
-	g.drawText(juce::String(beatsPerMeasure) + "/4",
-		headerBounds.removeFromLeft(30), juce::Justification::centredLeft);
 }
 
 juce::Rectangle<int> SequencerComponent::getStepBounds(int step)
@@ -141,7 +131,7 @@ juce::Rectangle<int> SequencerComponent::getStepBounds(int step)
 	int margin = 4;
 	int startY = 50;
 
-	int x = 8 + step * (stepWidth + margin);
+	int x = 13 + step * (stepWidth + margin);
 	int y = startY;
 
 	return juce::Rectangle<int>(x, y, stepWidth, stepHeight);
@@ -153,15 +143,10 @@ void SequencerComponent::mouseDown(const juce::MouseEvent& event)
 
 	for (int i = 0; i < stepsToShow; ++i) {
 		if (getStepBounds(i).contains(event.getPosition())) {
-
-			// Active le mode édition temporairement
 			isEditing = true;
-
 			toggleStep(i);
 			repaint();
-
-			// Désactive l'édition après 500ms
-			juce::Timer::callAfterDelay(100, [this]() {
+			juce::Timer::callAfterDelay(50, [this]() {
 				isEditing = false;
 				});
 
@@ -174,18 +159,17 @@ void SequencerComponent::toggleStep(int step)
 {
 	TrackData* track = audioProcessor.getTrack(trackId);
 	if (track) {
-		// Modifie les données dans TrackData
 		track->sequencerData.steps[currentMeasure][step] = !track->sequencerData.steps[currentMeasure][step];
-		track->sequencerData.velocities[currentMeasure][step] = 0.8f; // Vélocité par défaut
+		track->sequencerData.velocities[currentMeasure][step] = 0.8f;
 
 		// Synchronise l'affichage local
 		steps[currentMeasure][step].active = track->sequencerData.steps[currentMeasure][step];
 		steps[currentMeasure][step].velocity = track->sequencerData.velocities[currentMeasure][step];
 	}
 
-	// TODO: ici on pourra ajouter la gestion de la vélocité avec un modifier
+	// TODO: velocity
 	if (juce::ModifierKeys::getCurrentModifiers().isShiftDown()) {
-		// Shift+click pour ajuster la vélocité
+		// Shift+click to adjust velocity
 	}
 }
 
@@ -200,27 +184,19 @@ void SequencerComponent::resized()
 {
 	auto bounds = getLocalBounds();
 
-	bounds.removeFromTop(5);
+	bounds.removeFromTop(10);
+	bounds.removeFromLeft(13);
 
-	// Zone de contrôles en haut à droite
-	auto controlArea = bounds.removeFromTop(30).removeFromRight(230);
-
-	// Pagination des mesures
+	auto controlArea = bounds.removeFromTop(30).removeFromLeft(230);
 	auto pageArea = controlArea.removeFromLeft(120);
 	prevMeasureButton.setBounds(pageArea.removeFromLeft(25));
 	measureLabel.setBounds(pageArea.removeFromLeft(40));
 	nextMeasureButton.setBounds(pageArea.removeFromLeft(25));
 
-	controlArea.removeFromLeft(10);
+	controlArea.removeFromLeft(5);
 
-	// Sliders
 	auto measureArea = controlArea.removeFromLeft(80);
 	measureSlider.setBounds(measureArea);
-
-	controlArea.removeFromLeft(10);
-
-	auto timeArea = controlArea.removeFromLeft(80);
-	timeSignatureSlider.setBounds(timeArea);
 }
 
 void SequencerComponent::setCurrentMeasure(int measure)
