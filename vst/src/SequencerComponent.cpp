@@ -29,17 +29,25 @@ void SequencerComponent::setupUI() {
 	addAndMakeVisible(prevMeasureButton);
 	prevMeasureButton.setButtonText("<");
 	prevMeasureButton.onClick = [this]() {
+		isEditing = true;
 		if (currentMeasure > 0) {
 			setCurrentMeasure(currentMeasure - 1);
 		}
+		juce::Timer::callAfterDelay(50, [this]() {
+			isEditing = false;
+			});
 		};
 
 	addAndMakeVisible(nextMeasureButton);
 	nextMeasureButton.setButtonText(">");
 	nextMeasureButton.onClick = [this]() {
+		isEditing = true;
 		if (currentMeasure < numMeasures - 1) {
 			setCurrentMeasure(currentMeasure + 1);
 		}
+		juce::Timer::callAfterDelay(50, [this]() {
+			isEditing = false;
+			});
 		};
 
 	addAndMakeVisible(measureLabel);

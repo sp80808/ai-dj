@@ -285,6 +285,7 @@ private:
 	void saveBufferToFile(const juce::AudioBuffer<float>& buffer,
 		const juce::File& outputFile,
 		double sampleRate);
+	void executePendingAction(TrackData* track) const;
 
 	TrackComponent* findTrackComponentByName(const juce::String& trackName, DjIaVstEditor* editor);
 

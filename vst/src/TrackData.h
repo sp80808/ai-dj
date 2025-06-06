@@ -42,6 +42,14 @@ struct TrackData
 	bool showWaveform = false;
 	bool showSequencer = false;
 
+	enum class PendingAction {
+		None,
+		StartOnNextMeasure,
+		StopOnNextMeasure
+	};
+
+	PendingAction pendingAction = PendingAction::None;
+
 	struct SequencerData {
 		bool steps[4][16] = {};
 		float velocities[4][16] = {};

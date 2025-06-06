@@ -340,34 +340,38 @@ void MixerChannel::addEventListeners()
 				if (!track->isPlaying.load())
 				{
 					bool shouldArm = playButton.getToggleState();
-					track->isArmed = shouldArm;
-					if (!shouldArm)
-					{
-						track->isPlaying = false;
+					if (shouldArm) {
+						track->pendingAction = TrackData::PendingAction::StartOnNextMeasure;
+						track->isArmed = true;
+					}
+					else {
+						track->pendingAction = TrackData::PendingAction::None;
+						track->isArmed = false;
 					}
 				}
 				else if (track->isPlaying.load())
 				{
+					track->pendingAction = TrackData::PendingAction::StopOnNextMeasure;
 					track->isArmed = false;
 					track->isArmedToStop = true;
 					playButton.setToggleState(false, juce::dontSendNotification);
-
 					isBlinking = true;
 					startTimer(300);
 				}
 				setButtonParameter("Play", playButton);
 			}
 		};
+
 	stopButton.onClick = [this]()
 		{
 			if (track)
 			{
 				if (track->isPlaying.load() && !track->isArmedToStop.load())
 				{
+					track->pendingAction = TrackData::PendingAction::StopOnNextMeasure;
 					track->isArmed = false;
 					track->isArmedToStop = true;
 					playButton.setToggleState(false, juce::dontSendNotification);
-
 					isBlinking = true;
 					startTimer(300);
 				}
