@@ -51,10 +51,12 @@ private:
 	juce::TextButton prevMeasureButton, nextMeasureButton;
 
 	juce::Label measureLabel;
+	juce::Label currentPlayingMeasureLabel;
 
 	juce::Rectangle<int> getStepBounds(int step);
 
 	void toggleStep(int step);
+	void setupUI();
 
 	double samplesPerStep;
 	double stepAccumulator;

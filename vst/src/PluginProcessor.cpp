@@ -333,26 +333,28 @@ void DjIaVstProcessor::handleSequencerPlayState(bool hostIsPlaying)
 	static bool wasPlaying = false;
 
 	if (hostIsPlaying && !wasPlaying) {
-		// DAW démarre
 		auto trackIds = trackManager.getAllTrackIds();
 		for (const auto& trackId : trackIds) {
 			TrackData* track = trackManager.getTrack(trackId);
 			if (track) {
 				track->sequencerData.isPlaying = true;
 				track->sequencerData.currentStep = 0;
+				track->sequencerData.currentMeasure = 0;
 				track->sequencerData.stepAccumulator = 0.0;
 			}
 		}
 	}
 	else if (!hostIsPlaying && wasPlaying) {
-		// DAW s'arrête → ARRÊTE TOUT !
 		auto trackIds = trackManager.getAllTrackIds();
 		for (const auto& trackId : trackIds) {
 			TrackData* track = trackManager.getTrack(trackId);
 			if (track) {
 				track->sequencerData.isPlaying = false;
-				track->isPlaying = false;  // ← AJOUTE ça !
-				track->readPosition = 0.0; // ← Et ça !
+				track->isPlaying = false;
+				track->readPosition = 0.0;
+				track->sequencerData.currentStep = 0;
+				track->sequencerData.currentMeasure = 0;
+				track->sequencerData.stepAccumulator = 0.0;
 			}
 		}
 	}
@@ -1569,14 +1571,12 @@ void DjIaVstProcessor::updateSequencers()
 	auto positionInfo = playHead->getPosition();
 	if (!positionInfo) return;
 
-	// Récupère la position en PPQ (Pulses Per Quarter note)
 	auto ppqPosition = positionInfo->getPpqPosition();
 	if (!ppqPosition.hasValue()) return;
 
 	double currentPpq = *ppqPosition;
 
-	// Calcule le step courant (16èmes de note = 0.25 PPQ)
-	double stepInPpq = 0.25; // 1/16ème de note
+	double stepInPpq = 0.25;
 	int globalStep = (int)(currentPpq / stepInPpq);
 
 	auto trackIds = trackManager.getAllTrackIds();
@@ -1585,14 +1585,12 @@ void DjIaVstProcessor::updateSequencers()
 		TrackData* track = trackManager.getTrack(trackId);
 		if (track && track->sequencerData.isPlaying) {
 
-			// Calcule step et mesure selon la longueur de séquence
 			int stepsPerMeasure = track->sequencerData.beatsPerMeasure * 4;
 			int totalSteps = track->sequencerData.numMeasures * stepsPerMeasure;
 
 			int newStep = globalStep % stepsPerMeasure;
 			int newMeasure = (globalStep / stepsPerMeasure) % track->sequencerData.numMeasures;
 
-			// Trigger seulement si on change de step
 			bool stepChanged = (newStep != track->sequencerData.currentStep ||
 				newMeasure != track->sequencerData.currentMeasure);
 
@@ -1600,10 +1598,8 @@ void DjIaVstProcessor::updateSequencers()
 				track->sequencerData.currentStep = newStep;
 				track->sequencerData.currentMeasure = newMeasure;
 
-				// Trigger le nouveau step
 				triggerSequencerStep(track);
 
-				// Notifie l'UI
 				if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
 					juce::MessageManager::callAsync([editor, trackId]() {
 						if (auto* sequencer = static_cast<SequencerComponent*>(editor->getSequencerForTrack(trackId))) {
@@ -1623,8 +1619,6 @@ void DjIaVstProcessor::triggerSequencerStep(TrackData* track)
 
 	if (track->sequencerData.steps[measure][step]) {
 
-
-		// Si armed to stop → arrête
 		if (track->isArmedToStop.load()) {
 			track->isPlaying = false;
 			track->isArmedToStop = false;
@@ -1634,21 +1628,17 @@ void DjIaVstProcessor::triggerSequencerStep(TrackData* track)
 			return;
 		}
 
-		// Si pas armé → ne fait rien
 		if (!track->isArmed.load()) {
 			return;
 		}
 
-		// Position de départ = loop start (en samples)
-		double startSample = track->loopStart * track->sampleRate;
-		track->readPosition = startSample;
+		track->readPosition = 0.0;
 
 		if (!track->isPlaying.load()) {
 			track->setPlaying(true);
 		}
 		playingTracks[track->midiNote] = track->trackId;
 
-		// MIDI pour la cohérence du système (optionnel)
 		juce::MidiMessage noteOn = juce::MidiMessage::noteOn(1, track->midiNote,
 			(juce::uint8)(track->sequencerData.velocities[measure][step] * 127));
 		addSequencerMidiMessage(noteOn);
@@ -1662,5 +1652,6 @@ void DjIaVstProcessor::advanceSequencerStep(TrackData* track)
 
 	if (track->sequencerData.currentStep == 0 && track->sequencerData.numMeasures > 1) {
 		track->sequencerData.currentMeasure = (track->sequencerData.currentMeasure + 1) % track->sequencerData.numMeasures;
+		track->sequencerData.currentMeasure = juce::jlimit(0, 3, track->sequencerData.currentMeasure);
 	}
 }

@@ -31,6 +31,10 @@ DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor& p)
 				{
 					trackComp->toggleWaveformDisplay();
 				}
+				if (trackComp->getTrack() && trackComp->getTrack()->showSequencer)
+				{
+					trackComp->toggleSequencerDisplay();
+				}
 			}
 			if (audioProcessor.getIsGenerating())
 			{
@@ -569,6 +573,7 @@ void DjIaVstEditor::addEventListeners()
 				generateButton.setEnabled(true);
 				setAllGenerateButtonsEnabled(true);
 				toggleWaveFormButtonOnTrack();
+				toggleSEQButtonOnTrack();
 				statusLabel.setText("UI Reset - Ready", juce::dontSendNotification);
 
 				for (auto& trackComp : trackComponents)
@@ -1250,6 +1255,23 @@ void DjIaVstEditor::toggleWaveFormButtonOnTrack()
 	}
 }
 
+void DjIaVstEditor::toggleSEQButtonOnTrack()
+{
+	auto trackIds = audioProcessor.getAllTrackIds();
+	for (const auto& trackId : trackIds)
+	{
+		TrackData* track = audioProcessor.getTrack(trackId);
+		if (track)
+		{
+			track->showSequencer = false;
+		}
+	}
+	for (auto& trackComponent : trackComponents)
+	{
+		trackComponent->sequencerToggleButton.setToggleState(false, juce::dontSendNotification);
+	}
+}
+
 void DjIaVstEditor::setStatusWithTimeout(const juce::String& message, int timeoutMs)
 {
 	statusLabel.setText(message, juce::dontSendNotification);
@@ -1271,6 +1293,7 @@ void DjIaVstEditor::onAddTrack()
 			mixerPanel->trackAdded(newTrackId);
 		}
 		toggleWaveFormButtonOnTrack();
+		toggleSEQButtonOnTrack();
 		setStatusWithTimeout("New track created");
 	}
 	catch (const std::exception& e)

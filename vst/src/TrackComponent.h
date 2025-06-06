@@ -46,6 +46,8 @@ public:
 	static const int SEQUENCER_HEIGHT = 100;
 
 	juce::TextButton showWaveformButton;
+	juce::TextButton sequencerToggleButton;
+
 	TrackData* getTrack() const { return track; }
 
 	std::function<void(const juce::String&, const juce::String&)> onReorderTrack;
@@ -62,6 +64,7 @@ public:
 	void updatePlaybackPosition(double timeInSeconds);
 	void toggleWaveformDisplay();
 	void refreshWaveformIfNeeded();
+	void toggleSequencerDisplay();
 
 	bool isEditingLabel = false;
 
@@ -84,7 +87,6 @@ private:
 	juce::Label trackNameLabel;
 	juce::TextButton deleteButton;
 	juce::TextButton generateButton;
-	juce::TextButton sequencerToggleButton;
 	juce::Label infoLabel;
 
 	juce::ComboBox timeStretchModeSelector;
@@ -107,7 +109,6 @@ private:
 	void adjustLoopPointsToTempo();
 	void updateTrackInfo();
 	void setupMidiLearn();
-	void toggleSequencerDisplay();
 
 	juce::Colour getTrackColour(int trackIndex);
 };

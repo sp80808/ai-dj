@@ -84,7 +84,6 @@ void TrackComponent::toggleWaveformDisplay()
 		}
 	}
 
-	// Calcul de la hauteur avec les constantes (même logique que toggleSequencerDisplay)
 	bool waveformVisible = showWaveformButton.getToggleState();
 	bool sequencerVisible = this->sequencerVisible;
 
@@ -138,6 +137,7 @@ void TrackComponent::updateFromTrackData()
 		return;
 
 	showWaveformButton.setToggleState(track->showWaveform, juce::dontSendNotification);
+	sequencerToggleButton.setToggleState(track->showSequencer, juce::dontSendNotification);
 
 	trackNameLabel.setText(track->trackName, juce::dontSendNotification);
 	juce::String noteName = juce::MidiMessage::getMidiNoteName(track->midiNote, true, true, 3);
@@ -147,6 +147,7 @@ void TrackComponent::updateFromTrackData()
 	timeStretchModeSelector.setSelectedId(track->timeStretchMode, juce::dontSendNotification);
 	trackNumberLabel.setText(juce::String(track->slotIndex + 1), juce::dontSendNotification);
 	trackNumberLabel.setColour(juce::Label::backgroundColourId, getTrackColour(track->slotIndex));
+	midiNoteLabel.setColour(juce::Label::backgroundColourId, getTrackColour(track->slotIndex));
 
 	if (waveformDisplay)
 	{
@@ -154,7 +155,7 @@ void TrackComponent::updateFromTrackData()
 		bool isMuted = track->isMuted.load();
 		bool shouldLock = isCurrentlyPlaying && !isMuted;
 
-		waveformDisplay->lockLoopPoints(shouldLock);
+		waveformDisplay->lockLoopPoints(false);
 
 		if (track->numSamples > 0 && track->sampleRate > 0)
 		{
@@ -316,7 +317,7 @@ void TrackComponent::resized()
 		waveformDisplay->setVisible(false);
 	}
 
-	if (sequencer && sequencerVisible) {
+	if (sequencer && sequencerVisible && sequencerToggleButton.getToggleState()) {
 		area.removeFromTop(5);
 		sequencer->setBounds(area.removeFromTop(SEQUENCER_HEIGHT));
 		sequencer->setVisible(true);
@@ -401,6 +402,7 @@ void TrackComponent::setupUI()
 	sequencerToggleButton.setButtonText("SEQ");
 	sequencerToggleButton.setClickingTogglesState(true);
 	sequencerToggleButton.onClick = [this]() {
+		track->showSequencer = sequencerToggleButton.getToggleState();
 		toggleSequencerDisplay();
 		};
 
@@ -568,7 +570,6 @@ void TrackComponent::toggleSequencerDisplay()
 		sequencer->setVisible(sequencerVisible);
 	}
 
-	// Calcul de la hauteur selon les combinaisons
 	bool waveformVisible = showWaveformButton.getToggleState();
 	int newHeight = BASE_HEIGHT;
 

@@ -67,6 +67,7 @@ private:
 	void showConfigDialog();
 	void mouseDown(const juce::MouseEvent& event) override;
 	void editCustomPromptDialog(const juce::String& selectedPrompt);
+	void toggleSEQButtonOnTrack();
 
 	juce::File getSessionsDirectory();
 	std::unique_ptr<MixerPanel> mixerPanel;

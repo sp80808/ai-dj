@@ -40,6 +40,7 @@ struct TrackData
 	float bpm = 126.0f;
 	std::atomic<double> readPosition{ 0.0 };
 	bool showWaveform = false;
+	bool showSequencer = false;
 
 	struct SequencerData {
 		bool steps[4][16] = {};
