@@ -87,7 +87,6 @@ echo Creating configuration...
 (
 echo DJ_IA_API_KEYS=api keys separated by commas
 echo LLM_MODEL_PATH=%cd%\models\gemma-3-4b-it.gguf
-echo AUDIO_MODEL=stable-audio-open
 echo ENVIRONMENT=dev
 echo HOST=127.0.0.1
 echo PORT=8000
@@ -131,13 +130,10 @@ echo    4. Set server URL to: http://localhost:8000
 echo.
 echo Available server options:
 echo    --model-path PATH       Override LLM model path
-echo    --audio-model MODEL     musicgen-small^|medium^|large^|stable-audio-open^|stable-audio-pro
-echo    --output-dir DIR        Output directory ^(default: .\output^)
-echo    --clean                 Clean output directory on startup
 echo    --host HOST             Server host ^(default: from .env^)
 echo    --port PORT             Server port ^(default: from .env^)
 echo.
-echo Example: python main.py --audio-model musicgen-medium --generation-duration 8.0 --clean
+echo Example: python main.py --host 0.0.0.0 --port 8000
 echo.
 echo Ready to jam!
 pause

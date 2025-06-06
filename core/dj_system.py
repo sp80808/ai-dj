@@ -13,10 +13,10 @@ class DJSystem:
     @classmethod
     def get_instance(cls, *args, **kwargs):
         if cls._instance is None:
-            print("✨ First initialization of the OBSIDIAN system (Singleton)...")
+            print("✨ First initialization of the OBSIDIAN system...")
             cls._instance = cls(*args, **kwargs)
         else:
-            print("♻️ Reusing existing OBSIDIAN instance (Singleton)...")
+            print("♻️ Reusing existing OBSIDIAN instance...")
         return cls._instance
 
     def __init__(self, args):
@@ -24,8 +24,7 @@ class DJSystem:
             print("⚠️ Reset attempt ignored - instance already initialized")
             return
         self.model_path = args.model_path
-        self.output_dir_base = args.output_dir
-        self.audio_model = args.audio_model
+        self.output_dir_base = "./output"
 
         print("Initializing OBSIDIAN system...")
         self.stems_manager = StemsManager()
@@ -44,13 +43,12 @@ class DJSystem:
         if not os.path.exists(self.output_dir_base):
             os.makedirs(self.output_dir_base)
         print("Loading sample generator...")
-        self.music_gen = MusicGenerator(model_name=self.audio_model)
+        self.music_gen = MusicGenerator()
 
         print("Initializing LayerManager...")
         self.layer_manager = LayerManager(
             output_dir=os.path.join(self.output_dir_base, "layers"),
         )
-        self.layer_manager.set_master_tempo(initial_llm_state["current_tempo"])
 
         self.initialized = True
         print("✅ OBSIDIAN system initialized successfully (Singleton)")

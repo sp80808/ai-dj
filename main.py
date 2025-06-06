@@ -40,25 +40,6 @@ def main():
         help="Path of the LLM model",
     )
     parser.add_argument(
-        "--output-dir",
-        type=str,
-        default="./output",
-        help="Main output directory for the session",
-    )
-    parser.add_argument(
-        "--audio-model",
-        type=str,
-        default=os.environ.get("AUDIO_MODEL"),
-        choices=[
-            "musicgen-small",
-            "musicgen-medium",
-            "musicgen-large",
-            "stable-audio-open",
-            "stable-audio-pro",
-        ],
-        help="Audio model to use (MusicGen or Stable Audio)",
-    )
-    parser.add_argument(
         "--host", default=os.environ.get("HOST"), help="Host for API server"
     )
     parser.add_argument(

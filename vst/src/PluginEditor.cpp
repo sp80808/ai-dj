@@ -386,11 +386,6 @@ void DjIaVstEditor::setupUI()
 
 	bpmSlider.setEnabled(!audioProcessor.getHostBpmEnabled());
 
-	addAndMakeVisible(serverSidePreTreatmentButton);
-	serverSidePreTreatmentButton.setButtonText("Server Side Pre Treatment");
-	serverSidePreTreatmentButton.setClickingTogglesState(true);
-	serverSidePreTreatmentButton.setToggleState(audioProcessor.getServerSidePreTreatment(), juce::dontSendNotification);
-
 	addAndMakeVisible(keySelector);
 	keySelector.addItem("C minor", 1);
 	keySelector.addItem("C major", 2);
@@ -520,9 +515,6 @@ void DjIaVstEditor::addEventListeners()
 
 	hostBpmButton.onClick = [this]
 		{ updateBpmFromHost(); };
-
-	serverSidePreTreatmentButton.onClick = [this]
-		{ updateServerSidePreTreatment(); };
 
 	generateButton.onClick = [this]
 		{ onGenerateButtonClicked(); };
@@ -698,7 +690,6 @@ void DjIaVstEditor::updateUIFromProcessor()
 	{
 		bpmSlider.setEnabled(false);
 	}
-	serverSidePreTreatmentButton.setToggleState(audioProcessor.getServerSidePreTreatment(), juce::dontSendNotification);
 	refreshTrackComponents();
 }
 
@@ -764,7 +755,6 @@ void DjIaVstEditor::layoutConfigSection(juce::Rectangle<int> area, int reducing)
 
 	keySelector.setBounds(controlRow.removeFromLeft(controlWidth).reduced(reducing));
 	durationSlider.setBounds(controlRow.removeFromLeft(controlWidth).reduced(reducing));
-	serverSidePreTreatmentButton.setBounds(controlRow.removeFromLeft(controlWidth).reduced(reducing));
 	hostBpmButton.setBounds(controlRow.removeFromLeft(controlWidth).reduced(reducing));
 	bpmSlider.setBounds(controlRow.reduced(reducing));
 
@@ -922,9 +912,7 @@ void DjIaVstEditor::onGenerateButtonClicked()
 				request.prompt = promptInput.getText();
 				request.bpm = (float)bpmSlider.getValue();
 				request.key = keySelector.getText();
-				request.measures = 4;
 				request.generationDuration = (int)durationSlider.getValue();
-				request.serverSidePreTreatment = audioProcessor.getServerSidePreTreatment();
 
 				if (drumsButton.getToggleState())
 					request.preferredStems.push_back("drums");
@@ -1046,12 +1034,6 @@ void DjIaVstEditor::onSavePreset()
 	{
 		statusLabel.setText("Enter a prompt first!", juce::dontSendNotification);
 	}
-}
-
-void DjIaVstEditor::updateServerSidePreTreatment()
-{
-	bool serverSidePreTreatment = serverSidePreTreatmentButton.getToggleState();
-	audioProcessor.setServerSidePreTreatment(serverSidePreTreatment);
 }
 
 void DjIaVstEditor::updateBpmFromHost()

@@ -60,9 +60,7 @@ private:
 	void loadSession(const juce::String& sessionName);
 	void updateUIComponents();
 	void setAllGenerateButtonsEnabled(bool enabled);
-	void updateServerSidePreTreatment();
 	void showFirstTimeSetup();
-	void enterServerUrlAndApiKey(juce::AlertWindow* alertWindow);
 	void showConfigDialog();
 	void mouseDown(const juce::MouseEvent& event) override;
 	void editCustomPromptDialog(const juce::String& selectedPrompt);
@@ -112,7 +110,6 @@ private:
 	juce::ToggleButton pianoButton;
 	juce::TextButton playButton;
 	juce::ToggleButton hostBpmButton;
-	juce::ToggleButton serverSidePreTreatmentButton;
 	juce::Slider durationSlider;
 	juce::Label durationLabel;
 	juce::ToggleButton autoLoadButton;

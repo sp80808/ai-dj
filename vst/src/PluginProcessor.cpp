@@ -1145,11 +1145,6 @@ void DjIaVstProcessor::setAutoLoadEnabled(bool enabled)
 	autoLoadEnabled = enabled;
 }
 
-void DjIaVstProcessor::setServerSidePreTreatment(bool enabled)
-{
-	serverSidePreTreatment = enabled;
-}
-
 void DjIaVstProcessor::setApiKey(const juce::String& key)
 {
 	apiKey = key;
@@ -1224,7 +1219,6 @@ void DjIaVstProcessor::getStateInformation(juce::MemoryBlock& destData)
 	state.setProperty("hostBpmEnabled", juce::var(hostBpmEnabled), nullptr);
 	state.setProperty("lastDuration", juce::var(lastDuration), nullptr);
 	state.setProperty("selectedTrackId", juce::var(selectedTrackId), nullptr);
-	state.setProperty("serverSidePreTreatment", juce::var(serverSidePreTreatment), nullptr);
 	state.setProperty("drumsEnabled", juce::var(drumsEnabled), nullptr);
 	state.setProperty("bassEnabled", juce::var(bassEnabled), nullptr);
 	state.setProperty("otherEnabled", juce::var(otherEnabled), nullptr);
@@ -1293,7 +1287,6 @@ void DjIaVstProcessor::setStateInformation(const void* data, int sizeInBytes)
 	lastPresetIndex = state.getProperty("lastPresetIndex", -1);
 	hostBpmEnabled = state.getProperty("hostBpmEnabled", false);
 	lastDuration = state.getProperty("lastDuration", 6.0);
-	serverSidePreTreatment = state.getProperty("serverSidePreTreatment", true);
 	drumsEnabled = state.getProperty("drumsEnabled", false);
 	bassEnabled = state.getProperty("bassEnabled", false);
 	otherEnabled = state.getProperty("otherEnabled", false);

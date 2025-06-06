@@ -69,8 +69,6 @@ class APIRequestHandler:
         processed_path = self.dj_system.layer_manager._prepare_sample_for_loop(
             original_audio_path=temp_path,
             layer_id=f"simple_loop_{request_id}",
-            measures=request.measures or 4,
-            server_side_pre_treatment=request.server_side_pre_treatment,
         )
 
         if not processed_path:

@@ -80,7 +80,6 @@ Create `.env` file for custom settings:
 
 ```env
 LLM_MODEL_PATH=/path/to/models/gemma-3-4b-it.gguf
-AUDIO_MODEL=stable-audio-open
 ENVIRONMENT=dev  # 'prod' for API key enforcement
 HOST=127.0.0.1
 PORT=8000
@@ -149,7 +148,6 @@ PORT=8000
 
 **Next Updates:**
 
-- **MIDI Learn on master channel** for global control
 - **Code refactoring** and cleanup
 - **Standalone version evaluation** (transport controls needed)
 - Enhanced stability improvements

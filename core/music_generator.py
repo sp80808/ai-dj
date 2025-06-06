@@ -6,74 +6,34 @@ import random
 import gc
 import librosa
 import soundfile as sf
+from stable_audio_tools import get_pretrained_model
+from einops import rearrange
+from stable_audio_tools.inference.generation import (
+    generate_diffusion_cond,
+)
 
 
 class MusicGenerator:
-    def __init__(self, model_name="musicgen-medium"):
-        self.model_name = model_name
+    def __init__(self):
         self.model = None
         self.sample_rate = 32000
         self.default_duration = 6
-        self.model_type = None
         self.sample_cache = {}
 
     def init_model(self):
-        if "musicgen" in self.model_name:
-            size = self.model_name.split("-")[1] if "-" in self.model_name else "medium"
-            print(f"Initializing MusicGen ({size})...")
-            from audiocraft.models import MusicGen
+        print(f"Initializing Stable Audio Model..")
 
-            self.model = MusicGen.get_pretrained(size)
-            self.model_type = "musicgen"
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"Using device: {device}")
 
-            self.model.set_generation_params(
-                duration=self.default_duration,
-                temperature=1.0,
-                top_k=250,
-                top_p=0.0,
-                use_sampling=True,
-            )
-            print("MusicGen initialisé!")
+        model_id = "stabilityai/stable-audio-open-1.0"
+        self.model, self.model_config = get_pretrained_model(model_id)
+        self.sample_rate = self.model_config["sample_rate"]
+        self.sample_size = self.model_config["sample_size"]
+        self.model = self.model.to(device)
+        self.device = device
 
-        elif "stable-audio" in self.model_name:
-            print(f"Initializing Stable Audio ({self.model_name})...")
-            try:
-                from stable_audio_tools import get_pretrained_model
-
-                device = "cuda" if torch.cuda.is_available() else "cpu"
-                print(f"Using device: {device}")
-
-                model_id = "stabilityai/stable-audio-open-1.0"
-                if self.model_name == "stable-audio-pro":
-                    model_id = "stabilityai/stable-audio-pro-1.0"
-
-                self.model, self.model_config = get_pretrained_model(model_id)
-                self.sample_rate = self.model_config["sample_rate"]
-                self.sample_size = self.model_config["sample_size"]
-                self.model = self.model.to(device)
-                self.device = device
-
-                self.model_type = "stable-audio"
-                print(f"Stable Audio initialized (sample rate: {self.sample_rate}Hz)!")
-
-            except ImportError as e:
-                print(f"⚠️ Error: {e}")
-                print(
-                    "Installation: pip install torch torchaudio stable-audio-tools einops"
-                )
-                print("Fallback to MusicGen medium")
-                from audiocraft.models import MusicGen
-
-                self.model = MusicGen.get_pretrained("medium")
-                self.sample_rate = self.model.sample_rate
-                self.model_type = "musicgen"
-
-        else:
-            print(f"⚠️ Model {self.model_name} unknown, fallback to MusicGen medium")
-            from audiocraft.models import MusicGen
-
-            self.model = MusicGen.get_pretrained("medium")
-            self.model_type = "musicgen"
+        print(f"Stable Audio initialized (sample rate: {self.sample_rate}Hz)!")
 
     def destroy_model(self):
         self.model = None
@@ -87,70 +47,54 @@ class MusicGenerator:
         try:
             print(f"🔮 Direct generation with prompt: '{musicgen_prompt}'")
 
-            if self.model_type == "musicgen":
-                self.model.set_generation_params(
-                    duration=generation_duration,
-                    temperature=0.8,
-                )
-                wav = self.model.generate([musicgen_prompt])
-                with torch.no_grad():
-                    wav_np = wav.cpu().detach().numpy()
-                sample_audio = wav_np[0, 0]
+            seconds_total = generation_duration
+            conditioning = [
+                {
+                    "prompt": musicgen_prompt,
+                    "seconds_start": 0,
+                    "seconds_total": seconds_total,
+                }
+            ]
 
-            elif self.model_type == "stable-audio":
-                from einops import rearrange
-                from stable_audio_tools.inference.generation import (
-                    generate_diffusion_cond,
-                )
+            cfg_scale = 7.0
+            steps_value = 75
+            seed_value = random.randint(0, 2**31 - 1)
 
-                seconds_total = generation_duration
-                conditioning = [
-                    {
-                        "prompt": musicgen_prompt,
-                        "seconds_start": 0,
-                        "seconds_total": seconds_total,
-                    }
-                ]
+            print(f"⚙️  Stable Audio: steps={steps_value}, cfg_scale={cfg_scale}")
 
-                cfg_scale = 7.0
-                steps_value = 75
-                seed_value = random.randint(0, 2**31 - 1)
+            output = generate_diffusion_cond(
+                self.model,
+                steps=steps_value,
+                cfg_scale=cfg_scale,
+                conditioning=conditioning,
+                sample_size=self.sample_size,
+                sigma_min=0.3,
+                sigma_max=500,
+                sampler_type="dpmpp-3m-sde",
+                device=self.device,
+                seed=seed_value,
+            )
 
-                print(f"⚙️  Stable Audio: steps={steps_value}, cfg_scale={cfg_scale}")
+            target_samples = int(seconds_total * self.sample_rate)
+            output = rearrange(output, "b d n -> d (b n)")
 
-                output = generate_diffusion_cond(
-                    self.model,
-                    steps=steps_value,
-                    cfg_scale=cfg_scale,
-                    conditioning=conditioning,
-                    sample_size=self.sample_size,
-                    sigma_min=0.3,
-                    sigma_max=500,
-                    sampler_type="dpmpp-3m-sde",
-                    device=self.device,
-                    seed=seed_value,
-                )
+            if output.shape[1] > target_samples:
+                output = output[:, :target_samples]
 
-                target_samples = int(seconds_total * self.sample_rate)
-                output = rearrange(output, "b d n -> d (b n)")
+            output_normalized = (
+                output.to(torch.float32)
+                .div(torch.max(torch.abs(output) + 1e-8))
+                .cpu()
+                .numpy()
+            )
 
-                if output.shape[1] > target_samples:
-                    output = output[:, :target_samples]
+            sample_audio = (
+                output_normalized[0]
+                if output_normalized.shape[0] > 1
+                else output_normalized
+            )
 
-                output_normalized = (
-                    output.to(torch.float32)
-                    .div(torch.max(torch.abs(output) + 1e-8))
-                    .cpu()
-                    .numpy()
-                )
-
-                sample_audio = (
-                    output_normalized[0]
-                    if output_normalized.shape[0] > 1
-                    else output_normalized
-                )
-
-                del output, output_normalized
+            del output, output_normalized
 
             print(f"✅ Generation complete!")
 

@@ -10,18 +10,14 @@ public:
 		float generationDuration;
 		float bpm;
 		juce::String key;
-		int measures;
 		std::vector<juce::String> preferredStems;
-		bool serverSidePreTreatment;
 
 		LoopRequest()
 			: prompt(""),
 			generationDuration(6.0f),
 			bpm(120.0f),
 			key(""),
-			measures(4),
-			preferredStems(),
-			serverSidePreTreatment(true)
+			preferredStems()
 		{
 		}
 	};
@@ -53,8 +49,6 @@ public:
 			jsonRequest.getDynamicObject()->setProperty("prompt", request.prompt);
 			jsonRequest.getDynamicObject()->setProperty("bpm", request.bpm);
 			jsonRequest.getDynamicObject()->setProperty("key", request.key);
-			jsonRequest.getDynamicObject()->setProperty("measures", request.measures);
-			jsonRequest.getDynamicObject()->setProperty("server_side_pre_treatment", request.serverSidePreTreatment);
 
 			if (!request.preferredStems.empty())
 			{

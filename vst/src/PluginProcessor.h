@@ -105,13 +105,11 @@ public:
 	juce::String getLastKey() const { return lastKey; }
 	int getLastPresetIndex() const { return lastPresetIndex; }
 	bool getHostBpmEnabled() const { return hostBpmEnabled; }
-	bool getServerSidePreTreatment() const { return serverSidePreTreatment; }
 	void setLastPrompt(const juce::String& prompt) { lastPrompt = prompt; }
 	void setLastPresetIndex(int index) { lastPresetIndex = index; }
 	void setHostBpmEnabled(bool enabled) { hostBpmEnabled = enabled; }
 	void updateAllWaveformsAfterLoad();
 	void setAutoLoadEnabled(bool enabled);
-	void setServerSidePreTreatment(bool enabled);
 	bool getAutoLoadEnabled() const { return autoLoadEnabled.load(); }
 	void loadPendingSample();
 	bool hasSampleWaiting() const { return hasUnloadedSample.load(); }
@@ -221,7 +219,6 @@ private:
 	std::atomic<bool> hasPendingAudioData{ false };
 	std::atomic<bool> autoLoadEnabled{ true };
 	std::atomic<bool> hasUnloadedSample{ false };
-	std::atomic<bool> serverSidePreTreatment{ true };
 	std::atomic<bool> waitingForMidiToLoad{ false };
 	std::atomic<bool> isNotePlaying{ false };
 	std::atomic<bool> correctMidiNoteReceived{ false };
