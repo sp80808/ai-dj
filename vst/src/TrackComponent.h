@@ -3,7 +3,7 @@
 #include "TrackManager.h"
 
 class WaveformDisplay;
-
+class SequencerComponent;
 class DjIaVstProcessor;
 
 class CustomInfoLabelLookAndFeel : public juce::LookAndFeel_V4
@@ -40,6 +40,11 @@ public:
 	std::function<void(const juce::String&)> onSelectTrack;
 	std::function<void(const juce::String&)> onGenerateForTrack;
 	std::function<void(const juce::String&, const juce::String&)> onTrackRenamed;
+
+	static const int BASE_HEIGHT = 60;
+	static const int WAVEFORM_HEIGHT = 60;
+	static const int SEQUENCER_HEIGHT = 100;
+
 	juce::TextButton showWaveformButton;
 	TrackData* getTrack() const { return track; }
 
@@ -63,11 +68,14 @@ public:
 	juce::TextButton* getGenerateButton() { return &generateButton; }
 	juce::Slider* getBpmOffsetSlider() { return &bpmOffsetSlider; }
 
+	SequencerComponent* getSequencer() const { return sequencer.get(); }
+
 private:
 	juce::String trackId;
 	TrackData* track;
 	bool isSelected = false;
 	std::unique_ptr<WaveformDisplay> waveformDisplay;
+	std::unique_ptr<SequencerComponent> sequencer;
 	DjIaVstProcessor& audioProcessor;
 	CustomInfoLabelLookAndFeel customLookAndFeel;
 	juce::Label trackNumberLabel;
@@ -76,6 +84,7 @@ private:
 	juce::Label trackNameLabel;
 	juce::TextButton deleteButton;
 	juce::TextButton generateButton;
+	juce::TextButton sequencerToggleButton;
 	juce::Label infoLabel;
 
 	juce::ComboBox timeStretchModeSelector;
@@ -83,10 +92,11 @@ private:
 	juce::Slider bpmOffsetSlider;
 	juce::Label bpmOffsetLabel;
 
-	juce::ComboBox midiNoteSelector;
+	juce::Label midiNoteLabel;
 
 	bool isGenerating = false;
 	bool blinkState = false;
+	bool sequencerVisible = false;
 
 	void calculateHostBasedDisplay();
 	float calculateEffectiveBpm();
@@ -97,5 +107,7 @@ private:
 	void adjustLoopPointsToTempo();
 	void updateTrackInfo();
 	void setupMidiLearn();
+	void toggleSequencerDisplay();
+
 	juce::Colour getTrackColour(int trackIndex);
 };

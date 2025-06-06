@@ -4,6 +4,7 @@
 #include "./PluginProcessor.h"
 #include "PluginEditor.h"
 #include "BinaryData.h"
+#include "SequencerComponent.h"
 
 DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor& p)
 	: AudioProcessorEditor(&p), audioProcessor(p)
@@ -1603,4 +1604,14 @@ void DjIaVstEditor::menuItemSelected(int menuItemID, int topLevelMenuIndex)
 			nullptr);
 		break;
 	}
+}
+
+void* DjIaVstEditor::getSequencerForTrack(const juce::String& trackId)
+{
+	for (auto& trackComp : trackComponents) {
+		if (trackComp->getTrackId() == trackId) {
+			return (void*)trackComp->getSequencer();
+		}
+	}
+	return nullptr;
 }

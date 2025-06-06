@@ -14,7 +14,7 @@ juce_add_plugin(ObsidianVST
     PRODUCT_NAME "OBSIDIAN"
     IS_SYNTH TRUE
     WANTS_MIDI_INPUT TRUE
-    PRODUCES_MIDI_OUTPUT FALSE
+    PRODUCES_MIDI_OUTPUT TRUE
     IS_MIDI_EFFECT FALSE)
 
 target_sources(ObsidianVST
@@ -28,6 +28,7 @@ target_sources(ObsidianVST
         src/TrackComponent.cpp
         src/MasterChannel.cpp
         src/WaveformDisplay.cpp
+        src/SequencerComponent.cpp
         )
 
 target_include_directories(ObsidianVST
@@ -39,7 +40,7 @@ target_compile_definitions(ObsidianVST
     PRIVATE
         JucePlugin_IsSynth=1
         JucePlugin_WantsMidiInput=1
-        JucePlugin_ProducesMidiOutput=0
+        JucePlugin_ProducesMidiOutput=1
         JucePlugin_IsMidiEffect=0
         JucePlugin_VSTNumMidiInputs=16
     PUBLIC
