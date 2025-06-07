@@ -60,7 +60,19 @@ _Click to watch: World's First AI Jam Partner in action!_
 
 👉 **[Request Access Here](https://huggingface.co/stabilityai/stable-audio-open-1.0)**
 
-This step is required for the AI music generation to function properly. Access is free.
+This step is required for the AI music generation to function properly. Access is typically granted within a few hours.
+
+## Setup
+
+After getting access approved on Hugging Face:
+
+1. **Open a command line/terminal**
+2. **Install Hugging Face CLI:** `pip install huggingface_hub`
+3. **Login with your token:** `huggingface-cli login` 
+4. **Enter your HF token** when prompted
+5. **Then proceed with installation below**
+
+⚠️ You must complete steps 1-4 **before** running the plugin!
 
 ---
 
