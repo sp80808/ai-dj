@@ -89,9 +89,15 @@ void SequencerComponent::paint(juce::Graphics& g)
 	int totalSteps = beatsPerMeasure * stepsPerBeat;
 
 	TrackData* track = audioProcessor.getTrack(trackId);
+	if (!track) {
+		g.setColour(juce::Colours::red);
+		g.drawText("Track not found", getLocalBounds(), juce::Justification::centred);
+		return;
+	}
 	int playingMeasure = track ? track->sequencerData.currentMeasure : -1;
 
 	int safeMeasure = juce::jlimit(0, MAX_MEASURES - 1, currentMeasure);
+
 	for (int i = 0; i < 16; ++i) {
 		auto stepBounds = getStepBounds(i);
 
@@ -276,7 +282,7 @@ void SequencerComponent::updateFromTrackData()
 	TrackData* track = audioProcessor.getTrack(trackId);
 	if (track) {
 		currentStep = juce::jlimit(0, 15, track->sequencerData.currentStep);
-		isPlaying = track->isPlaying;
+		isPlaying = track->isCurrentlyPlaying;
 		numMeasures = track->sequencerData.numMeasures;
 
 		if (isPlaying) {

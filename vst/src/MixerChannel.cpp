@@ -294,7 +294,7 @@ void MixerChannel::setSliderParameter(juce::String name, juce::Slider& slider)
 
 void MixerChannel::setButtonParameter(juce::String name, juce::Button& button)
 {
-	if (!track || track->slotIndex == -1)
+	if (!track || track->slotIndex == -1 || track->numSamples <= 0)
 		return;
 	if (this == nullptr)
 		return;
@@ -335,13 +335,12 @@ void MixerChannel::addEventListeners()
 		};
 	playButton.onClick = [this]()
 		{
-			if (track)
+			if (track && track->numSamples > 0)
 			{
-				if (!track->isPlaying.load())
+				if (!track->isCurrentlyPlaying.load())
 				{
 					bool shouldArm = playButton.getToggleState();
 					if (shouldArm) {
-						/*track->pendingAction = TrackData::PendingAction::StartOnNextMeasure;*/
 						track->isArmed = true;
 					}
 					else {
@@ -349,7 +348,7 @@ void MixerChannel::addEventListeners()
 						track->isArmed = false;
 					}
 				}
-				else if (track->isPlaying.load())
+				else if (track->isCurrentlyPlaying.load())
 				{
 					track->pendingAction = TrackData::PendingAction::StopOnNextMeasure;
 					track->isArmed = false;
@@ -364,9 +363,9 @@ void MixerChannel::addEventListeners()
 
 	stopButton.onClick = [this]()
 		{
-			if (track)
+			if (track && track->numSamples > 0)
 			{
-				if (track->isPlaying.load() && !track->isArmedToStop.load())
+				if (track->isCurrentlyPlaying.load() && !track->isArmedToStop.load())
 				{
 					track->pendingAction = TrackData::PendingAction::StopOnNextMeasure;
 					track->isArmed = false;
@@ -770,7 +769,7 @@ void MixerChannel::updateButtonColors()
 		return;
 	}
 	bool isArmed = track->isArmed.load();
-	bool isPlaying = track->isPlaying.load();
+	bool isPlaying = track->isCurrentlyPlaying.load();
 	bool isMuted = track->isMuted.load();
 	bool isSolo = track->isSolo.load();
 	bool isArmedToStop = track->isArmedToStop.load();

@@ -85,7 +85,6 @@ void DjIaVstProcessor::saveGlobalConfig()
 	juce::DynamicObject::Ptr config = new juce::DynamicObject();
 	config->setProperty("apiKey", apiKey);
 	config->setProperty("serverUrl", serverUrl);
-
 	juce::Array<juce::var> promptsArray;
 	for (const auto& prompt : customPrompts)
 	{
@@ -338,6 +337,7 @@ void DjIaVstProcessor::handleSequencerPlayState(bool hostIsPlaying)
 			TrackData* track = trackManager.getTrack(trackId);
 			if (track) {
 				track->sequencerData.isPlaying = true;
+				track->isCurrentlyPlaying = true;
 				track->sequencerData.currentStep = 0;
 				track->sequencerData.currentMeasure = 0;
 				track->sequencerData.stepAccumulator = 0.0;
@@ -353,6 +353,7 @@ void DjIaVstProcessor::handleSequencerPlayState(bool hostIsPlaying)
 			if (track) {
 				track->sequencerData.isPlaying = false;
 				track->isPlaying = false;
+				track->isCurrentlyPlaying = false;
 				track->readPosition = 0.0;
 				track->sequencerData.currentStep = 0;
 				track->sequencerData.currentMeasure = 0;
@@ -465,8 +466,14 @@ void DjIaVstProcessor::getDawInformations(juce::AudioPlayHead* playHead, bool& h
 		hostIsPlaying = positionInfo->getIsPlaying();
 		if (auto bpm = positionInfo->getBpm())
 		{
-			hostBpm = *bpm;
-			cachedHostBpm = hostBpm;
+			double newBpm = *bpm;
+			hostBpm = newBpm;
+			if (std::abs(newBpm - cachedHostBpm.load()) > 0.1) {
+				cachedHostBpm = newBpm;
+				if (onHostBpmChanged) {
+					onHostBpmChanged(newBpm);
+				}
+			}
 		}
 		if (auto ppq = positionInfo->getPpqPosition())
 		{
@@ -685,6 +692,7 @@ void DjIaVstProcessor::stopNotePlaybackForTrack(int noteNumber)
 		if (track)
 		{
 			track->isPlaying = false;
+			track->isCurrentlyPlaying = false;
 			track->sequencerData.currentStep = 0;
 			track->sequencerData.currentMeasure = 0;
 			track->sequencerData.stepAccumulator = 0.0;
@@ -837,6 +845,51 @@ void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest& request, cons
 	try
 	{
 		auto response = apiClient.generateLoop(request);
+		try {
+			if (!response.errorMessage.isEmpty()) {
+				setIsGenerating(false);
+				setGeneratingTrackId("");
+				juce::MessageManager::callAsync([this, trackId, error = response.errorMessage]() {
+					if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+						editor->onGenerationComplete(trackId, "ERROR: " + error);
+					}
+					});
+				return;
+			}
+			if (response.audioData.getFullPathName().isEmpty()) {
+				DBG("Empty file path from API");
+				setIsGenerating(false);
+				setGeneratingTrackId("");
+				juce::MessageManager::callAsync([this, trackId]() {
+					if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+						editor->onGenerationComplete(trackId, "Empty response from API");
+					}
+					});
+				return;
+			}
+			if (!response.audioData.exists() || response.audioData.getSize() == 0) {
+				DBG("File doesn't exist or is empty");
+				setIsGenerating(false);
+				setGeneratingTrackId("");
+				juce::MessageManager::callAsync([this, trackId]() {
+					if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+						editor->onGenerationComplete(trackId, "Invalid response from API");
+					}
+					});
+				return;
+			}
+		}
+		catch (const std::exception& e) {
+			DBG("Error checking response file: " << e.what());
+			setIsGenerating(false);
+			setGeneratingTrackId("");
+			juce::MessageManager::callAsync([this, trackId]() {
+				if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+					editor->onGenerationComplete(trackId, "Response validation failed");
+				}
+				});
+			return;
+		}
 		if (!response.audioData.existsAsFile() || response.audioData.getSize() == 0)
 		{
 			DBG("Empty response from API");
@@ -1130,7 +1183,7 @@ void DjIaVstProcessor::saveBufferToFile(const juce::AudioBuffer<float>& buffer,
 juce::File DjIaVstProcessor::getTrackAudioFile(const juce::String& trackId)
 {
 	auto audioDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-		.getChildFile("OBSIDIAN")
+		.getChildFile("OBSIDIAN-Neural")
 		.getChildFile("AudioCache");
 
 	return audioDir.getChildFile(trackId + ".wav");
@@ -1201,13 +1254,13 @@ void DjIaVstProcessor::setAutoLoadEnabled(bool enabled)
 void DjIaVstProcessor::setApiKey(const juce::String& key)
 {
 	apiKey = key;
-	apiClient = DjIaClient(apiKey, serverUrl);
+	apiClient.setApiKey(apiKey);
 }
 
 void DjIaVstProcessor::setServerUrl(const juce::String& url)
 {
 	serverUrl = url;
-	apiClient = DjIaClient(apiKey, serverUrl);
+	apiClient.setBaseUrl(serverUrl);
 }
 
 double DjIaVstProcessor::getHostBpm() const
@@ -1573,7 +1626,7 @@ void DjIaVstProcessor::executePendingAction(TrackData* track) const
 			track->sequencerData.currentStep = 0;
 			track->sequencerData.currentMeasure = 0;
 			track->sequencerData.stepAccumulator = 0.0;
-			track->setPlaying(true);
+			track->isCurrentlyPlaying = true;
 		}
 		break;
 
@@ -1627,19 +1680,33 @@ void DjIaVstProcessor::updateSequencers(bool hostIsPlaying)
 				int newStep = track->customStepCounter % stepsPerMeasure;
 				int newMeasure = (track->customStepCounter / stepsPerMeasure) % track->sequencerData.numMeasures;
 
-				if (newMeasure == 0 && track->isArmed.load() && newStep == 0 && !track->isPlaying.load() && hostIsPlaying) {
+				int safeMeasure = juce::jlimit(0, track->sequencerData.numMeasures - 1, newMeasure);
+				int safeStep = juce::jlimit(0, stepsPerMeasure - 1, newStep);
+
+				bool currentStepIsActive = track->sequencerData.steps[safeMeasure][safeStep];
+
+				if (newMeasure == 0
+					&& track->isArmed.load()
+					&& newStep == 0
+					&& !track->isPlaying.load()
+					&& hostIsPlaying) {
 					track->pendingAction = TrackData::PendingAction::StartOnNextMeasure;
 				}
 
-				if ((newStep == 0) && track->pendingAction != TrackData::PendingAction::None) {
+				if ((newMeasure == 0 && newStep == 0) && track->pendingAction != TrackData::PendingAction::None) {
 					executePendingAction(track);
 				}
 
 				track->sequencerData.currentStep = newStep;
 				track->sequencerData.currentMeasure = newMeasure;
 
-				if (track->sequencerData.isPlaying && track->isPlaying.load())
+				if (currentStepIsActive && track->isArmed.load() &&
+					track->isCurrentlyPlaying.load() && hostIsPlaying) {
+
+					track->readPosition = 0.0;
+					track->setPlaying(true);
 					triggerSequencerStep(track);
+				}
 			}
 
 			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
