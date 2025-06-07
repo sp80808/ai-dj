@@ -54,6 +54,16 @@ _Click to watch: World's First AI Jam Partner in action!_
 
 ---
 
+## Prerequisites
+
+⚠️ **Important:** Before installing OBSIDIAN, you must request access to the Stable Audio Open model on Hugging Face:
+
+👉 **[Request Access Here](https://huggingface.co/stabilityai/stable-audio-open-1.0)**
+
+This step is required for the AI music generation to function properly. Access is free.
+
+---
+
 ## 🚀 Quick Install
 
 ### Automated Setup
