@@ -1,8 +1,8 @@
-# OBSIDIAN - Neural Sound Engine v1.0
+# OBSIDIAN-Neural
 
-🎵 **Real-time AI music generation plugin for live performance**
+🎵 **Real-time AI music generation VST3 plugin for live performance**
 
-OBSIDIAN transforms AI into a live music instrument using intelligent LLM prompts and Stable Audio Open to create contextually aware loops directly in your DAW.
+OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM prompts and Stable Audio Open to create contextually aware loops directly in your DAW.
 
 ## 🏆 Press Coverage
 
@@ -12,7 +12,7 @@ OBSIDIAN transforms AI into a live music instrument using intelligent LLM prompt
 
 ---
 
-![OBSIDIAN Interface](./screenshot.png)
+![OBSIDIAN-Neural Interface](./screenshot.png)
 
 ## 🎵 Live Demo
 
@@ -40,26 +40,14 @@ _Click to watch: World's First AI Jam Partner in action!_
 ### 🥁 **Built-in Step Sequencer**
 
 - **16-step programmable sequencer** per track with multi-measure support
-- **Visual step programming** with real-time playback indicators
 - **DAW sync**: Perfectly locked to host tempo and transport
-- **Intelligent quantization** with custom step counter system
-- **Per-step velocity control** for dynamic patterns
-- **Multi-measure patterns** (1-4 measures) for complex arrangements
-- **Independent sequencer per track** - each runs its own pattern
+- **Per-step velocity control** and multi-measure patterns (1-4 measures)
 - **Start/Stop on measure boundaries** for seamless live performance
-- **Pattern editing while playing** - modify sequences in real-time
-
-**Perfect for:**
-
-- Live techno/electronic performances
-- Building complex polyrhythmic patterns
-- Jamming with AI-generated loops as sequenced elements
-- Creating evolving arrangements that sync with your DAW
+- **Real-time pattern editing** while sequencer is playing
 
 ### 🎛️ **Live Performance Ready**
 
 - **Global custom prompts** shared across projects
-- **Multiple load modes**: Auto, MIDI-triggered, or manual
 - **MIDI Learn system** for hardware controller mapping
 - **Session management** with save/load
 - **Background processing** - works with VST window closed
@@ -83,13 +71,7 @@ chmod +x install.sh
 ./install.sh
 ```
 
-The installer automatically:
-
-- ✅ Checks prerequisites (Python, CMake, Git, CUDA)
-- 📦 Creates Python environment
-- 🤖 Downloads Gemma-3-4B model (2.49 GB)
-- 🔨 Builds VST plugin
-- ⚙️ Configures everything
+The installer automatically handles everything: prerequisites, Python environment, model download (2.49 GB), and VST3 build.
 
 ### Start Server
 
@@ -101,64 +83,14 @@ env\Scripts\activate.bat && python main.py
 source env/bin/activate && python main.py
 ```
 
-### Configure (Optional)
-
-Create `.env` file for custom settings:
-
-```env
-LLM_MODEL_PATH=/path/to/models/gemma-3-4b-it.gguf
-ENVIRONMENT=dev  # 'prod' for API key enforcement
-HOST=127.0.0.1
-PORT=8000
-```
-
 ---
 
 ## 🎵 Usage Workflow
 
-### 1. **Setup**
-
-- Start AI server: `python main.py`
-- Load OBSIDIAN in your DAW
-- Set server URL: `http://localhost:8000`
-
-### 2. **Create & Generate**
-
-- Add multiple tracks with unique MIDI notes
-- Enter creative prompts (style, BPM, key, duration)
-- Choose load mode and generate AI audio
-
-### 3. **Live Performance**
-
-- Trigger tracks with MIDI keyboard/controller
-- Each note plays assigned track as one-shot
-- Auto-sync to DAW tempo
-- Mix with individual controls
-
-### 4. **Hardware Control**
-
-- **MIDI Learn**: Map any hardware controller to plugin parameters
-- **Smart mapping**: Avoids reserved sample notes (C3-G3)
-- **Persistent mappings**: Controllers stay mapped across sessions
-- **Real-time control**: Adjust parameters during live performance
-
-### 5. **Advanced Editing**
-
-- Zoom (Ctrl+Wheel), scroll (Wheel)
-- Drag markers for custom loop regions
-
----
-
-## 🎛️ What's New in v0.4.6
-
-- **Global custom prompts** management
-- **WAV file support** for better performance
-- **Simplified BPM control** via pitch knob
-- **Enhanced stability** and crash prevention
-- **Background processing** improvements
-- **Multi-user memory** with persistent sessions
-- **MIDI Learn system** with controller mapping
-- **Improved track management** and slot synchronization
+1. **Setup**: Start AI server, load OBSIDIAN-Neural in DAW
+2. **Generate**: Add tracks, enter creative prompts, generate AI audio
+3. **Perform**: Trigger tracks with MIDI, auto-sync to DAW tempo
+4. **Control**: Map hardware controllers with MIDI Learn system
 
 ---
 
@@ -171,50 +103,22 @@ PORT=8000
 
 ---
 
-## 🎯 Roadmap
+## 🎯 Why OBSIDIAN-Neural?
 
-**Next Updates:**
-
-- **Code refactoring** and cleanup
-- **Standalone version evaluation** (transport controls needed)
-- Enhanced stability improvements
-
-**Current Focus:** VST3 plugin (fully functional)
-
-## 🎵 Why OBSIDIAN?
-
-- LLM understands musical context and progression
-- Generates contextually aware loops that evolve
-- Perfect for live electronic music performance
-- No pre-recorded samples needed
+LLM understands musical context and generates contextually aware loops that evolve with your performance. Perfect for live electronic music with no pre-recorded samples needed.
 
 **Example LLM-generated prompt:**
 _"Deep techno kick with sidechain compression, 126 BPM, dark atmosphere, minimal hi-hats, rolling bassline"_
 
 ---
 
-## 📋 API Keys (Optional)
-
-Only needed for:
-
-- External server access
-- Shared usage with collaborators
-- Production deployment
-
-**Local usage requires no API key.**
-
----
-
 ## ⚠️ Current Status
 
-**Active Development** - Stable enough for improvements and testing
-
-**Working:** VST3 plugin fully functional  
-**In Progress:** Standalone version (transport controls missing)
+**VST3 Plugin**: Fully functional and performance-ready  
+**Standalone Version**: Not planned (VST3 focus)
 
 **Known Issues:**
 
-- Standalone version incomplete (missing transport controls)
 - CUDA required (CPU too slow for live use)
 - Large model files (initial download time)
 
@@ -222,20 +126,16 @@ Only needed for:
 
 ## 🛠️ Contributing
 
-Found a bug? Please report with:
-
-- DAW name/version
-- Steps to reproduce
-- Screenshots if UI-related
+Found a bug? Please report with DAW name/version, steps to reproduce, and screenshots if UI-related.
 
 ---
 
-## 📝 License & Attribution
+## 📝 License
 
 MIT License - Feel free to modify, but please keep original attribution to InnerMost47
 
 ---
 
-**OBSIDIAN** - Where artificial intelligence meets live music performance.
+**OBSIDIAN-Neural** - Where artificial intelligence meets live music performance.
 
 _Developed by innermost47_

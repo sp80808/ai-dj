@@ -7,7 +7,7 @@ class MasterChannel : public juce::Component, public juce::AudioProcessorParamet
 {
 public:
 	MasterChannel(DjIaVstProcessor& processor);
-	MasterChannel::~MasterChannel();
+	~MasterChannel();
 	void drawMasterVUMeter(juce::Graphics& g, juce::Rectangle<int> bounds) const;
 	void drawPeakHoldLine(int numSegments, juce::Rectangle<float>& vuArea, float segmentHeight, juce::Graphics& g) const;
 	void drawMasterClipping(juce::Rectangle<float>& vuArea, juce::Graphics& g) const;

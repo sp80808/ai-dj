@@ -9,9 +9,9 @@ juce_add_plugin(ObsidianVST
     PLUGIN_MANUFACTURER_CODE "OBSI"
     PLUGIN_CODE "Obsi"
     COMPANY_NAME "InnerMost47"
-    BUNDLE_ID "com.innermost47.obsidian-vst" 
-    FORMATS VST3 Standalone
-    PRODUCT_NAME "OBSIDIAN"
+    BUNDLE_ID "com.innermost47.obsidian-neural-vst" 
+    FORMATS VST3
+    PRODUCT_NAME "OBSIDIAN-Neural"
     IS_SYNTH TRUE
     WANTS_MIDI_INPUT TRUE
     PRODUCES_MIDI_OUTPUT TRUE

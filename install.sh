@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "OBSIDIAN - Complete Installation"
+echo "OBSIDIAN-Neural - Complete Installation"
 echo "====================================="
 
 # Check prerequisites
@@ -118,7 +118,7 @@ echo "=================================="
 echo "Next steps:"
 echo "   1. Copy the VST plugin to your DAW's VST folder"
 echo "   2. Start the server with: source env/bin/activate && python main.py"
-echo "   3. Load OBSIDIAN in your DAW"
+echo "   3. Load OBSIDIAN-Neural in your DAW"
 echo "   4. Set server URL to: http://localhost:8000"
 echo ""
 echo "Available server options:"

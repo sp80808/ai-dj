@@ -291,7 +291,7 @@ void DjIaVstProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
 		getDawInformations(playHead, hostIsPlaying, hostBpm, hostPpqPosition);
 	}
 	handleSequencerPlayState(hostIsPlaying);
-	updateSequencers();
+	updateSequencers(hostIsPlaying);
 
 	{
 		juce::ScopedLock lock(sequencerMidiLock);
@@ -558,7 +558,6 @@ void DjIaVstProcessor::handlePlayAndStop(bool hostIsPlaying)
 			{
 				bool paramPlay = slotPlayParams[changedSlot]->load() > 0.5f;
 				if (paramPlay) {
-					track->pendingAction = TrackData::PendingAction::StartOnNextMeasure;
 					track->setArmed(true);
 				}
 				else {
@@ -1593,7 +1592,7 @@ void DjIaVstProcessor::executePendingAction(TrackData* track) const
 	track->pendingAction = TrackData::PendingAction::None;
 }
 
-void DjIaVstProcessor::updateSequencers()
+void DjIaVstProcessor::updateSequencers(bool hostIsPlaying)
 {
 	auto playHead = getPlayHead();
 	if (!playHead) return;
@@ -1628,6 +1627,10 @@ void DjIaVstProcessor::updateSequencers()
 				int newStep = track->customStepCounter % stepsPerMeasure;
 				int newMeasure = (track->customStepCounter / stepsPerMeasure) % track->sequencerData.numMeasures;
 
+				if (newMeasure == 0 && track->isArmed.load() && newStep == 0 && !track->isPlaying.load() && hostIsPlaying) {
+					track->pendingAction = TrackData::PendingAction::StartOnNextMeasure;
+				}
+
 				if ((newStep == 0) && track->pendingAction != TrackData::PendingAction::None) {
 					executePendingAction(track);
 				}
@@ -1635,7 +1638,7 @@ void DjIaVstProcessor::updateSequencers()
 				track->sequencerData.currentStep = newStep;
 				track->sequencerData.currentMeasure = newMeasure;
 
-				if (track->sequencerData.isPlaying && track->isArmed.load())
+				if (track->sequencerData.isPlaying && track->isPlaying.load())
 					triggerSequencerStep(track);
 			}
 
@@ -1657,9 +1660,6 @@ void DjIaVstProcessor::triggerSequencerStep(TrackData* track)
 	int measure = track->sequencerData.currentMeasure;
 	if (track->sequencerData.steps[measure][step]) {
 		track->readPosition = 0.0;
-		if (!track->isPlaying.load()) {
-			track->setPlaying(true);
-		}
 		playingTracks[track->midiNote] = track->trackId;
 		juce::MidiMessage noteOn = juce::MidiMessage::noteOn(1, track->midiNote,
 			(juce::uint8)(track->sequencerData.velocities[measure][step] * 127));

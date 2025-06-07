@@ -13,10 +13,10 @@ class DJSystem:
     @classmethod
     def get_instance(cls, *args, **kwargs):
         if cls._instance is None:
-            print("✨ First initialization of the OBSIDIAN system...")
+            print("✨ First initialization of the OBSIDIAN-Neural system...")
             cls._instance = cls(*args, **kwargs)
         else:
-            print("♻️ Reusing existing OBSIDIAN instance...")
+            print("♻️ Reusing existing OBSIDIAN-Neural instance...")
         return cls._instance
 
     def __init__(self, args):
@@ -26,7 +26,7 @@ class DJSystem:
         self.model_path = args.model_path
         self.output_dir_base = "./output"
 
-        print("Initializing OBSIDIAN system...")
+        print("Initializing OBSIDIAN-Neural system...")
         self.stems_manager = StemsManager()
 
         initial_llm_state = {
@@ -51,4 +51,4 @@ class DJSystem:
         )
 
         self.initialized = True
-        print("✅ OBSIDIAN system initialized successfully (Singleton)")
+        print("✅ OBSIDIAN-Neural system initialized successfully (Singleton)")

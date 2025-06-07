@@ -21,8 +21,8 @@ def get_dj_system(request: Request):
 
 def create_api_app():
     app = FastAPI(
-        title="OBSIDIAN API",
-        description="API for the VST OBSIDIAN plugin",
+        title="OBSIDIAN-Neural API",
+        description="API for the VST OBSIDIAN-Neural plugin",
         version="1.0.0",
     )
     from server.api.routes import router
@@ -32,7 +32,9 @@ def create_api_app():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="OBSIDIAN System with Layer Manager")
+    parser = argparse.ArgumentParser(
+        description="OBSIDIAN-Neural System with Layer Manager"
+    )
     parser.add_argument(
         "--model-path",
         type=str,

@@ -341,7 +341,7 @@ void MixerChannel::addEventListeners()
 				{
 					bool shouldArm = playButton.getToggleState();
 					if (shouldArm) {
-						track->pendingAction = TrackData::PendingAction::StartOnNextMeasure;
+						/*track->pendingAction = TrackData::PendingAction::StartOnNextMeasure;*/
 						track->isArmed = true;
 					}
 					else {
