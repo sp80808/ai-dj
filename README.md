@@ -60,7 +60,7 @@ _Click to watch: World's First AI Jam Partner in action!_
 
 👉 **[Request Access Here](https://huggingface.co/stabilityai/stable-audio-open-1.0)**
 
-This step is required for the AI music generation to function properly. Access is typically granted within a few hours.
+This step is required for the AI music generation to function properly. Access is free.
 
 ## Setup
 
