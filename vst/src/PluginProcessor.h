@@ -281,7 +281,6 @@ private:
 	void stopNotePlaybackForTrack(int noteNumber);
 	void updateSequencers();
 	void triggerSequencerStep(TrackData* track);
-	void advanceSequencerStep(TrackData* track);
 	void saveBufferToFile(const juce::AudioBuffer<float>& buffer,
 		const juce::File& outputFile,
 		double sampleRate);

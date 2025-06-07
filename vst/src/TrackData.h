@@ -37,6 +37,8 @@ struct TrackData
 	juce::String prompt;
 	juce::String style;
 	juce::String stems;
+	int customStepCounter = 0;
+	double lastPpqPosition = -1.0;
 	float bpm = 126.0f;
 	std::atomic<double> readPosition{ 0.0 };
 	bool showWaveform = false;

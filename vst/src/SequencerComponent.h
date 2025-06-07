@@ -6,11 +6,6 @@ class DjIaVstProcessor;
 class SequencerComponent : public juce::Component
 {
 public:
-	struct StepData {
-		bool active = false;
-		float velocity = 0.8f;
-	};
-
 	SequencerComponent(const juce::String& trackId, DjIaVstProcessor& processor);
 
 	void paint(juce::Graphics& g) override;
@@ -34,8 +29,6 @@ private:
 	static const int MAX_MEASURES = 4;
 
 	bool isEditing = false;
-
-	StepData steps[MAX_MEASURES][MAX_STEPS_PER_MEASURE];
 
 	int currentStep = 0;
 	int currentMeasure = 0;

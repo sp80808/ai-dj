@@ -10,19 +10,17 @@ SequencerComponent::SequencerComponent(const juce::String& trackId, DjIaVstProce
 }
 
 void SequencerComponent::setupUI() {
-	for (int m = 0; m < MAX_MEASURES; ++m) {
-		for (int s = 0; s < MAX_STEPS_PER_MEASURE; ++s) {
-			steps[m][s].active = false;
-			steps[m][s].velocity = 0.8f;
-		}
-	}
 
 	addAndMakeVisible(measureSlider);
 	measureSlider.setRange(1, 4, 1);
 	measureSlider.setValue(1);
 	measureSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 30, 20);
 	measureSlider.onValueChange = [this]() {
+		isEditing = true;
 		setNumMeasures((int)measureSlider.getValue());
+		juce::Timer::callAfterDelay(500, [this]() {
+			isEditing = false;
+			});
 		};
 
 
@@ -33,7 +31,7 @@ void SequencerComponent::setupUI() {
 		if (currentMeasure > 0) {
 			setCurrentMeasure(currentMeasure - 1);
 		}
-		juce::Timer::callAfterDelay(50, [this]() {
+		juce::Timer::callAfterDelay(500, [this]() {
 			isEditing = false;
 			});
 		};
@@ -45,7 +43,7 @@ void SequencerComponent::setupUI() {
 		if (currentMeasure < numMeasures - 1) {
 			setCurrentMeasure(currentMeasure + 1);
 		}
-		juce::Timer::callAfterDelay(50, [this]() {
+		juce::Timer::callAfterDelay(500, [this]() {
 			isEditing = false;
 			});
 		};
@@ -94,7 +92,6 @@ void SequencerComponent::paint(juce::Graphics& g)
 	int playingMeasure = track ? track->sequencerData.currentMeasure : -1;
 
 	int safeMeasure = juce::jlimit(0, MAX_MEASURES - 1, currentMeasure);
-
 	for (int i = 0; i < 16; ++i) {
 		auto stepBounds = getStepBounds(i);
 
@@ -109,7 +106,7 @@ void SequencerComponent::paint(juce::Graphics& g)
 			stepColour = juce::Colour(0xff1a1a1a);
 			borderColour = juce::Colour(0xff333333);
 		}
-		else if (steps[safeMeasure][i].active) {
+		else if (track->sequencerData.steps[safeMeasure][i]) {
 			stepColour = trackColour;
 			borderColour = trackColour.brighter(0.4f);
 		}
@@ -198,9 +195,6 @@ void SequencerComponent::toggleStep(int step)
 
 		track->sequencerData.steps[safeMeasure][step] = !track->sequencerData.steps[safeMeasure][step];
 		track->sequencerData.velocities[safeMeasure][step] = 0.8f;
-
-		steps[safeMeasure][step].active = track->sequencerData.steps[safeMeasure][step];
-		steps[safeMeasure][step].velocity = track->sequencerData.velocities[safeMeasure][step];
 	}
 
 	// TODO: velocity
@@ -245,11 +239,14 @@ void SequencerComponent::setCurrentMeasure(int measure)
 	measureLabel.setText(juce::String(currentMeasure + 1) + "/" + juce::String(numMeasures),
 		juce::dontSendNotification);
 	repaint();
+
 }
 
 void SequencerComponent::setNumMeasures(int measures)
 {
+	int oldNumMeasures = numMeasures;
 	numMeasures = juce::jlimit(1, MAX_MEASURES, measures);
+
 	if (currentMeasure >= numMeasures) {
 		setCurrentMeasure(numMeasures - 1);
 	}
@@ -257,6 +254,15 @@ void SequencerComponent::setNumMeasures(int measures)
 	TrackData* track = audioProcessor.getTrack(trackId);
 	if (track) {
 		track->sequencerData.numMeasures = numMeasures;
+
+		if (numMeasures < oldNumMeasures) {
+			for (int m = numMeasures; m < oldNumMeasures; ++m) {
+				for (int s = 0; s < 16; ++s) {
+					track->sequencerData.steps[m][s] = false;
+					track->sequencerData.velocities[m][s] = 0.8f;
+				}
+			}
+		}
 	}
 
 	measureLabel.setText(juce::String(currentMeasure + 1) + "/" + juce::String(numMeasures),
@@ -269,14 +275,9 @@ void SequencerComponent::updateFromTrackData()
 	if (isEditing) return;
 	TrackData* track = audioProcessor.getTrack(trackId);
 	if (track) {
-		for (int m = 0; m < 4; ++m) {
-			for (int s = 0; s < 16; ++s) {
-				steps[m][s].active = track->sequencerData.steps[m][s];
-				steps[m][s].velocity = track->sequencerData.velocities[m][s];
-			}
-		}
 		currentStep = juce::jlimit(0, 15, track->sequencerData.currentStep);
 		isPlaying = track->isPlaying;
+		numMeasures = track->sequencerData.numMeasures;
 
 		if (isPlaying) {
 			int playingMeasure = track->sequencerData.currentMeasure + 1;
@@ -288,8 +289,6 @@ void SequencerComponent::updateFromTrackData()
 			track->sequencerData.currentStep = 0;
 			track->sequencerData.currentMeasure = 0;
 			currentPlayingMeasureLabel.setText("M " + juce::String(track->sequencerData.currentMeasure + 1), juce::dontSendNotification);
-			measureLabel.setText(juce::String(track->sequencerData.currentMeasure + 1) + "/" + juce::String(track->sequencerData.numMeasures),
-				juce::dontSendNotification);
 			measureSlider.setValue(track->sequencerData.numMeasures);
 			currentPlayingMeasureLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
 		}
