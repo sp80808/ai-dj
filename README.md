@@ -37,6 +37,25 @@ _Click to watch: World's First AI Jam Partner in action!_
 - **Smart time-stretching** with DAW tempo sync
 - **Individual outputs** for separate mixing
 
+### 🥁 **Built-in Step Sequencer**
+
+- **16-step programmable sequencer** per track with multi-measure support
+- **Visual step programming** with real-time playback indicators
+- **DAW sync**: Perfectly locked to host tempo and transport
+- **Intelligent quantization** with custom step counter system
+- **Per-step velocity control** for dynamic patterns
+- **Multi-measure patterns** (1-4 measures) for complex arrangements
+- **Independent sequencer per track** - each runs its own pattern
+- **Start/Stop on measure boundaries** for seamless live performance
+- **Pattern editing while playing** - modify sequences in real-time
+
+**Perfect for:**
+
+- Live techno/electronic performances
+- Building complex polyrhythmic patterns
+- Jamming with AI-generated loops as sequenced elements
+- Creating evolving arrangements that sync with your DAW
+
 ### 🎛️ **Live Performance Ready**
 
 - **Global custom prompts** shared across projects
