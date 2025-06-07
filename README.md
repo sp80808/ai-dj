@@ -56,11 +56,40 @@ _Click to watch: World's First AI Jam Partner in action!_
 
 ## Prerequisites
 
-⚠️ **Important:** Before installing OBSIDIAN, you must request access to the Stable Audio Open model on Hugging Face:
+### System Requirements
 
-👉 **[Request Access Here](https://huggingface.co/stabilityai/stable-audio-open-1.0)**
+**Hardware:**
+- NVIDIA GPU with CUDA support (RTX 3060+ recommended)
+- **8GB+ VRAM** for Stable Audio Open standard model
+- **Note:** Stable Audio Open Small model may require less VRAM (testing needed)
+- 16GB+ system RAM recommended
 
-This step is required for the AI music generation to function properly. Access is free.
+**Software Dependencies:**
+- **NVIDIA CUDA Toolkit** (latest version)
+- **Python 3.10** (other versions may not work properly)
+- **CMake** (3.16 or higher)
+- **Git**
+- **Build tools:**
+  - Windows: Visual Studio Build Tools or Visual Studio Community
+  - Linux: GCC/G++ compiler, make
+- **Download utilities:**
+  - Windows: `curl.exe` (usually included with Windows 10+)
+  - Linux: `wget` (install with package manager if not present)
+
+### Stable Audio Open Access & Licensing
+
+⚠️ **Important:** Before using OBSIDIAN-Neural, you must:
+
+1. **Request access** to the Stable Audio Open model on Hugging Face:
+   👉 **[Request Access Here](https://huggingface.co/stabilityai/stable-audio-open-1.0)**
+
+2. **Understand the licensing terms:**
+   - **Personal/Research use**: Free under Stability AI Community License
+   - **Commercial use**: Requires Enterprise License if your organization generates **>$1M USD annual revenue**
+   - **For revenue under $1M/year**: Commercial use allowed under Community License
+   - Generated audio is yours to use according to license terms
+
+**License Details:** Stable Audio Open uses the Stability AI Community License, not a traditional open-source license. Commercial use is permitted for individuals and organizations with annual revenue under $1M USD. For enterprise use (>$1M revenue), contact Stability AI for licensing.
 
 ## Setup
 
@@ -76,9 +105,7 @@ After getting access approved on Hugging Face:
 
 ---
 
-## 🚀 Quick Install
-
-### Automated Setup
+### Installation
 
 **Windows:**
 
@@ -113,15 +140,6 @@ source env/bin/activate && python main.py
 2. **Generate**: Add tracks, enter creative prompts, generate AI audio
 3. **Perform**: Trigger tracks with MIDI, auto-sync to DAW tempo
 4. **Control**: Map hardware controllers with MIDI Learn system
-
----
-
-## ⚙️ System Requirements
-
-- **GPU**: NVIDIA with CUDA (required for real-time)
-- **RAM**: 8GB+ for model loading
-- **OS**: Windows 10+, Linux, macOS
-- **DAW**: Any VST3-compatible DAW
 
 ---
 
