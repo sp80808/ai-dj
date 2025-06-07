@@ -124,9 +124,28 @@ _"Deep techno kick with sidechain compression, 126 BPM, dark atmosphere, minimal
 
 ---
 
-## 🛠️ Contributing
+## 🐛 Bug Reports & Issues
 
-Found a bug? Please report with DAW name/version, steps to reproduce, and screenshots if UI-related.
+Found a bug or unexpected behavior? Help improve OBSIDIAN-Neural by reporting issues!
+
+### 📝 How to Report
+
+1. **[Create an issue](https://github.com/innermost47/ai-dj/issues/new)** on GitHub
+2. **Include essential info:**
+   - DAW name and version
+   - Operating system
+   - Steps to reproduce the bug
+   - Expected vs actual behavior
+   - Screenshots/videos if UI-related
+
+### 🚀 What Gets Priority
+
+- Crashes or data loss
+- Sequencer timing issues
+- AI generation failures
+- MIDI mapping problems
+
+**Your reports help make OBSIDIAN-Neural more stable for everyone!**
 
 ---
 
