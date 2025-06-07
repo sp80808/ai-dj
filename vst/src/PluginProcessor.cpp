@@ -1631,10 +1631,11 @@ void DjIaVstProcessor::updateSequencers()
 				if ((newStep == 0) && track->pendingAction != TrackData::PendingAction::None) {
 					executePendingAction(track);
 				}
+
 				track->sequencerData.currentStep = newStep;
 				track->sequencerData.currentMeasure = newMeasure;
 
-				if (track->sequencerData.isPlaying && track->isPlaying.load())
+				if (track->sequencerData.isPlaying && track->isArmed.load())
 					triggerSequencerStep(track);
 			}
 
@@ -1654,18 +1655,14 @@ void DjIaVstProcessor::triggerSequencerStep(TrackData* track)
 {
 	int step = track->sequencerData.currentStep;
 	int measure = track->sequencerData.currentMeasure;
-
 	if (track->sequencerData.steps[measure][step]) {
 		track->readPosition = 0.0;
-
 		if (!track->isPlaying.load()) {
 			track->setPlaying(true);
 		}
 		playingTracks[track->midiNote] = track->trackId;
-
 		juce::MidiMessage noteOn = juce::MidiMessage::noteOn(1, track->midiNote,
 			(juce::uint8)(track->sequencerData.velocities[measure][step] * 127));
 		addSequencerMidiMessage(noteOn);
 	}
 }
-
