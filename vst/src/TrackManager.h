@@ -199,6 +199,7 @@ public:
 			trackState.setProperty("timeStretchRatio", track->timeStretchRatio, nullptr);
 			trackState.setProperty("stagingOriginalBpm", track->stagingOriginalBpm, nullptr);
 			trackState.setProperty("showWaveform", track->showWaveform, nullptr);
+			trackState.setProperty("showSequencer", track->showSequencer, nullptr);
 			trackState.setProperty("isPlaying", track->isPlaying.load(), nullptr);
 			trackState.setProperty("isArmed", track->isArmed.load(), nullptr);
 			trackState.setProperty("isArmedToStop", track->isArmedToStop.load(), nullptr);
@@ -210,6 +211,22 @@ public:
 				trackState.setProperty("numSamples", track->numSamples, nullptr);
 				trackState.setProperty("numChannels", track->audioBuffer.getNumChannels(), nullptr);
 			}
+			juce::ValueTree sequencerState("Sequencer");
+			sequencerState.setProperty("isPlaying", track->sequencerData.isPlaying, nullptr);
+			sequencerState.setProperty("currentStep", track->sequencerData.currentStep, nullptr);
+			sequencerState.setProperty("currentMeasure", track->sequencerData.currentMeasure, nullptr);
+			sequencerState.setProperty("numMeasures", track->sequencerData.numMeasures, nullptr);
+			sequencerState.setProperty("beatsPerMeasure", track->sequencerData.beatsPerMeasure, nullptr);
+			for (int m = 0; m < 4; ++m) {
+				for (int s = 0; s < 16; ++s) {
+					juce::String stepKey = "step_" + juce::String(m) + "_" + juce::String(s);
+					sequencerState.setProperty(stepKey, track->sequencerData.steps[m][s], nullptr);
+
+					juce::String velocityKey = "velocity_" + juce::String(m) + "_" + juce::String(s);
+					sequencerState.setProperty(velocityKey, track->sequencerData.velocities[m][s], nullptr);
+				}
+			}
+			trackState.appendChild(sequencerState, nullptr);
 			state.appendChild(trackState, nullptr);
 		}
 
@@ -252,13 +269,30 @@ public:
 			track->timeStretchRatio = trackState.getProperty("timeStretchRatio", 1.0);
 			track->stagingOriginalBpm = trackState.getProperty("stagingOriginalBpm", 126.0f);
 			track->showWaveform = trackState.getProperty("showWaveform", false);
+			track->showSequencer = trackState.getProperty("showSequencer", false);
 			track->isMuted = trackState.getProperty("muted", false);
 			track->isSolo = trackState.getProperty("solo", false);
 			track->isPlaying = trackState.getProperty("isplaying", false);
 			track->isArmed = trackState.getProperty("isArmed", false);
 			track->isArmedToStop = trackState.getProperty("isArmedToStop", false);
 			track->isCurrentlyPlaying = trackState.getProperty("isCurrentlyPlaying", false);
+			auto sequencerState = trackState.getChildWithName("Sequencer");
+			if (sequencerState.isValid()) {
+				track->sequencerData.isPlaying = sequencerState.getProperty("isPlaying", false);
+				track->sequencerData.currentStep = sequencerState.getProperty("currentStep", 0);
+				track->sequencerData.currentMeasure = sequencerState.getProperty("currentMeasure", 0);
+				track->sequencerData.numMeasures = sequencerState.getProperty("numMeasures", 1);
+				track->sequencerData.beatsPerMeasure = sequencerState.getProperty("beatsPerMeasure", 4);
+				for (int m = 0; m < 4; ++m) {
+					for (int s = 0; s < 16; ++s) {
+						juce::String stepKey = "step_" + juce::String(m) + "_" + juce::String(s);
+						track->sequencerData.steps[m][s] = sequencerState.getProperty(stepKey, false);
 
+						juce::String velocityKey = "velocity_" + juce::String(m) + "_" + juce::String(s);
+						track->sequencerData.velocities[m][s] = sequencerState.getProperty(velocityKey, 0.8f);
+					}
+				}
+			}
 			juce::String audioFilePath = trackState.getProperty("audioFilePath", "");
 			if (audioFilePath.isNotEmpty())
 			{
@@ -467,11 +501,12 @@ private:
 			{
 				leftGain = 1.0f - pan;
 			}
-
 			if (absolutePosition >= endSample)
 			{
 				currentPosition = 0.0;
 				absolutePosition = startSample;
+				track.isPlaying = false;
+				return;
 			}
 
 			if (absolutePosition >= track.numSamples)
@@ -499,7 +534,11 @@ private:
 				{
 					sample *= rightGain;
 				}
-
+				if (absolutePosition > (endSample - 64)) {
+					float fadeGain = (endSample - absolutePosition) / 64.0f;
+					fadeGain = juce::jlimit(0.0f, 1.0f, fadeGain);
+					sample *= fadeGain;
+				}
 				mixOutput.addSample(ch, i, sample);
 				individualOutput.setSample(ch, i, sample);
 				mixOutput.addSample(ch, i, sample);

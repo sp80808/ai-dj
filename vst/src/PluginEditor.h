@@ -3,6 +3,8 @@
 #include "TrackComponent.h"
 #include "MixerPanel.h"
 
+class SequencerComponent;
+
 class DjIaVstEditor : public juce::AudioProcessorEditor, public juce::MenuBarModel, public juce::Timer
 {
 public:
@@ -34,6 +36,7 @@ public:
 	MixerPanel* getMixerPanel() { return mixerPanel.get(); }
 	void toggleWaveFormButtonOnTrack();
 	void setStatusWithTimeout(const juce::String& message, int timeoutMs = 2000);
+	void* getSequencerForTrack(const juce::String& trackId);
 
 private:
 	DjIaVstProcessor& audioProcessor;
@@ -64,6 +67,7 @@ private:
 	void showConfigDialog();
 	void mouseDown(const juce::MouseEvent& event) override;
 	void editCustomPromptDialog(const juce::String& selectedPrompt);
+	void toggleSEQButtonOnTrack();
 
 	juce::File getSessionsDirectory();
 	std::unique_ptr<MixerPanel> mixerPanel;

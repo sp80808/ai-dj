@@ -4,6 +4,7 @@
 #include "./PluginProcessor.h"
 #include "PluginEditor.h"
 #include "BinaryData.h"
+#include "SequencerComponent.h"
 
 DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor& p)
 	: AudioProcessorEditor(&p), audioProcessor(p)
@@ -29,6 +30,10 @@ DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor& p)
 				if (trackComp->getTrack() && trackComp->getTrack()->showWaveform)
 				{
 					trackComp->toggleWaveformDisplay();
+				}
+				if (trackComp->getTrack() && trackComp->getTrack()->showSequencer)
+				{
+					trackComp->toggleSequencerDisplay();
 				}
 			}
 			if (audioProcessor.getIsGenerating())
@@ -568,6 +573,7 @@ void DjIaVstEditor::addEventListeners()
 				generateButton.setEnabled(true);
 				setAllGenerateButtonsEnabled(true);
 				toggleWaveFormButtonOnTrack();
+				toggleSEQButtonOnTrack();
 				statusLabel.setText("UI Reset - Ready", juce::dontSendNotification);
 
 				for (auto& trackComp : trackComponents)
@@ -1249,6 +1255,23 @@ void DjIaVstEditor::toggleWaveFormButtonOnTrack()
 	}
 }
 
+void DjIaVstEditor::toggleSEQButtonOnTrack()
+{
+	auto trackIds = audioProcessor.getAllTrackIds();
+	for (const auto& trackId : trackIds)
+	{
+		TrackData* track = audioProcessor.getTrack(trackId);
+		if (track)
+		{
+			track->showSequencer = false;
+		}
+	}
+	for (auto& trackComponent : trackComponents)
+	{
+		trackComponent->sequencerToggleButton.setToggleState(false, juce::dontSendNotification);
+	}
+}
+
 void DjIaVstEditor::setStatusWithTimeout(const juce::String& message, int timeoutMs)
 {
 	statusLabel.setText(message, juce::dontSendNotification);
@@ -1270,6 +1293,7 @@ void DjIaVstEditor::onAddTrack()
 			mixerPanel->trackAdded(newTrackId);
 		}
 		toggleWaveFormButtonOnTrack();
+		toggleSEQButtonOnTrack();
 		setStatusWithTimeout("New track created");
 	}
 	catch (const std::exception& e)
@@ -1603,4 +1627,14 @@ void DjIaVstEditor::menuItemSelected(int menuItemID, int topLevelMenuIndex)
 			nullptr);
 		break;
 	}
+}
+
+void* DjIaVstEditor::getSequencerForTrack(const juce::String& trackId)
+{
+	for (auto& trackComp : trackComponents) {
+		if (trackComp->getTrackId() == trackId) {
+			return (void*)trackComp->getSequencer();
+		}
+	}
+	return nullptr;
 }

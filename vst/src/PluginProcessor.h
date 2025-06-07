@@ -132,6 +132,9 @@ public:
 	void saveGlobalConfig();
 	void removeCustomPrompt(const juce::String& prompt);
 	void editCustomPrompt(const juce::String& oldPrompt, const juce::String& newPrompt);
+	int getSamplesPerBlock() const { return currentBlockSize; }
+	void handleSequencerPlayState(bool hostIsPlaying);
+	void addSequencerMidiMessage(const juce::MidiMessage& message);
 
 private:
 	DjIaVstEditor* currentEditor = nullptr;
@@ -167,9 +170,15 @@ private:
 
 	int lastKeyIndex = 1;
 	int lastPresetIndex = -1;
+	int currentBlockSize = 512;
 
 	juce::CriticalSection apiLock;
+	juce::CriticalSection sequencerMidiLock;
+
 	juce::File pendingAudioFile;
+
+	juce::MidiBuffer sequencerMidiBuffer;
+
 	juce::AudioProcessorValueTreeState parameters;
 	juce::String serverUrl = "http://localhost:8000";
 	juce::String apiKey;
@@ -270,9 +279,12 @@ private:
 	void performTrackDeletion(const juce::String& trackId);
 	void reassignTrackOutputsAndMidi();
 	void stopNotePlaybackForTrack(int noteNumber);
+	void updateSequencers();
+	void triggerSequencerStep(TrackData* track);
 	void saveBufferToFile(const juce::AudioBuffer<float>& buffer,
 		const juce::File& outputFile,
 		double sampleRate);
+	void executePendingAction(TrackData* track) const;
 
 	TrackComponent* findTrackComponentByName(const juce::String& trackName, DjIaVstEditor* editor);
 

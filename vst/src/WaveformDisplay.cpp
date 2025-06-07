@@ -171,7 +171,7 @@ void WaveformDisplay::mouseDown(const juce::MouseEvent& e)
 			loopStart = clickTime;
 			if (loopStart >= loopEnd)
 			{
-				loopStart = loopEnd - getMinLoopDuration();
+				loopStart = loopEnd;
 			}
 		}
 		else
@@ -179,7 +179,7 @@ void WaveformDisplay::mouseDown(const juce::MouseEvent& e)
 			loopEnd = clickTime;
 			if (loopEnd <= loopStart)
 			{
-				loopEnd = loopStart + getMinLoopDuration();
+				loopEnd = loopStart;
 			}
 		}
 
@@ -200,7 +200,7 @@ void WaveformDisplay::mouseDrag(const juce::MouseEvent& e)
 	{
 		double newStart = xToTime(e.x);
 
-		loopStart = juce::jlimit(getViewStartTime(), loopEnd - getMinLoopDuration(), newStart);
+		loopStart = juce::jlimit(getViewStartTime(), loopEnd, newStart);
 		repaint();
 
 		if (onLoopPointsChanged)
@@ -212,7 +212,7 @@ void WaveformDisplay::mouseDrag(const juce::MouseEvent& e)
 	{
 		double newEnd = xToTime(e.x);
 
-		loopEnd = juce::jlimit(loopStart + getMinLoopDuration(), getViewEndTime(), newEnd);
+		loopEnd = juce::jlimit(loopStart, getViewEndTime(), newEnd);
 		repaint();
 
 		if (onLoopPointsChanged)
@@ -516,8 +516,8 @@ void WaveformDisplay::drawLoopMarkers(juce::Graphics& g)
 	float startX = timeToX(loopStart);
 	float endX = timeToX(loopEnd);
 
-	juce::Colour loopColour = loopPointsLocked ? juce::Colours::orange : juce::Colours::green;
-	g.setColour(loopColour.withAlpha(0.2f));
+	juce::Colour loopColour = loopPointsLocked ? juce::Colours::orange : juce::Colours::purple;
+	g.setColour(loopColour.withAlpha(0.3f));
 	g.fillRect(startX, 0.0f, endX - startX, (float)getHeight());
 
 	float lineWidth = loopPointsLocked ? 3.0f : 2.0f;

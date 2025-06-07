@@ -6,6 +6,7 @@
 #include "AudioAnalyzer.h"
 #include "DummySynth.h"
 #include "MidiMapping.h"
+#include "SequencerComponent.h"
 
 juce::AudioProcessor::BusesProperties DjIaVstProcessor::createBusLayout()
 {
@@ -238,6 +239,7 @@ void DjIaVstProcessor::timerCallback()
 void DjIaVstProcessor::prepareToPlay(double newSampleRate, int samplesPerBlock)
 {
 	hostSampleRate = newSampleRate;
+	currentBlockSize = samplesPerBlock;
 	synth.setCurrentPlaybackSampleRate(newSampleRate);
 	for (auto& buffer : individualOutputBuffers)
 	{
@@ -288,7 +290,17 @@ void DjIaVstProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
 	{
 		getDawInformations(playHead, hostIsPlaying, hostBpm, hostPpqPosition);
 	}
+	handleSequencerPlayState(hostIsPlaying);
+	updateSequencers();
+
+	{
+		juce::ScopedLock lock(sequencerMidiLock);
+		midiMessages.addEvents(sequencerMidiBuffer, 0, buffer.getNumSamples(), 0);
+		sequencerMidiBuffer.clear();
+	}
+
 	processMidiMessages(midiMessages, hostIsPlaying, hostBpm);
+
 	if (hasPendingAudioData.load())
 	{
 		processIncomingAudio();
@@ -308,6 +320,50 @@ void DjIaVstProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
 	applyMasterEffects(mainOutput);
 
 	checkIfUIUpdateNeeded(midiMessages);
+}
+
+void DjIaVstProcessor::addSequencerMidiMessage(const juce::MidiMessage& message)
+{
+	juce::ScopedLock lock(sequencerMidiLock);
+	sequencerMidiBuffer.addEvent(message, 0);
+}
+
+void DjIaVstProcessor::handleSequencerPlayState(bool hostIsPlaying)
+{
+	static bool wasPlaying = false;
+
+	if (hostIsPlaying && !wasPlaying) {
+		auto trackIds = trackManager.getAllTrackIds();
+		for (const auto& trackId : trackIds) {
+			TrackData* track = trackManager.getTrack(trackId);
+			if (track) {
+				track->sequencerData.isPlaying = true;
+				track->sequencerData.currentStep = 0;
+				track->sequencerData.currentMeasure = 0;
+				track->sequencerData.stepAccumulator = 0.0;
+				track->customStepCounter = 0;
+				track->lastPpqPosition = -1.0;
+			}
+		}
+	}
+	else if (!hostIsPlaying && wasPlaying) {
+		auto trackIds = trackManager.getAllTrackIds();
+		for (const auto& trackId : trackIds) {
+			TrackData* track = trackManager.getTrack(trackId);
+			if (track) {
+				track->sequencerData.isPlaying = false;
+				track->isPlaying = false;
+				track->readPosition = 0.0;
+				track->sequencerData.currentStep = 0;
+				track->sequencerData.currentMeasure = 0;
+				track->sequencerData.stepAccumulator = 0.0;
+				track->customStepCounter = 0;
+				track->lastPpqPosition = -1.0;
+			}
+		}
+	}
+
+	wasPlaying = hostIsPlaying;
 }
 
 void DjIaVstProcessor::checkIfUIUpdateNeeded(juce::MidiBuffer& midiMessages)
@@ -501,12 +557,12 @@ void DjIaVstProcessor::handlePlayAndStop(bool hostIsPlaying)
 			if (track->slotIndex == changedSlot)
 			{
 				bool paramPlay = slotPlayParams[changedSlot]->load() > 0.5f;
-				if (paramPlay)
-				{
+				if (paramPlay) {
+					track->pendingAction = TrackData::PendingAction::StartOnNextMeasure;
 					track->setArmed(true);
 				}
-				else if (!paramPlay)
-				{
+				else {
+					track->pendingAction = TrackData::PendingAction::StopOnNextMeasure;
 					track->setArmedToStop(true);
 					track->setArmed(false);
 				}
@@ -604,11 +660,6 @@ void DjIaVstProcessor::startNotePlaybackForTrack(const juce::String& trackId, in
 		return;
 	if (track->isArmedToStop.load())
 	{
-		track->isPlaying = false;
-		track->isArmedToStop = false;
-		track->isCurrentlyPlaying = false;
-		if (onUIUpdateNeeded)
-			onUIUpdateNeeded();
 		return;
 	}
 	if (!track->isArmed.load())
@@ -635,6 +686,9 @@ void DjIaVstProcessor::stopNotePlaybackForTrack(int noteNumber)
 		if (track)
 		{
 			track->isPlaying = false;
+			track->sequencerData.currentStep = 0;
+			track->sequencerData.currentMeasure = 0;
+			track->sequencerData.stepAccumulator = 0.0;
 		}
 		playingTracks.erase(it);
 	}
@@ -1510,3 +1564,108 @@ void DjIaVstProcessor::editCustomPrompt(const juce::String& oldPrompt, const juc
 		saveGlobalConfig();
 	}
 }
+
+void DjIaVstProcessor::executePendingAction(TrackData* track) const
+{
+	switch (track->pendingAction) {
+	case TrackData::PendingAction::StartOnNextMeasure:
+		if (!track->isPlaying.load() && track->isArmed.load()) {
+			track->readPosition = 0.0;
+			track->sequencerData.currentStep = 0;
+			track->sequencerData.currentMeasure = 0;
+			track->sequencerData.stepAccumulator = 0.0;
+			track->setPlaying(true);
+		}
+		break;
+
+	case TrackData::PendingAction::StopOnNextMeasure:
+		track->isPlaying = false;
+		track->isArmedToStop = false;
+		track->isCurrentlyPlaying = false;
+		if (onUIUpdateNeeded)
+			onUIUpdateNeeded();
+		break;
+
+	default:
+		break;
+	}
+
+	track->pendingAction = TrackData::PendingAction::None;
+}
+
+void DjIaVstProcessor::updateSequencers()
+{
+	auto playHead = getPlayHead();
+	if (!playHead) return;
+	auto positionInfo = playHead->getPosition();
+	if (!positionInfo) return;
+	auto ppqPosition = positionInfo->getPpqPosition();
+	if (!ppqPosition.hasValue()) return;
+
+	double currentPpq = *ppqPosition;
+	double stepInPpq = 0.25;
+
+	auto trackIds = trackManager.getAllTrackIds();
+	for (const auto& trackId : trackIds) {
+		TrackData* track = trackManager.getTrack(trackId);
+		if (track) {
+			double expectedPpqForNextStep = track->lastPpqPosition + stepInPpq;
+
+			bool shouldAdvanceStep = false;
+			if (track->lastPpqPosition < 0) {
+				track->lastPpqPosition = currentPpq;
+				track->customStepCounter = 0;
+				shouldAdvanceStep = true;
+			}
+			else if (currentPpq >= expectedPpqForNextStep) {
+				track->customStepCounter++;
+				track->lastPpqPosition = expectedPpqForNextStep;
+				shouldAdvanceStep = true;
+			}
+
+			if (shouldAdvanceStep) {
+				int stepsPerMeasure = track->sequencerData.beatsPerMeasure * 4;
+				int newStep = track->customStepCounter % stepsPerMeasure;
+				int newMeasure = (track->customStepCounter / stepsPerMeasure) % track->sequencerData.numMeasures;
+
+				if ((newStep == 0) && track->pendingAction != TrackData::PendingAction::None) {
+					executePendingAction(track);
+				}
+				track->sequencerData.currentStep = newStep;
+				track->sequencerData.currentMeasure = newMeasure;
+
+				if (track->sequencerData.isPlaying && track->isPlaying.load())
+					triggerSequencerStep(track);
+			}
+
+			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+				juce::MessageManager::callAsync([editor, trackId]() {
+					if (auto* sequencer = static_cast<SequencerComponent*>(editor->getSequencerForTrack(trackId))) {
+						sequencer->updateFromTrackData();
+					}
+					});
+			}
+		}
+	}
+}
+
+
+void DjIaVstProcessor::triggerSequencerStep(TrackData* track)
+{
+	int step = track->sequencerData.currentStep;
+	int measure = track->sequencerData.currentMeasure;
+
+	if (track->sequencerData.steps[measure][step]) {
+		track->readPosition = 0.0;
+
+		if (!track->isPlaying.load()) {
+			track->setPlaying(true);
+		}
+		playingTracks[track->midiNote] = track->trackId;
+
+		juce::MidiMessage noteOn = juce::MidiMessage::noteOn(1, track->midiNote,
+			(juce::uint8)(track->sequencerData.velocities[measure][step] * 127));
+		addSequencerMidiMessage(noteOn);
+	}
+}
+

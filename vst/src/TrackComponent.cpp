@@ -1,6 +1,7 @@
 ﻿#include "TrackComponent.h"
 #include "WaveformDisplay.h"
 #include "PluginProcessor.h"
+#include "SequencerComponent.h"
 
 TrackComponent::TrackComponent(const juce::String& trackId, DjIaVstProcessor& processor)
 	: trackId(trackId), track(nullptr), audioProcessor(processor)
@@ -63,10 +64,8 @@ void TrackComponent::toggleWaveformDisplay()
 				};
 			addAndMakeVisible(*waveformDisplay);
 		}
-
 		if (track && track->numSamples > 0)
 		{
-
 			waveformDisplay->setAudioData(track->audioBuffer, track->sampleRate);
 			waveformDisplay->setLoopPoints(track->loopStart, track->loopEnd);
 			calculateHostBasedDisplay();
@@ -85,17 +84,31 @@ void TrackComponent::toggleWaveformDisplay()
 		}
 	}
 
+	bool waveformVisible = showWaveformButton.getToggleState();
+	bool sequencerVisible = this->sequencerVisible;
+
+	int newHeight = BASE_HEIGHT;
+	if (waveformVisible) newHeight += WAVEFORM_HEIGHT;
+	if (sequencerVisible) newHeight += SEQUENCER_HEIGHT;
+
+	setSize(getWidth(), newHeight);
+
 	if (auto* parentViewport = findParentComponentOfClass<juce::Viewport>())
 	{
 		if (auto* parentContainer = parentViewport->getViewedComponent())
 		{
 			int totalHeight = 5;
-
 			for (int i = 0; i < parentContainer->getNumChildComponents(); ++i)
 			{
 				if (auto* trackComp = dynamic_cast<TrackComponent*>(parentContainer->getChildComponent(i)))
 				{
-					int trackHeight = trackComp->showWaveformButton.getToggleState() ? 110 : 60;
+					bool hasWaveform = trackComp->showWaveformButton.getToggleState();
+					bool hasSequencer = trackComp->sequencerVisible;
+
+					int trackHeight = BASE_HEIGHT;
+					if (hasWaveform) trackHeight += WAVEFORM_HEIGHT;
+					if (hasSequencer) trackHeight += SEQUENCER_HEIGHT;
+
 					trackComp->setSize(trackComp->getWidth(), trackHeight);
 					trackComp->setBounds(trackComp->getX(), totalHeight, trackComp->getWidth(), trackHeight);
 					totalHeight += trackHeight + 5;
@@ -124,18 +137,17 @@ void TrackComponent::updateFromTrackData()
 		return;
 
 	showWaveformButton.setToggleState(track->showWaveform, juce::dontSendNotification);
+	sequencerToggleButton.setToggleState(track->showSequencer, juce::dontSendNotification);
 
 	trackNameLabel.setText(track->trackName, juce::dontSendNotification);
-	int midiIndex = track->midiNote - 59;
-	if (midiIndex >= 1 && midiIndex <= midiNoteSelector.getNumItems())
-	{
-		midiNoteSelector.setSelectedId(midiIndex, juce::dontSendNotification);
-	}
+	juce::String noteName = juce::MidiMessage::getMidiNoteName(track->midiNote, true, true, 3);
+	midiNoteLabel.setText(noteName, juce::dontSendNotification);
 
 	bpmOffsetSlider.setValue(track->bpmOffset, juce::dontSendNotification);
 	timeStretchModeSelector.setSelectedId(track->timeStretchMode, juce::dontSendNotification);
 	trackNumberLabel.setText(juce::String(track->slotIndex + 1), juce::dontSendNotification);
 	trackNumberLabel.setColour(juce::Label::backgroundColourId, getTrackColour(track->slotIndex));
+	midiNoteLabel.setColour(juce::Label::backgroundColourId, getTrackColour(track->slotIndex));
 
 	if (waveformDisplay)
 	{
@@ -143,7 +155,7 @@ void TrackComponent::updateFromTrackData()
 		bool isMuted = track->isMuted.load();
 		bool shouldLock = isCurrentlyPlaying && !isMuted;
 
-		waveformDisplay->lockLoopPoints(shouldLock);
+		waveformDisplay->lockLoopPoints(false);
 
 		if (track->numSamples > 0 && track->sampleRate > 0)
 		{
@@ -278,7 +290,7 @@ void TrackComponent::resized()
 
 	selectButton.setBounds(headerArea.removeFromLeft(70).reduced(2));
 	trackNameLabel.setBounds(headerArea.removeFromLeft(55));
-	infoLabel.setBounds(headerArea.removeFromLeft(250));
+	infoLabel.setBounds(headerArea.removeFromLeft(200));
 
 	headerArea.removeFromLeft(10);
 
@@ -288,19 +300,30 @@ void TrackComponent::resized()
 	headerArea.removeFromRight(5);
 	showWaveformButton.setBounds(headerArea.removeFromRight(50));
 	headerArea.removeFromRight(5);
+	sequencerToggleButton.setBounds(headerArea.removeFromRight(40));
+	headerArea.removeFromRight(5);
 	timeStretchModeSelector.setBounds(headerArea.removeFromRight(80));
 	headerArea.removeFromRight(5);
-	midiNoteSelector.setBounds(headerArea.removeFromRight(65));
+	midiNoteLabel.setBounds(headerArea.removeFromRight(65));
 
 	if (waveformDisplay && showWaveformButton.getToggleState())
 	{
-		area.removeFromTop(5);
-		waveformDisplay->setBounds(area.removeFromTop(80));
+		area.removeFromTop(10);
+		waveformDisplay->setBounds(area.removeFromTop(WAVEFORM_HEIGHT));
 		waveformDisplay->setVisible(true);
 	}
 	else if (waveformDisplay)
 	{
 		waveformDisplay->setVisible(false);
+	}
+
+	if (sequencer && sequencerVisible && sequencerToggleButton.getToggleState()) {
+		area.removeFromTop(5);
+		sequencer->setBounds(area.removeFromTop(SEQUENCER_HEIGHT));
+		sequencer->setVisible(true);
+	}
+	else if (sequencer) {
+		sequencer->setVisible(false);
 	}
 }
 
@@ -375,24 +398,24 @@ void TrackComponent::setupUI()
 				onGenerateForTrack(trackId);
 		};
 
+	addAndMakeVisible(sequencerToggleButton);
+	sequencerToggleButton.setButtonText("SEQ");
+	sequencerToggleButton.setClickingTogglesState(true);
+	sequencerToggleButton.onClick = [this]() {
+		track->showSequencer = sequencerToggleButton.getToggleState();
+		toggleSequencerDisplay();
+		};
+
 	addAndMakeVisible(infoLabel);
 	infoLabel.setText("Empty track - Generate your sample!", juce::dontSendNotification);
 	infoLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
 	infoLabel.setFont(juce::Font(12.0f));
 
-	addAndMakeVisible(midiNoteSelector);
-	for (int note = 60; note < 72; ++note)
-	{
-		juce::String noteName = juce::MidiMessage::getMidiNoteName(note, true, true, 3);
-		midiNoteSelector.addItem(noteName, note - 59);
-	}
-	midiNoteSelector.onChange = [this]()
-		{
-			if (track)
-			{
-				track->midiNote = midiNoteSelector.getSelectedId() + 59;
-			}
-		};
+	addAndMakeVisible(midiNoteLabel);
+	midiNoteLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+	midiNoteLabel.setColour(juce::Label::backgroundColourId, juce::Colour(0xff404040));
+	midiNoteLabel.setJustificationType(juce::Justification::centred);
+	midiNoteLabel.setFont(juce::Font(10.0f, juce::Font::bold));
 
 	addAndMakeVisible(showWaveformButton);
 	showWaveformButton.setButtonText("Wave");
@@ -532,4 +555,50 @@ void TrackComponent::refreshWaveformIfNeeded()
 			lastNumSamples = track->numSamples;
 		}
 	}
+}
+
+void TrackComponent::toggleSequencerDisplay()
+{
+	sequencerVisible = sequencerToggleButton.getToggleState();
+
+	if (sequencerVisible && !sequencer) {
+		sequencer = std::make_unique<SequencerComponent>(trackId, audioProcessor);
+		addAndMakeVisible(*sequencer);
+	}
+
+	if (sequencer) {
+		sequencer->setVisible(sequencerVisible);
+	}
+
+	bool waveformVisible = showWaveformButton.getToggleState();
+	int newHeight = BASE_HEIGHT;
+
+	if (waveformVisible) newHeight += WAVEFORM_HEIGHT;
+	if (sequencerVisible) newHeight += SEQUENCER_HEIGHT;
+
+	setSize(getWidth(), newHeight);
+
+	if (auto* parentViewport = findParentComponentOfClass<juce::Viewport>()) {
+		if (auto* parentContainer = parentViewport->getViewedComponent()) {
+			int totalHeight = 5;
+
+			for (int i = 0; i < parentContainer->getNumChildComponents(); ++i) {
+				if (auto* trackComp = dynamic_cast<TrackComponent*>(parentContainer->getChildComponent(i))) {
+					bool hasWaveform = trackComp->showWaveformButton.getToggleState();
+					bool hasSequencer = trackComp->sequencerVisible;
+
+					int trackHeight = BASE_HEIGHT;
+					if (hasWaveform) trackHeight += WAVEFORM_HEIGHT;
+					if (hasSequencer) trackHeight += SEQUENCER_HEIGHT;
+
+					trackComp->setSize(trackComp->getWidth(), trackHeight);
+					trackComp->setBounds(trackComp->getX(), totalHeight, trackComp->getWidth(), trackHeight);
+					totalHeight += trackHeight + 5;
+				}
+			}
+			parentContainer->setSize(parentContainer->getWidth(), totalHeight);
+			parentContainer->resized();
+		}
+	}
+	resized();
 }
