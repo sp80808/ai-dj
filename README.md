@@ -6,11 +6,15 @@ OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM
 
 ## 🏆 Press Coverage
 
-📰 **[Featured on Bedroom Producers Blog](https://bedroomproducersblog.com/2025/06/06/obsidian-neural-sound-engine/)** - _"OBSIDIAN Neural Sound Engine, a FREE AI-powered jam partner"_
+**[Featured on Bedroom Producers Blog](https://bedroomproducersblog.com/2025/06/06/obsidian-neural-sound-engine/)** - _"OBSIDIAN Neural Sound Engine, a FREE AI-powered jam partner"_
 
 > "Too many AI projects focus on the things AI can save you from doing rather than how AI can help you get better at what you do." - James Nugent, BPB
 
-🎧 **[Featured on AudioZ](https://audioz.download/software/win/278483-download_innermost47-obsidian-v047-real-time-ai-music-generator-for-live-performance-vst3-standalone-win-mac-free.html)** - _"Real-time AI Music Generator for Live Performance"_
+**[Featured on AudioZ](https://audioz.download/software/win/278483-download_innermost47-obsidian-v047-real-time-ai-music-generator-for-live-performance-vst3-standalone-win-mac-free.html)** - _"Real-time AI Music Generator for Live Performance"_
+
+**[Featured on DTM Plugin Sale (Japan)](https://projectofnapskint.com/obsidian-2/)** - _"AI を楽器に変える時代が来た！" (The era of turning AI into musical instruments has arrived!)_
+
+**[Featured on Shuziyinpin (China)](https://www.shuziyinpin.vip/31549.html)** - _International coverage in Asian music production communities_
 
 ---
 
