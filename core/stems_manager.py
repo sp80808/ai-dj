@@ -1,5 +1,6 @@
 import os
 import sys
+import shutil
 import subprocess
 from pathlib import Path
 import time
@@ -70,6 +71,20 @@ class StemsManager:
             profile["other"] = 0.9
 
         return profile
+
+    def _cleanup_separated_files(self, separated_path):
+        if separated_path and os.path.exists(separated_path):
+
+            try:
+                shutil.rmtree(separated_path, ignore_errors=True)
+                print(f"🗑️  Cleaned stems directory: {separated_path}")
+                parent_dir = separated_path.parent
+                if parent_dir.exists() and not any(parent_dir.iterdir()):
+                    parent_dir.rmdir()
+                    print(f"🗑️  Cleaned empty parent: {parent_dir}")
+
+            except Exception as e:
+                print(f"⚠️ Cleanup warning: {e}")
 
     def _extract_multiple_stems(
         self, spectral_profile, separated_path, layer_id, preferred_stems=None
@@ -194,13 +209,16 @@ class StemsManager:
                     mixed_audio = mixed_audio * (0.95 / final_peak)
 
                 sf.write(mixed_output_path, mixed_audio, sr)
+                self._cleanup_separated_files(separated_path)
                 print(f"✅ Mixed stems saved: {os.path.basename(mixed_output_path)}")
                 return mixed_output_path, valid_stems
             else:
+                self._cleanup_separated_files(separated_path)
                 return None, None
 
         except Exception as e:
-            print(f"⚠️ Erreur mixage stems: {e}")
+            self._cleanup_separated_files(separated_path)
+            print(f"⚠️ Error on stems mixing: {e}")
             return None, None
 
     def _analyze_sample_with_demucs(self, sample_path, temp_output_dir):
@@ -240,7 +258,7 @@ class StemsManager:
             stem_path = separated_path / f"{stem}.wav"
             if stem_path.exists():
                 try:
-                    audio, sr = librosa.load(str(stem_path), sr=None, mono=True)
+                    audio, _ = librosa.load(str(stem_path), sr=None, mono=True)
                     energy = np.sum(audio**2)
                     stem_energy[stem] = energy
                     total_energy += energy

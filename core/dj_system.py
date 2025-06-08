@@ -47,7 +47,7 @@ class DJSystem:
 
         print("⏳ Initializing LayerManager...")
         self.layer_manager = LayerManager(
-            output_dir=os.path.join(self.output_dir_base, "layers"),
+            output_dir=os.path.join(self.output_dir_base),
         )
 
         self.initialized = True

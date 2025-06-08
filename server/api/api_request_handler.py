@@ -71,7 +71,7 @@ class APIRequestHandler:
 
         used_stems = None
         if request.preferred_stems:
-            print(f"🎚️ Extraction stems: {request.preferred_stems}")
+            print(f"🎚️  Extraction stems: {', '.join(request.preferred_stems)}")
 
             spectral_profile, separated_path = (
                 self.dj_system.stems_manager._analyze_sample_with_demucs(
@@ -89,6 +89,12 @@ class APIRequestHandler:
                     )
                 )
                 if final_path:
+                    abs_processed_path = os.path.abspath(processed_path)
+                    if os.path.exists(abs_processed_path):
+                        os.remove(abs_processed_path)
+                        print(
+                            f"🗑️  Removed original processed file: {abs_processed_path}"
+                        )
                     processed_path = final_path
 
         if os.path.exists(temp_path) and temp_path != processed_path:

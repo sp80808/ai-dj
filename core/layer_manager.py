@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 import librosa
 import numpy as np
 import soundfile as sf
@@ -47,23 +48,14 @@ class LayerManager:
         audio = self.applicate_lite_fade_in_fade_out(
             audio=audio, layer_id=layer_id, sr=sr
         )
-        looped_sample_filename = f"{os.path.splitext(os.path.basename(original_audio_path))[0]}_loop_{layer_id}.wav"
-        temp_path = os.path.join(self.output_dir, "temp_" + looped_sample_filename)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        looped_sample_filename = f"sample_{timestamp}.wav"
         looped_sample_path = os.path.join(self.output_dir, looped_sample_filename)
-        sf.write(temp_path, audio, sr)
 
         try:
-            if isinstance(audio, np.ndarray):
-                sf.write(looped_sample_path, audio, sr)
-                print(f"⏩ Looped sample: {looped_sample_path}")
-            else:
-                sf.write(looped_sample_path, audio, sr)
-                print(
-                    f"💾 Layer '{layer_id}': Looped sample saved: {looped_sample_path}"
-                )
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-
+            sf.write(looped_sample_path, audio, sr)
+            print(f"⏩ Looped sample: {looped_sample_path}")
             return looped_sample_path
         except Exception as e:
             print(f"❌ Error saving looped sample for {layer_id}: {e}")

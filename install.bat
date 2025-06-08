@@ -73,7 +73,7 @@ if "%CUDA_AVAILABLE%"=="true" (
     pip install llama-cpp-python==0.3.9
 )
 echo Installing web server dependencies...
-pip install fastapi uvicorn python-dotenv requests apscheduler
+pip install fastapi uvicorn python-dotenv requests apscheduler demucs
 echo Dependencies installed
 
 REM Download model
