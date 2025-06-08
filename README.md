@@ -6,15 +6,25 @@ OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM
 
 ## 🏆 Press Coverage
 
-**[Featured on Bedroom Producers Blog](https://bedroomproducersblog.com/2025/06/06/obsidian-neural-sound-engine/)** - _"OBSIDIAN Neural Sound Engine, a FREE AI-powered jam partner"_
+**[Featured on Bedroom Producers Blog](https://bedroomproducersblog.com/2025/06/06/obsidian-neural-sound-engine/)**  
+_"OBSIDIAN Neural Sound Engine, a FREE AI-powered jam partner"_
 
-> "Too many AI projects focus on the things AI can save you from doing rather than how AI can help you get better at what you do." - James Nugent, BPB
+> "Too many AI projects focus on the things AI can save you from doing rather than how AI can help you get better at what you do."  
+> — James Nugent, BPB
 
-**[Featured on AudioZ](https://audioz.download/software/win/278483-download_innermost47-obsidian-v047-real-time-ai-music-generator-for-live-performance-vst3-standalone-win-mac-free.html)** - _"Real-time AI Music Generator for Live Performance"_
+**[Listed on AudioZ (community mirror)](https://audioz.download/software/win/278483-download_innermost47-obsidian-v047-real-time-ai-music-generator-for-live-performance-vst3-standalone-win-mac-free.html)**  
+_(Unofficial mirror of an early test build — for the latest stable version, always use the [official GitHub release](https://github.com/innermost47/ai-dj/releases))_
 
-**[Featured on DTM Plugin Sale (Japan)](https://projectofnapskint.com/obsidian-2/)** - _"AI を楽器に変える時代が来た！" (The era of turning AI into musical instruments has arrived!)_
+**[Featured on DTM Plugin Sale (Japan)](https://projectofnapskint.com/obsidian-2/)**  
+_"AI を楽器に変える時代が来た！"_  
+(The era of turning AI into musical instruments has arrived!)
 
-**[Featured on Shuziyinpin (China)](https://www.shuziyinpin.vip/31549.html)** - _International coverage in Asian music production communities_
+**[Featured on Shuziyinpin (China)](https://www.shuziyinpin.vip/31549.html)**  
+_International coverage in Asian music production communities_
+
+---
+
+> ✨ OBSIDIAN is 100% free and open source. All contributions, builds, and community use are welcome — but for the best experience, get it from the [official GitHub](https://github.com/innermost47/ai-dj).
 
 ---
 
