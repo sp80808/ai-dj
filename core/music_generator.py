@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import tempfile
 import os
+import time
 import random
 import gc
 import librosa
@@ -84,17 +85,30 @@ class MusicGenerator:
             )
 
             target_samples = int(seconds_total * self.sample_rate)
-            output = rearrange(output, "b d n -> d (b n)")
 
+            print(f"✅ Diffusion steps complete!")
+            start_post = time.time()
+
+            start = time.time()
+            output = rearrange(output, "b d n -> d (b n)")
+            print(f"⏱️  Rearrange: {time.time() - start:.2f}s")
+
+            start = time.time()
+            target_samples = int(seconds_total * self.sample_rate)
             if output.shape[1] > target_samples:
                 output = output[:, :target_samples]
+            print(f"⏱️  Truncate: {time.time() - start:.2f}s")
 
+            start = time.time()
             output_normalized = (
                 output.to(torch.float32)
                 .div(torch.max(torch.abs(output) + 1e-8))
                 .cpu()
                 .numpy()
             )
+
+            print(f"⏱️  Normalize + CPU transfer: {time.time() - start:.2f}s")
+            print(f"⏱️  Total post-processing: {time.time() - start_post:.2f}s")
 
             sample_audio = (
                 output_normalized[0]
