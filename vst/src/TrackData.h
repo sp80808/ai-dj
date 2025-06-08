@@ -136,4 +136,13 @@ struct TrackData
 					} });
 		}
 	}
+
+	void setStop()
+	{
+		juce::MessageManager::callAsync([this]()
+			{
+				if (onPlayStateChanged) {
+					onPlayStateChanged(false);
+				} });
+	}
 };

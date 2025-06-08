@@ -59,7 +59,14 @@ else
 fi
 echo "Installing audio processing libraries..."
 pip install stable-audio-tools
-pip install llama-cpp-python librosa soundfile
+if [ "$CUDA_AVAILABLE" = true ]; then
+    echo "Installing Llama CPP Python with CUDA support..."
+    pip install llama-cpp-python==0.3.9 --prefer-binary --extra-index-url=https://jllllll.github.io/llama-cpp-python-cuBLAS-wheels/AVX2/cu118
+else
+    echo "Installing Llama CPP Python for CPU..."
+    pip install llama-cpp-python==0.3.9
+fi
+pip install librosa soundfile
 echo "Installing web server dependencies..."
 pip install fastapi uvicorn python-dotenv requests apscheduler
 echo "Dependencies installed"

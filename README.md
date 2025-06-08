@@ -10,6 +10,8 @@ OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM
 
 > "Too many AI projects focus on the things AI can save you from doing rather than how AI can help you get better at what you do." - James Nugent, BPB
 
+🎧 **[Featured on AudioZ](https://audioz.download/software/win/278483-download_innermost47-obsidian-v047-real-time-ai-music-generator-for-live-performance-vst3-standalone-win-mac-free.html)** - _"Real-time AI Music Generator for Live Performance"_
+
 ---
 
 ![OBSIDIAN-Neural Interface](./screenshot.png)
@@ -59,12 +61,14 @@ _Click to watch: World's First AI Jam Partner in action!_
 ### System Requirements
 
 **Hardware:**
+
 - NVIDIA GPU with CUDA support (RTX 3060+ recommended)
 - **8GB+ VRAM** for Stable Audio Open standard model
 - **Note:** Stable Audio Open Small model may require less VRAM (testing needed)
 - 16GB+ system RAM recommended
 
 **Software Dependencies:**
+
 - **NVIDIA CUDA Toolkit** (latest version)
 - **Python 3.10** (other versions may not work properly)
 - **CMake** (3.16 or higher)
@@ -97,7 +101,7 @@ After getting access approved on Hugging Face:
 
 1. **Open a command line/terminal**
 2. **Install Hugging Face CLI:** `pip install huggingface_hub`
-3. **Login with your token:** `huggingface-cli login` 
+3. **Login with your token:** `huggingface-cli login`
 4. **Enter your HF token** when prompted
 5. **Then proceed with installation below**
 
