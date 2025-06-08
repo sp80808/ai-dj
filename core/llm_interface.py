@@ -6,6 +6,7 @@ import threading
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from llama_cpp import Llama
+import torch
 
 
 class DJAILL:
@@ -24,6 +25,8 @@ class DJAILL:
         if hasattr(self, "model"):
             try:
                 del self.model
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
                 gc.collect()
                 print("🧹 Model destroyed")
             except Exception as e:
