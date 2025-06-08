@@ -90,6 +90,7 @@ echo LLM_MODEL_PATH=%cd%\models\gemma-3-4b-it.gguf
 echo ENVIRONMENT=dev
 echo HOST=127.0.0.1
 echo PORT=8000
+echo AUDIO_MODEL=stabilityai/stable-audio-open-1.0
 ) > .env
 echo Configuration file created
 

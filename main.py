@@ -56,7 +56,7 @@ def main():
     dj_system = DJSystem.get_instance(args)
     app.state.dj_system = dj_system
     uvicorn.run(app, host=args.host, port=args.port)
-    print("Server closed.")
+    print("✅ Server closed.")
 
 
 if __name__ == "__main__":

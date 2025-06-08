@@ -1,10 +1,12 @@
 ﻿cmake_minimum_required(VERSION 3.16)
-project(DjIaVst VERSION 1.0.0)
+project(OBSIDIAN-Neural VERSION 1.0.0)
 
 add_subdirectory(JUCE)
 add_subdirectory(soundtouch)
 
-juce_add_plugin(ObsidianVST
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+juce_add_plugin(ObsidianNeuralVST
     VERSION "1.0.0"
     PLUGIN_MANUFACTURER_CODE "OBSI"
     PLUGIN_CODE "Obsi"
@@ -15,9 +17,10 @@ juce_add_plugin(ObsidianVST
     IS_SYNTH TRUE
     WANTS_MIDI_INPUT TRUE
     PRODUCES_MIDI_OUTPUT TRUE
-    IS_MIDI_EFFECT FALSE)
+    IS_MIDI_EFFECT FALSE
+    NEEDS_CURL TRUE)
 
-target_sources(ObsidianVST
+target_sources(ObsidianNeuralVST
     PRIVATE
         src/PluginProcessor.cpp
         src/PluginEditor.cpp
@@ -31,12 +34,12 @@ target_sources(ObsidianVST
         src/SequencerComponent.cpp
         )
 
-target_include_directories(ObsidianVST
+target_include_directories(ObsidianNeuralVST
     PRIVATE
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}/soundtouch/include)
 
-target_compile_definitions(ObsidianVST
+target_compile_definitions(ObsidianNeuralVST
     PRIVATE
         JucePlugin_IsSynth=1
         JucePlugin_WantsMidiInput=1
@@ -49,7 +52,7 @@ target_compile_definitions(ObsidianVST
         JUCE_VST3_CAN_REPLACE_VST2=0
         JUCE_DISPLAY_SPLASH_SCREEN=0)
 
-target_link_libraries(ObsidianVST 
+target_link_libraries(ObsidianNeuralVST 
     PRIVATE
         juce::juce_audio_utils
         juce::juce_audio_processors
@@ -62,7 +65,7 @@ target_link_libraries(ObsidianVST
 
 find_program(CLANG_TIDY_EXE NAMES clang-tidy)
 if(CLANG_TIDY_EXE)
-    set_target_properties(ObsidianVST PROPERTIES
+    set_target_properties(ObsidianNeuralVST PROPERTIES
         CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-checks=-*,readability-*,performance-*,bugprone-*,clang-analyzer-*"
     )
 endif()

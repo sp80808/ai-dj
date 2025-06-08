@@ -84,6 +84,7 @@ LLM_MODEL_PATH=$(pwd)/models/gemma-3-4b-it.gguf
 ENVIRONMENT=dev
 HOST=127.0.0.1
 PORT=8000
+AUDIO_MODEL=stabilityai/stable-audio-open-1.0
 EOF
 echo "Configuration file created"
 

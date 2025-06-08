@@ -10,7 +10,7 @@ class APIRequestHandler:
         self.dj_system: DJSystem = dj_system
 
     def setup_llm_session(self, request: GenerateRequest, request_id, user_id):
-        print(f"[{request_id}] 🔄 Minimal LLM Setup...")
+        print(f"🔄 Minimal LLM Setup...")
 
         self.dj_system.dj_brain.init_model()
 
@@ -23,9 +23,9 @@ class APIRequestHandler:
             "user_id": user_id,
         }
 
-    def get_llm_decision(self, request_id):
+    def get_llm_decision(self):
 
-        print(f"[{request_id}] 🧠 LLM Consultation...")
+        print(f"🧠 LLM Consultation...")
 
         llm_decision = self.dj_system.dj_brain.get_next_decision()
 
@@ -33,22 +33,17 @@ class APIRequestHandler:
         sample_details = llm_decision.get("parameters", {}).get("sample_details", {})
         musicgen_prompt = sample_details.get("musicgen_prompt", "")
 
-        print(f"[{request_id}] 💭 LLM Reasoning: {reasoning}")
-        print(f"[{request_id}] 🎵 MusicGen Prompt: '{musicgen_prompt}'")
+        print(f"💭 LLM Reasoning: {reasoning}")
+        print(f"🎵 MusicGen Prompt: '{musicgen_prompt}'")
 
         self.dj_system.dj_brain.destroy_model()
 
         return llm_decision
 
-    def generate_simple(self, request: GenerateRequest, llm_decision: dict, request_id):
+    def generate_simple(self, request: GenerateRequest, llm_decision: dict):
         sample_details = llm_decision.get("parameters", {}).get("sample_details", {})
 
         musicgen_prompt = sample_details.get("musicgen_prompt", request.prompt)
-        key = sample_details.get("key", request.key or "C minor")
-
-        print(f"[{request_id}] 🎹 Direct generation:")
-        print(f" Final prompt: '{musicgen_prompt}'")
-        print(f" Key: {key}")
 
         self.dj_system.music_gen.init_model()
         audio, sample_info = self.dj_system.music_gen.generate_sample(
@@ -76,7 +71,7 @@ class APIRequestHandler:
 
         used_stems = None
         if request.preferred_stems:
-            print(f"[{request_id}] 🎚️ Extraction stems: {request.preferred_stems}")
+            print(f"🎚️ Extraction stems: {request.preferred_stems}")
 
             spectral_profile, separated_path = (
                 self.dj_system.stems_manager._analyze_sample_with_demucs(

@@ -32,8 +32,8 @@ class StemsManager:
         self.available_stems = self.DEMUCS_MODELS.get(
             preferred_model, ["drums", "bass", "other", "vocals"]
         )
-        print(f"🎛️ StemsManager initialized with model {preferred_model}")
-        print(f" Available stems: {', '.join(self.available_stems)}")
+        print(f"👌 StemsManager initialized with model {preferred_model}")
+        print(f"ℹ️  Available stems: {', '.join(self.available_stems)}")
 
     def create_default_profile(self, sample_type):
         profile = {

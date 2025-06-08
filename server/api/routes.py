@@ -47,15 +47,15 @@ async def generate_loop(
 ):
     try:
         request_id = int(time.time())
-        print(f"\n===== 🎵 QUERY #{request_id} =====")
+        print(f"===== 🎵 QUERY #{request_id} =====")
         print(f"📝 '{request.prompt}' | {request.bpm} BPM | {request.key}")
         user_id = get_user_id_from_api_key(api_key)
         handler = APIRequestHandler(dj_system)
         async with llm_lock:
             handler.setup_llm_session(request, request_id, user_id)
-            llm_decision = handler.get_llm_decision(request_id)
+            llm_decision = handler.get_llm_decision()
         async with audio_lock:
-            audio, _ = handler.generate_simple(request, llm_decision, request_id)
+            audio, _ = handler.generate_simple(request, llm_decision)
             processed_path, used_stems = handler.process_audio_pipeline(
                 audio, request, request_id
             )
@@ -65,7 +65,7 @@ async def generate_loop(
         with open(processed_path, "rb") as f:
             wav_data = f.read()
 
-        print(f"[{request_id}] ✅ SUCCESS: {duration:.1f}")
+        print(f"✅ SUCCESS: {duration:.1f}")
 
         return Response(
             content=wav_data,

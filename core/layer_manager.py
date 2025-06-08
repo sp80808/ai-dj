@@ -26,7 +26,7 @@ class LayerManager:
             audio[:fade_samples] = start_part * fade_in_ramp + end_part * fade_out_ramp
             audio[-fade_samples:] = end_part * fade_out_ramp
         else:
-            print(f"Layer '{layer_id}' too short for {fade_ms}ms crossfade.")
+            print(f"ℹ️  Layer '{layer_id}' too short for {fade_ms}ms crossfade.")
         return audio
 
     def _prepare_sample_for_loop(

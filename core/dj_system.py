@@ -26,7 +26,7 @@ class DJSystem:
         self.model_path = args.model_path
         self.output_dir_base = "./output"
 
-        print("Initializing OBSIDIAN-Neural system...")
+        print("🚀 Initializing OBSIDIAN-Neural system...")
         self.stems_manager = StemsManager()
 
         initial_llm_state = {
@@ -42,13 +42,13 @@ class DJSystem:
         self.dj_brain = DJAILL(self.model_path, initial_llm_state)
         if not os.path.exists(self.output_dir_base):
             os.makedirs(self.output_dir_base)
-        print("Loading sample generator...")
+        print("⌛ Loading sample generator...")
         self.music_gen = MusicGenerator()
 
-        print("Initializing LayerManager...")
+        print("⏳ Initializing LayerManager...")
         self.layer_manager = LayerManager(
             output_dir=os.path.join(self.output_dir_base, "layers"),
         )
 
         self.initialized = True
-        print("✅ OBSIDIAN-Neural system initialized successfully (Singleton)")
+        print("✅ OBSIDIAN-Neural system initialized successfully")

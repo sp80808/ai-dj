@@ -11,29 +11,31 @@ from einops import rearrange
 from stable_audio_tools.inference.generation import (
     generate_diffusion_cond,
 )
+from dotenv import load_dotenv
 
 
 class MusicGenerator:
     def __init__(self):
+        load_dotenv()
+        self.model_id = os.environ.get("AUDIO_MODEL")
         self.model = None
         self.sample_rate = 32000
         self.default_duration = 6
         self.sample_cache = {}
 
     def init_model(self):
-        print(f"Initializing Stable Audio Model..")
+        print(f"⚡ Initializing Stable Audio Model..")
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        print(f"Using device: {device}")
+        print(f"ℹ️  Using device: {device}")
 
-        model_id = "stabilityai/stable-audio-open-1.0"
-        self.model, self.model_config = get_pretrained_model(model_id)
+        self.model, self.model_config = get_pretrained_model(self.model_id)
         self.sample_rate = self.model_config["sample_rate"]
         self.sample_size = self.model_config["sample_size"]
         self.model = self.model.to(device)
         self.device = device
 
-        print(f"Stable Audio initialized (sample rate: {self.sample_rate}Hz)!")
+        print(f"✅ Stable Audio initialized (sample rate: {self.sample_rate}Hz)!")
 
     def destroy_model(self):
         self.model = None
@@ -57,7 +59,13 @@ class MusicGenerator:
             ]
 
             cfg_scale = 7.0
+            sampler_type = "dpmpp-3m-sde"
             steps_value = 75
+            if self.model_id == "stabilityai/stable-audio-open-small":
+                cfg_scale = 1.0
+                steps_value = 8
+                sampler_type = "pingpong"
+
             seed_value = random.randint(0, 2**31 - 1)
 
             print(f"⚙️  Stable Audio: steps={steps_value}, cfg_scale={cfg_scale}")
@@ -70,7 +78,7 @@ class MusicGenerator:
                 sample_size=self.sample_size,
                 sigma_min=0.3,
                 sigma_max=500,
-                sampler_type="dpmpp-3m-sde",
+                sampler_type=sampler_type,
                 device=self.device,
                 seed=seed_value,
             )

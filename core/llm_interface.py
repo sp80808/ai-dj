@@ -27,7 +27,7 @@ class DJAILL:
                 gc.collect()
                 print("🧹 Model destroyed")
             except Exception as e:
-                print(f"⚠️ Error destroying model: {e}")
+                print(f"❌ Error destroying model: {e}")
 
     def init_model(self):
         print(f"⚡ Initializing LLM model from {self.model_path}...")
@@ -93,7 +93,7 @@ class DJAILL:
                 {"role": "user", "content": user_prompt}
             )
             print(
-                f"\n🧠 AI-DJ generation with {len(self.conversations[user_id]['conversation_history'])} history messages..."
+                f"🧠 AI-DJ generation with {len(self.conversations[user_id]['conversation_history'])} history messages..."
             )
             response = self.model.create_chat_completion(
                 self.conversations[user_id]["conversation_history"]
@@ -118,7 +118,7 @@ class DJAILL:
                     }
 
             except (json.JSONDecodeError, KeyError) as e:
-                print(f"Error parsing response: {e}")
+                print(f"❌ Error parsing response: {e}")
                 print(f"Raw response: {response_text}")
 
                 decision = {
