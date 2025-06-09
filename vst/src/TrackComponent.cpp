@@ -226,7 +226,7 @@ float TrackComponent::calculateEffectiveBpm()
 	break;
 	}
 
-	return juce::jlimit(60.0f, 200.0f, effectiveBpm);
+	return juce::jlimit(40.0f, 250.0f, effectiveBpm);
 }
 
 void TrackComponent::setSelected(bool selected)
