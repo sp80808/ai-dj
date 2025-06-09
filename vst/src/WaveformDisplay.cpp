@@ -105,7 +105,7 @@ void WaveformDisplay::paint(juce::Graphics& g)
 
 		g.setColour(juce::Colours::lightgrey);
 		g.setFont(10.0f);
-		g.drawText("Ctrl+Wheel: Zoom | Wheel: Scroll | Right-click: Lock/Unlock",
+		g.drawText("Ctrl+Wheel: Zoom | Wheel: Scroll | Right-click: Lock/Unlock | Ctrl+Click: Drag and Drop in DAW",
 			bounds.reduced(5).removeFromBottom(15), juce::Justification::centred);
 		return;
 	}
@@ -142,6 +142,9 @@ void WaveformDisplay::mouseDown(const juce::MouseEvent& e)
 		repaint();
 		return;
 	}
+
+	if (e.mods.isCtrlDown())
+		return;
 
 	if (loopPointsLocked)
 		return;
@@ -192,31 +195,45 @@ void WaveformDisplay::mouseDown(const juce::MouseEvent& e)
 
 void WaveformDisplay::mouseDrag(const juce::MouseEvent& e)
 {
+	if (!draggingStart && !draggingEnd && currentAudioFile.exists() && e.mods.isCtrlDown())
+	{
+		auto distanceFromStart = e.getDistanceFromDragStart();
+		if (distanceFromStart > 10 && !isDraggingAudio)
+		{
+			isDraggingAudio = true;
+			juce::StringArray files;
+			files.add(currentAudioFile.getFullPathName());
+			DBG("Starting external drag with: " << currentAudioFile.getFullPathName());
+			bool success = performExternalDragDropOfFiles(files, false);
+			DBG("Drag result: " << (success ? "SUCCESS" : "FAILED"));
+			return;
+		}
+	}
+
 	if (loopPointsLocked || trackBpm <= 0.0f)
 		return;
 
-	if (draggingStart)
+	if (!e.mods.isCtrlDown())
 	{
-		double newStart = xToTime(e.x);
-
-		loopStart = juce::jlimit(getViewStartTime(), loopEnd, newStart);
-		repaint();
-
-		if (onLoopPointsChanged)
+		if (draggingStart)
 		{
-			onLoopPointsChanged(loopStart, loopEnd);
+			double newStart = xToTime(e.x);
+			loopStart = juce::jlimit(getViewStartTime(), loopEnd, newStart);
+			repaint();
+			if (onLoopPointsChanged)
+			{
+				onLoopPointsChanged(loopStart, loopEnd);
+			}
 		}
-	}
-	else if (draggingEnd)
-	{
-		double newEnd = xToTime(e.x);
-
-		loopEnd = juce::jlimit(loopStart, getViewEndTime(), newEnd);
-		repaint();
-
-		if (onLoopPointsChanged)
+		else if (draggingEnd)
 		{
-			onLoopPointsChanged(loopStart, loopEnd);
+			double newEnd = xToTime(e.x);
+			loopEnd = juce::jlimit(loopStart, getViewEndTime(), newEnd);
+			repaint();
+			if (onLoopPointsChanged)
+			{
+				onLoopPointsChanged(loopStart, loopEnd);
+			}
 		}
 	}
 }
@@ -230,10 +247,17 @@ double WaveformDisplay::getMinLoopDuration() const
 	return beatDuration * 4.0;
 }
 
+void WaveformDisplay::setAudioFile(const juce::File& file)
+{
+	currentAudioFile = file;
+}
+
+
 void WaveformDisplay::mouseUp(const juce::MouseEvent& e)
 {
 	draggingStart = false;
 	draggingEnd = false;
+	isDraggingAudio = false;
 }
 
 void WaveformDisplay::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
@@ -243,8 +267,10 @@ void WaveformDisplay::mouseWheelMove(const juce::MouseEvent& e, const juce::Mous
 		if (getTotalDuration() <= 0.0)
 			return;
 
-		double mouseTime = xToTime(e.x);
-
+		double totalDuration = getTotalDuration();
+		double currentViewDuration = totalDuration / zoomFactor;
+		double mouseRatio = (double)e.x / (double)getWidth();
+		double mouseTime = viewStartTime + (mouseRatio * currentViewDuration);
 		double oldZoomFactor = zoomFactor;
 
 		if (wheel.deltaY > 0)
@@ -259,12 +285,10 @@ void WaveformDisplay::mouseWheelMove(const juce::MouseEvent& e, const juce::Mous
 		if (zoomFactor == oldZoomFactor)
 			return;
 
-		double totalDuration = getTotalDuration();
 		double newViewDuration = totalDuration / zoomFactor;
-		double mouseRatio = (double)e.x / (double)getWidth();
-
 		viewStartTime = mouseTime - (mouseRatio * newViewDuration);
-		viewStartTime = juce::jlimit(0.0, totalDuration - newViewDuration, viewStartTime);
+
+		setViewStartTime(viewStartTime);
 
 		updateScrollBarVisibility();
 		generateThumbnail();
@@ -275,8 +299,7 @@ void WaveformDisplay::mouseWheelMove(const juce::MouseEvent& e, const juce::Mous
 		double viewDuration = getTotalDuration() / zoomFactor;
 		double scrollAmount = wheel.deltaY * viewDuration * 0.1;
 
-		viewStartTime = juce::jlimit(0.0, getTotalDuration() - viewDuration,
-			viewStartTime - scrollAmount);
+		setViewStartTime(viewStartTime - scrollAmount);
 
 		updateScrollBar();
 		generateThumbnail();
@@ -312,16 +335,17 @@ void WaveformDisplay::updateScrollBar()
 	if (!scrollBarVisible) return;
 
 	double totalDuration = getTotalDuration();
-	double viewDuration = totalDuration / zoomFactor;
 
-	if (totalDuration <= viewDuration) return;
+	if (totalDuration <= 0.0)
+	{
+		horizontalScrollBar->setCurrentRange(0.0, 1.0);
+		return;
+	}
 
-	double viewProportion = viewDuration / totalDuration;
+	double viewProportionOfTotal = 1.0 / zoomFactor;
+	double currentRangeStart = viewStartTime / totalDuration;
 
-	double currentPos = viewStartTime / totalDuration;
-	currentPos = juce::jlimit(0.0, 1.0, currentPos);
-
-	horizontalScrollBar->setCurrentRange(currentPos, currentPos + viewProportion);
+	horizontalScrollBar->setCurrentRange(currentRangeStart, viewProportionOfTotal);
 }
 
 void WaveformDisplay::scrollBarMoved(juce::ScrollBar* scrollBarThatHasMoved, double newRangeStart)
@@ -329,14 +353,32 @@ void WaveformDisplay::scrollBarMoved(juce::ScrollBar* scrollBarThatHasMoved, dou
 	if (scrollBarThatHasMoved == horizontalScrollBar.get())
 	{
 		double totalDuration = getTotalDuration();
-		viewStartTime = newRangeStart * totalDuration;
+		double newViewStartTime = newRangeStart * totalDuration;
 
-		double viewDuration = totalDuration / zoomFactor;
-		viewStartTime = juce::jlimit(0.0, totalDuration - viewDuration, viewStartTime);
-
+		setViewStartTime(newViewStartTime);
 		generateThumbnail();
 		repaint();
 	}
+}
+
+void WaveformDisplay::setViewStartTime(double newViewStartTime)
+{
+	double totalDuration = getTotalDuration();
+	if (totalDuration <= 0.0)
+	{
+		viewStartTime = 0.0;
+		return;
+	}
+
+	double viewDuration = totalDuration / zoomFactor;
+	double maxViewStartTime = totalDuration - viewDuration;
+
+	if (maxViewStartTime < 0.0)
+	{
+		maxViewStartTime = 0.0;
+	}
+
+	viewStartTime = juce::jlimit(0.0, maxViewStartTime, newViewStartTime);
 }
 
 float WaveformDisplay::getHostBpm() const

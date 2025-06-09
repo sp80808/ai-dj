@@ -356,10 +356,15 @@ void DjIaVstProcessor::handleSequencerPlayState(bool hostIsPlaying)
 		for (const auto& trackId : trackIds)
 		{
 			TrackData* track = trackManager.getTrack(trackId);
+			bool arm = false;
+			if (track->isCurrentlyPlaying.load()) {
+				arm = true;
+			}
 			if (track)
 			{
 				track->sequencerData.isPlaying = false;
 				track->setStop();
+				track->isArmed = arm;
 				track->isPlaying.store(false);
 				track->isCurrentlyPlaying = false;
 				track->readPosition = 0.0;
@@ -1647,6 +1652,7 @@ void DjIaVstProcessor::executePendingAction(TrackData* track) const
 			track->sequencerData.currentMeasure = 0;
 			track->sequencerData.stepAccumulator = 0.0;
 			track->isCurrentlyPlaying = true;
+			track->isArmed = false;
 		}
 		break;
 
@@ -1726,7 +1732,7 @@ void DjIaVstProcessor::updateSequencers(bool hostIsPlaying)
 				track->sequencerData.currentStep = newStep;
 				track->sequencerData.currentMeasure = newMeasure;
 
-				if (currentStepIsActive && track->isArmed.load() &&
+				if (currentStepIsActive &&
 					track->isCurrentlyPlaying.load() && hostIsPlaying)
 				{
 

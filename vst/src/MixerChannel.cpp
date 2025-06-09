@@ -122,7 +122,8 @@ void MixerChannel::setTrackData(TrackData* trackData)
 					juce::MessageManager::callAsync([weakThis]()
 						{
 							if (weakThis != nullptr) {
-								weakThis->updateButtonColors();
+								weakThis->isBlinking = true;
+								weakThis->startTimer(300);
 							} });
 				}
 			};
@@ -235,13 +236,13 @@ void MixerChannel::updateUIFromParameter(const juce::String& paramName,
 	}
 	else if (paramName == slotPrefix + " Play")
 	{
-		if (newValue < 0.5 && !track->isPlaying.load()) {
+		if (newValue < 0.5 && !track->isCurrentlyPlaying.load()) {
 			playButton.setToggleState(false, juce::dontSendNotification);
 			playButton.setButtonText("ARM");
 			playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff404040));
 			stopButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff404040));
 		}
-		else if (newValue > 0.5 && !track->isPlaying.load()) {
+		else if (newValue > 0.5 && !track->isCurrentlyPlaying.load()) {
 			playButton.setToggleState(true, juce::dontSendNotification);
 			playButton.setButtonText("ARM");
 			playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffff6600));
