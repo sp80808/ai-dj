@@ -1,10 +1,10 @@
 ﻿cmake_minimum_required(VERSION 3.16)
 project(OBSIDIAN-Neural VERSION 1.0.0)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 add_subdirectory(JUCE)
 add_subdirectory(soundtouch)
-
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 juce_add_plugin(ObsidianNeuralVST
     VERSION "1.0.0"
