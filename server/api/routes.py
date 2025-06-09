@@ -74,7 +74,6 @@ async def generate_loop(
                 "X-Duration": str(duration),
                 "X-BPM": str(request.bpm),
                 "X-Key": str(request.key or ""),
-                "X-Sample-Rate": "48000",
                 "X-Stems-Used": ",".join(used_stems) if used_stems else "",
             },
         )

@@ -31,17 +31,13 @@ class LayerManager:
         return audio
 
     def _prepare_sample_for_loop(
-        self,
-        original_audio_path: str,
-        layer_id: str,
+        self, original_audio_path: str, layer_id: str, sample_rate=48000
     ) -> Optional[str]:
         try:
             audio, sr_orig = librosa.load(original_audio_path, sr=None)
-            if sr_orig != self.sample_rate:
-                audio = librosa.resample(
-                    audio, orig_sr=sr_orig, target_sr=self.sample_rate
-                )
-            sr = self.sample_rate
+            if sr_orig != sample_rate:
+                audio = librosa.resample(audio, orig_sr=sr_orig, target_sr=sample_rate)
+            sr = sample_rate
         except Exception as e:
             print(f"❌ Error loading sample {original_audio_path} with librosa: {e}")
             return None

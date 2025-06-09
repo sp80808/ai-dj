@@ -275,25 +275,56 @@ void DjIaVstEditor::showConfigDialog()
 		juce::MessageBoxIconType::QuestionIcon);
 
 	alertWindow->addTextEditor("serverUrl", audioProcessor.getServerUrl(), "Server URL:");
-	alertWindow->addTextEditor("apiKey", "", "API Key (leave blank to keep current):");
 
+	alertWindow->addTextEditor("apiKey", "", "API Key (leave blank to keep current):");
 	if (auto* apiKeyEditor = alertWindow->getTextEditor("apiKey"))
 	{
 		apiKeyEditor->setPasswordCharacter('*');
+	}
+
+	juce::StringArray sampleRates;
+	sampleRates.add("22050");
+	sampleRates.add("44100");
+	sampleRates.add("48000");
+	sampleRates.add("88200");
+	sampleRates.add("96000");
+	alertWindow->addComboBox("sampleRate", sampleRates, "Sample Rate:");
+	if (auto* sampleRateCombo = alertWindow->getComboBoxComponent("sampleRate"))
+	{
+		int currentSampleRate = audioProcessor.getSampleRate();
+		juce::String currentRateStr = juce::String(currentSampleRate);
+		int index = sampleRates.indexOf(currentRateStr);
+		sampleRateCombo->setSelectedItemIndex(index >= 0 ? index : 2);
+	}
+
+	juce::StringArray timeouts;
+	timeouts.add("1 minute");
+	timeouts.add("2 minutes");
+	timeouts.add("5 minutes");
+	timeouts.add("10 minutes");
+	timeouts.add("15 minutes");
+	timeouts.add("20 minutes");
+	timeouts.add("30 minutes");
+	timeouts.add("45 minutes");
+	alertWindow->addComboBox("requestTimeout", timeouts, "Request Timeout:");
+	if (auto* timeoutCombo = alertWindow->getComboBoxComponent("requestTimeout"))
+	{
+		timeoutCombo->setSelectedItemIndex(2);
 	}
 
 	alertWindow->addButton("Update", 1);
 	alertWindow->addButton("Cancel", 0);
 
 	auto* windowPtr = alertWindow.get();
-
 	alertWindow.release()->enterModalState(true, juce::ModalCallbackFunction::create([this, windowPtr](int result)
 		{
 			if (result == 1) {
 				auto* urlEditor = windowPtr->getTextEditor("serverUrl");
 				auto* keyEditor = windowPtr->getTextEditor("apiKey");
+				auto* sampleRateCombo = windowPtr->getComboBoxComponent("sampleRate");
+				auto* timeoutCombo = windowPtr->getComboBoxComponent("requestTimeout");
 
-				if (urlEditor && keyEditor) {
+				if (urlEditor && keyEditor && sampleRateCombo && timeoutCombo) {
 					juce::String newKey = keyEditor->getText();
 					if (newKey.isEmpty()) {
 						newKey = audioProcessor.getApiKey();
@@ -301,6 +332,14 @@ void DjIaVstEditor::showConfigDialog()
 
 					audioProcessor.setServerUrl(urlEditor->getText());
 					audioProcessor.setApiKey(newKey);
+
+					int selectedRate = sampleRateCombo->getText().getIntValue();
+					audioProcessor.setSampleRate(selectedRate);
+
+					juce::Array<int> timeoutMinutes = { 1, 2, 5, 10, 15, 20, 30, 45 };
+					int selectedTimeoutMs = timeoutMinutes[timeoutCombo->getSelectedItemIndex()] * 60 * 1000;
+					audioProcessor.setRequestTimeout(selectedTimeoutMs);
+
 					audioProcessor.saveGlobalConfig();
 					statusLabel.setText("Configuration updated!", juce::dontSendNotification);
 					juce::Timer::callAfterDelay(2000, [this]() {
@@ -309,7 +348,8 @@ void DjIaVstEditor::showConfigDialog()
 				}
 			}
 			windowPtr->exitModalState(result);
-			delete windowPtr; }));
+			delete windowPtr;
+		}));
 }
 
 void DjIaVstEditor::timerCallback()
