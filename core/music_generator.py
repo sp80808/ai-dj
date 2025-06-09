@@ -20,7 +20,7 @@ class MusicGenerator:
         load_dotenv()
         self.model_id = os.environ.get("AUDIO_MODEL")
         self.model = None
-        self.sample_rate = 32000
+        self.sample_rate = 44100
         self.default_duration = 6
         self.sample_cache = {}
 
@@ -45,7 +45,12 @@ class MusicGenerator:
         gc.collect()
 
     def generate_sample(
-        self, musicgen_prompt, tempo, sample_type="custom", generation_duration=6
+        self,
+        musicgen_prompt,
+        tempo,
+        sample_type="custom",
+        generation_duration=6,
+        sample_rate=48000,
     ):
         try:
             print(f"🔮 Direct generation with prompt: '{musicgen_prompt}'")
@@ -130,11 +135,11 @@ class MusicGenerator:
 
         except Exception as e:
             print(f"❌ Generation error: {str(e)}")
-            silence = np.zeros(48000 * 4)
+            silence = np.zeros(sample_rate * 4)
             error_info = {"type": sample_type, "tempo": tempo, "error": str(e)}
             return silence, error_info
 
-    def save_sample(self, sample_audio, filename):
+    def save_sample(self, sample_audio, filename, sample_rate=48000):
         try:
             if filename.endswith(".wav"):
                 path = filename
@@ -143,12 +148,16 @@ class MusicGenerator:
                 path = os.path.join(temp_dir, filename)
             if not isinstance(sample_audio, np.ndarray):
                 sample_audio = np.array(sample_audio)
-            if self.sample_rate != 48000:
-                print(f"🔄 Resampling {self.sample_rate}Hz → 48000Hz")
-                sample_audio = librosa.resample(
-                    sample_audio, orig_sr=self.sample_rate, target_sr=48000
+            if self.sample_rate != sample_rate:
+                print(
+                    f"🔄 Resampling {str(self.sample_rate)}Hz → "
+                    + str(sample_rate)
+                    + "hz"
                 )
-                save_sample_rate = 48000
+                sample_audio = librosa.resample(
+                    sample_audio, orig_sr=self.sample_rate, target_sr=sample_rate
+                )
+                save_sample_rate = sample_rate
             else:
                 save_sample_rate = self.sample_rate
 
