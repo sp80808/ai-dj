@@ -175,10 +175,22 @@ _"Deep techno kick with sidechain compression, 126 BPM, dark atmosphere, minimal
 **VST3 Plugin**: Fully functional and performance-ready  
 **Standalone Version**: Not planned (VST3 focus)
 
-**Known Issues:**
+## 🔧 Known Issues:
 
 - CUDA required (CPU too slow for live use)
 - Large model files (initial download time)
+
+### Zoom from right side
+
+**Issue:** When zooming from the right portion of the waveform, the view may be truncated and doesn't allow seeing the complete end of the audio.
+
+**Workaround:** Perform zoom operations from the left or center portion of the waveform for optimal behavior.
+
+**Status:** Scheduled for fix in future release.
+
+### Audio resampling
+
+**Issue:** Audio samples are automatically resampled to 48kHz regardless of host sample rate, which may cause quality degradation or unnecessary processing.
 
 ---
 
