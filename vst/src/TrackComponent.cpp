@@ -40,6 +40,11 @@ void TrackComponent::calculateHostBasedDisplay()
 	{
 		waveformDisplay->setOriginalBpm(track->originalBpm);
 		waveformDisplay->setSampleBpm(effectiveBpm);
+		if (!track->audioFilePath.isEmpty())
+		{
+			juce::File audioFile(track->audioFilePath);
+			waveformDisplay->setAudioFile(audioFile);
+		}
 	}
 }
 
@@ -361,6 +366,11 @@ void TrackComponent::refreshWaveformDisplay()
 	{
 		waveformDisplay->setAudioData(track->audioBuffer, track->sampleRate);
 		waveformDisplay->setLoopPoints(track->loopStart, track->loopEnd);
+		if (!track->audioFilePath.isEmpty())
+		{
+			juce::File audioFile(track->audioFilePath);
+			waveformDisplay->setAudioFile(audioFile);
+		}
 		calculateHostBasedDisplay();
 	}
 }

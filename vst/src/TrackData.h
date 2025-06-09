@@ -124,9 +124,8 @@ struct TrackData
 
 	void setArmedToStop(bool armedToStop)
 	{
-		bool wasArmedToStop = isArmedToStop.load();
 		isArmedToStop = armedToStop;
-		if (wasArmedToStop != armedToStop && onArmedToStopStateChanged && audioBuffer.getNumChannels() > 0 && isPlaying.load())
+		if (onArmedToStopStateChanged && audioBuffer.getNumChannels() > 0 && isCurrentlyPlaying.load())
 		{
 			DBG("🛑 setArmedToStop called on Track " << trackName << " slot " << slotIndex << " -> " << (armedToStop ? "true" : "false"));
 			juce::MessageManager::callAsync([this, armedToStop]()
@@ -135,6 +134,7 @@ struct TrackData
 						onArmedToStopStateChanged(armedToStop);
 					} });
 		}
+
 	}
 
 	void setStop()
