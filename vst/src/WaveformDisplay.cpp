@@ -143,6 +143,9 @@ void WaveformDisplay::mouseDown(const juce::MouseEvent& e)
 		return;
 	}
 
+	if (e.mods.isCtrlDown())
+		return;
+
 	if (loopPointsLocked)
 		return;
 
@@ -192,31 +195,45 @@ void WaveformDisplay::mouseDown(const juce::MouseEvent& e)
 
 void WaveformDisplay::mouseDrag(const juce::MouseEvent& e)
 {
+	if (!draggingStart && !draggingEnd && currentAudioFile.exists() && e.mods.isCtrlDown())
+	{
+		auto distanceFromStart = e.getDistanceFromDragStart();
+		if (distanceFromStart > 10 && !isDraggingAudio)
+		{
+			isDraggingAudio = true;
+			juce::StringArray files;
+			files.add(currentAudioFile.getFullPathName());
+			DBG("Starting external drag with: " << currentAudioFile.getFullPathName());
+			bool success = performExternalDragDropOfFiles(files, false);
+			DBG("Drag result: " << (success ? "SUCCESS" : "FAILED"));
+			return;
+		}
+	}
+
 	if (loopPointsLocked || trackBpm <= 0.0f)
 		return;
 
-	if (draggingStart)
+	if (!e.mods.isCtrlDown())
 	{
-		double newStart = xToTime(e.x);
-
-		loopStart = juce::jlimit(getViewStartTime(), loopEnd, newStart);
-		repaint();
-
-		if (onLoopPointsChanged)
+		if (draggingStart)
 		{
-			onLoopPointsChanged(loopStart, loopEnd);
+			double newStart = xToTime(e.x);
+			loopStart = juce::jlimit(getViewStartTime(), loopEnd, newStart);
+			repaint();
+			if (onLoopPointsChanged)
+			{
+				onLoopPointsChanged(loopStart, loopEnd);
+			}
 		}
-	}
-	else if (draggingEnd)
-	{
-		double newEnd = xToTime(e.x);
-
-		loopEnd = juce::jlimit(loopStart, getViewEndTime(), newEnd);
-		repaint();
-
-		if (onLoopPointsChanged)
+		else if (draggingEnd)
 		{
-			onLoopPointsChanged(loopStart, loopEnd);
+			double newEnd = xToTime(e.x);
+			loopEnd = juce::jlimit(loopStart, getViewEndTime(), newEnd);
+			repaint();
+			if (onLoopPointsChanged)
+			{
+				onLoopPointsChanged(loopStart, loopEnd);
+			}
 		}
 	}
 }
@@ -230,10 +247,17 @@ double WaveformDisplay::getMinLoopDuration() const
 	return beatDuration * 4.0;
 }
 
+void WaveformDisplay::setAudioFile(const juce::File& file)
+{
+	currentAudioFile = file;
+}
+
+
 void WaveformDisplay::mouseUp(const juce::MouseEvent& e)
 {
 	draggingStart = false;
 	draggingEnd = false;
+	isDraggingAudio = false;
 }
 
 void WaveformDisplay::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
