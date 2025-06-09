@@ -359,15 +359,10 @@ void WaveformDisplay::generateThumbnail()
 	double viewDuration = totalDuration / zoomFactor;
 	double viewEndTime = juce::jlimit(viewStartTime, totalDuration, viewStartTime + viewDuration);
 
-	DBG("generateThumbnail - totalDuration: " << totalDuration << ", viewDuration: " << viewDuration);
-	DBG("viewStartTime: " << viewStartTime << ", viewEndTime: " << viewEndTime);
-
 	int startSample = (int)(viewStartTime * sampleRate);
 	int endSample = (int)(viewEndTime * sampleRate);
 	startSample = juce::jlimit(0, audioBuffer.getNumSamples() - 1, startSample);
 	endSample = juce::jlimit(startSample + 1, audioBuffer.getNumSamples(), endSample);
-
-	DBG("startSample: " << startSample << ", endSample: " << endSample << ", audioBuffer.getNumSamples(): " << audioBuffer.getNumSamples());
 
 	int viewSamples = endSample - startSample;
 
@@ -705,7 +700,7 @@ float WaveformDisplay::timeToX(double time)
 	if (totalDuration <= 0.0)
 		return 0.0f;
 
-	double stretchedTime = time * stretchRatio;
+	double stretchedTime = time;
 
 	double viewDuration = totalDuration / zoomFactor;
 	double relativeTime = stretchedTime - viewStartTime;
