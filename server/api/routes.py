@@ -48,7 +48,9 @@ async def generate_loop(
     try:
         request_id = int(time.time())
         print(f"===== 🎵 QUERY #{request_id} =====")
-        print(f"📝 '{request.prompt}' | {request.bpm} BPM | {request.key}")
+        print(
+            f"📝 '{request.prompt}' | {request.bpm} BPM | {request.key} | SAMPLE RATE {str(int(request.sample_rate))}"
+        )
         user_id = get_user_id_from_api_key(api_key)
         handler = APIRequestHandler(dj_system)
         async with llm_lock:
