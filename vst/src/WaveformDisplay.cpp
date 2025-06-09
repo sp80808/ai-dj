@@ -320,8 +320,7 @@ void WaveformDisplay::updateScrollBar()
 
 	double viewProportion = viewDuration / totalDuration;
 
-	double maxScroll = totalDuration - viewDuration;
-	double currentPos = (maxScroll > 0) ? (viewStartTime / maxScroll) : 0.0;
+	double currentPos = viewStartTime / totalDuration;
 	currentPos = juce::jlimit(0.0, 1.0, currentPos);
 
 	horizontalScrollBar->setCurrentRange(currentPos, currentPos + viewProportion);
@@ -332,11 +331,10 @@ void WaveformDisplay::scrollBarMoved(juce::ScrollBar* scrollBarThatHasMoved, dou
 	if (scrollBarThatHasMoved == horizontalScrollBar.get())
 	{
 		double totalDuration = getTotalDuration();
-		double viewDuration = totalDuration / zoomFactor;
-		double maxScroll = totalDuration - viewDuration;
+		viewStartTime = newRangeStart * totalDuration;
 
-		viewStartTime = newRangeStart * maxScroll;
-		viewStartTime = juce::jlimit(0.0, maxScroll, viewStartTime);
+		double viewDuration = totalDuration / zoomFactor;
+		viewStartTime = juce::jlimit(0.0, totalDuration - viewDuration, viewStartTime);
 
 		generateThumbnail();
 		repaint();
@@ -700,10 +698,8 @@ float WaveformDisplay::timeToX(double time)
 	if (totalDuration <= 0.0)
 		return 0.0f;
 
-	double stretchedTime = time;
-
 	double viewDuration = totalDuration / zoomFactor;
-	double relativeTime = stretchedTime - viewStartTime;
+	double relativeTime = time - viewStartTime;
 
 	return juce::jmap(relativeTime, 0.0, viewDuration, 0.0, (double)getWidth());
 }
