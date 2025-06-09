@@ -60,8 +60,8 @@ private:
 	void drawLoopBarLabels(juce::Graphics& g, float startX, float endX) const;
 	void drawPlaybackHead(juce::Graphics& g);
 	void drawBeatMarkers(juce::Graphics& g);
-	void drawMeasures(float time, juce::Graphics& g, float barDuration);
-	void drawBeats(juce::Graphics& g, float beatDuration, float viewEndTime, float barDuration);
+	void drawMeasures(float time, juce::Graphics& g, float barDuration, double viewDuration);
+	void drawBeats(juce::Graphics& g, float beatDuration, float viewEndTime, float barDuration, double viewDuration);
 	void calculateStretchRatio() const;
 	void updateScrollBarVisibility();
 	void updateScrollBar();

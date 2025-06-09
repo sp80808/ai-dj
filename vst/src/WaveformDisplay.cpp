@@ -243,11 +243,7 @@ void WaveformDisplay::mouseWheelMove(const juce::MouseEvent& e, const juce::Mous
 		if (getTotalDuration() <= 0.0)
 			return;
 
-		double totalDuration = getTotalDuration();
-		double currentViewDuration = totalDuration / zoomFactor;
-		double mouseRatio = (double)e.x / (double)getWidth();
-		double mouseTime = viewStartTime + (mouseRatio * currentViewDuration);
-		mouseTime = juce::jlimit(0.0, totalDuration, mouseTime);
+		double mouseTime = xToTime(e.x);
 
 		double oldZoomFactor = zoomFactor;
 
@@ -263,7 +259,9 @@ void WaveformDisplay::mouseWheelMove(const juce::MouseEvent& e, const juce::Mous
 		if (zoomFactor == oldZoomFactor)
 			return;
 
+		double totalDuration = getTotalDuration();
 		double newViewDuration = totalDuration / zoomFactor;
+		double mouseRatio = (double)e.x / (double)getWidth();
 
 		viewStartTime = mouseTime - (mouseRatio * newViewDuration);
 		viewStartTime = juce::jlimit(0.0, totalDuration - newViewDuration, viewStartTime);
@@ -367,8 +365,8 @@ void WaveformDisplay::generateThumbnail()
 	if (viewSamples <= 0)
 		return;
 
-	int targetPoints = getWidth() * 2 * zoomFactor;
-	targetPoints = juce::jlimit(getWidth(), getWidth() * 20, targetPoints);
+	int targetPoints = getWidth() * 2;
+	targetPoints = juce::jlimit(getWidth(), getWidth() * 10, targetPoints);
 
 	int samplesPerPoint = juce::jmax(1, viewSamples / targetPoints);
 
@@ -712,30 +710,35 @@ void WaveformDisplay::drawBeatMarkers(juce::Graphics& g)
 	float hostBpm = getHostBpm();
 	if (hostBpm <= 0.0f)
 		return;
-	float totalDuration = getTotalDuration();
-	float viewDuration = totalDuration / zoomFactor;
-	float viewEndTime = getViewEndTime();
+
+	double totalDuration = getTotalDuration();
+	double viewDuration = totalDuration / zoomFactor;
+	double viewEndTime = juce::jlimit(viewStartTime, totalDuration, viewStartTime + viewDuration);
+
 
 	float beatDuration = 60.0f / hostBpm * stretchRatio;
 	float barDuration = beatDuration * 4.0f;
 
 	g.setColour(juce::Colours::white.withAlpha(0.8f));
-	for (float time = 0.0f; time <= viewEndTime; time += barDuration)
+
+	double firstBarTime = floor(viewStartTime / barDuration) * barDuration;
+	for (double time = firstBarTime; time <= viewEndTime; time += barDuration)
 	{
-		drawMeasures(time, g, barDuration);
+		drawMeasures(time, g, barDuration, viewDuration);
 	}
 
 	if (zoomFactor > 2.0)
 	{
-		drawBeats(g, beatDuration, viewEndTime, barDuration);
+		drawBeats(g, beatDuration, viewEndTime, barDuration, viewDuration);
 	}
 }
 
-void WaveformDisplay::drawMeasures(float time, juce::Graphics& g, float barDuration)
+void WaveformDisplay::drawMeasures(float time, juce::Graphics& g, float barDuration, double viewDuration)
 {
 	if (time >= viewStartTime)
 	{
-		float x = timeToX(time);
+		double relativeTime = time - viewStartTime;
+		float x = (relativeTime / viewDuration) * getWidth();
 		if (x >= 0 && x <= getWidth())
 		{
 			g.drawLine(x, 0, x, getHeight(), 2.0f);
@@ -747,20 +750,22 @@ void WaveformDisplay::drawMeasures(float time, juce::Graphics& g, float barDurat
 	}
 }
 
-void WaveformDisplay::drawBeats(juce::Graphics& g, float beatDuration, float viewEndTime, float barDuration)
+void WaveformDisplay::drawBeats(juce::Graphics& g, float beatDuration, float viewEndTime, float barDuration, double viewDuration)
 {
 	g.setColour(juce::Colours::white.withAlpha(0.4f));
-	for (float time = beatDuration; time <= viewEndTime; time += beatDuration)
+	double firstBeatTime = floor(viewStartTime / beatDuration) * beatDuration;
+	for (double time = firstBeatTime; time <= viewEndTime; time += beatDuration)
 	{
-		if (fmod(time, barDuration) < 0.01f)
-			continue;
-
-		if (time >= viewStartTime)
+		if (fmod(time, barDuration) > 0.01)
 		{
-			float x = timeToX(time);
-			if (x >= 0 && x <= getWidth())
+			if (time >= viewStartTime)
 			{
-				g.drawLine(x, 0, x, getHeight(), 1.0f);
+				double relativeTime = time - viewStartTime;
+				float x = (relativeTime / viewDuration) * getWidth();
+				if (x >= 0 && x <= getWidth())
+				{
+					g.drawLine(x, 0, x, getHeight(), 1.0f);
+				}
 			}
 		}
 	}
