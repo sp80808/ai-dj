@@ -87,7 +87,12 @@ class StemsManager:
                 print(f"⚠️ Cleanup warning: {e}")
 
     def _extract_multiple_stems(
-        self, spectral_profile, separated_path, layer_id, preferred_stems=None
+        self,
+        spectral_profile,
+        separated_path,
+        layer_id,
+        preferred_stems=None,
+        sample_rate=48000,
     ):
         if not spectral_profile or not separated_path:
             print("❌ Unable to extract stems: spectral profile or path unavailable")
@@ -145,9 +150,11 @@ class StemsManager:
                 stem_path = separated_path / f"{stem}.wav"
                 audio, sr_curr = librosa.load(str(stem_path), sr=None)
 
-                if sr_curr != 48000:
-                    audio = librosa.resample(audio, orig_sr=sr_curr, target_sr=48000)
-                    sr_curr = 48000
+                if sr_curr != sample_rate:
+                    audio = librosa.resample(
+                        audio, orig_sr=sr_curr, target_sr=sample_rate
+                    )
+                    sr_curr = sample_rate
 
                 if stem == "drums":
                     threshold = 0.4
