@@ -42,7 +42,7 @@ public:
 	std::function<void(const juce::String&, const juce::String&)> onTrackRenamed;
 
 	static const int BASE_HEIGHT = 60;
-	static const int WAVEFORM_HEIGHT = 60;
+	static const int WAVEFORM_HEIGHT = 100;
 	static const int SEQUENCER_HEIGHT = 100;
 
 	juce::TextButton showWaveformButton;

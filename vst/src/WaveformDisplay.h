@@ -62,9 +62,10 @@ private:
 	void drawBeatMarkers(juce::Graphics& g);
 	void drawMeasures(float time, juce::Graphics& g, float barDuration);
 	void drawBeats(juce::Graphics& g, float beatDuration, float viewEndTime, float barDuration);
-	void calculateStretchRatio();
+	void calculateStretchRatio() const;
 	void updateScrollBarVisibility();
 	void updateScrollBar();
+	void drawVisibleBarLabels(juce::Graphics& g);
 
 	void paint(juce::Graphics& g) override;
 	void mouseDown(const juce::MouseEvent& e) override;
