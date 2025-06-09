@@ -43,13 +43,15 @@ _Click to watch: World's First AI Jam Partner in action!_
 ### 🤖 **Intelligent AI Generation**
 
 - **LLM Brain**: Analyzes sessions and generates smart prompts
-- **Stable Audio Open**: High-quality 44.1kHz electronic music generation
+- **Stable Audio Open**: High-quality electronic music generation with DAW sample rate sync
 - **Real-time**: Everything happens live for performance use
+- **SoundTouch Integration**: Automatically syncs generated loops to current DAW tempo
 
 ### 🎹 **Multi-Track Sampler**
 
 - **8 independent tracks** with MIDI triggering (C3-B3)
-- **Advanced waveform editor** with zoom, precise loop points
+- **Advanced waveform editor** with zoom, precise loop points, and drag & drop to DAW
+- **Loop markers**: Set preferred loop sections for sequencer playback
 - **Smart time-stretching** with DAW tempo sync
 - **Individual outputs** for separate mixing
 
@@ -57,9 +59,9 @@ _Click to watch: World's First AI Jam Partner in action!_
 
 - **16-step programmable sequencer** per track with multi-measure support
 - **DAW sync**: Perfectly locked to host tempo and transport
-- **Per-step velocity control** and multi-measure patterns (1-4 measures)
 - **Start/Stop on measure boundaries** for seamless live performance
 - **Real-time pattern editing** while sequencer is playing
+- **Loop marker integration**: Sequence specific sections of your generated audio
 
 ### 🎛️ **Live Performance Ready**
 
@@ -67,6 +69,7 @@ _Click to watch: World's First AI Jam Partner in action!_
 - **MIDI Learn system** for hardware controller mapping
 - **Session management** with save/load
 - **Background processing** - works with VST window closed
+- **Automatic sample rate detection** from DAW for perfect audio quality
 
 ---
 
@@ -174,15 +177,6 @@ _"Deep techno kick with sidechain compression, 126 BPM, dark atmosphere, minimal
 
 **VST3 Plugin**: Fully functional and performance-ready  
 **Standalone Version**: Not planned (VST3 focus)
-
-## 🔧 Known Issues:
-
-- CUDA required (CPU too slow for live use)
-- Large model files (initial download time)
-
-### Audio resampling
-
-**Issue:** Audio samples are automatically resampled to 48kHz regardless of host sample rate, which may cause quality degradation or unnecessary processing.
 
 ---
 
