@@ -231,7 +231,7 @@ void DjIaVstEditor::showFirstTimeSetup()
 {
 	auto alertWindow = std::make_unique<juce::AlertWindow>(
 		"OBSIDIAN-Neural Configuration",
-		"Welcome! Please configure your API settings:",
+		"Welcome! Please configure your settings:",
 		juce::MessageBoxIconType::InfoIcon);
 
 	alertWindow->addTextEditor("serverUrl", audioProcessor.getServerUrl(), "Server URL:");
@@ -240,18 +240,6 @@ void DjIaVstEditor::showFirstTimeSetup()
 	if (auto *apiKeyEditor = alertWindow->getTextEditor("apiKey"))
 	{
 		apiKeyEditor->setPasswordCharacter('*');
-	}
-
-	juce::StringArray sampleRates;
-	sampleRates.add("22050");
-	sampleRates.add("44100");
-	sampleRates.add("48000");
-	sampleRates.add("88200");
-	sampleRates.add("96000");
-	alertWindow->addComboBox("sampleRate", sampleRates, "Sample Rate:");
-	if (auto *sampleRateCombo = alertWindow->getComboBoxComponent("sampleRate"))
-	{
-		sampleRateCombo->setSelectedItemIndex(2);
 	}
 
 	juce::StringArray timeouts;
@@ -284,8 +272,7 @@ void DjIaVstEditor::showFirstTimeSetup()
                 if (urlEditor && keyEditor && sampleRateCombo && timeoutCombo) {
                     audioProcessor.setServerUrl(urlEditor->getText());
                     audioProcessor.setApiKey(keyEditor->getText());
-                    double selectedRate = sampleRateCombo->getText().getDoubleValue();
-                    audioProcessor.setSampleRate(selectedRate);
+
                     juce::Array<int> timeoutMinutes = {1, 2, 5, 10, 15, 20, 30, 45};
                     int selectedTimeoutMs = timeoutMinutes[timeoutCombo->getSelectedItemIndex()] * 60 * 1000;
                     audioProcessor.setRequestTimeout(selectedTimeoutMs);
@@ -303,7 +290,7 @@ void DjIaVstEditor::showFirstTimeSetup()
 void DjIaVstEditor::showConfigDialog()
 {
 	auto alertWindow = std::make_unique<juce::AlertWindow>(
-		"Update API Configuration",
+		"Update Configuration",
 		"Update your API settings:",
 		juce::MessageBoxIconType::QuestionIcon);
 
@@ -313,21 +300,6 @@ void DjIaVstEditor::showConfigDialog()
 	if (auto *apiKeyEditor = alertWindow->getTextEditor("apiKey"))
 	{
 		apiKeyEditor->setPasswordCharacter('*');
-	}
-
-	juce::StringArray sampleRates;
-	sampleRates.add("22050");
-	sampleRates.add("44100");
-	sampleRates.add("48000");
-	sampleRates.add("88200");
-	sampleRates.add("96000");
-	alertWindow->addComboBox("sampleRate", sampleRates, "Sample Rate:");
-	if (auto *sampleRateCombo = alertWindow->getComboBoxComponent("sampleRate"))
-	{
-		int currentSampleRate = audioProcessor.getSampleRate();
-		juce::String currentRateStr = juce::String(currentSampleRate);
-		int index = sampleRates.indexOf(currentRateStr);
-		sampleRateCombo->setSelectedItemIndex(index >= 0 ? index : 2);
 	}
 
 	juce::StringArray timeouts;
@@ -342,7 +314,19 @@ void DjIaVstEditor::showConfigDialog()
 	alertWindow->addComboBox("requestTimeout", timeouts, "Request Timeout:");
 	if (auto *timeoutCombo = alertWindow->getComboBoxComponent("requestTimeout"))
 	{
-		timeoutCombo->setSelectedItemIndex(2);
+		int currentTimeoutMs = audioProcessor.getRequestTimeout();
+		int currentTimeoutMinutes = currentTimeoutMs / (60 * 1000);
+		juce::Array<int> timeoutValues = {1, 2, 5, 10, 15, 20, 30, 45};
+		int selectedIndex = 2;
+		for (int i = 0; i < timeoutValues.size(); ++i)
+		{
+			if (timeoutValues[i] == currentTimeoutMinutes)
+			{
+				selectedIndex = i;
+				break;
+			}
+		}
+		timeoutCombo->setSelectedItemIndex(selectedIndex);
 	}
 
 	alertWindow->addButton("Update", 1);
@@ -354,10 +338,9 @@ void DjIaVstEditor::showConfigDialog()
 			if (result == 1) {
 				auto* urlEditor = windowPtr->getTextEditor("serverUrl");
 				auto* keyEditor = windowPtr->getTextEditor("apiKey");
-				auto* sampleRateCombo = windowPtr->getComboBoxComponent("sampleRate");
 				auto* timeoutCombo = windowPtr->getComboBoxComponent("requestTimeout");
 
-				if (urlEditor && keyEditor && sampleRateCombo && timeoutCombo) {
+				if (urlEditor && keyEditor && timeoutCombo) {
 					juce::String newKey = keyEditor->getText();
 					if (newKey.isEmpty()) {
 						newKey = audioProcessor.getApiKey();
@@ -365,9 +348,6 @@ void DjIaVstEditor::showConfigDialog()
 
 					audioProcessor.setServerUrl(urlEditor->getText());
 					audioProcessor.setApiKey(newKey);
-
-					int selectedRate = sampleRateCombo->getText().getIntValue();
-					audioProcessor.setSampleRate(selectedRate);
 
 					juce::Array<int> timeoutMinutes = { 1, 2, 5, 10, 15, 20, 30, 45 };
 					int selectedTimeoutMs = timeoutMinutes[timeoutCombo->getSelectedItemIndex()] * 60 * 1000;

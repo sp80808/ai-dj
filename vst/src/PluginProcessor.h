@@ -131,10 +131,10 @@ public:
 	void saveGlobalConfig();
 	void removeCustomPrompt(const juce::String &prompt);
 	void editCustomPrompt(const juce::String &oldPrompt, const juce::String &newPrompt);
-	int getSamplesPerBlock() const { return currentBlockSize; }
+	int getSamplesPerBlock() const { return currentBlockSize; };
+	int getRequestTimeout() const { return requestTimeoutMS; };
 	void handleSequencerPlayState(bool hostIsPlaying);
 	void addSequencerMidiMessage(const juce::MidiMessage &message);
-	void setSampleRate(int sampleRate);
 	void setRequestTimeout(int requestTimeoutMS);
 	void prepareToPlay(double newSampleRate, int samplesPerBlock);
 	std::function<void(double)> onHostBpmChanged = nullptr;
@@ -172,7 +172,6 @@ private:
 	int lastKeyIndex = 1;
 	int lastPresetIndex = -1;
 	int currentBlockSize = 512;
-	int sampleRate = 48000;
 	int requestTimeoutMS = 360000;
 
 	juce::CriticalSection apiLock;

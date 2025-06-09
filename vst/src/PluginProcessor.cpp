@@ -51,7 +51,6 @@ void DjIaVstProcessor::loadGlobalConfig()
 			apiKey = object->getProperty("apiKey").toString();
 			serverUrl = object->getProperty("serverUrl").toString();
 			requestTimeoutMS = object->getProperty("requestTimeoutMS").toString().getIntValue();
-			sampleRate = object->getProperty("samplerate").toString().getIntValue();
 
 			auto promptsVar = object->getProperty("customPrompts");
 			DBG("Prompts property exists: " + juce::String(!promptsVar.isVoid() ? "false" : "true"));
@@ -87,13 +86,11 @@ void DjIaVstProcessor::saveGlobalConfig()
 	juce::DynamicObject::Ptr config = new juce::DynamicObject();
 	config->setProperty("apiKey", apiKey);
 	config->setProperty("serverUrl", serverUrl);
-	config->setProperty("sampleRate", sampleRate);
 	config->setProperty("requestTimeoutMS", requestTimeoutMS);
 
 	setApiKey(apiKey);
 	setServerUrl(serverUrl);
 	setRequestTimeout(requestTimeoutMS);
-	setSampleRate(sampleRate);
 
 	juce::Array<juce::var> promptsArray;
 	for (const auto &prompt : customPrompts)
@@ -869,7 +866,7 @@ void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest &request, cons
 
 	try
 	{
-		auto response = apiClient.generateLoop(request, static_cast<double>(sampleRate), requestTimeoutMS);
+		auto response = apiClient.generateLoop(request, hostSampleRate, requestTimeoutMS);
 		try
 		{
 			if (!response.errorMessage.isEmpty())
@@ -1300,14 +1297,9 @@ void DjIaVstProcessor::setServerUrl(const juce::String &url)
 	apiClient.setBaseUrl(serverUrl);
 }
 
-void DjIaVstProcessor::setSampleRate(int sampleRate)
+void DjIaVstProcessor::setRequestTimeout(int newRequestTimeoutMS)
 {
-	sampleRate = sampleRate;
-}
-
-void DjIaVstProcessor::setRequestTimeout(int requestTimeoutMS)
-{
-	requestTimeoutMS = requestTimeoutMS;
+	this->requestTimeoutMS = newRequestTimeoutMS;
 }
 
 double DjIaVstProcessor::getHostBpm() const

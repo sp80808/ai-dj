@@ -50,7 +50,7 @@ class APIRequestHandler:
             musicgen_prompt=musicgen_prompt,
             tempo=request.bpm,
             generation_duration=request.generation_duration or 6,
-            sample_rate=request.sample_rate,
+            sample_rate=int(request.sample_rate),
         )
         self.dj_system.music_gen.destroy_model()
         return audio, sample_info
@@ -60,14 +60,14 @@ class APIRequestHandler:
             self.dj_system.output_dir_base, f"temp_raw_{request_id}.wav"
         )
         self.dj_system.music_gen.save_sample(
-            audio, temp_path, sample_rate=request.sample_rate
+            audio, temp_path, sample_rate=int(request.sample_rate)
         )
 
         self.dj_system.layer_manager.master_tempo = request.bpm
         processed_path = self.dj_system.layer_manager._prepare_sample_for_loop(
             original_audio_path=temp_path,
             layer_id=f"simple_loop_{request_id}",
-            sample_rate=request.sample_rate,
+            sample_rate=int(request.sample_rate),
         )
 
         if not processed_path:
@@ -90,7 +90,7 @@ class APIRequestHandler:
                         separated_path,
                         f"simple_loop_{request_id}",
                         request.preferred_stems,
-                        sample_rate=request.sample_rate,
+                        sample_rate=int(request.sample_rate),
                     )
                 )
                 if final_path:
