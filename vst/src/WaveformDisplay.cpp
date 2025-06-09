@@ -10,6 +10,11 @@ WaveformDisplay::WaveformDisplay(DjIaVstProcessor& processor) : audioProcessor(p
 	zoomFactor = 1.0;
 	viewStartTime = 0.0;
 	sampleRate = 48000.0;
+
+	horizontalScrollBar = std::make_unique<juce::ScrollBar>(false);
+	horizontalScrollBar->setRangeLimits(0.0, 1.0);
+	horizontalScrollBar->addListener(this);
+
 }
 
 WaveformDisplay::~WaveformDisplay()
@@ -124,14 +129,14 @@ void WaveformDisplay::paint(juce::Graphics& g)
 	{
 		g.setColour(juce::Colours::yellow);
 		g.setFont(10.0f);
-		g.drawText("Zoom: " + juce::String(zoomFactor, 1) + "x", 5, getHeight() - 15, 60, 15, juce::Justification::left);
+		g.drawText("Zoom: " + juce::String(zoomFactor, 1) + "x", 5, getHeight() - 20, 60, 15, juce::Justification::left);
 	}
 
 	if (loopPointsLocked)
 	{
 		g.setColour(juce::Colours::red);
 		g.setFont(10.0f);
-		g.drawText("LOCKED", getWidth() - 60, getHeight() - 15, 55, 15, juce::Justification::right);
+		g.drawText("LOCKED", getWidth() - 60, getHeight() - 20, 55, 15, juce::Justification::right);
 	}
 }
 
@@ -242,11 +247,14 @@ void WaveformDisplay::mouseWheelMove(const juce::MouseEvent& e, const juce::Mous
 	if (e.mods.isCtrlDown())
 	{
 		if (getTotalDuration() <= 0.0)
-		{
 			return;
-		}
-		double mouseTime = xToTime(e.x);
+
+
+		double currentViewDuration = getTotalDuration() / zoomFactor;
+		double relativeX = (double)e.x / (double)getWidth();
+		double mouseTime = viewStartTime + (relativeX * currentViewDuration);
 		mouseTime = juce::jlimit(0.0, getTotalDuration(), mouseTime);
+
 		double oldZoomFactor = zoomFactor;
 
 		if (wheel.deltaY > 0)
@@ -257,6 +265,7 @@ void WaveformDisplay::mouseWheelMove(const juce::MouseEvent& e, const juce::Mous
 		{
 			zoomFactor = juce::jlimit(1.0, 10.0, zoomFactor / 1.2);
 		}
+
 		double newViewDuration = getTotalDuration() / zoomFactor;
 		if (newViewDuration <= 0.0)
 		{
@@ -264,8 +273,10 @@ void WaveformDisplay::mouseWheelMove(const juce::MouseEvent& e, const juce::Mous
 			return;
 		}
 
-		viewStartTime = mouseTime - (e.x / (double)getWidth()) * newViewDuration;
+		viewStartTime = mouseTime - (relativeX * newViewDuration);
 		viewStartTime = juce::jlimit(0.0, getTotalDuration() - newViewDuration, viewStartTime);
+
+		updateScrollBarVisibility();
 
 		generateThumbnail();
 		repaint();
@@ -277,6 +288,64 @@ void WaveformDisplay::mouseWheelMove(const juce::MouseEvent& e, const juce::Mous
 
 		viewStartTime = juce::jlimit(0.0, getTotalDuration() - viewDuration,
 			viewStartTime - scrollAmount);
+
+		updateScrollBar();
+		generateThumbnail();
+		repaint();
+	}
+}
+
+void WaveformDisplay::updateScrollBarVisibility()
+{
+	bool shouldShow = (zoomFactor > 1.0);
+
+	if (shouldShow && !scrollBarVisible)
+	{
+		addAndMakeVisible(*horizontalScrollBar);
+		horizontalScrollBar->setBounds(0, getHeight() - 8, getWidth(), 8);
+		scrollBarVisible = true;
+		updateScrollBar();
+	}
+	else if (!shouldShow && scrollBarVisible)
+	{
+		removeChildComponent(horizontalScrollBar.get());
+		scrollBarVisible = false;
+	}
+	else if (shouldShow)
+	{
+		horizontalScrollBar->setBounds(0, getHeight() - 8, getWidth(), 8);
+		updateScrollBar();
+	}
+}
+
+void WaveformDisplay::updateScrollBar()
+{
+	if (!scrollBarVisible) return;
+
+	double totalDuration = getTotalDuration();
+	double viewDuration = totalDuration / zoomFactor;
+
+	if (totalDuration <= viewDuration) return;
+
+	double viewProportion = viewDuration / totalDuration;
+
+	double maxScroll = totalDuration - viewDuration;
+	double currentPos = (maxScroll > 0) ? (viewStartTime / maxScroll) : 0.0;
+	currentPos = juce::jlimit(0.0, 1.0, currentPos);
+
+	horizontalScrollBar->setCurrentRange(currentPos, currentPos + viewProportion);
+}
+
+void WaveformDisplay::scrollBarMoved(juce::ScrollBar* scrollBarThatHasMoved, double newRangeStart)
+{
+	if (scrollBarThatHasMoved == horizontalScrollBar.get())
+	{
+		double totalDuration = getTotalDuration();
+		double viewDuration = totalDuration / zoomFactor;
+		double maxScroll = totalDuration - viewDuration;
+
+		viewStartTime = newRangeStart * maxScroll;
+		viewStartTime = juce::jlimit(0.0, maxScroll, viewStartTime);
 
 		generateThumbnail();
 		repaint();
