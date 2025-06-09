@@ -136,7 +136,7 @@ public:
 	void addSequencerMidiMessage(const juce::MidiMessage &message);
 	void setSampleRate(int sampleRate);
 	void setRequestTimeout(int requestTimeoutMS);
-
+	void prepareToPlay(double newSampleRate, int samplesPerBlock);
 	std::function<void(double)> onHostBpmChanged = nullptr;
 
 private:
@@ -155,6 +155,7 @@ private:
 
 	double lastBpm = 126.0;
 	double lastDuration = 6.0;
+	double hostSampleRate = 48000.00;
 
 	float smoothedMasterVol = 1.0f;
 	float smoothedMasterPan = 0.0f;

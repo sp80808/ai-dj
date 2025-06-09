@@ -245,6 +245,19 @@ void DjIaVstProcessor::timerCallback()
 	needsUIUpdate = false;
 }
 
+void DjIaVstProcessor::prepareToPlay(double newSampleRate, int samplesPerBlock)
+{
+	hostSampleRate = newSampleRate;
+	currentBlockSize = samplesPerBlock;
+	synth.setCurrentPlaybackSampleRate(newSampleRate);
+	for (auto &buffer : individualOutputBuffers)
+	{
+		buffer.setSize(2, samplesPerBlock);
+		buffer.clear();
+	}
+	masterEQ.prepare(newSampleRate, samplesPerBlock);
+}
+
 void DjIaVstProcessor::releaseResources()
 {
 	for (auto &buffer : individualOutputBuffers)
