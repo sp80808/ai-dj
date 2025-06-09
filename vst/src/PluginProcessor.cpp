@@ -370,6 +370,7 @@ void DjIaVstProcessor::handleSequencerPlayState(bool hostIsPlaying)
 				track->lastPpqPosition = -1.0;
 			}
 		}
+		needsUIUpdate = true;
 	}
 
 	wasPlaying = hostIsPlaying;

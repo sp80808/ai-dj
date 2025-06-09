@@ -10,6 +10,11 @@ WaveformDisplay::WaveformDisplay(DjIaVstProcessor& processor) : audioProcessor(p
 	zoomFactor = 1.0;
 	viewStartTime = 0.0;
 	sampleRate = 48000.0;
+
+	horizontalScrollBar = std::make_unique<juce::ScrollBar>(false);
+	horizontalScrollBar->setRangeLimits(0.0, 1.0);
+	horizontalScrollBar->addListener(this);
+
 }
 
 WaveformDisplay::~WaveformDisplay()
@@ -62,36 +67,28 @@ void WaveformDisplay::lockLoopPoints(bool locked)
 		});
 }
 
-void WaveformDisplay::calculateStretchRatio()
+void WaveformDisplay::calculateStretchRatio() const
 {
 	if (originalBpm > 0.0f && sampleBpm > 0.0f)
 	{
-		stretchRatio = sampleBpm / originalBpm;
+		const_cast<WaveformDisplay*>(this)->stretchRatio = sampleBpm / originalBpm;
 	}
 	else
 	{
-		stretchRatio = 1.0f;
+		const_cast<WaveformDisplay*>(this)->stretchRatio = 1.0f;
 	}
 }
 
+
 void WaveformDisplay::setPlaybackPosition(double timeInSeconds, bool isPlaying)
 {
-	double adjustedPosition = timeInSeconds;
-	calculateStretchRatio();
-	if (stretchRatio > 0.0f && stretchRatio != 1.0f)
-	{
-		adjustedPosition = timeInSeconds / stretchRatio;
-	}
-
-	playbackPosition = adjustedPosition;
+	playbackPosition = timeInSeconds;
 	isCurrentlyPlaying = isPlaying;
 
 	juce::MessageManager::callAsync([this]() {
 		repaint();
 		});
 }
-
-
 
 void WaveformDisplay::paint(juce::Graphics& g)
 {
@@ -120,18 +117,20 @@ void WaveformDisplay::paint(juce::Graphics& g)
 	drawBeatMarkers(g);
 	drawPlaybackHead(g);
 
+	drawVisibleBarLabels(g);
+
 	if (zoomFactor > 1.0)
 	{
 		g.setColour(juce::Colours::yellow);
 		g.setFont(10.0f);
-		g.drawText("Zoom: " + juce::String(zoomFactor, 1) + "x", 5, getHeight() - 15, 60, 15, juce::Justification::left);
+		g.drawText("Zoom: " + juce::String(zoomFactor, 1) + "x", 5, getHeight() - 20, 60, 15, juce::Justification::left);
 	}
 
 	if (loopPointsLocked)
 	{
 		g.setColour(juce::Colours::red);
 		g.setFont(10.0f);
-		g.drawText("LOCKED", getWidth() - 60, getHeight() - 15, 55, 15, juce::Justification::right);
+		g.drawText("LOCKED", getWidth() - 60, getHeight() - 20, 55, 15, juce::Justification::right);
 	}
 }
 
@@ -242,11 +241,10 @@ void WaveformDisplay::mouseWheelMove(const juce::MouseEvent& e, const juce::Mous
 	if (e.mods.isCtrlDown())
 	{
 		if (getTotalDuration() <= 0.0)
-		{
 			return;
-		}
+
 		double mouseTime = xToTime(e.x);
-		mouseTime = juce::jlimit(0.0, getTotalDuration(), mouseTime);
+
 		double oldZoomFactor = zoomFactor;
 
 		if (wheel.deltaY > 0)
@@ -257,16 +255,18 @@ void WaveformDisplay::mouseWheelMove(const juce::MouseEvent& e, const juce::Mous
 		{
 			zoomFactor = juce::jlimit(1.0, 10.0, zoomFactor / 1.2);
 		}
-		double newViewDuration = getTotalDuration() / zoomFactor;
-		if (newViewDuration <= 0.0)
-		{
-			zoomFactor = oldZoomFactor;
+
+		if (zoomFactor == oldZoomFactor)
 			return;
-		}
 
-		viewStartTime = mouseTime - (e.x / (double)getWidth()) * newViewDuration;
-		viewStartTime = juce::jlimit(0.0, getTotalDuration() - newViewDuration, viewStartTime);
+		double totalDuration = getTotalDuration();
+		double newViewDuration = totalDuration / zoomFactor;
+		double mouseRatio = (double)e.x / (double)getWidth();
 
+		viewStartTime = mouseTime - (mouseRatio * newViewDuration);
+		viewStartTime = juce::jlimit(0.0, totalDuration - newViewDuration, viewStartTime);
+
+		updateScrollBarVisibility();
 		generateThumbnail();
 		repaint();
 	}
@@ -277,6 +277,62 @@ void WaveformDisplay::mouseWheelMove(const juce::MouseEvent& e, const juce::Mous
 
 		viewStartTime = juce::jlimit(0.0, getTotalDuration() - viewDuration,
 			viewStartTime - scrollAmount);
+
+		updateScrollBar();
+		generateThumbnail();
+		repaint();
+	}
+}
+
+void WaveformDisplay::updateScrollBarVisibility()
+{
+	bool shouldShow = (zoomFactor > 1.0);
+
+	if (shouldShow && !scrollBarVisible)
+	{
+		addAndMakeVisible(*horizontalScrollBar);
+		horizontalScrollBar->setBounds(0, getHeight() - 8, getWidth(), 12);
+		scrollBarVisible = true;
+		updateScrollBar();
+	}
+	else if (!shouldShow && scrollBarVisible)
+	{
+		removeChildComponent(horizontalScrollBar.get());
+		scrollBarVisible = false;
+	}
+	else if (shouldShow)
+	{
+		horizontalScrollBar->setBounds(0, getHeight() - 8, getWidth(), 12);
+		updateScrollBar();
+	}
+}
+
+void WaveformDisplay::updateScrollBar()
+{
+	if (!scrollBarVisible) return;
+
+	double totalDuration = getTotalDuration();
+	double viewDuration = totalDuration / zoomFactor;
+
+	if (totalDuration <= viewDuration) return;
+
+	double viewProportion = viewDuration / totalDuration;
+
+	double currentPos = viewStartTime / totalDuration;
+	currentPos = juce::jlimit(0.0, 1.0, currentPos);
+
+	horizontalScrollBar->setCurrentRange(currentPos, currentPos + viewProportion);
+}
+
+void WaveformDisplay::scrollBarMoved(juce::ScrollBar* scrollBarThatHasMoved, double newRangeStart)
+{
+	if (scrollBarThatHasMoved == horizontalScrollBar.get())
+	{
+		double totalDuration = getTotalDuration();
+		viewStartTime = newRangeStart * totalDuration;
+
+		double viewDuration = totalDuration / zoomFactor;
+		viewStartTime = juce::jlimit(0.0, totalDuration - viewDuration, viewStartTime);
 
 		generateThumbnail();
 		repaint();
@@ -295,9 +351,9 @@ void WaveformDisplay::generateThumbnail()
 	if (audioBuffer.getNumSamples() == 0)
 		return;
 
-	double viewDuration = getTotalDuration() / zoomFactor;
-	double viewEndTime = juce::jlimit(viewStartTime, getTotalDuration(),
-		viewStartTime + viewDuration);
+	double totalDuration = getTotalDuration();
+	double viewDuration = totalDuration / zoomFactor;
+	double viewEndTime = juce::jlimit(viewStartTime, totalDuration, viewStartTime + viewDuration);
 
 	int startSample = (int)(viewStartTime * sampleRate);
 	int endSample = (int)(viewEndTime * sampleRate);
@@ -309,10 +365,10 @@ void WaveformDisplay::generateThumbnail()
 	if (viewSamples <= 0)
 		return;
 
-	int targetPoints = getWidth() * 4;
-	int samplesPerPoint = std::max(1, viewSamples / targetPoints);
-	targetPoints = juce::jlimit(10, 10000, getWidth() * 4);
-	samplesPerPoint = juce::jlimit(1, viewSamples, viewSamples / targetPoints);
+	int targetPoints = getWidth() * 2;
+	targetPoints = juce::jlimit(getWidth(), getWidth() * 10, targetPoints);
+
+	int samplesPerPoint = juce::jmax(1, viewSamples / targetPoints);
 
 	for (int point = 0; point < targetPoints; ++point)
 	{
@@ -547,35 +603,72 @@ void WaveformDisplay::drawLoopTimeLabels(juce::Graphics& g, float startX, float 
 
 void WaveformDisplay::drawLoopBarLabels(juce::Graphics& g, float startX, float endX) const
 {
-	double beatDuration = 60.0 / trackBpm;
-	double barDuration = beatDuration * 4.0;
-
-	int startBar = (int)(loopStart / barDuration) + 1;
-	int endBar = (int)(loopEnd / barDuration);
-	int totalBars = endBar - startBar + 1;
-
 	g.setColour(juce::Colours::white);
 	g.setFont(10.0f);
+	g.drawText(juce::String(loopStart, 2) + "s", startX + 5, getHeight() - 30, 50, 15,
+		juce::Justification::left);
+	g.drawText(juce::String(loopEnd, 2) + "s", endX - 55, getHeight() - 30, 48, 15,
+		juce::Justification::right);
+}
 
-	g.drawText("Bar " + juce::String(startBar), startX + 2, 2, 50, 15,
+
+void WaveformDisplay::drawVisibleBarLabels(juce::Graphics& g)
+{
+	if (trackBpm <= 0.0f)
+		return;
+
+	float effectiveBpm = trackBpm;
+	if (stretchRatio > 0.0f && stretchRatio != 1.0f)
+	{
+		effectiveBpm = trackBpm * stretchRatio;
+	}
+
+	double beatDuration = 60.0 / effectiveBpm;
+	double barDuration = beatDuration * 4.0;
+
+	double viewStart = getViewStartTime();
+	double viewEnd = getViewEndTime();
+
+	int leftBar = (int)(viewStart / barDuration) + 1;
+
+	int rightBar = (int)(viewEnd / barDuration) + 1;
+
+	if (fmod(viewEnd, barDuration) < 0.01)
+	{
+		rightBar--;
+	}
+
+	g.setColour(juce::Colours::lightgrey);
+	g.setFont(12.0f);
+
+	g.drawText("Bar " + juce::String(leftBar),
+		5, 2, 60, 15,
 		juce::Justification::left);
 
-	g.drawText("Bar " + juce::String(endBar) + " (" + juce::String(totalBars) + " bars)",
-		endX - 80, 2, 78, 15, juce::Justification::right);
+	g.drawText("Bar " + juce::String(rightBar),
+		getWidth() - 65, 2, 60, 15,
+		juce::Justification::right);
+
+	int visibleBars = rightBar - leftBar + 1;
+	if (visibleBars > 1)
+	{
+		g.setFont(10.0f);
+		g.drawText("(" + juce::String(visibleBars) + " bars visible)",
+			getWidth() / 2 - 40, 2, 80, 15,
+			juce::Justification::centred);
+	}
 }
 
 void WaveformDisplay::drawPlaybackHead(juce::Graphics& g)
 {
 	if (isCurrentlyPlaying && playbackPosition >= 0.0)
 	{
-		double displayPosition = playbackPosition;
-		if (stretchRatio > 0.0f && stretchRatio != 1.0f)
-		{
-			displayPosition = playbackPosition * stretchRatio;
-		}
-		float headX = timeToX(displayPosition);
+		float headX = timeToX(playbackPosition);
 
-		if (headX >= 0 && headX <= getWidth())
+		double viewStart = getViewStartTime();
+		double viewEnd = getViewEndTime();
+
+		if (playbackPosition >= viewStart && playbackPosition <= viewEnd && headX >= 0 && headX <= getWidth())
 		{
 			g.setColour(juce::Colours::red);
 			g.drawLine(headX, 0, headX, getHeight(), 4.0f);
@@ -604,13 +697,9 @@ float WaveformDisplay::timeToX(double time)
 		return 0.0f;
 
 	double viewDuration = totalDuration / zoomFactor;
-	if (viewDuration <= 0.0)
-		return 0.0f;
-
 	double relativeTime = time - viewStartTime;
-	float result = juce::jmap(relativeTime, 0.0, viewDuration, 0.0, (double)getWidth());
 
-	return juce::jlimit(0.0f, (float)getWidth(), result);
+	return juce::jmap(relativeTime, 0.0, viewDuration, 0.0, (double)getWidth());
 }
 
 void WaveformDisplay::drawBeatMarkers(juce::Graphics& g)
@@ -621,30 +710,35 @@ void WaveformDisplay::drawBeatMarkers(juce::Graphics& g)
 	float hostBpm = getHostBpm();
 	if (hostBpm <= 0.0f)
 		return;
-	float totalDuration = getTotalDuration();
-	float viewDuration = totalDuration / zoomFactor;
-	float viewEndTime = getViewEndTime();
+
+	double totalDuration = getTotalDuration();
+	double viewDuration = totalDuration / zoomFactor;
+	double viewEndTime = juce::jlimit(viewStartTime, totalDuration, viewStartTime + viewDuration);
+
 
 	float beatDuration = 60.0f / hostBpm * stretchRatio;
 	float barDuration = beatDuration * 4.0f;
 
 	g.setColour(juce::Colours::white.withAlpha(0.8f));
-	for (float time = 0.0f; time <= viewEndTime; time += barDuration)
+
+	double firstBarTime = floor(viewStartTime / barDuration) * barDuration;
+	for (double time = firstBarTime; time <= viewEndTime; time += barDuration)
 	{
-		drawMeasures(time, g, barDuration);
+		drawMeasures(time, g, barDuration, viewDuration);
 	}
 
 	if (zoomFactor > 2.0)
 	{
-		drawBeats(g, beatDuration, viewEndTime, barDuration);
+		drawBeats(g, beatDuration, viewEndTime, barDuration, viewDuration);
 	}
 }
 
-void WaveformDisplay::drawMeasures(float time, juce::Graphics& g, float barDuration)
+void WaveformDisplay::drawMeasures(float time, juce::Graphics& g, float barDuration, double viewDuration)
 {
 	if (time >= viewStartTime)
 	{
-		float x = timeToX(time);
+		double relativeTime = time - viewStartTime;
+		float x = (relativeTime / viewDuration) * getWidth();
 		if (x >= 0 && x <= getWidth())
 		{
 			g.drawLine(x, 0, x, getHeight(), 2.0f);
@@ -656,20 +750,22 @@ void WaveformDisplay::drawMeasures(float time, juce::Graphics& g, float barDurat
 	}
 }
 
-void WaveformDisplay::drawBeats(juce::Graphics& g, float beatDuration, float viewEndTime, float barDuration)
+void WaveformDisplay::drawBeats(juce::Graphics& g, float beatDuration, float viewEndTime, float barDuration, double viewDuration)
 {
 	g.setColour(juce::Colours::white.withAlpha(0.4f));
-	for (float time = beatDuration; time <= viewEndTime; time += beatDuration)
+	double firstBeatTime = floor(viewStartTime / beatDuration) * beatDuration;
+	for (double time = firstBeatTime; time <= viewEndTime; time += beatDuration)
 	{
-		if (fmod(time, barDuration) < 0.01f)
-			continue;
-
-		if (time >= viewStartTime)
+		if (fmod(time, barDuration) > 0.01)
 		{
-			float x = timeToX(time);
-			if (x >= 0 && x <= getWidth())
+			if (time >= viewStartTime)
 			{
-				g.drawLine(x, 0, x, getHeight(), 1.0f);
+				double relativeTime = time - viewStartTime;
+				float x = (relativeTime / viewDuration) * getWidth();
+				if (x >= 0 && x <= getWidth())
+				{
+					g.drawLine(x, 0, x, getHeight(), 1.0f);
+				}
 			}
 		}
 	}
@@ -700,9 +796,7 @@ double WaveformDisplay::getTotalDuration() const
 	if (audioBuffer.getNumSamples() == 0 || sampleRate <= 0)
 		return 0.0;
 
-	double originalDuration = audioBuffer.getNumSamples() / sampleRate;
-
-	return originalDuration / stretchRatio;
+	return audioBuffer.getNumSamples() / sampleRate;
 }
 
 double WaveformDisplay::getViewStartTime() const

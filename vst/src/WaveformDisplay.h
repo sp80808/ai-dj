@@ -3,7 +3,7 @@
 
 class DjIaVstProcessor;
 
-class WaveformDisplay : public juce::Component
+class WaveformDisplay : public juce::Component, public juce::ScrollBar::Listener
 {
 public:
 	WaveformDisplay(DjIaVstProcessor& processor);
@@ -20,26 +20,31 @@ public:
 
 private:
 	juce::AudioBuffer<float> audioBuffer;
+
+	std::unique_ptr<juce::ScrollBar> horizontalScrollBar;
+
 	DjIaVstProcessor& audioProcessor;
-	double sampleRate = 48000.0;
+
 	std::vector<float> thumbnail;
+
 	double loopStart = 0.0;
 	double loopEnd = 4.0;
+	double sampleRate = 48000.0;
+	double zoomFactor = 1.0;
+	double viewStartTime = 0.0;
+	double playbackPosition = 0.0;
+
+	bool scrollBarVisible = false;
 	bool loopPointsLocked = false;
+	bool draggingStart = false;
+	bool draggingEnd = false;
+	bool isCurrentlyPlaying = false;
+
 	float trackBpm = 126.0f;
 	float sampleBpm = 126.0f;
 	float stretchRatio = 1.0f;
-	bool draggingStart = false;
-	bool draggingEnd = false;
-
 	float originalBpm = 126.0f;
 	float timeStretchRatio = 1.0f;
-
-	double zoomFactor = 1.0;
-	double viewStartTime = 0.0;
-
-	double playbackPosition = 0.0;
-	bool isCurrentlyPlaying = false;
 
 	float getHostBpm() const;
 	float timeToX(double time);
@@ -55,15 +60,19 @@ private:
 	void drawLoopBarLabels(juce::Graphics& g, float startX, float endX) const;
 	void drawPlaybackHead(juce::Graphics& g);
 	void drawBeatMarkers(juce::Graphics& g);
-	void drawMeasures(float time, juce::Graphics& g, float barDuration);
-	void drawBeats(juce::Graphics& g, float beatDuration, float viewEndTime, float barDuration);
-	void calculateStretchRatio();
+	void drawMeasures(float time, juce::Graphics& g, float barDuration, double viewDuration);
+	void drawBeats(juce::Graphics& g, float beatDuration, float viewEndTime, float barDuration, double viewDuration);
+	void calculateStretchRatio() const;
+	void updateScrollBarVisibility();
+	void updateScrollBar();
+	void drawVisibleBarLabels(juce::Graphics& g);
 
 	void paint(juce::Graphics& g) override;
 	void mouseDown(const juce::MouseEvent& e) override;
 	void mouseDrag(const juce::MouseEvent& e) override;
 	void mouseUp(const juce::MouseEvent& e) override;
 	void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
+	void scrollBarMoved(juce::ScrollBar* scrollBarThatHasMoved, double newRangeStart) override;
 
 	double xToTime(float x);
 	double getTotalDuration() const;
