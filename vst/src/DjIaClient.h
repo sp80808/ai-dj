@@ -11,15 +11,13 @@ public:
 		float bpm;
 		juce::String key;
 		std::vector<juce::String> preferredStems;
-		double sampleRate;
 
 		LoopRequest()
 			: prompt(""),
 			  generationDuration(6.0f),
 			  bpm(120.0f),
 			  key(""),
-			  preferredStems(),
-			  sampleRate(48000.00)
+			  preferredStems()
 		{
 		}
 	};
@@ -71,7 +69,7 @@ public:
 			jsonRequest.getDynamicObject()->setProperty("prompt", request.prompt);
 			jsonRequest.getDynamicObject()->setProperty("bpm", request.bpm);
 			jsonRequest.getDynamicObject()->setProperty("key", request.key);
-			jsonRequest.getDynamicObject()->setProperty("sample_rate", request.sampleRate);
+			jsonRequest.getDynamicObject()->setProperty("sample_rate", sampleRate);
 
 			if (!request.preferredStems.empty())
 			{

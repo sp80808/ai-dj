@@ -481,6 +481,11 @@ void DjIaVstProcessor::resizeIndividualsBuffers(juce::AudioSampleBuffer &buffer)
 
 void DjIaVstProcessor::getDawInformations(juce::AudioPlayHead *playHead, bool &hostIsPlaying, double &hostBpm, double &hostPpqPosition)
 {
+	double currentSampleRate = getSampleRate();
+	if (currentSampleRate > 0.0)
+	{
+		hostSampleRate = currentSampleRate;
+	}
 	if (auto positionInfo = playHead->getPosition())
 	{
 		hostIsPlaying = positionInfo->getIsPlaying();
@@ -1760,11 +1765,16 @@ void DjIaVstProcessor::updateSequencers(bool hostIsPlaying)
 
 			if (auto *editor = dynamic_cast<DjIaVstEditor *>(getActiveEditor()))
 			{
-				juce::MessageManager::callAsync([editor, trackId]()
+				juce::Component::SafePointer<DjIaVstEditor> safeEditor(editor);
+				juce::MessageManager::callAsync([safeEditor, trackId]()
 												{
-						if (auto* sequencer = static_cast<SequencerComponent*>(editor->getSequencerForTrack(trackId))) {
-							sequencer->updateFromTrackData();
-						} });
+				if (safeEditor.getComponent() != nullptr)
+				{
+					if (auto* sequencer = static_cast<SequencerComponent*>(safeEditor->getSequencerForTrack(trackId))) 
+					{
+						sequencer->updateFromTrackData();
+					}
+				} });
 			}
 		}
 	}

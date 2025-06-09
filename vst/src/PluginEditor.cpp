@@ -266,10 +266,9 @@ void DjIaVstEditor::showFirstTimeSetup()
             if (result == 1) {
                 auto* urlEditor = windowPtr->getTextEditor("serverUrl");
                 auto* keyEditor = windowPtr->getTextEditor("apiKey");
-                auto* sampleRateCombo = windowPtr->getComboBoxComponent("sampleRate");
                 auto* timeoutCombo = windowPtr->getComboBoxComponent("requestTimeout");
 
-                if (urlEditor && keyEditor && sampleRateCombo && timeoutCombo) {
+                if (urlEditor && keyEditor && timeoutCombo) {
                     audioProcessor.setServerUrl(urlEditor->getText());
                     audioProcessor.setApiKey(keyEditor->getText());
 
@@ -278,9 +277,12 @@ void DjIaVstEditor::showFirstTimeSetup()
                     audioProcessor.setRequestTimeout(selectedTimeoutMs);
                     audioProcessor.saveGlobalConfig();
                     statusLabel.setText("Configuration saved!", juce::dontSendNotification);
-                    juce::Timer::callAfterDelay(2000, [this]() {
-                        statusLabel.setText("Ready", juce::dontSendNotification);
-                    });
+                    juce::Component::SafePointer<DjIaVstEditor> safeThis(this);
+					juce::Timer::callAfterDelay(2000, [safeThis]() {
+						if (safeThis.getComponent() != nullptr) {
+							safeThis->statusLabel.setText("Ready", juce::dontSendNotification);
+						}
+					});
                 }
             }
             windowPtr->exitModalState(result);
@@ -355,9 +357,12 @@ void DjIaVstEditor::showConfigDialog()
 
 					audioProcessor.saveGlobalConfig();
 					statusLabel.setText("Configuration updated!", juce::dontSendNotification);
-					juce::Timer::callAfterDelay(2000, [this]() {
-						statusLabel.setText("Ready", juce::dontSendNotification);
-						});
+					juce::Component::SafePointer<DjIaVstEditor> safeThis(this);
+					juce::Timer::callAfterDelay(2000, [safeThis]() {
+						if (safeThis.getComponent() != nullptr) {
+							safeThis->statusLabel.setText("Ready", juce::dontSendNotification);
+						}
+					});
 				}
 			}
 			windowPtr->exitModalState(result);

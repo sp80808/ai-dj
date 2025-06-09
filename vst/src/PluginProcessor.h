@@ -155,7 +155,7 @@ private:
 
 	double lastBpm = 126.0;
 	double lastDuration = 6.0;
-	double hostSampleRate = 48000.00;
+	double hostSampleRate;
 
 	float smoothedMasterVol = 1.0f;
 	float smoothedMasterPan = 0.0f;
