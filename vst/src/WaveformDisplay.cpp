@@ -243,11 +243,11 @@ void WaveformDisplay::mouseWheelMove(const juce::MouseEvent& e, const juce::Mous
 		if (getTotalDuration() <= 0.0)
 			return;
 
-
-		double currentViewDuration = getTotalDuration() / zoomFactor;
-		double relativeX = (double)e.x / (double)getWidth();
-		double mouseTime = viewStartTime + (relativeX * currentViewDuration);
-		mouseTime = juce::jlimit(0.0, getTotalDuration(), mouseTime);
+		double totalDuration = getTotalDuration();
+		double currentViewDuration = totalDuration / zoomFactor;
+		double mouseRatio = (double)e.x / (double)getWidth();
+		double mouseTime = viewStartTime + (mouseRatio * currentViewDuration);
+		mouseTime = juce::jlimit(0.0, totalDuration, mouseTime);
 
 		double oldZoomFactor = zoomFactor;
 
@@ -260,18 +260,15 @@ void WaveformDisplay::mouseWheelMove(const juce::MouseEvent& e, const juce::Mous
 			zoomFactor = juce::jlimit(1.0, 10.0, zoomFactor / 1.2);
 		}
 
-		double newViewDuration = getTotalDuration() / zoomFactor;
-		if (newViewDuration <= 0.0)
-		{
-			zoomFactor = oldZoomFactor;
+		if (zoomFactor == oldZoomFactor)
 			return;
-		}
 
-		viewStartTime = mouseTime - (relativeX * newViewDuration);
-		viewStartTime = juce::jlimit(0.0, getTotalDuration() - newViewDuration, viewStartTime);
+		double newViewDuration = totalDuration / zoomFactor;
+
+		viewStartTime = mouseTime - (mouseRatio * newViewDuration);
+		viewStartTime = juce::jlimit(0.0, totalDuration - newViewDuration, viewStartTime);
 
 		updateScrollBarVisibility();
-
 		generateThumbnail();
 		repaint();
 	}
@@ -296,7 +293,7 @@ void WaveformDisplay::updateScrollBarVisibility()
 	if (shouldShow && !scrollBarVisible)
 	{
 		addAndMakeVisible(*horizontalScrollBar);
-		horizontalScrollBar->setBounds(0, getHeight() - 8, getWidth(), 8);
+		horizontalScrollBar->setBounds(0, getHeight() - 8, getWidth(), 12);
 		scrollBarVisible = true;
 		updateScrollBar();
 	}
@@ -307,7 +304,7 @@ void WaveformDisplay::updateScrollBarVisibility()
 	}
 	else if (shouldShow)
 	{
-		horizontalScrollBar->setBounds(0, getHeight() - 8, getWidth(), 8);
+		horizontalScrollBar->setBounds(0, getHeight() - 8, getWidth(), 12);
 		updateScrollBar();
 	}
 }
@@ -358,24 +355,29 @@ void WaveformDisplay::generateThumbnail()
 	if (audioBuffer.getNumSamples() == 0)
 		return;
 
-	double viewDuration = getTotalDuration() / zoomFactor;
-	double viewEndTime = juce::jlimit(viewStartTime, getTotalDuration(),
-		viewStartTime + viewDuration);
+	double totalDuration = getTotalDuration();
+	double viewDuration = totalDuration / zoomFactor;
+	double viewEndTime = juce::jlimit(viewStartTime, totalDuration, viewStartTime + viewDuration);
+
+	DBG("generateThumbnail - totalDuration: " << totalDuration << ", viewDuration: " << viewDuration);
+	DBG("viewStartTime: " << viewStartTime << ", viewEndTime: " << viewEndTime);
 
 	int startSample = (int)(viewStartTime * sampleRate);
 	int endSample = (int)(viewEndTime * sampleRate);
 	startSample = juce::jlimit(0, audioBuffer.getNumSamples() - 1, startSample);
 	endSample = juce::jlimit(startSample + 1, audioBuffer.getNumSamples(), endSample);
 
+	DBG("startSample: " << startSample << ", endSample: " << endSample << ", audioBuffer.getNumSamples(): " << audioBuffer.getNumSamples());
+
 	int viewSamples = endSample - startSample;
 
 	if (viewSamples <= 0)
 		return;
 
-	int targetPoints = getWidth() * 4;
-	int samplesPerPoint = std::max(1, viewSamples / targetPoints);
-	targetPoints = juce::jlimit(10, 10000, getWidth() * 4);
-	samplesPerPoint = juce::jlimit(1, viewSamples, viewSamples / targetPoints);
+	int targetPoints = getWidth() * 2 * zoomFactor;
+	targetPoints = juce::jlimit(getWidth(), getWidth() * 20, targetPoints);
+
+	int samplesPerPoint = juce::jmax(1, viewSamples / targetPoints);
 
 	for (int point = 0; point < targetPoints; ++point)
 	{
