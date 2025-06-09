@@ -70,6 +70,7 @@ private:
 	void updateScrollBarVisibility();
 	void updateScrollBar();
 	void drawVisibleBarLabels(juce::Graphics& g);
+	void setViewStartTime(double newViewStartTime);
 
 	void paint(juce::Graphics& g) override;
 	void mouseDown(const juce::MouseEvent& e) override;
