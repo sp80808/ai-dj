@@ -1963,6 +1963,7 @@ class ObsidianNeuralInstaller:
             "requests",
             "apscheduler",
             "demucs",
+            "cryptography",
         ]
 
         for package in packages:

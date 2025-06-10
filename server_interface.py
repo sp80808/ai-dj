@@ -18,6 +18,7 @@ try:
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
+from core.secure_storage import SecureStorage
 
 
 class ObsidianNeuralLauncher:
@@ -28,24 +29,19 @@ class ObsidianNeuralLauncher:
         self.root.minsize(850, 650)
         self.root.resizable(True, True)
         self.api_keys_list = []
-        # Center window
         self.root.update_idletasks()
         x = (self.root.winfo_screenwidth() // 2) - (900 // 2)
         y = (self.root.winfo_screenheight() // 2) - (700 // 2)
         self.root.geometry(f"900x700+{x}+{y}")
 
-        # Server process
         self.server_process = None
         self.is_server_running = False
 
-        # Initialize log_text to None first
         self.log_text = None
 
         self.init_database()
-        # Configuration variables
         self.setup_variables()
 
-        # Setup UI first (creates log_text)
         self.setup_ui()
 
         self.installation_dir = self.detect_installation_dir()
@@ -55,27 +51,21 @@ class ObsidianNeuralLauncher:
         self.load_api_keys()
 
         if self.check_first_launch():
-            # After wizard is complete, reload everything
             self.load_config()
             self.load_api_keys()
 
-        # Enable auto-save after loading
         self.enable_auto_save()
-        # Start monitoring
         self.monitor_server()
 
     def handle_admin_install(self):
-        """Handle admin installation with local config copy"""
         install_dir = self.detect_installation_dir()
 
         if str(install_dir).startswith("C:\\ProgramData"):
             self.log("Admin installation detected - using local config copy")
 
-            # Paths
             admin_env = install_dir / ".env"
             local_env = Path(".env")
 
-            # Copy admin .env to local if it doesn't exist
             if admin_env.exists() and not local_env.exists():
                 try:
                     import shutil
@@ -85,7 +75,6 @@ class ObsidianNeuralLauncher:
                 except Exception as e:
                     self.log(f"Could not copy config: {e}", "WARNING")
 
-            # Show info to user
             info_msg = f"""Installation Mode: Administrator
     Install Location: {install_dir}
     Config Location: {local_env.absolute()}
@@ -100,15 +89,13 @@ class ObsidianNeuralLauncher:
             return install_dir / ".env"
 
     def get_env_path(self):
-        """Get the correct .env path"""
         return self.handle_admin_install()
 
     def detect_installation_dir(self):
-        """Detect the correct OBSIDIAN-Neural installation directory"""
         possible_paths = [
-            Path("C:/ProgramData/OBSIDIAN-Neural"),  # Admin install
-            Path.home() / "OBSIDIAN-Neural",  # User install
-            Path.cwd(),  # Current directory
+            Path("C:/ProgramData/OBSIDIAN-Neural"),
+            Path.home() / "OBSIDIAN-Neural",
+            Path.cwd(),
         ]
 
         for path in possible_paths:
@@ -116,34 +103,25 @@ class ObsidianNeuralLauncher:
                 self.log(f"Found OBSIDIAN-Neural installation at: {path}")
                 return path
 
-        # Fallback to current directory
         self.log("Using current directory as installation path")
         return Path.cwd()
 
     def setup_variables(self):
-        """Initialize configuration variables"""
         self.api_keys_list = []
         self.model_path = tk.StringVar(value="")
         self.environment = tk.StringVar(value="dev")
         self.host = tk.StringVar(value="127.0.0.1")
         self.port = tk.StringVar(value="8000")
         self.audio_model = tk.StringVar(value="stabilityai/stable-audio-open-1.0")
-
-        # Status variables
         self.server_status = tk.StringVar(value="Server Stopped")
         self.server_url = tk.StringVar(value="")
-
-        # Add auto-save on variable change (after UI is loaded)
         self.auto_save_enabled = False
 
     def enable_auto_save(self):
-        """Enable auto-save when variables change"""
         if self.auto_save_enabled:
             return
 
         self.auto_save_enabled = True
-
-        # Bind all config variables to auto-save
         variables = [
             self.model_path,
             self.environment,
@@ -156,20 +134,15 @@ class ObsidianNeuralLauncher:
             var.trace_add("write", lambda *args: self.auto_save_config())
 
     def auto_save_config(self):
-        """Auto-save configuration when variables change"""
         if hasattr(self, "db_path") and self.auto_save_enabled:
-            # Delay save to avoid too many writes
             if hasattr(self, "_save_timer"):
                 self.root.after_cancel(self._save_timer)
             self._save_timer = self.root.after(1000, self.save_config)
 
     def setup_ui(self):
-        """Setup the user interface"""
         style = ttk.Style()
         if "clam" in style.theme_names():
             style.theme_use("clam")
-
-        # Configure colors
         style.configure("Success.TLabel", foreground="dark green")
         style.configure("Warning.TLabel", foreground="orange")
         style.configure("Error.TLabel", foreground="red")
@@ -179,28 +152,19 @@ class ObsidianNeuralLauncher:
         main_frame = ttk.Frame(self.root, padding="20")
         main_frame.pack(fill="both", expand=True)
 
-        # Header
         self.create_header(main_frame)
-
-        # Create notebook for tabs
         self.notebook = ttk.Notebook(main_frame)
         self.notebook.pack(fill="both", expand=True, pady=(20, 0))
 
-        # Control tab
         self.create_control_tab()
-
-        # Configuration tab
         self.create_config_tab()
 
-        # Logs tab
         self.create_logs_tab()
 
     def create_header(self, parent):
-        """Create header with logo and title"""
         header_frame = ttk.Frame(parent)
         header_frame.pack(fill="x", pady=(0, 20))
 
-        # Try to load logo
         logo_path = Path("logo.png")
         if logo_path.exists() and PIL_AVAILABLE:
             try:
@@ -234,7 +198,6 @@ class ObsidianNeuralLauncher:
             self.create_title_without_logo(header_frame)
 
     def create_title_without_logo(self, parent):
-        """Create title without logo"""
         title_label = ttk.Label(
             parent, text="OBSIDIAN-Neural", font=("Arial", 20, "bold")
         )
@@ -248,15 +211,12 @@ class ObsidianNeuralLauncher:
         subtitle_label.pack()
 
     def create_control_tab(self):
-        """Create server control tab"""
         control_frame = ttk.Frame(self.notebook, padding="20")
         self.notebook.add(control_frame, text="🚀 Server Control")
 
-        # Server status section
         status_frame = ttk.LabelFrame(control_frame, text="Server Status", padding="15")
         status_frame.pack(fill="x", pady=(0, 20))
 
-        # Status display
         status_display_frame = ttk.Frame(status_frame)
         status_display_frame.pack(fill="x", pady=(0, 15))
 
@@ -274,8 +234,6 @@ class ObsidianNeuralLauncher:
             foreground="blue",
         )
         self.url_label.pack(side="left", padx=(20, 0))
-
-        # Control buttons
         button_frame = ttk.Frame(status_frame)
         button_frame.pack(fill="x")
 
@@ -299,8 +257,6 @@ class ObsidianNeuralLauncher:
             state="disabled",
         )
         self.restart_button.pack(side="left", padx=(0, 10))
-
-        # Quick actions
         actions_frame = ttk.LabelFrame(
             control_frame, text="Quick Actions", padding="15"
         )
@@ -320,11 +276,9 @@ class ObsidianNeuralLauncher:
         ).pack(side="left")
 
     def create_config_tab(self):
-        """Create configuration tab"""
         config_frame = ttk.Frame(self.notebook, padding="20")
         self.notebook.add(config_frame, text="⚙️ Configuration")
 
-        # Create scrollable frame
         canvas = tk.Canvas(config_frame, highlightthickness=0)
         scrollbar = ttk.Scrollbar(config_frame, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
@@ -339,30 +293,25 @@ class ObsidianNeuralLauncher:
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # API Configuration
         api_frame = ttk.LabelFrame(
             scrollable_frame, text="API Keys Management", padding="15"
         )
         api_frame.pack(fill="x", pady=(0, 15), padx=10)
 
-        # API Keys list
         ttk.Label(api_frame, text="API Keys:").pack(anchor="w")
 
-        # Frame for listbox and scrollbar
         list_frame = ttk.Frame(api_frame)
         list_frame.pack(fill="x", pady=(5, 10))
 
-        # Listbox with scrollbar
         list_scroll = ttk.Scrollbar(list_frame, orient="vertical")
         self.api_keys_listbox = tk.Listbox(
-            list_frame, height=4, yscrollcommand=list_scroll.set
+            list_frame, height=4, yscrollcommand=list_scroll.set, font=("Consolas", 9)
         )
         list_scroll.config(command=self.api_keys_listbox.yview)
 
         self.api_keys_listbox.pack(side="left", fill="both", expand=True)
         list_scroll.pack(side="right", fill="y")
 
-        # API Keys buttons
         api_buttons_frame = ttk.Frame(api_frame)
         api_buttons_frame.pack(fill="x", pady=(0, 10))
 
@@ -373,13 +322,98 @@ class ObsidianNeuralLauncher:
             api_buttons_frame, text="📋 Add Custom Key", command=self.add_custom_api_key
         ).pack(side="left", padx=(0, 5))
         ttk.Button(
+            api_buttons_frame, text="✏️ Rename Selected", command=self.rename_api_key
+        ).pack(side="left", padx=(0, 5))
+        ttk.Button(
             api_buttons_frame, text="🗑 Remove Selected", command=self.remove_api_key
         ).pack(side="left", padx=(0, 5))
         ttk.Button(
             api_buttons_frame, text="📋 Copy Selected", command=self.copy_api_key
         ).pack(side="left")
 
-        # Model Configuration
+        hf_frame = ttk.LabelFrame(
+            scrollable_frame, text="Hugging Face Configuration", padding="15"
+        )
+        hf_frame.pack(fill="x", pady=(0, 15), padx=10)
+
+        ttk.Label(hf_frame, text="Access Token (for Stable Audio model):").pack(
+            anchor="w"
+        )
+
+        hf_token_frame = ttk.Frame(hf_frame)
+        hf_token_frame.pack(fill="x", pady=(5, 10))
+
+        self.hf_token_var = tk.StringVar()
+        self.hf_show_token = tk.BooleanVar(value=False)
+
+        def update_hf_display():
+            if self.hf_show_token.get():
+                hf_entry.config(show="")
+                hf_show_btn.config(text="🙈 Hide")
+            else:
+                hf_entry.config(show="*")
+                hf_show_btn.config(text="👁 Show")
+
+        hf_entry = ttk.Entry(
+            hf_token_frame,
+            textvariable=self.hf_token_var,
+            font=("Consolas", 10),
+            show="*",
+            width=50,
+        )
+        hf_entry.pack(side="left", fill="x", expand=True)
+
+        hf_show_btn = ttk.Button(
+            hf_token_frame,
+            text="👁 Show",
+            width=8,
+            command=lambda: [
+                self.hf_show_token.set(not self.hf_show_token.get()),
+                update_hf_display(),
+            ],
+        )
+        hf_show_btn.pack(side="left", padx=(5, 5))
+
+        def verify_hf_token_config():
+            token = self.hf_token_var.get().strip()
+            if not token:
+                messagebox.showerror("Error", "Please enter your Hugging Face token")
+                return
+
+            try:
+                import requests
+
+                headers = {"Authorization": f"Bearer {token}"}
+                response = requests.get(
+                    "https://huggingface.co/api/whoami", headers=headers, timeout=10
+                )
+
+                if response.status_code == 200:
+                    user_info = response.json()
+                    username = user_info.get("name", "Unknown")
+                    messagebox.showinfo(
+                        "Token Valid", f"✅ Token verified!\nUser: {username}"
+                    )
+                    self.save_hf_token()
+                else:
+                    messagebox.showerror(
+                        "Invalid Token", "❌ Token is invalid or expired"
+                    )
+
+            except Exception as e:
+                messagebox.showerror(
+                    "Verification Error", f"Could not verify token:\n{e}"
+                )
+
+        ttk.Button(
+            hf_token_frame, text="🔍 Verify", command=verify_hf_token_config
+        ).pack(side="left")
+
+        hf_help_text = "Get your token at: https://huggingface.co/settings/tokens\nRequest access to: https://huggingface.co/stabilityai/stable-audio-open-1.0"
+        ttk.Label(
+            hf_frame, text=hf_help_text, font=("Arial", 9), foreground="gray"
+        ).pack(anchor="w", pady=(5, 0))
+
         model_frame = ttk.LabelFrame(
             scrollable_frame, text="Model Configuration", padding="15"
         )
@@ -408,13 +442,11 @@ class ObsidianNeuralLauncher:
         )
         audio_model_combo.pack(fill="x", pady=(5, 0))
 
-        # Server Configuration
         server_frame = ttk.LabelFrame(
             scrollable_frame, text="Server Configuration", padding="15"
         )
         server_frame.pack(fill="x", pady=(0, 15), padx=10)
 
-        # Host and Port
         host_port_frame = ttk.Frame(server_frame)
         host_port_frame.pack(fill="x", pady=(0, 10))
 
@@ -437,7 +469,6 @@ class ObsidianNeuralLauncher:
         )
         env_combo.pack(fill="x", pady=(5, 0))
 
-        # Save/Load buttons
         button_frame = ttk.Frame(scrollable_frame)
         button_frame.pack(fill="x", padx=10, pady=15)
 
@@ -457,25 +488,69 @@ class ObsidianNeuralLauncher:
             button_frame, text="🔧 Reset to Defaults", command=self.reset_to_defaults
         ).pack(side="left")
 
-        # Bind mousewheel to canvas
         def _on_mousewheel(event):
             canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
         canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
+    def rename_api_key(self):
+        selection = self.api_keys_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select an API key to rename")
+            return
+
+        index = selection[0]
+
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute(
+                "SELECT id, key_value_encrypted, name FROM api_keys ORDER BY created_at"
+            )
+            rows = cursor.fetchall()
+
+            if index >= len(rows):
+                conn.close()
+                messagebox.showerror("Error", "Invalid selection")
+                return
+
+            db_id, encrypted_key, current_name = rows[index]
+            decrypted_key = self.secure_storage.decrypt(encrypted_key)
+
+            new_name = tk.simpledialog.askstring(
+                "Rename API Key",
+                f"Enter new name for key {decrypted_key[:8]}...:",
+                initialvalue=current_name or f"Key {index + 1}",
+            )
+
+            if new_name and new_name.strip():
+                cursor.execute(
+                    "UPDATE api_keys SET name = ? WHERE id = ?",
+                    (new_name.strip(), db_id),
+                )
+                conn.commit()
+                conn.close()
+
+                self.update_api_keys_listbox()
+                self.log(f"API key renamed to '{new_name.strip()}'", "SUCCESS")
+            else:
+                conn.close()
+
+        except Exception as e:
+            self.log(f"Error renaming API key: {e}", "ERROR")
+            messagebox.showerror("Error", f"Could not rename API key: {e}")
+
     def manual_save_config(self):
-        """Manual save configuration"""
         if self.save_config():
             messagebox.showinfo("Saved", "Configuration saved successfully!")
 
     def reload_config(self):
-        """Reload configuration from database"""
         self.load_config()
         self.load_api_keys()
         messagebox.showinfo("Reloaded", "Configuration reloaded from database!")
 
     def clear_all_data(self):
-        """Clear all data from database"""
         if messagebox.askyesno(
             "Clear All Data",
             "This will delete all API keys and configuration.\nAre you sure?",
@@ -490,7 +565,6 @@ class ObsidianNeuralLauncher:
                 conn.commit()
                 conn.close()
 
-                # Reset UI
                 self.api_keys_list = []
                 self.update_api_keys_listbox()
                 self.reset_to_defaults()
@@ -503,20 +577,19 @@ class ObsidianNeuralLauncher:
                 messagebox.showerror("Error", f"Could not clear data: {e}")
 
     def init_database(self):
-        """Initialize SQLite database for API keys storage"""
-        # Store database in user directory
         self.db_path = Path.home() / ".obsidian_neural" / "config.db"
         self.db_path.parent.mkdir(exist_ok=True)
+
+        self.secure_storage = SecureStorage(self.db_path)
 
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        # Create tables
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS api_keys (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                key_value TEXT UNIQUE NOT NULL,
+                key_value_encrypted TEXT UNIQUE NOT NULL,
                 name TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_used TIMESTAMP
@@ -528,22 +601,64 @@ class ObsidianNeuralLauncher:
             """
             CREATE TABLE IF NOT EXISTS config (
                 key TEXT PRIMARY KEY,
-                value TEXT
+                value TEXT,
+                is_encrypted INTEGER DEFAULT 0
             )
         """
         )
 
+        cursor.execute("PRAGMA table_info(api_keys)")
+        api_columns = [column[1] for column in cursor.fetchall()]
+
+        if "key_value" in api_columns:
+            self.log("Migrating API keys to encrypted storage...", "WARNING")
+
+            cursor.execute("SELECT key_value, name FROM api_keys")
+            old_data = cursor.fetchall()
+
+            cursor.execute("DROP TABLE api_keys")
+            cursor.execute(
+                """
+                CREATE TABLE api_keys (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    key_value_encrypted TEXT UNIQUE NOT NULL,
+                    name TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_used TIMESTAMP
+                )
+            """
+            )
+
+            for key_value, name in old_data:
+                encrypted_key = self.secure_storage.encrypt(key_value)
+                cursor.execute(
+                    "INSERT INTO api_keys (key_value_encrypted, name) VALUES (?, ?)",
+                    (encrypted_key, name),
+                )
+
+            self.log(
+                f"Migrated {len(old_data)} API keys to encrypted storage", "SUCCESS"
+            )
+
+        cursor.execute("PRAGMA table_info(config)")
+        config_columns = [column[1] for column in cursor.fetchall()]
+
+        if "is_encrypted" not in config_columns:
+            self.log("Adding encryption support to config table...", "WARNING")
+            cursor.execute(
+                "ALTER TABLE config ADD COLUMN is_encrypted INTEGER DEFAULT 0"
+            )
+            self.log("Config table updated with encryption support", "SUCCESS")
+
         conn.commit()
         conn.close()
 
-        self.log(f"Database initialized at: {self.db_path}")
+        self.log(f"Secure database initialized at: {self.db_path}")
 
     def create_logs_tab(self):
-        """Create logs tab"""
         logs_frame = ttk.Frame(self.notebook, padding="20")
         self.notebook.add(logs_frame, text="📝 Logs")
 
-        # Log controls
         controls_frame = ttk.Frame(logs_frame)
         controls_frame.pack(fill="x", pady=(0, 10))
 
@@ -560,22 +675,19 @@ class ObsidianNeuralLauncher:
             controls_frame, text="Auto-scroll", variable=self.auto_scroll
         ).pack(side="left", padx=(10, 0))
 
-        # Log display
         self.log_text = scrolledtext.ScrolledText(
             logs_frame, height=20, font=("Consolas", 9)
         )
         self.log_text.pack(fill="both", expand=True)
 
-        # Configure log colors
         self.log_text.tag_configure("INFO", foreground="black")
         self.log_text.tag_configure("SUCCESS", foreground="dark green")
         self.log_text.tag_configure("WARNING", foreground="orange")
         self.log_text.tag_configure("ERROR", foreground="red")
 
     def log(self, message, level="INFO"):
-        """Add message to log with timestamp"""
         timestamp = time.strftime("%H:%M:%S")
-        emoji = {"INFO": "ℹ️ ", "SUCCESS": "✅", "WARNING": "⚠️", "ERROR": "❌"}.get(
+        emoji = {"INFO": "ℹ️ ", "SUCCESS": "✅", "WARNING": "⚠️ ", "ERROR": "❌"}.get(
             level, "ℹ️"
         )
 
@@ -589,39 +701,44 @@ class ObsidianNeuralLauncher:
 
             self.root.update_idletasks()
         else:
-            # Fallback to console if UI not ready
             print(f"{formatted_msg.strip()}")
 
     def load_api_keys(self):
-        """Load API keys from database"""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
 
-            cursor.execute("SELECT key_value FROM api_keys ORDER BY created_at")
+            cursor.execute(
+                "SELECT key_value_encrypted FROM api_keys ORDER BY created_at"
+            )
             rows = cursor.fetchall()
 
-            self.api_keys_list = [row[0] for row in rows]
-            self.update_api_keys_listbox()
+            self.api_keys_list = []
+            for row in rows:
+                decrypted_key = self.secure_storage.decrypt(row[0])
+                if decrypted_key:
+                    self.api_keys_list.append(decrypted_key)
 
+            self.update_api_keys_listbox()
             conn.close()
 
             if self.api_keys_list:
-                self.log(f"Loaded {len(self.api_keys_list)} API key(s) from database")
+                self.log(f"Loaded {len(self.api_keys_list)} encrypted API key(s)")
 
         except Exception as e:
             self.log(f"Error loading API keys: {e}", "WARNING")
             self.api_keys_list = []
 
     def save_api_key(self, api_key, name=None):
-        """Save API key to database"""
         try:
+            encrypted_key = self.secure_storage.encrypt(api_key)
+
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
 
             cursor.execute(
-                "INSERT OR IGNORE INTO api_keys (key_value, name) VALUES (?, ?)",
-                (api_key, name),
+                "INSERT OR IGNORE INTO api_keys (key_value_encrypted, name) VALUES (?, ?)",
+                (encrypted_key, name),
             )
 
             conn.commit()
@@ -632,40 +749,103 @@ class ObsidianNeuralLauncher:
             self.log(f"Error saving API key: {e}", "ERROR")
             return False
 
-    def remove_api_key_from_db(self, api_key):
-        """Remove API key from database"""
+    def remove_api_key(self):
+        selection = self.api_keys_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select an API key to remove")
+            return
+
+        index = selection[0]
+
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
 
-            cursor.execute("DELETE FROM api_keys WHERE key_value = ?", (api_key,))
+            cursor.execute(
+                "SELECT id, key_value_encrypted, name FROM api_keys ORDER BY created_at"
+            )
+            rows = cursor.fetchall()
+
+            if index >= len(rows):
+                conn.close()
+                messagebox.showerror("Error", "Invalid selection")
+                return
+
+            db_id, encrypted_key, name = rows[index]
+
+            decrypted_key = self.secure_storage.decrypt(encrypted_key)
+            display_name = name if name else f"Key {index + 1}"
+
+            if not messagebox.askyesno(
+                "Confirm Deletion",
+                f"Are you sure you want to delete:\n'{display_name}'\n{decrypted_key[:8]}...{decrypted_key[-4:]}?",
+            ):
+                conn.close()
+                return
+
+            cursor.execute("DELETE FROM api_keys WHERE id = ?", (db_id,))
+            deleted_count = cursor.rowcount
 
             conn.commit()
             conn.close()
 
-            return True
+            if deleted_count > 0:
+                self.load_api_keys()
+                self.log(f"API key '{display_name}' removed successfully", "SUCCESS")
+            else:
+                messagebox.showerror("Error", "Could not remove API key from database")
+
+        except Exception as e:
+            self.log(f"Error removing API key: {e}", "ERROR")
+            messagebox.showerror("Error", f"Could not remove API key: {e}")
+
+    def remove_api_key_from_db(self, api_key):
+        try:
+            encrypted_key = self.secure_storage.encrypt(api_key)
+
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute(
+                "DELETE FROM api_keys WHERE key_value_encrypted = ?", (encrypted_key,)
+            )
+            deleted_count = cursor.rowcount
+
+            conn.commit()
+            conn.close()
+
+            if deleted_count > 0:
+                self.log(f"Removed {deleted_count} API key from database")
+                return True
+            else:
+                self.log("No matching API key found in database", "WARNING")
+                return False
+
         except Exception as e:
             self.log(f"Error removing API key: {e}", "ERROR")
             return False
 
     def save_config(self):
-        """Save current configuration to database"""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
 
             config_items = [
-                ("model_path", self.model_path.get()),
-                ("environment", self.environment.get()),
-                ("host", self.host.get()),
-                ("port", self.port.get()),
-                ("audio_model", self.audio_model.get()),
+                ("model_path", self.model_path.get(), 0),
+                ("environment", self.environment.get(), 0),
+                ("host", self.host.get(), 0),
+                ("port", self.port.get(), 0),
+                ("audio_model", self.audio_model.get(), 0),
             ]
 
-            for key, value in config_items:
+            if hasattr(self, "hf_token_var") and self.hf_token_var.get():
+                encrypted_token = self.secure_storage.encrypt(self.hf_token_var.get())
+                config_items.append(("hf_token", encrypted_token, 1))
+
+            for key, value, is_encrypted in config_items:
                 cursor.execute(
-                    "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
-                    (key, value),
+                    "INSERT OR REPLACE INTO config (key, value, is_encrypted) VALUES (?, ?, ?)",
+                    (key, value, is_encrypted),
                 )
 
             conn.commit()
@@ -677,89 +857,173 @@ class ObsidianNeuralLauncher:
             return False
 
     def load_config(self):
-        """Load configuration from database with fallback to defaults"""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
 
-            cursor.execute("SELECT key, value FROM config")
+            cursor.execute("SELECT key, value, is_encrypted FROM config")
             rows = cursor.fetchall()
 
-            config_dict = dict(rows)
-
-            # Load with fallback to current values (defaults)
-            self.model_path.set(config_dict.get("model_path", self.model_path.get()))
-            self.environment.set(config_dict.get("environment", self.environment.get()))
-            self.host.set(config_dict.get("host", self.host.get()))
-            self.port.set(config_dict.get("port", self.port.get()))
-            self.audio_model.set(config_dict.get("audio_model", self.audio_model.get()))
+            for key, value, is_encrypted in rows:
+                if is_encrypted:
+                    decrypted_value = self.secure_storage.decrypt(value)
+                    if key == "hf_token" and hasattr(self, "hf_token_var"):
+                        self.hf_token_var.set(decrypted_value)
+                else:
+                    if key == "model_path":
+                        self.model_path.set(value)
+                    elif key == "environment":
+                        self.environment.set(value)
+                    elif key == "host":
+                        self.host.set(value)
+                    elif key == "port":
+                        self.port.set(value)
+                    elif key == "audio_model":
+                        self.audio_model.set(value)
 
             conn.close()
-
-            if config_dict:
-                self.log(
-                    f"Configuration loaded from database ({len(config_dict)} settings)"
-                )
+            self.log(f"Configuration loaded with encryption support")
 
         except Exception as e:
             self.log(f"Error loading configuration: {e}", "WARNING")
 
     def generate_api_key(self):
-        """Generate a new random API key"""
-        import secrets
-        import string
+        name_dialog = tk.Toplevel(self.root)
+        name_dialog.title("Name Your API Key")
+        name_dialog.geometry("400x150")
+        name_dialog.transient(self.root)
+        name_dialog.grab_set()
 
-        # Generate a secure random API key
-        alphabet = string.ascii_letters + string.digits
-        api_key = "".join(secrets.choice(alphabet) for _ in range(32))
+        name_dialog.update_idletasks()
+        x = (name_dialog.winfo_screenwidth() // 2) - (400 // 2)
+        y = (name_dialog.winfo_screenheight() // 2) - (150 // 2)
+        name_dialog.geometry(f"400x150+{x}+{y}")
 
-        # Save to database FIRST
-        if self.save_api_key(api_key):
-            self.api_keys_list.append(api_key)
-            self.update_api_keys_listbox()
+        frame = ttk.Frame(name_dialog, padding="20")
+        frame.pack(fill="both", expand=True)
 
-            # Show key to user
-            self.show_api_key_dialog(api_key, "Generated API Key")
-            self.log(f"New API key generated and saved: {api_key[:8]}...", "SUCCESS")
-        else:
-            messagebox.showerror("Error", "Could not save API key to database")
+        ttk.Label(frame, text="Enter a name for this API key:").pack(anchor="w")
+
+        name_var = tk.StringVar(value=f"API Key {len(self.api_keys_list) + 1}")
+        name_entry = ttk.Entry(frame, textvariable=name_var, width=40)
+        name_entry.pack(fill="x", pady=(10, 20))
+        name_entry.select_range(0, tk.END)
+        name_entry.focus()
+
+        result = {"name": None}
+
+        def confirm_name():
+            name = name_var.get().strip()
+            if name:
+                result["name"] = name
+                name_dialog.destroy()
+            else:
+                messagebox.showerror("Error", "Please enter a key name")
+
+        def cancel_name():
+            name_dialog.destroy()
+
+        button_frame = ttk.Frame(frame)
+        button_frame.pack(fill="x")
+
+        ttk.Button(button_frame, text="Generate Key", command=confirm_name).pack(
+            side="right"
+        )
+        ttk.Button(button_frame, text="Cancel", command=cancel_name).pack(
+            side="right", padx=(0, 10)
+        )
+
+        name_entry.bind("<Return>", lambda e: confirm_name())
+
+        name_dialog.wait_window()
+
+        if result["name"]:
+            import secrets
+            import string
+
+            alphabet = string.ascii_letters + string.digits
+            api_key = "".join(secrets.choice(alphabet) for _ in range(32))
+
+            if self.save_api_key(api_key, result["name"]):
+                self.api_keys_list.append(api_key)
+                self.update_api_keys_listbox()
+
+                self.show_api_key_dialog(
+                    api_key, f"Generated API Key: {result['name']}"
+                )
+                self.log(
+                    f"New API key '{result['name']}' generated: {api_key[:8]}...",
+                    "SUCCESS",
+                )
+            else:
+                messagebox.showerror("Error", "Could not save API key to database")
 
     def add_custom_api_key(self):
-        """Add a custom API key"""
+        """Add a custom API key with name"""
         dialog = tk.Toplevel(self.root)
         dialog.title("Add Custom API Key")
-        dialog.geometry("400x150")
+        dialog.geometry("450x200")
         dialog.transient(self.root)
         dialog.grab_set()
 
-        # Center dialog
         dialog.update_idletasks()
-        x = (dialog.winfo_screenwidth() // 2) - (400 // 2)
-        y = (dialog.winfo_screenheight() // 2) - (150 // 2)
-        dialog.geometry(f"400x150+{x}+{y}")
+        x = (dialog.winfo_screenwidth() // 2) - (450 // 2)
+        y = (dialog.winfo_screenheight() // 2) - (200 // 2)
+        dialog.geometry(f"450x200+{x}+{y}")
 
         frame = ttk.Frame(dialog, padding="20")
         frame.pack(fill="both", expand=True)
 
-        ttk.Label(frame, text="Enter API Key:").pack(anchor="w")
+        ttk.Label(frame, text="Key Name:").pack(anchor="w")
+        key_name_var = tk.StringVar(value="Custom Key")
+        name_entry = ttk.Entry(frame, textvariable=key_name_var, width=50)
+        name_entry.pack(fill="x", pady=(5, 15))
 
+        ttk.Label(frame, text="API Key:").pack(anchor="w")
         key_var = tk.StringVar()
-        entry = ttk.Entry(frame, textvariable=key_var, width=50)
+        entry = ttk.Entry(frame, textvariable=key_var, width=50, show="*")
         entry.pack(fill="x", pady=(5, 15))
         entry.focus()
+
+        show_frame = ttk.Frame(frame)
+        show_frame.pack(fill="x", pady=(0, 15))
+
+        show_custom = tk.BooleanVar(value=False)
+
+        def toggle_show():
+            if show_custom.get():
+                entry.config(show="")
+                show_btn.config(text="🙈 Hide")
+            else:
+                entry.config(show="*")
+                show_btn.config(text="👁 Show")
+
+        show_btn = ttk.Button(
+            show_frame,
+            text="👁 Show",
+            command=lambda: [show_custom.set(not show_custom.get()), toggle_show()],
+        )
+        show_btn.pack(side="left")
 
         button_frame = ttk.Frame(frame)
         button_frame.pack(fill="x")
 
         def add_key():
             key = key_var.get().strip()
+            name = key_name_var.get().strip()
+
+            if not name:
+                messagebox.showerror("Error", "Please enter a key name")
+                return
+
             if key:
                 if key not in self.api_keys_list:
-                    # Save to database FIRST
-                    if self.save_api_key(key):
+                    if self.save_api_key(key, name):
                         self.api_keys_list.append(key)
                         self.update_api_keys_listbox()
-                        self.log(f"Custom API key added: {key[:8]}...", "SUCCESS")
+                        self.log(
+                            f"Custom API key '{name}' added: {key[:8]}...", "SUCCESS"
+                        )
                         dialog.destroy()
                     else:
                         messagebox.showerror(
@@ -777,28 +1041,9 @@ class ObsidianNeuralLauncher:
             side="left"
         )
 
-        # Bind Enter key
         entry.bind("<Return>", lambda e: add_key())
 
-    def remove_api_key(self):
-        """Remove selected API key"""
-        selection = self.api_keys_listbox.curselection()
-        if selection:
-            index = selection[0]
-            api_key = self.api_keys_list[index]
-
-            # Remove from database FIRST
-            if self.remove_api_key_from_db(api_key):
-                self.api_keys_list.pop(index)
-                self.update_api_keys_listbox()
-                self.log(f"API key removed: {api_key[:8]}...", "SUCCESS")
-            else:
-                messagebox.showerror("Error", "Could not remove API key from database")
-        else:
-            messagebox.showwarning("No Selection", "Please select an API key to remove")
-
     def copy_api_key(self):
-        """Copy selected API key to clipboard"""
         selection = self.api_keys_listbox.curselection()
         if selection:
             index = selection[0]
@@ -813,18 +1058,16 @@ class ObsidianNeuralLauncher:
             messagebox.showwarning("No Selection", "Please select an API key to copy")
 
     def show_api_key_dialog(self, api_key, title):
-        """Show API key in a dialog with copy functionality"""
         dialog = tk.Toplevel(self.root)
         dialog.title(title)
-        dialog.geometry("500x250")
+        dialog.geometry("600x300")
         dialog.transient(self.root)
         dialog.grab_set()
 
-        # Center dialog
         dialog.update_idletasks()
-        x = (dialog.winfo_screenwidth() // 2) - (500 // 2)
-        y = (dialog.winfo_screenheight() // 2) - (250 // 2)
-        dialog.geometry(f"500x250+{x}+{y}")
+        x = (dialog.winfo_screenwidth() // 2) - (600 // 2)
+        y = (dialog.winfo_screenheight() // 2) - (300 // 2)
+        dialog.geometry(f"600x300+{x}+{y}")
 
         frame = ttk.Frame(dialog, padding="20")
         frame.pack(fill="both", expand=True)
@@ -833,35 +1076,31 @@ class ObsidianNeuralLauncher:
             anchor="w"
         )
 
-        # Warning message
         warning_label = ttk.Label(
             frame,
             text="⚠️ Save this key securely - it won't be shown again in full!",
-            foreground="orange",
+            foreground="red",
             font=("Arial", 10),
         )
-        warning_label.pack(anchor="w", pady=(5, 10))
+        warning_label.pack(anchor="w", pady=(5, 15))
 
-        # API key display - use Entry for easy selection
         key_frame = ttk.Frame(frame)
-        key_frame.pack(fill="x", pady=(0, 15))
+        key_frame.pack(fill="x", pady=(0, 20))
 
-        key_var = tk.StringVar(value=api_key)
         key_entry = ttk.Entry(
             key_frame,
-            textvariable=key_var,
-            font=("Consolas", 11),
-            state="readonly",
-            width=40,
+            font=("Consolas", 12),
+            width=60,
         )
-        key_entry.pack(fill="x")
+        key_entry.pack(fill="x", pady=(0, 10))
 
-        # Select all text when dialog opens
+        key_entry.insert(0, api_key)
+
         def select_all():
             key_entry.select_range(0, tk.END)
             key_entry.focus()
 
-        dialog.after(100, select_all)
+        dialog.after(200, select_all)
 
         button_frame = ttk.Frame(frame)
         button_frame.pack(fill="x")
@@ -870,29 +1109,70 @@ class ObsidianNeuralLauncher:
             self.root.clipboard_clear()
             self.root.clipboard_append(api_key)
             self.log("API key copied to clipboard", "SUCCESS")
+            messagebox.showinfo("Copied!", "API key copied to clipboard!")
             dialog.destroy()
 
         def select_all_key():
             key_entry.select_range(0, tk.END)
+            key_entry.focus()
 
-        ttk.Button(
-            button_frame, text="📋 Copy to Clipboard", command=copy_and_close
-        ).pack(side="left", padx=(0, 10))
+        ttk.Button(button_frame, text="📋 Copy & Close", command=copy_and_close).pack(
+            side="left", padx=(0, 10)
+        )
         ttk.Button(button_frame, text="🔍 Select All", command=select_all_key).pack(
             side="left", padx=(0, 10)
         )
         ttk.Button(button_frame, text="Close", command=dialog.destroy).pack(side="left")
 
+        key_entry.focus()
+
     def update_api_keys_listbox(self):
-        """Update the API keys listbox display"""
         self.api_keys_listbox.delete(0, tk.END)
-        for i, key in enumerate(self.api_keys_list):
-            # Show only first 8 chars + ... for security
-            display_key = f"{i+1}. {key[:8]}...{key[-4:]}"
-            self.api_keys_listbox.insert(tk.END, display_key)
+
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute(
+                "SELECT key_value_encrypted, name FROM api_keys ORDER BY created_at"
+            )
+            rows = cursor.fetchall()
+
+            self.api_keys_list = []
+
+            for i, (encrypted_key, name) in enumerate(rows):
+                decrypted_key = self.secure_storage.decrypt(encrypted_key)
+                if decrypted_key:
+                    self.api_keys_list.append(decrypted_key)
+
+                    display_name = name if name else f"Unnamed Key {i+1}"
+                    display_key = (
+                        f"[{display_name}] {decrypted_key[:8]}...{decrypted_key[-4:]}"
+                    )
+                    self.api_keys_listbox.insert(tk.END, display_key)
+
+            conn.close()
+
+        except Exception as e:
+            self.log(f"Error updating listbox: {e}", "ERROR")
+
+    def save_hf_token(self):
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
+                ("hf_token", self.hf_token_var.get().strip()),
+            )
+            conn.commit()
+            conn.close()
+            self.log("Hugging Face token saved", "SUCCESS")
+            return True
+        except Exception as e:
+            self.log(f"Error saving HF token: {e}", "ERROR")
+            return False
 
     def browse_model_path(self):
-        """Browse for model file"""
         filename = filedialog.askopenfilename(
             title="Select LLM Model File",
             filetypes=[("GGUF files", "*.gguf"), ("All files", "*.*")],
@@ -902,7 +1182,6 @@ class ObsidianNeuralLauncher:
             self.model_path.set(filename)
 
     def reset_to_defaults(self):
-        """Reset configuration to defaults"""
         if messagebox.askyesno(
             "Reset Configuration",
             "Reset all settings to defaults? (API keys will be kept)",
@@ -917,12 +1196,10 @@ class ObsidianNeuralLauncher:
             self.save_config()
 
     def start_server(self):
-        """Start the OBSIDIAN-Neural server using command line flags"""
         if self.is_server_running:
             self.log("Server is already running", "WARNING")
             return
 
-        # Validate required fields
         if not self.model_path.get() or not Path(self.model_path.get()).exists():
             messagebox.showerror("Error", "Please specify a valid model path")
             return
@@ -931,11 +1208,35 @@ class ObsidianNeuralLauncher:
             install_dir = self.detect_installation_dir()
             main_py = install_dir / "main.py"
 
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = "utf-8"
+
+            if hasattr(self, "hf_token_var") and self.hf_token_var.get().strip():
+                env["HF_TOKEN"] = self.hf_token_var.get().strip()
+                self.log("Hugging Face token added to environment")
+            elif hasattr(self, "secure_storage"):
+                try:
+                    conn = sqlite3.connect(self.db_path)
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT value FROM config WHERE key = ? AND is_encrypted = 1",
+                        ("hf_token",),
+                    )
+                    result = cursor.fetchone()
+                    conn.close()
+
+                    if result:
+                        decrypted_token = self.secure_storage.decrypt(result[0])
+                        if decrypted_token:
+                            env["HF_TOKEN"] = decrypted_token
+                            self.log("Hugging Face token loaded from database")
+                except Exception as e:
+                    self.log(f"Could not load HF token: {e}", "WARNING")
+
             if not main_py.exists():
                 messagebox.showerror("Error", f"main.py not found at {install_dir}")
                 return
 
-            # Find Python executable
             python_exe = install_dir / "env" / "Scripts" / "python.exe"
             if not python_exe.exists():
                 python_exe = sys.executable
@@ -944,7 +1245,6 @@ class ObsidianNeuralLauncher:
             self.log(f"Using Python: {python_exe}")
             self.log(f"Starting server from: {install_dir}")
 
-            # Build command with all parameters as flags
             cmd = [
                 str(python_exe),
                 str(main_py),
@@ -960,17 +1260,29 @@ class ObsidianNeuralLauncher:
                 self.audio_model.get(),
             ]
 
-            # Add API keys if provided
-            if self.api_keys_list:
-                api_keys_string = ",".join(self.api_keys_list)
-                cmd.extend(["--api-keys", api_keys_string])
-                self.log(f"Using {len(self.api_keys_list)} API key(s)")
+            environment = self.environment.get()
+            has_api_keys = len(self.api_keys_list) > 0
 
-            self.log(f"Command: {' '.join(cmd[:8])}... [API keys hidden]")
+            if environment == "prod":
+                cmd.append("--use-stored-keys")
+                self.log("Production mode: using stored API keys")
+            elif environment == "dev" and has_api_keys:
+                use_keys = messagebox.askyesno(
+                    "Development Mode",
+                    "You have API keys configured.\n\n"
+                    "Use stored API keys for authentication?\n\n"
+                    "• Yes: Use API authentication\n"
+                    "• No: Development bypass (no auth)",
+                )
+                if use_keys:
+                    cmd.append("--use-stored-keys")
+                    self.log("Development mode: using stored API keys")
+                else:
+                    self.log("Development mode: authentication bypass enabled")
+            else:
+                self.log("Development mode: no API keys configured, bypass enabled")
 
-            # Set environment with UTF-8 encoding
-            env = os.environ.copy()
-            env["PYTHONIOENCODING"] = "utf-8"
+            self.log(f"Command: {' '.join(cmd)}")
 
             self.server_process = subprocess.Popen(
                 cmd,
@@ -979,15 +1291,14 @@ class ObsidianNeuralLauncher:
                 universal_newlines=True,
                 bufsize=1,
                 cwd=str(install_dir),
-                env=env,  # Add the environment with UTF-8 encoding
-                encoding="utf-8",  # Force UTF-8 encoding
-                errors="replace",  # Replace invalid characters instead of crashing
+                env=env,
+                encoding="utf-8",
+                errors="replace",
             )
 
             self.is_server_running = True
             self.update_ui_state()
 
-            # Start output monitoring
             threading.Thread(target=self.monitor_output, daemon=True).start()
 
             self.log("Server started successfully", "SUCCESS")
@@ -997,7 +1308,6 @@ class ObsidianNeuralLauncher:
             messagebox.showerror("Error", f"Failed to start server:\n{e}")
 
     def stop_server(self):
-        """Stop the server"""
         if not self.is_server_running or not self.server_process:
             self.log("No server process to stop", "WARNING")
             return
@@ -1005,14 +1315,11 @@ class ObsidianNeuralLauncher:
         try:
             self.log("Stopping server...")
 
-            # Try graceful shutdown first
             self.server_process.terminate()
 
-            # Wait a few seconds for graceful shutdown
             try:
                 self.server_process.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                # Force kill if needed
                 self.server_process.kill()
                 self.log("Server force-killed", "WARNING")
 
@@ -1026,33 +1333,28 @@ class ObsidianNeuralLauncher:
             self.log(f"Error stopping server: {e}", "ERROR")
 
     def restart_server(self):
-        """Restart the server"""
         self.log("Restarting server...")
         self.stop_server()
-        time.sleep(1)  # Brief pause
+        time.sleep(1)
         self.start_server()
 
     def monitor_output(self):
-        """Monitor server output in separate thread"""
         if not self.server_process:
             return
 
         try:
             for line in iter(self.server_process.stdout.readline, ""):
                 if line:
-                    # Remove trailing newline and log
                     line = line.rstrip()
                     if line:
                         self.log(f"[SERVER] {line}")
 
-                # Check if process is still running
                 if self.server_process.poll() is not None:
                     break
 
         except Exception as e:
             self.log(f"Error monitoring output: {e}", "ERROR")
 
-        # Process ended
         if self.is_server_running:
             self.is_server_running = False
             self.server_process = None
@@ -1060,10 +1362,8 @@ class ObsidianNeuralLauncher:
             self.log("Server process ended", "WARNING")
 
     def monitor_server(self):
-        """Monitor server status periodically"""
         if self.is_server_running and self.server_process:
             if self.server_process.poll() is not None:
-                # Process ended unexpectedly
                 self.is_server_running = False
                 self.server_process = None
                 self.update_ui_state()
@@ -1071,11 +1371,9 @@ class ObsidianNeuralLauncher:
 
         self.update_ui_state()
 
-        # Schedule next check
         self.root.after(2000, self.monitor_server)
 
     def update_ui_state(self):
-        """Update UI based on server state"""
         if self.is_server_running:
             self.server_status.set("🟢 Server Running")
             self.server_url.set(f"http://{self.host.get()}:{self.port.get()}")
@@ -1094,12 +1392,10 @@ class ObsidianNeuralLauncher:
             self.restart_button.configure(state="disabled")
 
     def check_first_launch(self):
-        """Check if this is the first launch and show setup wizard"""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
 
-            # Check if we have any configuration
             cursor.execute("SELECT COUNT(*) FROM config")
             config_count = cursor.fetchone()[0]
 
@@ -1108,7 +1404,6 @@ class ObsidianNeuralLauncher:
 
             conn.close()
 
-            # First launch if no config AND no API keys
             if config_count == 0 and api_count == 0:
                 self.show_setup_wizard()
                 return True
@@ -1120,21 +1415,18 @@ class ObsidianNeuralLauncher:
             return False
 
     def show_setup_wizard(self):
-        """Show setup wizard for first-time users"""
         wizard = tk.Toplevel(self.root)
         wizard.title("OBSIDIAN-Neural - First Time Setup")
-        wizard.geometry("650x800")  # Un peu plus haut
+        wizard.geometry("650x800")
         wizard.transient(self.root)
         wizard.grab_set()
         wizard.resizable(True, True)
 
-        # Center dialog
         wizard.update_idletasks()
         x = (wizard.winfo_screenwidth() // 2) - (650 // 2)
         y = (wizard.winfo_screenheight() // 2) - (800 // 2)
         wizard.geometry(f"650x800+{x}+{y}")
 
-        # Variables for wizard
         wizard_model_path = tk.StringVar()
         wizard_api_key = tk.StringVar()
         wizard_environment = tk.StringVar(value="dev")
@@ -1142,11 +1434,9 @@ class ObsidianNeuralLauncher:
         wizard_port = tk.StringVar(value="8000")
         wizard_audio_model = tk.StringVar(value="stabilityai/stable-audio-open-1.0")
 
-        # Main frame
         main_frame = ttk.Frame(wizard, padding="30")
         main_frame.pack(fill="both", expand=True)
 
-        # Header
         header_label = ttk.Label(
             main_frame,
             text="🎵 Welcome to OBSIDIAN-Neural!",
@@ -1161,7 +1451,6 @@ class ObsidianNeuralLauncher:
         )
         subtitle_label.pack(pady=(0, 30))
 
-        # Step 1: Model Path
         step1_frame = ttk.LabelFrame(
             main_frame, text="Step 1: Select Your AI Model", padding="15"
         )
@@ -1190,22 +1479,122 @@ class ObsidianNeuralLauncher:
             side="right", padx=(5, 0)
         )
 
-        # Step 2: API Key
-        step2_frame = ttk.LabelFrame(
-            main_frame, text="Step 2: Create Your First API Key", padding="15"
+        hf_step_frame = ttk.LabelFrame(
+            main_frame, text="Step 2: Hugging Face Access Token", padding="15"
         )
-        step2_frame.pack(fill="x", pady=(0, 15))
+        hf_step_frame.pack(fill="x", pady=(0, 20))
+
+        hf_info_frame = ttk.Frame(hf_step_frame)
+        hf_info_frame.pack(fill="x", pady=(0, 10))
+
+        ttk.Label(
+            hf_info_frame,
+            text="⚠️ Required for Stable Audio model download",
+            foreground="orange",
+            font=("Arial", 10, "bold"),
+        ).pack(anchor="w")
+
+        instructions_text = """1. Go to https://huggingface.co/stabilityai/stable-audio-open-1.0
+        2. Click "Request access to this model" 
+        3. Wait for approval (usually instant)
+        4. Generate a token at https://huggingface.co/settings/tokens"""
+
+        instructions_label = ttk.Label(
+            hf_step_frame, text=instructions_text, font=("Arial", 9)
+        )
+        instructions_label.pack(anchor="w", pady=(0, 10))
+
+        wizard_hf_token = tk.StringVar()
+        token_frame = ttk.Frame(hf_step_frame)
+        token_frame.pack(fill="x", pady=(5, 10))
+
+        show_token = tk.BooleanVar(value=False)
+
+        def update_token_display():
+            if show_token.get():
+                token_entry.config(show="")
+                token_show_button.config(text="🙈 Hide")
+            else:
+                token_entry.config(show="*")
+                token_show_button.config(text="👁 Show")
+
+        ttk.Label(token_frame, text="HF Token:").pack(side="left")
+        token_entry = ttk.Entry(
+            token_frame,
+            textvariable=wizard_hf_token,
+            width=35,
+            font=("Consolas", 10),
+            show="*",
+        )
+        token_entry.pack(side="left", padx=(10, 5), fill="x", expand=True)
+
+        token_show_button = ttk.Button(
+            token_frame,
+            text="👁 Show",
+            width=8,
+            command=lambda: [
+                show_token.set(not show_token.get()),
+                update_token_display(),
+            ],
+        )
+        token_show_button.pack(side="left", padx=(0, 5))
+
+        def verify_hf_token():
+            token = wizard_hf_token.get().strip()
+            if not token:
+                messagebox.showerror("Error", "Please enter your Hugging Face token")
+                return
+
+            try:
+                import requests
+
+                headers = {"Authorization": f"Bearer {token}"}
+                response = requests.get(
+                    "https://huggingface.co/api/whoami", headers=headers, timeout=10
+                )
+
+                if response.status_code == 200:
+                    user_info = response.json()
+                    username = user_info.get("name", "Unknown")
+                    messagebox.showinfo(
+                        "Token Valid", f"✅ Token verified!\nUser: {username}"
+                    )
+                    return True
+                else:
+                    messagebox.showerror(
+                        "Invalid Token", "❌ Token is invalid or expired"
+                    )
+                    return False
+
+            except Exception as e:
+                messagebox.showerror(
+                    "Verification Error", f"Could not verify token:\n{e}"
+                )
+                return False
+
+        ttk.Button(token_frame, text="🔍 Verify", command=verify_hf_token).pack(
+            side="left"
+        )
+
+        step2_frame = ttk.LabelFrame(
+            main_frame, text="Step 3: Create Your First API Key", padding="15"
+        )
+        step2_frame.pack(fill="x", pady=(0, 20))
 
         ttk.Label(
             step2_frame, text="Generate a secure API key for authentication:"
         ).pack(anchor="w")
 
-        api_frame = ttk.Frame(step2_frame)
-        api_frame.pack(fill="x", pady=(5, 10))
+        name_frame = ttk.Frame(step2_frame)
+        name_frame.pack(fill="x", pady=(5, 10))
 
-        # API key with show/hide functionality
-        api_show_frame = ttk.Frame(api_frame)
-        api_show_frame.pack(fill="x")
+        ttk.Label(name_frame, text="Key Name:").pack(side="left")
+        wizard_api_name = tk.StringVar(value="Main API Key")
+        name_entry = ttk.Entry(name_frame, textvariable=wizard_api_name, width=25)
+        name_entry.pack(side="left", padx=(10, 0))
+
+        api_frame = ttk.Frame(step2_frame)
+        api_frame.pack(fill="x", pady=(8, 0))
 
         show_key = tk.BooleanVar(value=False)
 
@@ -1218,7 +1607,7 @@ class ObsidianNeuralLauncher:
                 show_button.config(text="👁 Show")
 
         api_entry = ttk.Entry(
-            api_show_frame,
+            api_frame,
             textvariable=wizard_api_key,
             width=35,
             font=("Consolas", 10),
@@ -1227,7 +1616,7 @@ class ObsidianNeuralLauncher:
         api_entry.pack(side="left", fill="x", expand=True)
 
         show_button = ttk.Button(
-            api_show_frame,
+            api_frame,
             text="👁 Show",
             width=8,
             command=lambda: [show_key.set(not show_key.get()), update_api_display()],
@@ -1242,17 +1631,15 @@ class ObsidianNeuralLauncher:
             api_key = "".join(secrets.choice(alphabet) for _ in range(32))
             wizard_api_key.set(api_key)
 
-        ttk.Button(
-            api_show_frame, text="🔑 Generate", command=generate_wizard_key
-        ).pack(side="left")
+        ttk.Button(api_frame, text="🔑 Generate", command=generate_wizard_key).pack(
+            side="left"
+        )
 
-        # Step 3: Server Configuration
         step3_frame = ttk.LabelFrame(
             main_frame, text="Step 3: Server Configuration", padding="15"
         )
         step3_frame.pack(fill="x", pady=(0, 15))
 
-        # Host and Port
         server_frame = ttk.Frame(step3_frame)
         server_frame.pack(fill="x", pady=(0, 10))
 
@@ -1276,7 +1663,6 @@ class ObsidianNeuralLauncher:
         )
         env_combo.pack(side="left", padx=(5, 0))
 
-        # Audio Model
         audio_frame = ttk.Frame(step3_frame)
         audio_frame.pack(fill="x", pady=(10, 0))
 
@@ -1293,18 +1679,24 @@ class ObsidianNeuralLauncher:
         )
         audio_combo.pack(anchor="w", pady=(5, 0))
 
-        # Buttons
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(fill="x", pady=(20, 0))
 
         def validate_and_save():
-            # Validate inputs
             errors = []
 
             if not wizard_model_path.get():
                 errors.append("Please select a model file")
             elif not Path(wizard_model_path.get()).exists():
                 errors.append("Model file does not exist")
+
+            if not wizard_hf_token.get().strip():
+                errors.append("Please enter your Hugging Face token")
+            elif len(wizard_hf_token.get().strip()) < 10:
+                errors.append("Hugging Face token seems too short")
+
+            if not wizard_api_name.get().strip():
+                errors.append("Please enter a name for your API key")
 
             if not wizard_api_key.get():
                 errors.append("Please generate an API key")
@@ -1322,29 +1714,34 @@ class ObsidianNeuralLauncher:
                 messagebox.showerror("Configuration Error", "\n".join(errors))
                 return
 
-            # Save configuration
             try:
-                # Set the main configuration
                 self.model_path.set(wizard_model_path.get())
                 self.host.set(wizard_host.get())
                 self.port.set(wizard_port.get())
                 self.environment.set(wizard_environment.get())
                 self.audio_model.set(wizard_audio_model.get())
 
-                # Save API key
-                if self.save_api_key(wizard_api_key.get()):
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
+                    ("hf_token", wizard_hf_token.get().strip()),
+                )
+                conn.commit()
+                conn.close()
+
+                if self.save_api_key(wizard_api_key.get(), wizard_api_name.get()):
                     self.api_keys_list.append(wizard_api_key.get())
                     self.update_api_keys_listbox()
 
-                # Save configuration
                 if self.save_config():
                     self.log("Initial configuration completed successfully!", "SUCCESS")
 
-                    # Show success message
                     messagebox.showinfo(
                         "Setup Complete",
                         "🎉 Configuration saved successfully!\n\n"
                         "✅ Model configured\n"
+                        "✅ Hugging Face token saved\n"
                         "✅ API key generated and saved\n"
                         "✅ Server settings configured\n\n"
                         "You can now start the OBSIDIAN-Neural server!",
@@ -1372,15 +1769,12 @@ class ObsidianNeuralLauncher:
             side="right", padx=(0, 10)
         )
 
-        # Auto-generate API key on load
         generate_wizard_key()
 
-        # Make wizard modal
         wizard.protocol("WM_DELETE_WINDOW", skip_setup)
         wizard.focus_set()
 
     def open_project_folder(self):
-        """Open project folder in file explorer"""
         import os
         import platform
 
@@ -1396,11 +1790,9 @@ class ObsidianNeuralLauncher:
             self.log(f"Error opening folder: {e}", "ERROR")
 
     def show_system_info(self):
-        """Show system information dialog"""
         try:
             import platform
 
-            # Get system info
             cpu_count = psutil.cpu_count(logical=False)
             cpu_threads = psutil.cpu_count(logical=True)
             memory = psutil.virtual_memory()
@@ -1422,12 +1814,10 @@ Project Directory: {Path.cwd()}
             messagebox.showerror("Error", f"Could not get system info: {e}")
 
     def clear_logs(self):
-        """Clear the log display"""
         self.log_text.delete(1.0, tk.END)
         self.log("Logs cleared")
 
     def save_logs(self):
-        """Save logs to file"""
         filename = filedialog.asksaveasfilename(
             defaultextension=".log",
             filetypes=[("Log files", "*.log"), ("Text files", "*.txt")],
@@ -1443,7 +1833,6 @@ Project Directory: {Path.cwd()}
                 self.log(f"Error saving logs: {e}", "ERROR")
 
     def on_closing(self):
-        """Handle window closing"""
         if self.is_server_running:
             if messagebox.askokcancel("Quit", "Server is running. Stop it and quit?"):
                 self.stop_server()
@@ -1453,7 +1842,6 @@ Project Directory: {Path.cwd()}
             self.root.quit()
 
     def run(self):
-        """Start the application"""
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.log("OBSIDIAN-Neural Launcher started")
         self.log("Configure your settings and click 'Start Server' to begin")

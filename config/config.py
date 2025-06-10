@@ -1,16 +1,61 @@
-import asyncio
-from fastapi.security.api_key import APIKeyHeader
 from typing import List
 
-API_KEY_HEADER = APIKeyHeader(name="X-API-Key")
 API_KEYS: List[str] = []
 ENVIRONMENT: str = "dev"
-llm_lock = asyncio.Lock()
-audio_lock = asyncio.Lock()
+AUDIO_MODEL: str = "stabilityai/stable-audio-open-1.0"
+
+API_KEY_HEADER = "X-API-Key"
+audio_lock = None
+llm_lock = None
 
 
-def init_config(api_keys: List[str] = None, environment: str = "dev"):
-    """Initialize configuration with parameters from main.py"""
-    global API_KEYS, ENVIRONMENT
-    API_KEYS = api_keys or []
-    ENVIRONMENT = environment
+def init_config_from_args(args):
+    global API_KEYS, ENVIRONMENT, AUDIO_MODEL
+
+    ENVIRONMENT = args.environment or "dev"
+    AUDIO_MODEL = args.audio_model or "stabilityai/stable-audio-open-1.0"
+
+    if args.use_stored_keys:
+        API_KEYS = load_api_keys_from_db()
+        print(
+            f"Config initialized: {len(API_KEYS)} API keys loaded from database, env={ENVIRONMENT}"
+        )
+    else:
+        API_KEYS = []
+        print(
+            f"Config initialized: Development bypass (no API keys), env={ENVIRONMENT}"
+        )
+
+
+def load_api_keys_from_db():
+    try:
+        from core.secure_storage import SecureStorage
+        import sqlite3
+        from pathlib import Path
+
+        db_path = Path.home() / ".obsidian_neural" / "config.db"
+        if not db_path.exists():
+            print("Warning: No database found, no API keys loaded")
+            return []
+
+        secure_storage = SecureStorage(db_path)
+
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT key_value_encrypted FROM api_keys ORDER BY created_at")
+        rows = cursor.fetchall()
+
+        api_keys = []
+        for row in rows:
+            decrypted_key = secure_storage.decrypt(row[0])
+            if decrypted_key:
+                api_keys.append(decrypted_key)
+
+        conn.close()
+        print(f"Successfully loaded {len(api_keys)} API keys from encrypted database")
+        return api_keys
+
+    except Exception as e:
+        print(f"Error loading API keys from database: {e}")
+        return []

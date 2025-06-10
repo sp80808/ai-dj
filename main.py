@@ -1,8 +1,11 @@
 import argparse
+import os
 from fastapi import FastAPI, Request, Depends
 import uvicorn
+from dotenv import load_dotenv
 from core.dj_system import DJSystem
-from config.config import init_config
+
+load_dotenv()
 
 
 def get_dj_system(request: Request):
@@ -25,6 +28,38 @@ def create_api_app():
     return app
 
 
+def load_encrypted_api_keys():
+    try:
+        from core.secure_storage import SecureStorage
+        from pathlib import Path
+        import sqlite3
+
+        db_path = Path.home() / ".obsidian_neural" / "config.db"
+        if not db_path.exists():
+            return []
+
+        secure_storage = SecureStorage(db_path)
+
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT key_value_encrypted FROM api_keys ORDER BY created_at")
+        rows = cursor.fetchall()
+
+        api_keys = []
+        for row in rows:
+            decrypted_key = secure_storage.decrypt(row[0])
+            if decrypted_key:
+                api_keys.append(decrypted_key)
+
+        conn.close()
+        return api_keys
+
+    except Exception as e:
+        print(f"Warning: Could not load encrypted API keys: {e}")
+        return []
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="OBSIDIAN-Neural System with Layer Manager"
@@ -36,20 +71,67 @@ def main():
     parser.add_argument(
         "--audio-model", default="stabilityai/stable-audio-open-1.0", help="Audio model"
     )
-    parser.add_argument("--api-keys", help="API keys separated by commas")
+    parser.add_argument(
+        "--use-stored-keys",
+        action="store_true",
+        help="Load API keys from encrypted database",
+    )
 
     args = parser.parse_args()
-    api_keys = []
-    if args.api_keys:
-        api_keys = [key.strip() for key in args.api_keys.split(",") if key.strip()]
 
-    init_config(api_keys=api_keys, environment=args.environment)
+    model_path = args.model_path or os.environ.get("LLM_MODEL_PATH")
+    host = args.host or os.environ.get("HOST", "127.0.0.1")
+    port = args.port or int(os.environ.get("PORT", 8000))
+    environment = args.environment or os.environ.get("ENVIRONMENT", "dev")
+    audio_model = args.audio_model or os.environ.get(
+        "AUDIO_MODEL", "stabilityai/stable-audio-open-1.0"
+    )
+
+    api_keys = []
+
+    if environment == "prod":
+        api_keys = load_encrypted_api_keys()
+        print(f"Production mode: loaded {len(api_keys)} API keys from database")
+    elif args.use_stored_keys:
+        api_keys = load_encrypted_api_keys()
+        print(f"Development mode: loaded {len(api_keys)} API keys from database")
+    else:
+        print("Development mode: no API keys loaded (dev bypass active)")
+
+    print(f"🎵 Starting OBSIDIAN-Neural Server")
+    print(f"   Host: {host}:{port}")
+    print(f"   Environment: {environment}")
+    print(f"   Model: {model_path}")
+    print(f"   Audio Model: {audio_model}")
+    print(
+        f"   API Authentication: {len(api_keys)} keys"
+        if api_keys
+        else "   API Authentication: Development bypass"
+    )
+
+    from config.config import init_config_from_args
+
+    config_args = argparse.Namespace(
+        api_keys=",".join(api_keys) if api_keys else "",
+        environment=environment,
+        audio_model=audio_model,
+    )
+
+    init_config_from_args(config_args)
 
     app = create_api_app()
-    dj_system = DJSystem.get_instance(args)
+    dj_args = argparse.Namespace(
+        model_path=model_path,
+        host=host,
+        port=port,
+        environment=environment,
+        audio_model=audio_model,
+    )
+
+    dj_system = DJSystem.get_instance(dj_args)
     app.state.dj_system = dj_system
 
-    uvicorn.run(app, host=args.host, port=args.port)
+    uvicorn.run(app, host=host, port=port)
     print("✅ Server closed.")
 
 
