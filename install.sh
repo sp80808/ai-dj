@@ -68,7 +68,7 @@ else
 fi
 pip install librosa soundfile
 echo "Installing web server dependencies..."
-pip install fastapi uvicorn python-dotenv requests apscheduler demucs
+pip install fastapi uvicorn python-dotenv requests apscheduler demucs Pillow GPUtil
 echo "Dependencies installed"
 
 # Download model
