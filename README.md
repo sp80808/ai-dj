@@ -4,24 +4,30 @@
 
 OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM prompts and Stable Audio Open to create contextually aware loops directly in your DAW.
 
+## ⚠️ Pre-Release Status
+
+**OBSIDIAN-Neural is currently in pre-release.** While functional, you may encounter bugs and instabilities between versions. Your feedback and bug reports help us improve! 🙏
+
 ## 🚀 Quick Start
 
 ### New: GUI Tools Available!
 
-- **🔧 [Installer](https://github.com/innermost47/ai-dj/releases)** - One-click setup (Windows)
-- **🎛️ [Server GUI](https://github.com/innermost47/ai-dj/releases)** - Control panel for server management
+- **🔧 [Installer](https://github.com/innermost47/ai-dj/releases)** - One-click setup _(Windows .exe)_
+- **🎛️ [Server GUI](https://github.com/innermost47/ai-dj/releases)** - Control panel for server management _(Windows .exe)_
 
-_These tools are in pre-release - your feedback helps us improve!_
+**Cross-Platform Alternative:**
 
----
+- **Mac/Linux users:** Run the tools directly with Python:
+  ```bash
+  python installer.py      # For installation
+  python server_interface.py  # For server control
+  ```
 
 ## 📢 Community Update
 
 **Thank you!** We've gained **52 stars since June 6th** - the support has been incredible! 🌟
 
-_Note: As we rapidly develop new features, you might encounter some instability between versions. We appreciate your patience and bug reports as we work toward a stable release._
-
----
+_Your bug reports and feedback help us improve with each release._
 
 > ✨ OBSIDIAN is 100% free and open source. All contributions, builds, and community use are welcome — but for the best experience, get it from the [official GitHub](https://github.com/innermost47/ai-dj).
 

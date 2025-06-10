@@ -16,6 +16,12 @@ import urllib.request
 import psutil
 import GPUtil
 
+try:
+    from PIL import Image, ImageTk
+
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
 
 if platform.system() == "Windows":
     try:
@@ -574,7 +580,7 @@ class ObsidianNeuralInstaller:
         header_frame = ttk.Frame(main_frame)
         header_frame.pack(fill="x", pady=(0, 20))
         logo_path = Path(__file__).parent / "logo.png"
-        if logo_path.exists():
+        if logo_path.exists() and PIL_AVAILABLE:
             try:
                 from PIL import Image, ImageTk
 
@@ -613,10 +619,20 @@ class ObsidianNeuralInstaller:
 
             ttk.Label(
                 admin_frame,
-                text="⚠️ Recommended administrator privileges",
-                foreground="orange",
+                text="⚠️ Administrator privileges recommended for VST3 system installation",
+                foreground="red",
                 font=("Arial", 10, "bold"),
+                wraplength=400,
             ).pack()
+
+            ttk.Label(
+                admin_frame,
+                text="(Required to install VST3 plugin to Program Files and system dependencies)",
+                foreground="gray",
+                font=("Arial", 8),
+                wraplength=400,
+            ).pack(pady=(0, 5))
+
             ttk.Button(
                 admin_frame,
                 text="Restart as administrator",
@@ -959,8 +975,6 @@ class ObsidianNeuralInstaller:
             if self.run_benchmark.get():
                 steps.append(("Performance benchmark", self.run_benchmark_func))
 
-            steps.append(("Finalization", self.log("Installation finalized!")))
-
             for i, (step_name, step_func) in enumerate(steps):
                 progress = (i / len(steps)) * 100
                 self.update_progress(progress, f"Étape {i+1}/{len(steps)}: {step_name}")
@@ -1003,12 +1017,16 @@ class ObsidianNeuralInstaller:
 
         self.log("Installing PyInstaller...")
         cmd = [str(python_path), "-m", "pip", "install", "pyinstaller"]
-        self.safe_subprocess_run(cmd, check=True, timeout=300)
+        subprocess.run(cmd, check=True, timeout=300)
 
         logo_path = install_dir / "logo.png"
         icon_option = f"--icon={logo_path}" if logo_path.exists() else ""
 
         main_script = install_dir / "server_interface.py"
+
+        if not main_script.exists():
+            raise Exception(f"server_interface.py not found at {main_script}")
+
         cmd = [
             str(python_path),
             "-m",
@@ -1017,13 +1035,20 @@ class ObsidianNeuralInstaller:
             "--noconsole",
             "--name",
             "OBSIDIAN-Neural-Server",
-            icon_option,
+            "--hidden-import=tkinter",
+            "--hidden-import=tkinter.ttk",
+            "--hidden-import=tkinter.messagebox",
+            "--hidden-import=tkinter.filedialog",
+            "--hidden-import=tkinter.scrolledtext",
             "--distpath",
             str(install_dir),
             str(main_script),
         ]
 
-        cmd = [x for x in cmd if x]
+        if icon_option:
+            cmd.insert(-1, icon_option)
+
+        self.log(f"PyInstaller command: {' '.join(cmd)}")
 
         result = self.safe_subprocess_run(
             cmd, cwd=install_dir, capture_output=True, text=True
@@ -1033,7 +1058,7 @@ class ObsidianNeuralInstaller:
             self.log(f"PyInstaller build failed: {result.stderr}", "ERROR")
             raise Exception("Failed to build server executable")
 
-        self.log("✅ Server executable created successfully")
+        self.log("Server executable created successfully", "SUCCESS")
 
     def create_desktop_shortcut(self, install_dir):
         self.log("Creating desktop shortcut...")
