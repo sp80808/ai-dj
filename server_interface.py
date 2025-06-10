@@ -116,6 +116,7 @@ class ObsidianNeuralLauncher:
         self.server_status = tk.StringVar(value="Server Stopped")
         self.server_url = tk.StringVar(value="")
         self.auto_save_enabled = False
+        self.hf_token_var = tk.StringVar(value="")
 
     def enable_auto_save(self):
         if self.auto_save_enabled:
@@ -128,6 +129,7 @@ class ObsidianNeuralLauncher:
             self.host,
             self.port,
             self.audio_model,
+            self.hf_token_var,
         ]
 
         for var in variables:
@@ -275,11 +277,158 @@ class ObsidianNeuralLauncher:
             actions_button_frame, text="📊 System Info", command=self.show_system_info
         ).pack(side="left")
 
+    def save_hf_token(self):
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            token = self.hf_token_var.get().strip()
+            if token:
+                encrypted_token = self.secure_storage.encrypt(token)
+                cursor.execute(
+                    "INSERT OR REPLACE INTO config (key, value, is_encrypted) VALUES (?, ?, ?)",
+                    ("hf_token", encrypted_token, 1),
+                )
+
+                os.environ["HF_TOKEN"] = token
+                self.log("Hugging Face token saved and set in environment", "SUCCESS")
+            else:
+                cursor.execute("DELETE FROM config WHERE key = ?", ("hf_token",))
+                os.environ.pop("HF_TOKEN", None)
+                self.log("Hugging Face token removed", "SUCCESS")
+
+            conn.commit()
+            conn.close()
+            return True
+
+        except Exception as e:
+            self.log(f"Error saving HF token: {e}", "ERROR")
+            return False
+
+    def verify_hf_token_config(self):
+        token = self.hf_token_var.get().strip()
+        if not token:
+            messagebox.showerror("Error", "Please enter your Hugging Face token")
+            return
+
+        if not token.startswith("hf_") or len(token) < 30:
+            messagebox.showerror(
+                "Invalid Format",
+                "Hugging Face tokens should start with 'hf_' and be ~37 characters long.\n\n"
+                "Create a token at: https://huggingface.co/settings/tokens",
+            )
+            return
+
+        try:
+            import requests
+
+            self.log("Verifying Hugging Face token...", "INFO")
+
+            headers = {"Authorization": f"Bearer {token}"}
+
+            response = requests.get(
+                "https://huggingface.co/api/whoami-v2", headers=headers, timeout=15
+            )
+
+            if response.status_code != 200:
+                if response.status_code == 401:
+                    messagebox.showerror(
+                        "Invalid Token",
+                        "❌ Token is invalid or expired\n\n"
+                        "Please check your token at:\n"
+                        "https://huggingface.co/settings/tokens",
+                    )
+                else:
+                    messagebox.showerror(
+                        "Verification Failed",
+                        f"❌ Could not verify token\n"
+                        f"HTTP {response.status_code}: {response.text[:200]}",
+                    )
+                return
+
+            user_info = response.json()
+            username = user_info.get("name", user_info.get("fullname", "Unknown"))
+            self.log(f"Token valid for user: {username}", "SUCCESS")
+
+            model_tests = [
+                (
+                    "HEAD request",
+                    "HEAD",
+                    "https://huggingface.co/stabilityai/stable-audio-open-1.0",
+                ),
+                (
+                    "Model info API",
+                    "GET",
+                    "https://huggingface.co/api/models/stabilityai/stable-audio-open-1.0",
+                ),
+                (
+                    "Files API",
+                    "GET",
+                    "https://huggingface.co/api/models/stabilityai/stable-audio-open-1.0/tree/main",
+                ),
+            ]
+
+            access_results = []
+            for test_name, method, url in model_tests:
+                try:
+                    if method == "HEAD":
+                        test_response = requests.head(url, headers=headers, timeout=10)
+                    else:
+                        test_response = requests.get(url, headers=headers, timeout=10)
+
+                    access_results.append(f"{test_name}: {test_response.status_code}")
+                    self.log(f"{test_name}: HTTP {test_response.status_code}")
+
+                    if test_response.status_code == 200:
+                        messagebox.showinfo(
+                            "Token Valid",
+                            f"✅ Token verified!\n"
+                            f"User: {username}\n"
+                            f"✅ Stable Audio access confirmed via {test_name}",
+                        )
+                        self.save_hf_token()
+                        return
+
+                except Exception as e:
+                    access_results.append(f"{test_name}: Error - {str(e)[:50]}")
+                    self.log(f"{test_name}: Error - {e}")
+
+            if any("403" in result for result in access_results):
+                messagebox.showwarning(
+                    "Access Required",
+                    f"✅ Token is valid for user: {username}\n"
+                    f"❌ Access to Stable Audio model required\n\n"
+                    f"Steps to fix:\n"
+                    f"1. Go to: https://huggingface.co/stabilityai/stable-audio-open-1.0\n"
+                    f"2. Click 'Request access'\n"
+                    f"3. Wait for approval (usually instant)\n"
+                    f"4. Create a NEW token with 'read' permissions\n\n"
+                    f"Debug info:\n" + "\n".join(access_results),
+                )
+            else:
+                messagebox.showerror(
+                    "Access Issues",
+                    f"✅ Token is valid for user: {username}\n"
+                    f"❌ Cannot access Stable Audio model\n\n"
+                    f"Debug info:\n" + "\n".join(access_results),
+                )
+
+        except requests.exceptions.Timeout:
+            messagebox.showerror(
+                "Timeout", "❌ Request timed out. Check your internet connection."
+            )
+        except requests.exceptions.ConnectionError:
+            messagebox.showerror(
+                "Connection Error", "❌ Could not connect to Hugging Face."
+            )
+        except Exception as e:
+            messagebox.showerror("Verification Error", f"Could not verify token:\n{e}")
+
     def create_config_tab(self):
         config_frame = ttk.Frame(self.notebook, padding="20")
         self.notebook.add(config_frame, text="⚙️ Configuration")
 
-        canvas = tk.Canvas(config_frame, highlightthickness=0)
+        canvas = tk.Canvas(config_frame, highlightthickness=0, bd=0)
         scrollbar = ttk.Scrollbar(config_frame, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
 
@@ -287,11 +436,19 @@ class ObsidianNeuralLauncher:
             "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
 
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+
+        canvas_window = canvas.create_window(
+            (0, 0), window=scrollable_frame, anchor="nw"
+        )
+
+        def configure_scroll_region(event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            canvas.itemconfig(canvas_window, width=canvas.winfo_width())
+
+        canvas.bind("<Configure>", configure_scroll_region)
+        canvas.configure(yscrollcommand=scrollbar.set)
 
         api_frame = ttk.LabelFrame(
             scrollable_frame, text="API Keys Management", padding="15"
@@ -343,7 +500,6 @@ class ObsidianNeuralLauncher:
         hf_token_frame = ttk.Frame(hf_frame)
         hf_token_frame.pack(fill="x", pady=(5, 10))
 
-        self.hf_token_var = tk.StringVar()
         self.hf_show_token = tk.BooleanVar(value=False)
 
         def update_hf_display():
@@ -363,6 +519,13 @@ class ObsidianNeuralLauncher:
         )
         hf_entry.pack(side="left", fill="x", expand=True)
 
+        def on_hf_token_change(*args):
+            if hasattr(self, "auto_save_enabled") and self.auto_save_enabled:
+                if hasattr(self, "_hf_save_timer"):
+                    self.root.after_cancel(self._hf_save_timer)
+                self._hf_save_timer = self.root.after(2000, self.save_hf_token)
+
+        self.hf_token_var.trace_add("write", on_hf_token_change)
         hf_show_btn = ttk.Button(
             hf_token_frame,
             text="👁 Show",
@@ -373,40 +536,8 @@ class ObsidianNeuralLauncher:
             ],
         )
         hf_show_btn.pack(side="left", padx=(5, 5))
-
-        def verify_hf_token_config():
-            token = self.hf_token_var.get().strip()
-            if not token:
-                messagebox.showerror("Error", "Please enter your Hugging Face token")
-                return
-
-            try:
-                import requests
-
-                headers = {"Authorization": f"Bearer {token}"}
-                response = requests.get(
-                    "https://huggingface.co/api/whoami", headers=headers, timeout=10
-                )
-
-                if response.status_code == 200:
-                    user_info = response.json()
-                    username = user_info.get("name", "Unknown")
-                    messagebox.showinfo(
-                        "Token Valid", f"✅ Token verified!\nUser: {username}"
-                    )
-                    self.save_hf_token()
-                else:
-                    messagebox.showerror(
-                        "Invalid Token", "❌ Token is invalid or expired"
-                    )
-
-            except Exception as e:
-                messagebox.showerror(
-                    "Verification Error", f"Could not verify token:\n{e}"
-                )
-
         ttk.Button(
-            hf_token_frame, text="🔍 Verify", command=verify_hf_token_config
+            hf_token_frame, text="🔍 Verify", command=self.verify_hf_token_config
         ).pack(side="left")
 
         hf_help_text = "Get your token at: https://huggingface.co/settings/tokens\nRequest access to: https://huggingface.co/stabilityai/stable-audio-open-1.0"
@@ -838,9 +969,8 @@ class ObsidianNeuralLauncher:
                 ("audio_model", self.audio_model.get(), 0),
             ]
 
-            if hasattr(self, "hf_token_var") and self.hf_token_var.get():
-                encrypted_token = self.secure_storage.encrypt(self.hf_token_var.get())
-                config_items.append(("hf_token", encrypted_token, 1))
+            if hasattr(self, "hf_token_var") and self.hf_token_var.get().strip():
+                self.save_hf_token()
 
             for key, value, is_encrypted in config_items:
                 cursor.execute(
@@ -938,11 +1068,7 @@ class ObsidianNeuralLauncher:
         name_dialog.wait_window()
 
         if result["name"]:
-            import secrets
-            import string
-
-            alphabet = string.ascii_letters + string.digits
-            api_key = "".join(secrets.choice(alphabet) for _ in range(32))
+            api_key = self.generate_unique_api_key()
 
             if self.save_api_key(api_key, result["name"]):
                 self.api_keys_list.append(api_key)
@@ -959,7 +1085,6 @@ class ObsidianNeuralLauncher:
                 messagebox.showerror("Error", "Could not save API key to database")
 
     def add_custom_api_key(self):
-        """Add a custom API key with name"""
         dialog = tk.Toplevel(self.root)
         dialog.title("Add Custom API Key")
         dialog.geometry("450x200")
@@ -1156,21 +1281,22 @@ class ObsidianNeuralLauncher:
         except Exception as e:
             self.log(f"Error updating listbox: {e}", "ERROR")
 
-    def save_hf_token(self):
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            cursor.execute(
-                "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
-                ("hf_token", self.hf_token_var.get().strip()),
+    def generate_unique_api_key(self, length=32):
+        import secrets
+        import string
+
+        alphabet = string.ascii_letters + string.digits
+
+        while True:
+            api_key = "".join(secrets.choice(alphabet) for _ in range(length))
+            if not self.api_key_exists(api_key):
+                return api_key
+            self.log(
+                f"Generated key collision (rare!), generating new one...", "WARNING"
             )
-            conn.commit()
-            conn.close()
-            self.log("Hugging Face token saved", "SUCCESS")
-            return True
-        except Exception as e:
-            self.log(f"Error saving HF token: {e}", "ERROR")
-            return False
+
+    def api_key_exists(self, api_key):
+        return api_key in self.api_keys_list
 
     def browse_model_path(self):
         filename = filedialog.askopenfilename(
