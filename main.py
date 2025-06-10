@@ -1,12 +1,8 @@
 import argparse
-import os
 from fastapi import FastAPI, Request, Depends
 import uvicorn
-from dotenv import load_dotenv
 from core.dj_system import DJSystem
-
-
-load_dotenv()
+from config.config import init_config
 
 
 def get_dj_system(request: Request):
@@ -33,26 +29,26 @@ def main():
     parser = argparse.ArgumentParser(
         description="OBSIDIAN-Neural System with Layer Manager"
     )
+    parser.add_argument("--model-path", type=str, help="Path of the LLM model")
+    parser.add_argument("--host", default="127.0.0.1", help="Host for API server")
+    parser.add_argument("--port", type=int, default=8000, help="Port for API server")
+    parser.add_argument("--environment", default="dev", help="Environment (dev/prod)")
     parser.add_argument(
-        "--model-path",
-        type=str,
-        default=os.environ.get("LLM_MODEL_PATH"),
-        help="Path of the LLM model",
+        "--audio-model", default="stabilityai/stable-audio-open-1.0", help="Audio model"
     )
-    parser.add_argument(
-        "--host", default=os.environ.get("HOST"), help="Host for API server"
-    )
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=int(os.environ.get("PORT")),
-        help="Port for API server",
-    )
+    parser.add_argument("--api-keys", help="API keys separated by commas")
+
     args = parser.parse_args()
+    api_keys = []
+    if args.api_keys:
+        api_keys = [key.strip() for key in args.api_keys.split(",") if key.strip()]
+
+    init_config(api_keys=api_keys, environment=args.environment)
 
     app = create_api_app()
     dj_system = DJSystem.get_instance(args)
     app.state.dj_system = dj_system
+
     uvicorn.run(app, host=args.host, port=args.port)
     print("✅ Server closed.")
 

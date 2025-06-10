@@ -45,7 +45,8 @@ class ObsidianNeuralInstaller:
             default_install_path = str(Path.home() / "OBSIDIAN-Neural")
 
         self.install_path = tk.StringVar(value=default_install_path)
-        self.vst_path = tk.StringVar(value=self.detect_vst_folder())
+        detected_vst_path_val = self._do_detect_vst_folder()
+        self.vst_path = tk.StringVar(value=detected_vst_path_val)
         self.progress_var = tk.DoubleVar()
         self.status_var = tk.StringVar(value="Ready to install")
 
@@ -65,7 +66,7 @@ class ObsidianNeuralInstaller:
     def check_admin(self):
         if platform.system() == "Windows":
             try:
-                return ctypes.windll.shell32.IsUserAnAdmin()
+                return ctypes.windll.shell32.IsUserAnAdmin() != 0
             except:
                 return False
         else:
@@ -78,6 +79,107 @@ class ObsidianNeuralInstaller:
                     None, "runas", sys.executable, " ".join(sys.argv), None, 1
                 )
                 sys.exit()
+
+    def _do_detect_vst_folder(
+        self,
+    ):
+        print("Detecting VST3 folder (initial scan, output to console):")
+        potential_paths = []
+
+        if platform.system() == "Windows":
+            program_files_vst3 = (
+                Path(os.environ.get("PROGRAMFILES", "C:/Program Files"))
+                / "Common Files"
+                / "VST3"
+            )
+            program_files_x86_vst3 = (
+                Path(os.environ.get("PROGRAMFILES(X86)", "C:/Program Files (x86)"))
+                / "Common Files"
+                / "VST3"
+            )
+            appdata_vst3 = Path.home() / "AppData/Roaming/VST3"
+            home_dot_vst3 = Path.home() / ".vst3"
+
+            if self.is_admin:
+                potential_paths.extend(
+                    [
+                        program_files_vst3,
+                        program_files_x86_vst3,
+                        appdata_vst3,
+                        home_dot_vst3,
+                    ]
+                )
+            else:
+                potential_paths.extend(
+                    [
+                        appdata_vst3,
+                        home_dot_vst3,
+                        program_files_vst3,
+                        program_files_x86_vst3,
+                    ]
+                )
+
+            custom_paths_to_check = [
+                Path("C:/VSTPlugins/VST3"),
+                Path("C:/VST3Plugins"),
+                Path("D:/VSTPlugins/VST3"),
+                Path("D:/VST3Plugins"),
+            ]
+            for cp in custom_paths_to_check:
+                if cp.exists() and cp.is_dir():
+                    if cp not in potential_paths:
+                        potential_paths.append(cp)
+
+        elif platform.system() == "Darwin":
+            potential_paths = [
+                Path("/Library/Audio/Plug-Ins/VST3"),
+                Path.home() / "Library/Audio/Plug-Ins/VST3",
+            ]
+        else:
+            potential_paths = [
+                Path.home() / ".vst3",
+                Path("/usr/lib/vst3"),
+                Path("/usr/local/lib/vst3"),
+            ]
+
+        unique_ordered_paths = []
+        seen_str_paths = set()
+        for p in potential_paths:
+            try:
+                p_resolved = p.resolve()
+                p_str = str(p_resolved)
+                if p_str not in seen_str_paths:
+                    unique_ordered_paths.append(p)
+                    seen_str_paths.add(p_str)
+            except Exception:
+                if str(p) not in seen_str_paths:
+                    unique_ordered_paths.append(p)
+                    seen_str_paths.add(str(p))
+
+        for path_to_check in unique_ordered_paths:
+            exists = path_to_check.exists()
+            is_dir = path_to_check.is_dir() if exists else False
+            print(
+                f"  Checking: {str(path_to_check)} (Exists: {exists}, IsDir: {is_dir})"
+            )
+            if exists and is_dir:
+                print(f"  Found existing VST3 folder: {str(path_to_check)}")
+                return str(path_to_check)
+
+        default_vst_path_str = ""
+        if platform.system() == "Windows":
+            default_vst_path_str = str(
+                program_files_vst3 if self.is_admin else appdata_vst3
+            )
+        elif platform.system() == "Darwin":
+            default_vst_path_str = str(Path("/Library/Audio/Plug-Ins/VST3"))
+        else:
+            default_vst_path_str = str(Path.home() / ".vst3")
+
+        print(
+            f"  No suitable existing VST3 folder found. Defaulting to: {default_vst_path_str} (will be created if necessary)."
+        )
+        return default_vst_path_str
 
     def detect_vst_folder(self):
         if platform.system() == "Windows":
@@ -752,9 +854,13 @@ class ObsidianNeuralInstaller:
         )
         formatted_msg = f"[{timestamp}] {emoji} {message}\n"
 
-        self.log_text.insert(tk.END, formatted_msg)
-        self.log_text.see(tk.END)
-        self.root.update()
+        if hasattr(self, "log_text") and self.log_text:
+            self.log_text.insert(tk.END, formatted_msg)
+            self.log_text.see(tk.END)
+            if hasattr(self, "root") and self.root:
+                self.root.update()
+        else:
+            print(f"LOG (UI not ready): {formatted_msg.strip()}")
 
     def update_progress(self, value, status=""):
         self.progress_var.set(value)
@@ -803,7 +909,7 @@ class ObsidianNeuralInstaller:
             if self.run_benchmark.get():
                 steps.append(("Performance benchmark", self.run_benchmark_func))
 
-            steps.append(("Finalization", self.finalize_installation))
+            steps.append(("Finalization", self.log("Installation finalized!")))
 
             for i, (step_name, step_func) in enumerate(steps):
                 progress = (i / len(steps)) * 100
@@ -1363,70 +1469,257 @@ class ObsidianNeuralInstaller:
 
     def install_vst(self, install_dir):
         vst_build_dir = install_dir / "vst" / "build"
-        vst_target_dir = Path(self.vst_path.get())
+        vst_target_dir_str = self.vst_path.get()
+        self.log(f"Attempting to use VST3 path: {vst_target_dir_str}")
+        vst_target_dir = Path(vst_target_dir_str)
 
-        vst_files = list(vst_build_dir.rglob("*.vst3"))
+        if not vst_target_dir.exists():
+            self.log(
+                f"Provided VST3 path '{vst_target_dir}' does not exist. Attempting to create it.",
+                "WARNING",
+            )
+        elif not vst_target_dir.is_dir():
+            self.log(
+                f"Provided VST3 path '{vst_target_dir}' is not a directory. Cannot install VST here.",
+                "ERROR",
+            )
+            raise Exception(f"VST3 path '{vst_target_dir}' is not a directory.")
+        else:
+            self.log(f"VST3 path '{vst_target_dir}' exists and is a directory.")
+
+        possible_vst_locations = [
+            vst_build_dir,
+            vst_build_dir / "VST3",
+            vst_build_dir / "Release" / "VST3",
+            vst_build_dir / "RelWithDebInfo" / "VST3",
+            vst_build_dir / "Debug" / "VST3",
+            vst_build_dir / "ObsidianNeural_artefacts" / "Release" / "VST3",
+            vst_build_dir / "ObsidianNeural_artefacts" / "VST3",
+            vst_build_dir
+            / "ObsidianNeuralVST_artefacts"
+            / "Release"
+            / "VST3"
+            / "OBSIDIAN-Neural.vst3"
+            / "Contents"
+            / "x86_64-win",
+        ]
+
+        vst_files_found = []
+        for loc in possible_vst_locations:
+            if loc.exists() and loc.is_dir():
+                self.log(f"Searching for .vst3 in {loc}")
+                vst_files_found.extend(list(loc.glob("*.vst3")))
+
+        vst_files = []
+        seen_paths = set()
+        for f_path in vst_files_found:
+            resolved_path = f_path.resolve()
+            if resolved_path not in seen_paths:
+                vst_files.append(f_path)
+                seen_paths.add(resolved_path)
+                self.log(f"Found potential VST3: {f_path} (Is Dir: {f_path.is_dir()})")
 
         if not vst_files:
-            self.log("No VST3 file found after compilation", "WARNING")
-            return
+            self.log(
+                f"No VST3 file/bundle found after compilation in standard build output locations under {vst_build_dir}.",
+                "ERROR",
+            )
+            self.log(f"Checked locations: {possible_vst_locations}", "INFO")
+            raise Exception(
+                "VST3 plugin compilation result not found. Check build logs."
+            )
 
-        vst_file = vst_files[0]
-        target_path = vst_target_dir / vst_file.name
+        vst_file_to_copy = None
+        for f in vst_files:
+            if f.is_dir():
+                vst_file_to_copy = f
+                break
+
+        if not vst_file_to_copy and vst_files:
+            vst_file_to_copy = vst_files[0]
+            self.log(
+                f"Warning: Found .vst3 as a file, not a directory: {vst_file_to_copy}",
+                "WARNING",
+            )
+        elif not vst_file_to_copy:
+            self.log(
+                f"Critical error: vst_files list was populated but no suitable vst_file_to_copy selected.",
+                "ERROR",
+            )
+            raise Exception("VST3 selection logic error after finding candidates.")
+
+        self.log(
+            f"Selected VST3 source for copy: {vst_file_to_copy} (Name: {vst_file_to_copy.name}, Is Dir: {vst_file_to_copy.is_dir()})"
+        )
+        target_plugin_path = vst_target_dir / vst_file_to_copy.name
 
         try:
+            self.log(f"Ensuring VST3 parent directory exists: {vst_target_dir}")
             vst_target_dir.mkdir(parents=True, exist_ok=True)
+            self.log(f"VST3 parent directory '{vst_target_dir}' confirmed/created.")
 
-            if self.is_admin:
-                import subprocess
-
-                subprocess.run(
-                    ["icacls", str(vst_target_dir), "/grant", "Users:(OI)(CI)F"],
+            if self.is_admin and platform.system() == "Windows":
+                self.log(
+                    f"Attempting to set permissions for Users on {vst_target_dir} (Admin context)"
+                )
+                acl_result = subprocess.run(
+                    [
+                        "icacls",
+                        str(vst_target_dir),
+                        "/grant",
+                        "Users:(OI)(CI)F",
+                        "/T",
+                    ],
                     check=False,
                     capture_output=True,
+                    text=True,
+                    timeout=30,
                 )
+                if acl_result.returncode != 0:
+                    self.log(
+                        f"icacls for {vst_target_dir} failed (code {acl_result.returncode}): {acl_result.stdout.strip()} {acl_result.stderr.strip()}",
+                        "WARNING",
+                    )
+                else:
+                    self.log(
+                        f"icacls for {vst_target_dir} grant Users:F succeeded.", "INFO"
+                    )
 
-            self.log(f"VST3 directory prepared: {vst_target_dir}")
+            self.log(f"VST3 source for copy operation: {vst_file_to_copy}")
+            self.log(f"VST3 target destination for copy: {target_plugin_path}")
 
-            if vst_file.is_dir():
-                if target_path.exists():
-                    import shutil
-
-                    shutil.rmtree(target_path)
-                shutil.copytree(vst_file, target_path)
-                self.log(f"VST3 bundle copied: {vst_file.name}")
-            else:
-                import shutil
-
-                shutil.copy2(vst_file, target_path)
-                self.log(f"VST3 file copied: {vst_file.name}")
-
-            if target_path.exists():
+            if not vst_file_to_copy.exists():
                 self.log(
-                    f"VST plugin successfully installed to: {target_path}", "SUCCESS"
+                    f"Source VST file/bundle {vst_file_to_copy} does not exist before copy attempt!",
+                    "ERROR",
+                )
+                raise Exception(
+                    f"Source VST {vst_file_to_copy} vanished or was not found correctly."
                 )
 
-                if self.is_admin:
-                    subprocess.run(
-                        ["icacls", str(target_path), "/grant", "Users:(OI)(CI)R"],
+            if vst_file_to_copy.is_dir():
+                self.log(
+                    f"Source {vst_file_to_copy.name} is a directory. Using shutil.copytree."
+                )
+                if target_plugin_path.exists():
+                    self.log(
+                        f"Target {target_plugin_path} already exists. Removing it first."
+                    )
+                    try:
+                        shutil.rmtree(target_plugin_path)
+                        self.log(f"Successfully removed existing {target_plugin_path}.")
+                    except Exception as e_rm:
+                        self.log(
+                            f"Failed to remove existing {target_plugin_path}: {e_rm}",
+                            "ERROR",
+                        )
+                        raise Exception(
+                            f"Failed to overwrite existing VST at {target_plugin_path}: {e_rm}"
+                        )
+                shutil.copytree(vst_file_to_copy, target_plugin_path)
+                self.log(
+                    f"VST3 bundle copied from {vst_file_to_copy} to {target_plugin_path}"
+                )
+            else:
+                self.log(
+                    f"Source {vst_file_to_copy.name} is a file (unexpected for VST3). Using shutil.copy2.",
+                    "WARNING",
+                )
+                if target_plugin_path.exists() and target_plugin_path.is_dir():
+                    self.log(
+                        f"Target {target_plugin_path} is a directory, but source is a file. Removing target directory.",
+                        "WARNING",
+                    )
+                    shutil.rmtree(target_plugin_path)
+                elif target_plugin_path.exists():
+                    self.log(
+                        f"Target file {target_plugin_path} exists. It will be overwritten."
+                    )
+                shutil.copy2(vst_file_to_copy, target_plugin_path)
+                self.log(
+                    f"VST3 file copied from {vst_file_to_copy} to {target_plugin_path}"
+                )
+
+            time.sleep(0.2)
+
+            if target_plugin_path.exists():
+                self.log(
+                    f"VST plugin successfully installed to: {target_plugin_path}",
+                    "SUCCESS",
+                )
+                if self.is_admin and platform.system() == "Windows":
+                    self.log(
+                        f"Attempting to set read permissions for Users on {target_plugin_path} (Admin context)"
+                    )
+                    acl_target_result = subprocess.run(
+                        [
+                            "icacls",
+                            str(target_plugin_path),
+                            "/grant",
+                            "Users:(OI)(CI)R",
+                            "/T",
+                        ],
                         check=False,
                         capture_output=True,
+                        text=True,
+                        timeout=30,
                     )
+                    if acl_target_result.returncode != 0:
+                        self.log(
+                            f"icacls for {target_plugin_path} grant Users:R failed (code {acl_target_result.returncode}): {acl_target_result.stdout.strip()} {acl_target_result.stderr.strip()}",
+                            "WARNING",
+                        )
+                    else:
+                        self.log(
+                            f"icacls for {target_plugin_path} grant Users:R succeeded.",
+                            "INFO",
+                        )
             else:
-                raise Exception("VST copy verification failed")
+                self.log(
+                    f"CRITICAL: VST copy verification failed. Target {target_plugin_path} does not exist after copy attempt.",
+                    "ERROR",
+                )
+                self.log(
+                    f"Source was: {vst_file_to_copy} (exists: {vst_file_to_copy.exists()})",
+                    "INFO",
+                )
+                self.log(
+                    f"Target VST3 parent folder: {vst_target_dir} (exists: {vst_target_dir.exists()})",
+                    "INFO",
+                )
+                raise Exception(
+                    f"VST copy verification failed: {target_plugin_path} not found after copy."
+                )
 
         except PermissionError as e:
-            self.log(f"Permission denied copying VST: {e}", "ERROR")
+            self.log(f"Permission denied during VST installation step: {e}", "ERROR")
+            self.log(
+                f"Details: Source='{vst_file_to_copy}', Target='{target_plugin_path}', TargetParent='{vst_target_dir}'",
+                "INFO",
+            )
+            self.log(
+                "This usually happens if the script is not run as administrator when targeting system VST folders (e.g., Program Files).",
+                "WARNING",
+            )
+            self.log(
+                "You might need to run the installer as an administrator or choose a user-writable VST3 path.",
+                "WARNING",
+            )
             self.log("Manual copy instructions:", "WARNING")
-            self.log(f"   Copy from: {vst_file}", "INFO")
-            self.log(f"   Copy to: {target_path}", "INFO")
-            self.log("   Ensure your DAW can access the VST3 folder", "INFO")
+            self.log(f"   Copy FROM: {vst_file_to_copy}", "INFO")
+            self.log(f"   Copy TO:   {target_plugin_path}", "INFO")
+            raise
 
         except Exception as e:
-            self.log(f"Error copying VST: {e}", "ERROR")
-            self.log("Manual copy may be required:", "WARNING")
-            self.log(f"   Source: {vst_file}", "INFO")
-            self.log(f"   Destination: {target_path}", "INFO")
+            self.log(
+                f"An unexpected error occurred during VST installation: {e}", "ERROR"
+            )
+            self.log(
+                f"Details: Source='{vst_file_to_copy if 'vst_file_to_copy' in locals() else 'N/A'}', Target='{target_plugin_path if 'target_plugin_path' in locals() else 'N/A'}', TargetParent='{vst_target_dir}'",
+                "INFO",
+            )
+            self.log("Manual copy may be required (see paths above).", "WARNING")
+            raise
 
     def find_system_python(self):
         if not (hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix):
@@ -1547,23 +1840,6 @@ class ObsidianNeuralInstaller:
             self.log(f"Pip executable not found at: {pip_path}", "WARNING")
             self.log("Will use python -m pip instead")
             pip_path = None
-
-        self.log("Updating pip...")
-        try:
-            if pip_path and pip_path.exists():
-                cmd = [str(pip_path), "install", "--upgrade", "pip"]
-            else:
-                cmd = [str(python_path), "-m", "pip", "install", "--upgrade", "pip"]
-
-            result = subprocess.run(
-                cmd, check=True, capture_output=True, text=True, timeout=300
-            )
-            self.log("Pip updated successfully")
-        except subprocess.CalledProcessError as e:
-            self.log(f"Pip update failed: {e.stderr}", "WARNING")
-            self.log("Continuing with existing version...", "INFO")
-        except subprocess.TimeoutExpired:
-            self.log("Pip update timed out, continuing...", "WARNING")
 
         if self.system_info.get("cuda_available"):
             self.log("Installing PyTorch with CUDA support...")
@@ -1807,26 +2083,6 @@ class ObsidianNeuralInstaller:
             raise Exception("VST compilation failed")
         else:
             self.log("VST plugin compiled successfully")
-
-    def finalize_installation(self, install_dir):
-        summary = f"""OBSIDIAN-Neural - Installation Complete
-======================================
-
-Installation: {install_dir}
-VST Plugin: {self.vst_path.get()}
-AI Model: Gemma-3-4B (2.49 GB)
-
-To start:
-1. Activate: env\\Scripts\\activate.bat
-2. Launch: python main.py
-3. Load OBSIDIAN-Neural in your DAW
-4. URL: http://localhost:8000
-
-Ready to jam!
-"""
-
-        (install_dir / "README.txt").write_text(summary, encoding="utf-8")
-        self.log("Installation finalized!")
 
     def start_server(self, install_dir):
         try:
