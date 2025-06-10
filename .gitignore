@@ -18,3 +18,7 @@ models/*
 start.sh 
 start.bat
 benchmark_results.json
+build
+dist
+OBSIDIAN-Neural-Server.spec
+OBSIDIAN-Neural-Installer.spec

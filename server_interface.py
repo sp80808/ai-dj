@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
 import subprocess
@@ -1616,7 +1614,7 @@ class ObsidianNeuralLauncher:
         ttk.Label(
             hf_info_frame,
             text="⚠️ Required for Stable Audio model download",
-            foreground="orange",
+            foreground="red",
             font=("Arial", 10, "bold"),
         ).pack(anchor="w")
 

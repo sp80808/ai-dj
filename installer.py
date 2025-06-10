@@ -1,28 +1,35 @@
-#!/usr/bin/env python3
-
+import sys
+import platform
+import os
+import time
+import ctypes
+from pathlib import Path
 import re
 import subprocess
 import sys
-import os
 import platform
-import ctypes
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
 import threading
 import shutil
 import urllib.request
-from pathlib import Path
-import time
 import psutil
 import GPUtil
 
-try:
-    from PIL import Image, ImageTk
 
-    PIL_AVAILABLE = True
-except ImportError:
-    PIL_AVAILABLE = False
-    print("PIL not installed - logo disabled")
+if platform.system() == "Windows":
+    try:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
+            sys.stderr.reconfigure(encoding="utf-8")
+        else:
+            os.environ["PYTHONIOENCODING"] = "utf-8"
+    except (AttributeError, OSError):
+        os.environ["PYTHONIOENCODING"] = "utf-8"
+
+
+def is_frozen():
+    return getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")
 
 
 class ObsidianNeuralInstaller:
@@ -32,12 +39,11 @@ class ObsidianNeuralInstaller:
         self.root.geometry("850x750")
         self.root.minsize(800, 600)
         self.root.resizable(True, True)
-
+        self.skip_vst_build = tk.BooleanVar(value=False)
         self.root.update_idletasks()
         x = (self.root.winfo_screenwidth() // 2) - (850 // 2)
         y = (self.root.winfo_screenheight() // 2) - (750 // 2)
         self.root.geometry(f"850x750+{x}+{y}")
-
         self.is_admin = self.check_admin()
         if self.is_admin:
             default_install_path = "C:/ProgramData/OBSIDIAN-Neural"
@@ -63,6 +69,13 @@ class ObsidianNeuralInstaller:
         self.setup_ui()
         self.log_system_info()
 
+    def safe_subprocess_run(self, cmd, **kwargs):
+        if is_frozen():
+            kwargs.setdefault("creationflags", subprocess.CREATE_NO_WINDOW)
+            kwargs.setdefault("close_fds", True)
+
+        return subprocess.run(cmd, **kwargs)
+
     def check_admin(self):
         if platform.system() == "Windows":
             try:
@@ -75,10 +88,15 @@ class ObsidianNeuralInstaller:
     def request_admin(self):
         if platform.system() == "Windows":
             if not self.is_admin:
-                ctypes.windll.shell32.ShellExecuteW(
-                    None, "runas", sys.executable, " ".join(sys.argv), None, 1
-                )
-                sys.exit()
+                executable_path = sys.executable
+                params = " ".join(sys.argv)
+                try:
+                    ret_shell = ctypes.windll.shell32.ShellExecuteW(
+                        None, "runas", executable_path, params, None, 1
+                    )
+                    sys.exit(0)
+                except Exception as e_shell:
+                    os._exit(1)
 
     def _do_detect_vst_folder(
         self,
@@ -213,20 +231,40 @@ class ObsidianNeuralInstaller:
 
     def check_python(self):
         try:
-            result = subprocess.run(
-                [sys.executable, "--version"], capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                version = result.stdout.strip().split()[1]
-                major, minor = map(int, version.split(".")[:2])
-                return major >= 3 and minor >= 10
+            if getattr(sys, "frozen", False):
+                python_candidates = [
+                    "python",
+                    "python3",
+                    "python.exe",
+                    "C:\\Python311\\python.exe",
+                    "C:\\Python310\\python.exe",
+                ]
+
+                for py_cmd in python_candidates:
+                    try:
+                        result = self.safe_subprocess_run(
+                            [py_cmd, "--version"], capture_output=True, text=True
+                        )
+                        if result.returncode == 0:
+                            return True
+                    except FileNotFoundError:
+                        continue
+                return False
+            else:
+                result = self.safe_subprocess_run(
+                    [sys.executable, "--version"], capture_output=True, text=True
+                )
+                if result.returncode == 0:
+                    version = result.stdout.strip().split()[1]
+                    major, minor = map(int, version.split(".")[:2])
+                    return major >= 3 and minor >= 10
         except:
             pass
         return False
 
     def check_cmake(self):
         try:
-            result = subprocess.run(
+            result = self.safe_subprocess_run(
                 ["cmake", "--version"], capture_output=True, text=True
             )
             return result.returncode == 0
@@ -235,7 +273,7 @@ class ObsidianNeuralInstaller:
 
     def check_git(self):
         try:
-            result = subprocess.run(
+            result = self.safe_subprocess_run(
                 ["git", "--version"], capture_output=True, text=True
             )
             return result.returncode == 0
@@ -312,7 +350,7 @@ class ObsidianNeuralInstaller:
         if not info["cuda_available"]:
             amd_gpus = []
             try:
-                result = subprocess.run(
+                result = self.safe_subprocess_run(
                     ["rocm-smi", "--showproductname"],
                     capture_output=True,
                     text=True,
@@ -345,7 +383,7 @@ class ObsidianNeuralInstaller:
             if not amd_gpus:
                 try:
                     if platform.system() == "Windows":
-                        result = subprocess.run(
+                        result = self.safe_subprocess_run(
                             [
                                 "wmic",
                                 "path",
@@ -403,7 +441,7 @@ class ObsidianNeuralInstaller:
                                         break
 
                     else:
-                        result = subprocess.run(
+                        result = self.safe_subprocess_run(
                             ["lspci"], capture_output=True, text=True, timeout=5
                         )
                         if result.returncode == 0:
@@ -454,7 +492,7 @@ class ObsidianNeuralInstaller:
 
                 if not rocm_detected:
                     try:
-                        result = subprocess.run(
+                        result = self.safe_subprocess_run(
                             ["rocm-smi", "--version"],
                             capture_output=True,
                             text=True,
@@ -477,7 +515,7 @@ class ObsidianNeuralInstaller:
         if info["gpu_type"] == "cpu":
             try:
                 if platform.system() == "Windows":
-                    result = subprocess.run(
+                    result = self.safe_subprocess_run(
                         ["wmic", "path", "win32_VideoController", "get", "name"],
                         capture_output=True,
                         text=True,
@@ -491,7 +529,7 @@ class ObsidianNeuralInstaller:
                                 info["gpu_type"] = "intel"
                                 break
                 else:
-                    result = subprocess.run(
+                    result = self.safe_subprocess_run(
                         ["lspci"], capture_output=True, text=True, timeout=5
                     )
                     if result.returncode == 0:
@@ -536,7 +574,7 @@ class ObsidianNeuralInstaller:
         header_frame = ttk.Frame(main_frame)
         header_frame.pack(fill="x", pady=(0, 20))
         logo_path = Path(__file__).parent / "logo.png"
-        if logo_path.exists() and PIL_AVAILABLE:
+        if logo_path.exists():
             try:
                 from PIL import Image, ImageTk
 
@@ -751,7 +789,18 @@ class ObsidianNeuralInstaller:
             text="🚀 Start the server after installation",
             variable=self.start_after_install,
         ).pack(anchor="w")
-
+        ttk.Checkbutton(
+            options_frame,
+            text="⬇️ Skip VST build (download from releases instead)",
+            variable=self.skip_vst_build,
+        ).pack(anchor="w")
+        info_label = ttk.Label(
+            options_frame,
+            text="   💡 VST will be downloaded from: github.com/innermost47/ai-dj/releases",
+            font=("Arial", 8),
+            foreground="gray",
+        )
+        info_label.pack(anchor="w", padx=(20, 0))
         progress_frame = ttk.LabelFrame(content_frame, text="📊 Progress", padding="10")
         progress_frame.pack(fill="x", pady=(0, 20), padx=10)
 
@@ -810,7 +859,7 @@ class ObsidianNeuralInstaller:
 
     def check_cuda_installed(self):
         try:
-            result = subprocess.run(
+            result = self.safe_subprocess_run(
                 ["nvcc", "--version"], capture_output=True, text=True
             )
             if result.returncode == 0:
@@ -871,7 +920,6 @@ class ObsidianNeuralInstaller:
     def start_installation(self):
         self.install_button.config(state="disabled")
         thread = threading.Thread(target=self.install_process)
-        thread.daemon = True
         thread.start()
 
     def install_process(self):
@@ -898,7 +946,9 @@ class ObsidianNeuralInstaller:
                     ("Creating the Python Environment", self.create_venv),
                     ("Installing Python Dependencies", self.install_python_deps),
                     ("AI Model Download (2.49 GB)", self.download_model),
-                    ("Compiling the VST plugin", self.build_vst),
+                    ("VST Setup", self.setup_vst),
+                    ("Creating server executable", self.create_server_executable),
+                    ("Creating desktop shortcut", self.create_desktop_shortcut),
                     ("Environment configuration", self.setup_environment),
                 ]
             )
@@ -942,6 +992,156 @@ class ObsidianNeuralInstaller:
             messagebox.showerror("Error", f"Installation failed:\n{str(e)}")
         finally:
             self.install_button.config(state="normal")
+
+    def create_server_executable(self, install_dir):
+        self.log("Building server executable...")
+
+        if platform.system() == "Windows":
+            python_path = install_dir / "env" / "Scripts" / "python.exe"
+        else:
+            python_path = install_dir / "env" / "bin" / "python"
+
+        self.log("Installing PyInstaller...")
+        cmd = [str(python_path), "-m", "pip", "install", "pyinstaller"]
+        self.safe_subprocess_run(cmd, check=True, timeout=300)
+
+        logo_path = install_dir / "logo.png"
+        icon_option = f"--icon={logo_path}" if logo_path.exists() else ""
+
+        main_script = install_dir / "server_interface.py"
+        cmd = [
+            str(python_path),
+            "-m",
+            "PyInstaller",
+            "--onefile",
+            "--noconsole",
+            "--name",
+            "OBSIDIAN-Neural-Server",
+            icon_option,
+            "--distpath",
+            str(install_dir),
+            str(main_script),
+        ]
+
+        cmd = [x for x in cmd if x]
+
+        result = self.safe_subprocess_run(
+            cmd, cwd=install_dir, capture_output=True, text=True
+        )
+
+        if result.returncode != 0:
+            self.log(f"PyInstaller build failed: {result.stderr}", "ERROR")
+            raise Exception("Failed to build server executable")
+
+        self.log("✅ Server executable created successfully")
+
+    def create_desktop_shortcut(self, install_dir):
+        self.log("Creating desktop shortcut...")
+
+        if platform.system() == "Windows":
+            desktop = Path.home() / "Desktop"
+            shortcut_path = desktop / "OBSIDIAN-Neural Server.lnk"
+
+            if platform.system() == "Windows":
+                exe_path = install_dir / "OBSIDIAN-Neural-Server.exe"
+                logo_path = install_dir / "logo.png"
+
+                ico_path = install_dir / "logo.ico"
+                if logo_path.exists():
+                    try:
+                        from PIL import Image
+
+                        img = Image.open(logo_path)
+                        img.save(
+                            ico_path, format="ICO", sizes=[(32, 32), (48, 48), (64, 64)]
+                        )
+                        self.log("Logo converted to ICO format")
+                    except Exception as e:
+                        self.log(f"Could not convert logo to ICO: {e}", "WARNING")
+                        ico_path = None
+                else:
+                    ico_path = None
+
+                ps_script = f"""
+    $WshShell = New-Object -comObject WScript.Shell
+    $Shortcut = $WshShell.CreateShortcut("{shortcut_path}")
+    $Shortcut.TargetPath = "{exe_path}"
+    $Shortcut.WorkingDirectory = "{install_dir}"
+    $Shortcut.Description = "OBSIDIAN-Neural AI Music Generation Server"
+    {"$Shortcut.IconLocation = " + str(ico_path) if ico_path else ""}
+    $Shortcut.Save()
+    """
+
+                cmd = ["powershell", "-Command", ps_script]
+                result = self.safe_subprocess_run(cmd, capture_output=True, text=True)
+
+                if result.returncode == 0:
+                    self.log("✅ Desktop shortcut created")
+                else:
+                    self.log(f"Could not create shortcut: {result.stderr}", "WARNING")
+
+        else:
+            desktop = Path.home() / "Desktop"
+            shortcut_path = desktop / "OBSIDIAN-Neural-Server.desktop"
+
+            exe_path = install_dir / "OBSIDIAN-Neural-Server"
+            logo_path = install_dir / "logo.png"
+
+            desktop_content = f"""[Desktop Entry]
+    Name=OBSIDIAN-Neural Server
+    Comment=AI Music Generation Inference Server
+    Exec={exe_path}
+    Icon={logo_path if logo_path.exists() else ""}
+    Terminal=true
+    Type=Application
+    Categories=AudioVideo;Audio;
+    """
+            shortcut_path.write_text(desktop_content)
+            shortcut_path.chmod(0o755)
+            self.log("✅ Desktop shortcut created")
+
+    def setup_vst(self, install_dir):
+        if self.skip_vst_build.get():
+            self.download_vst_release(install_dir)
+        else:
+            self.build_vst(install_dir)
+
+    def download_vst_release(self, install_dir):
+        self.log("Downloading latest VST3 from GitHub releases...")
+        import json
+
+        api_url = "https://api.github.com/repos/innermost47/ai-dj/releases/latest"
+
+        try:
+            with urllib.request.urlopen(api_url) as response:
+                release_data = json.loads(response.read().decode())
+
+            vst_asset = None
+            for asset in release_data.get("assets", []):
+                if asset["name"].endswith(".vst3") or "vst3" in asset["name"].lower():
+                    vst_asset = asset
+                    break
+
+            if not vst_asset:
+                raise Exception("No VST3 file found in latest release")
+
+            self.log(f"Downloading {vst_asset['name']}...")
+
+            vst_build_dir = install_dir / "vst" / "build"
+            vst_build_dir.mkdir(parents=True, exist_ok=True)
+
+            vst_path = vst_build_dir / vst_asset["name"]
+            urllib.request.urlretrieve(vst_asset["browser_download_url"], vst_path)
+
+            self.log("✅ VST3 downloaded successfully from releases")
+
+        except Exception as e:
+            self.log(f"Failed to download VST from releases: {e}", "ERROR")
+            self.log(
+                "💡 You can manually download from: https://github.com/innermost47/ai-dj/releases",
+                "WARNING",
+            )
+            raise
 
     def run_benchmark_func(self, install_dir):
         self.log("🧪 Starting the performance benchmark...")
@@ -1157,32 +1357,58 @@ class ObsidianNeuralInstaller:
 
         return benchmark_results
 
+    def is_python_installed_registry(self):
+        if platform.system() != "Windows":
+            return False
+        try:
+            import winreg
+
+            key = winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Python\PythonCore\3.10"
+            )
+            winreg.CloseKey(key)
+            return True
+        except:
+            return False
+
     def install_python_func(self, install_dir):
+        if self.check_python():
+            self.log("Python 3.10+ already installed, skipping installation", "SUCCESS")
+            return
+        if self.is_python_installed_registry():
+            self.log("Python detected in registry, skipping installation", "SUCCESS")
+            return
         if platform.system() == "Windows":
             self.log("Downloading Python 3.10...")
             python_url = (
                 "https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe"
             )
             python_installer = install_dir / "python_installer.exe"
-
             urllib.request.urlretrieve(python_url, python_installer)
 
             self.log("Installing Python...")
             cmd = [
                 str(python_installer),
-                "/quiet",
-                "InstallAllUsers=1",
+                "/passive",
+                "InstallAllUsers=0",
                 "PrependPath=1",
                 "Include_test=0",
             ]
-            subprocess.run(cmd, check=True)
 
-            python_installer.unlink()
-        else:
-            raise Exception(
-                "Automatic installation of Python is not supported on this system."
-                "Please install Python 3.10+ manually."
-            )
+            creation_flags = 0
+            if getattr(sys, "frozen", False):
+                creation_flags = subprocess.CREATE_NO_WINDOW
+
+            result = subprocess.run(cmd, creationflags=creation_flags)
+
+            if result.returncode != 0:
+                self.log(
+                    f"Python installation failed with code {result.returncode}",
+                    "WARNING",
+                )
+                self.log("Trying user installation...", "INFO")
+                cmd[2] = "InstallAllUsers=0"
+                subprocess.run(cmd, check=True, creationflags=creation_flags)
 
     def install_cmake_func(self, install_dir):
         if platform.system() == "Windows":
@@ -1200,17 +1426,17 @@ class ObsidianNeuralInstaller:
                 "/quiet",
                 "ADD_CMAKE_TO_PATH=System",
             ]
-            subprocess.run(cmd, check=True)
+            self.safe_subprocess_run(cmd, check=True)
 
             cmake_installer.unlink()
         else:
             if shutil.which("apt-get"):
-                subprocess.run(["sudo", "apt-get", "update"], check=True)
-                subprocess.run(
+                self.safe_subprocess_run(["sudo", "apt-get", "update"], check=True)
+                self.safe_subprocess_run(
                     ["sudo", "apt-get", "install", "-y", "cmake"], check=True
                 )
             elif shutil.which("brew"):
-                subprocess.run(["brew", "install", "cmake"], check=True)
+                self.safe_subprocess_run(["brew", "install", "cmake"], check=True)
             else:
                 raise Exception(
                     "Package manager not supported. Install CMake manually."
@@ -1250,14 +1476,16 @@ class ObsidianNeuralInstaller:
                 "/SILENT",
                 "/COMPONENTS=icons,ext\\reg\\shellhere,assoc,assoc_sh",
             ]
-            subprocess.run(cmd, check=True)
+            self.safe_subprocess_run(cmd, check=True)
 
             git_installer.unlink()
         else:
             if shutil.which("apt-get"):
-                subprocess.run(["sudo", "apt-get", "install", "-y", "git"], check=True)
+                self.safe_subprocess_run(
+                    ["sudo", "apt-get", "install", "-y", "git"], check=True
+                )
             elif shutil.which("brew"):
-                subprocess.run(["brew", "install", "git"], check=True)
+                self.safe_subprocess_run(["brew", "install", "git"], check=True)
 
     def install_buildtools_func(self, install_dir):
         if platform.system() != "Windows":
@@ -1279,7 +1507,7 @@ class ObsidianNeuralInstaller:
             "--add",
             "Microsoft.VisualStudio.Component.VC.CMake.Project",
         ]
-        subprocess.run(cmd, check=True)
+        self.safe_subprocess_run(cmd, check=True)
 
         buildtools_installer.unlink()
 
@@ -1293,7 +1521,7 @@ class ObsidianNeuralInstaller:
 
             self.log("CUDA installation in progress...")
             cmd = [str(cuda_installer), "-s"]
-            subprocess.run(cmd, check=True)
+            self.safe_subprocess_run(cmd, check=True)
 
             cuda_installer.unlink()
 
@@ -1316,7 +1544,7 @@ class ObsidianNeuralInstaller:
             self.log(f"Using code from: {current_dir}")
 
             if str(install_dir) == str(current_dir):
-                self.log("Installing in same folder - creating symbolic link")
+                self.log("Installing in same folder - skipping copy")
                 return install_dir
 
             import shutil
@@ -1341,7 +1569,7 @@ class ObsidianNeuralInstaller:
             if self.is_admin:
                 import subprocess
 
-                subprocess.run(
+                self.safe_subprocess_run(
                     [
                         "icacls",
                         str(install_dir),
@@ -1369,13 +1597,32 @@ class ObsidianNeuralInstaller:
 
         else:
             self.log("Cloning innermost47/ai-dj repository from GitHub...")
+            if install_dir.exists():
+                main_py = install_dir / "main.py"
+                if main_py.exists():
+                    self.log(
+                        "Project already exists in target directory, skipping clone",
+                        "SUCCESS",
+                    )
+                    return install_dir
+
+                self.log("Target directory exists but incomplete, cleaning...")
+                try:
+                    import shutil
+
+                    shutil.rmtree(install_dir)
+                    install_dir.mkdir(parents=True, exist_ok=True)
+                except Exception as e:
+                    self.log(f"Could not clean directory: {e}", "WARNING")
+                    temp_dir = install_dir.parent / f"temp_clone_{int(time.time())}"
+                    install_dir = temp_dir
 
             install_dir.mkdir(parents=True, exist_ok=True)
 
             if self.is_admin:
                 import subprocess
 
-                subprocess.run(
+                self.safe_subprocess_run(
                     [
                         "icacls",
                         str(install_dir),
@@ -1392,7 +1639,9 @@ class ObsidianNeuralInstaller:
                 "https://github.com/innermost47/ai-dj.git",
                 str(install_dir),
             ]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            result = self.safe_subprocess_run(
+                cmd, capture_output=True, text=True, timeout=300
+            )
 
             if result.returncode != 0:
                 raise Exception(f"Git clone error: {result.stderr}")
@@ -1419,7 +1668,7 @@ class ObsidianNeuralInstaller:
             if self.is_admin:
                 import subprocess
 
-                subprocess.run(
+                self.safe_subprocess_run(
                     [
                         "icacls",
                         str(install_dir),
@@ -1456,7 +1705,7 @@ class ObsidianNeuralInstaller:
                 env.pop("VIRTUAL_ENV", None)
                 env.pop("CONDA_DEFAULT_ENV", None)
 
-            result = subprocess.run(
+            result = self.safe_subprocess_run(
                 cmd, capture_output=True, text=True, check=True, env=env, timeout=120
             )
             self.log("Virtual environment created successfully")
@@ -1562,7 +1811,7 @@ class ObsidianNeuralInstaller:
                 self.log(
                     f"Attempting to set permissions for Users on {vst_target_dir} (Admin context)"
                 )
-                acl_result = subprocess.run(
+                acl_result = self.safe_subprocess_run(
                     [
                         "icacls",
                         str(vst_target_dir),
@@ -1651,7 +1900,7 @@ class ObsidianNeuralInstaller:
                     self.log(
                         f"Attempting to set read permissions for Users on {target_plugin_path} (Admin context)"
                     )
-                    acl_target_result = subprocess.run(
+                    acl_target_result = self.safe_subprocess_run(
                         [
                             "icacls",
                             str(target_plugin_path),
@@ -1722,6 +1971,29 @@ class ObsidianNeuralInstaller:
             raise
 
     def find_system_python(self):
+        if getattr(sys, "frozen", False):
+            import shutil
+
+            for py_name in ["python", "python3", "python.exe"]:
+                py_path = shutil.which(py_name)
+                if py_path and self.test_python_executable(py_path):
+                    return py_path
+            if platform.system() == "Windows":
+                common_paths = [
+                    "C:\\Python311\\python.exe",
+                    "C:\\Python310\\python.exe",
+                    "C:\\Python39\\python.exe",
+                    "C:\\Python38\\python.exe",
+                    "C:\\Program Files\\Python311\\python.exe",
+                    "C:\\Program Files\\Python310\\python.exe",
+                    "C:\\Users\\Public\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+                ]
+                for py_path in common_paths:
+                    if Path(py_path).exists() and self.test_python_executable(py_path):
+                        return py_path
+
+            return "python"
+
         if not (hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix):
             current_python = sys.executable
             if self.test_python_executable(current_python):
@@ -1732,7 +2004,6 @@ class ObsidianNeuralInstaller:
                 base_python = Path(sys.base_prefix) / "python.exe"
             else:
                 base_python = Path(sys.base_prefix) / "bin" / "python"
-
             if base_python.exists() and self.test_python_executable(str(base_python)):
                 return str(base_python)
 
@@ -1743,26 +2014,11 @@ class ObsidianNeuralInstaller:
             if py_path and self.test_python_executable(py_path):
                 return py_path
 
-        if platform.system() == "Windows":
-            common_paths = [
-                "C:\\Python311\\python.exe",
-                "C:\\Python310\\python.exe",
-                "C:\\Python39\\python.exe",
-                "C:\\Python38\\python.exe",
-                "C:\\Program Files\\Python311\\python.exe",
-                "C:\\Program Files\\Python310\\python.exe",
-                "C:\\Users\\Public\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
-            ]
-
-            for py_path in common_paths:
-                if Path(py_path).exists() and self.test_python_executable(py_path):
-                    return py_path
-
         return "python"
 
     def test_python_executable(self, python_path):
         try:
-            result = subprocess.run(
+            result = self.safe_subprocess_run(
                 [python_path, "--version"], capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0:
@@ -1855,7 +2111,7 @@ class ObsidianNeuralInstaller:
                 "https://download.pytorch.org/whl/cu118",
             ]
             try:
-                subprocess.run(cmd, check=True, timeout=900)
+                self.safe_subprocess_run(cmd, check=True, timeout=900)
                 self.log("PyTorch with CUDA installed successfully")
             except subprocess.TimeoutExpired:
                 self.log("PyTorch installation timed out", "ERROR")
@@ -1875,7 +2131,7 @@ class ObsidianNeuralInstaller:
                 "--extra-index-url=https://jllllll.github.io/llama-cpp-python-cuBLAS-wheels/AVX2/cu118",
             ]
             try:
-                subprocess.run(cmd, check=True, timeout=900)
+                self.safe_subprocess_run(cmd, check=True, timeout=900)
                 self.log("Llama CPP Python with CUDA installed successfully")
             except subprocess.TimeoutExpired:
                 self.log("Llama CPP Python installation timed out", "ERROR")
@@ -1898,7 +2154,7 @@ class ObsidianNeuralInstaller:
                 "https://download.pytorch.org/whl/rocm5.6",
             ]
             try:
-                subprocess.run(cmd, check=True, timeout=900)
+                self.safe_subprocess_run(cmd, check=True, timeout=900)
                 self.log("PyTorch with ROCm installed successfully")
             except subprocess.TimeoutExpired:
                 self.log("PyTorch installation timed out", "ERROR")
@@ -1910,7 +2166,7 @@ class ObsidianNeuralInstaller:
             self.log("Installing Llama CPP Python for CPU/ROCm...")
             cmd = [str(python_path), "-m", "pip", "install", "llama-cpp-python==0.3.9"]
             try:
-                subprocess.run(cmd, check=True, timeout=600)
+                self.safe_subprocess_run(cmd, check=True, timeout=600)
                 self.log("Llama CPP Python installed successfully")
             except subprocess.TimeoutExpired:
                 self.log("Llama CPP Python installation timed out", "ERROR")
@@ -1931,7 +2187,7 @@ class ObsidianNeuralInstaller:
                 "torchaudio",
             ]
             try:
-                subprocess.run(cmd, check=True, timeout=900)
+                self.safe_subprocess_run(cmd, check=True, timeout=900)
                 self.log("PyTorch for CPU installed successfully")
             except subprocess.TimeoutExpired:
                 self.log("PyTorch installation timed out", "ERROR")
@@ -1943,7 +2199,7 @@ class ObsidianNeuralInstaller:
             self.log("Installing Llama CPP Python for CPU...")
             cmd = [str(python_path), "-m", "pip", "install", "llama-cpp-python==0.3.9"]
             try:
-                subprocess.run(cmd, check=True, timeout=600)
+                self.safe_subprocess_run(cmd, check=True, timeout=600)
                 self.log("Llama CPP Python for CPU installed successfully")
             except subprocess.TimeoutExpired:
                 self.log("Llama CPP Python installation timed out", "ERROR")
@@ -1970,7 +2226,7 @@ class ObsidianNeuralInstaller:
             self.log(f"Installing {package}...")
             cmd = [str(python_path), "-m", "pip", "install", package]
             try:
-                subprocess.run(
+                self.safe_subprocess_run(
                     cmd, check=True, capture_output=True, text=True, timeout=300
                 )
                 self.log(f"{package} installed successfully")
@@ -2014,7 +2270,7 @@ class ObsidianNeuralInstaller:
                 "--depth",
                 "1",
             ]
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = self.safe_subprocess_run(cmd, capture_output=True, text=True)
             if result.returncode != 0:
                 raise Exception(f"JUCE download failed: {result.stderr}")
 
@@ -2029,7 +2285,7 @@ class ObsidianNeuralInstaller:
                 "--depth",
                 "1",
             ]
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = self.safe_subprocess_run(cmd, capture_output=True, text=True)
             if result.returncode != 0:
                 raise Exception(f"SoundTouch download failed: {result.stderr}")
 
@@ -2046,7 +2302,7 @@ class ObsidianNeuralInstaller:
         if self.is_admin:
             import subprocess
 
-            subprocess.run(
+            self.safe_subprocess_run(
                 ["icacls", str(build_dir), "/grant", "Authenticated Users:(OI)(CI)F"],
                 check=False,
                 capture_output=True,
@@ -2057,7 +2313,7 @@ class ObsidianNeuralInstaller:
         self.log(f"Source directory: {vst_dir}")
 
         cmake_cmd = ["cmake", ".."]
-        result = subprocess.run(
+        result = self.safe_subprocess_run(
             cmake_cmd, cwd=build_dir, capture_output=True, text=True
         )
 
@@ -2072,7 +2328,7 @@ class ObsidianNeuralInstaller:
 
         self.log("Compiling VST plugin...")
         build_cmd = ["cmake", "--build", ".", "--config", "Release"]
-        result = subprocess.run(
+        result = self.safe_subprocess_run(
             build_cmd, cwd=build_dir, capture_output=True, text=True
         )
 
@@ -2111,15 +2367,16 @@ class ObsidianNeuralInstaller:
 
 if __name__ == "__main__":
     try:
-        import GPUtil
-        import psutil
+        app = ObsidianNeuralInstaller()
+        app.run()
+    except Exception as e_main:
+        import tkinter as tk
+        from tkinter import messagebox
 
-        if PIL_AVAILABLE:
-            print("✅ PIL available for the logo")
-    except ImportError:
-        subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", "GPUtil", "psutil", "Pillow"]
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror(
+            "Fatal Error",
+            f"A critical error occurred: {e_main}",
         )
-
-    app = ObsidianNeuralInstaller()
-    app.run()
+        root.destroy()
