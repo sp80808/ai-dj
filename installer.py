@@ -39,8 +39,12 @@ class ObsidianNeuralInstaller:
         self.root.geometry(f"850x750+{x}+{y}")
 
         self.is_admin = self.check_admin()
+        if self.is_admin:
+            default_install_path = "C:/ProgramData/OBSIDIAN-Neural"
+        else:
+            default_install_path = str(Path.home() / "OBSIDIAN-Neural")
 
-        self.install_path = tk.StringVar(value=str(Path.home() / "OBSIDIAN-Neural"))
+        self.install_path = tk.StringVar(value=default_install_path)
         self.vst_path = tk.StringVar(value=self.detect_vst_folder())
         self.progress_var = tk.DoubleVar()
         self.status_var = tk.StringVar(value="Ready to install")
@@ -398,7 +402,9 @@ class ObsidianNeuralInstaller:
                                     break
             except:
                 pass
-
+        info["cuda_installed"] = (
+            self.check_cuda_installed() if info["cuda_available"] else False
+        )
         return info
 
     def log_system_info(self):
@@ -452,7 +458,7 @@ class ObsidianNeuralInstaller:
 
                 subtitle_label = ttk.Label(
                     titles_frame,
-                    text="Full Installer",
+                    text="Full Installer - Real-time AI music generation VST3 plugin for live performance",
                     font=("Arial", 12),
                 )
                 subtitle_label.pack(anchor="w")
@@ -502,40 +508,99 @@ class ObsidianNeuralInstaller:
         sysinfo_frame.pack(fill="x", pady=(0, 20), padx=10)
         info_text = (
             f"OS: {self.system_info['os']}\n"
-            f"CPU: {self.system_info['cpu']} ({self.system_info['cpu_cores']} cœurs, "
+            f"CPU: {self.system_info['cpu']} ({self.system_info['cpu_cores']} cores, "
             f"{self.system_info['cpu_threads']} threads)\n"
             f"RAM: {self.system_info['ram_gb']} GB\n"
             f"GPU: {self.system_info['gpu']}"
         )
         ttk.Label(sysinfo_frame, text=info_text, font=("Consolas", 9)).pack(anchor="w")
+
         prereq_frame = ttk.LabelFrame(
-            content_frame, text="🔧 Prerequisites to Install", padding="10"
+            content_frame, text="🔧 Prerequisites Status", padding="10"
         )
         prereq_frame.pack(fill="x", pady=(0, 20), padx=10)
+
         prereq_options = [
-            (
-                self.install_python,
-                "Python 3.10+ (main language)",
-                not self.check_python(),
-            ),
-            (self.install_cmake, "CMake 4.0.2+ (compilation)", not self.check_cmake()),
-            (self.install_git, "Git (code management)", not self.check_git()),
+            (self.install_python, "Python 3.10+", "main language", self.check_python()),
+            (self.install_cmake, "CMake 4.0.2+", "compilation", self.check_cmake()),
+            (self.install_git, "Git", "code management", self.check_git()),
             (
                 self.install_buildtools,
-                "Visual Studio Build Tools (Windows)",
-                platform.system() == "Windows" and not self.check_buildtools(),
+                "Visual Studio Build Tools",
+                "Windows compilation",
+                self.check_buildtools() if platform.system() == "Windows" else True,
             ),
             (
                 self.install_cuda,
-                "CUDA Toolkit (GPU acceleration)",
-                self.system_info["cuda_available"],
+                "CUDA Toolkit",
+                "NVIDIA GPU acceleration",
+                self.system_info.get("cuda_installed", False),
             ),
         ]
 
-        for var, text, suggested in prereq_options:
-            var.set(suggested)
-            cb = ttk.Checkbutton(prereq_frame, text=text, variable=var)
-            cb.pack(anchor="w", pady=2)
+        for var, name, description, is_installed in prereq_options:
+            item_frame = ttk.Frame(prereq_frame)
+            item_frame.pack(fill="x", pady=2)
+
+            if name == "CUDA Toolkit":
+                if not self.system_info.get("cuda_available", False):
+                    var.set(False)
+                    cb = ttk.Checkbutton(item_frame, variable=var, state="disabled")
+                    cb.pack(side="left")
+
+                    gpu_type = self.system_info.get("gpu_type", "cpu")
+                    if gpu_type == "cpu":
+                        reason = "No dedicated GPU detected"
+                        color = "gray"
+                        status_text = f"❌ {name} - {reason}"
+                    elif gpu_type == "amd":
+                        reason = "AMD GPU detected (use ROCm instead)"
+                        color = "orange"
+                        status_text = f"❌ {name} - {reason}"
+                    elif gpu_type == "intel":
+                        reason = "Intel GPU detected (not supported)"
+                        color = "gray"
+                        status_text = f"❌ {name} - {reason}"
+                    else:
+                        reason = "NVIDIA GPU not detected"
+                        color = "gray"
+                        status_text = f"❌ {name} - {reason}"
+
+                else:
+                    suggested = not is_installed
+                    var.set(suggested)
+                    cb = ttk.Checkbutton(item_frame, variable=var)
+                    cb.pack(side="left")
+
+                    if is_installed:
+                        status_text = f"✅ {name} - Already installed"
+                        color = "dark green"
+                    else:
+                        status_text = f"📦 {name} - Will be installed"
+                        color = "dark orange"
+            else:
+                suggested = not is_installed
+                var.set(suggested)
+                cb = ttk.Checkbutton(item_frame, variable=var)
+                cb.pack(side="left")
+
+                if is_installed:
+                    status_text = f"✅ {name} - Already installed"
+                    color = "dark green"
+                else:
+                    status_text = f"📦 {name} - Will be installed"
+                    color = "dark orange"
+
+            status_label = ttk.Label(item_frame, text=status_text, foreground=color)
+            status_label.pack(side="left", padx=(5, 0))
+
+            desc_label = ttk.Label(
+                item_frame,
+                text=f"({description})",
+                font=("Arial", 8),
+                foreground="gray",
+            )
+            desc_label.pack(side="left", padx=(10, 0))
 
         paths_frame = ttk.LabelFrame(
             content_frame, text="📁 Installation Paths", padding="10"
@@ -641,6 +706,27 @@ class ObsidianNeuralInstaller:
         self.log_text.bind("<Enter>", _unbind_global_scroll)
         self.log_text.bind("<Leave>", _rebind_global_scroll)
 
+    def check_cuda_installed(self):
+        try:
+            result = subprocess.run(
+                ["nvcc", "--version"], capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                return True
+
+            cuda_paths = [
+                "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA",
+                "C:/Program Files (x86)/NVIDIA GPU Computing Toolkit/CUDA",
+            ]
+            for path in cuda_paths:
+                if Path(path).exists():
+                    return True
+
+        except:
+            pass
+
+        return False
+
     def _create_title_without_logo(self, header_frame):
         title_label = ttk.Label(
             header_frame, text="OBSIDIAN-Neural", font=("Arial", 20, "bold")
@@ -649,7 +735,7 @@ class ObsidianNeuralInstaller:
 
         subtitle_label = ttk.Label(
             header_frame,
-            text="Full Installer",
+            text="Full Installer - Real-time AI music generation VST3 plugin for live performance",
             font=("Arial", 12),
         )
         subtitle_label.pack()
@@ -1120,12 +1206,13 @@ class ObsidianNeuralInstaller:
         is_in_repo = all(marker.exists() for marker in repo_markers)
 
         if is_in_repo:
-            self.log("🔍 Source code detected locally (development mode)")
-            self.log(f"📁 Using the code from: {current_dir}")
+            self.log("Source code detected locally (development mode)")
+            self.log(f"Using code from: {current_dir}")
 
             if str(install_dir) == str(current_dir):
-                self.log("⚠️ Installing in the same folder - creating a symbolic link")
-                return
+                self.log("Installing in same folder - creating symbolic link")
+                return install_dir
+
             import shutil
 
             exclude_items = {
@@ -1143,23 +1230,56 @@ class ObsidianNeuralInstaller:
                 "screenshot.png",
             }
 
+            install_dir.mkdir(parents=True, exist_ok=True)
+
+            if self.is_admin:
+                import subprocess
+
+                subprocess.run(
+                    [
+                        "icacls",
+                        str(install_dir),
+                        "/grant",
+                        "Authenticated Users:(OI)(CI)F",
+                    ],
+                    check=False,
+                    capture_output=True,
+                )
+
             for item in current_dir.iterdir():
                 if item.name not in exclude_items:
                     target = install_dir / item.name
                     try:
                         if item.is_file():
                             shutil.copy2(item, target)
-                            self.log(f"📄 Copied: {item.name}")
+                            self.log(f"Copied file: {item.name}")
                         elif item.is_dir():
                             shutil.copytree(item, target, dirs_exist_ok=True)
-                            self.log(f"📁 Copied: {item.name}/")
+                            self.log(f"Copied directory: {item.name}/")
                     except Exception as e:
-                        self.log(f"⚠️ Error copying {item.name}: {e}", "WARNING")
+                        self.log(f"Warning copying {item.name}: {e}", "WARNING")
 
-            self.log("✅ Source code copied from local folder")
+            self.log("Source code copied from local folder")
 
         else:
-            self.log("🌐 Cloning the innermost47/ai-dj repository from GitHub...")
+            self.log("Cloning innermost47/ai-dj repository from GitHub...")
+
+            install_dir.mkdir(parents=True, exist_ok=True)
+
+            if self.is_admin:
+                import subprocess
+
+                subprocess.run(
+                    [
+                        "icacls",
+                        str(install_dir),
+                        "/grant",
+                        "Authenticated Users:(OI)(CI)F",
+                    ],
+                    check=False,
+                    capture_output=True,
+                )
+
             cmd = [
                 "git",
                 "clone",
@@ -1171,28 +1291,200 @@ class ObsidianNeuralInstaller:
             if result.returncode != 0:
                 raise Exception(f"Git clone error: {result.stderr}")
 
-            self.log("✅ Repository has already been successfully cloned")
+            self.log("Repository cloned successfully")
 
         essential_dirs = ["server", "core", "vst"]
         for dir_name in essential_dirs:
             if (install_dir / dir_name).exists():
-                self.log(f"✅ Folder {dir_name}/ found")
+                self.log(f"Directory {dir_name}/ found")
             else:
-                self.log(f"⚠️ Folder {dir_name}/ missing", "WARNING")
+                self.log(f"Directory {dir_name}/ missing", "WARNING")
+
+        return install_dir
 
     def create_venv(self, install_dir):
-        models_dir = install_dir / "models"
-        models_dir.mkdir(exist_ok=True)
-
         venv_path = install_dir / "env"
+        models_dir = install_dir / "models"
 
-        self.log("Creating the Python Virtual Environment...")
-        cmd = [sys.executable, "-m", "venv", str(venv_path)]
-        subprocess.run(cmd, check=True)
+        try:
+            install_dir.mkdir(parents=True, exist_ok=True)
+            models_dir.mkdir(exist_ok=True)
 
-        self.log("✅ Virtual environment created")
+            if self.is_admin:
+                import subprocess
+
+                subprocess.run(
+                    [
+                        "icacls",
+                        str(install_dir),
+                        "/grant",
+                        "Authenticated Users:(OI)(CI)F",
+                    ],
+                    check=False,
+                    capture_output=True,
+                )
+
+        except PermissionError as e:
+            self.log(f"Permission error: {e}", "ERROR")
+            raise Exception(f"Cannot create installation directory: {e}")
+
+        self.log("Creating Python virtual environment...")
+        self.log(f"Installation directory: {install_dir}")
+
+        if venv_path.exists():
+            try:
+                import shutil
+
+                shutil.rmtree(venv_path)
+                self.log("Old environment removed")
+            except Exception as e:
+                self.log(f"Could not remove old environment: {e}", "WARNING")
+
+        python_exe = self.find_system_python()
+        cmd = [python_exe, "-m", "venv", str(venv_path)]
+
+        try:
+            env = os.environ.copy()
+            if self.is_admin:
+                env.pop("PYTHONPATH", None)
+                env.pop("VIRTUAL_ENV", None)
+                env.pop("CONDA_DEFAULT_ENV", None)
+
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, check=True, env=env, timeout=120
+            )
+            self.log("Virtual environment created successfully")
+            return install_dir
+
+        except subprocess.CalledProcessError as e:
+            self.log(f"Failed to create virtual environment", "ERROR")
+            self.log(f"Error output: {e.stderr}", "ERROR")
+            raise Exception(f"Virtual environment creation failed: {e.stderr}")
+
+    def install_vst(self, install_dir):
+        vst_build_dir = install_dir / "vst" / "build"
+        vst_target_dir = Path(self.vst_path.get())
+
+        vst_files = list(vst_build_dir.rglob("*.vst3"))
+
+        if not vst_files:
+            self.log("No VST3 file found after compilation", "WARNING")
+            return
+
+        vst_file = vst_files[0]
+        target_path = vst_target_dir / vst_file.name
+
+        try:
+            vst_target_dir.mkdir(parents=True, exist_ok=True)
+
+            if self.is_admin:
+                import subprocess
+
+                subprocess.run(
+                    ["icacls", str(vst_target_dir), "/grant", "Users:(OI)(CI)F"],
+                    check=False,
+                    capture_output=True,
+                )
+
+            self.log(f"VST3 directory prepared: {vst_target_dir}")
+
+            if vst_file.is_dir():
+                if target_path.exists():
+                    import shutil
+
+                    shutil.rmtree(target_path)
+                shutil.copytree(vst_file, target_path)
+                self.log(f"VST3 bundle copied: {vst_file.name}")
+            else:
+                import shutil
+
+                shutil.copy2(vst_file, target_path)
+                self.log(f"VST3 file copied: {vst_file.name}")
+
+            if target_path.exists():
+                self.log(
+                    f"VST plugin successfully installed to: {target_path}", "SUCCESS"
+                )
+
+                if self.is_admin:
+                    subprocess.run(
+                        ["icacls", str(target_path), "/grant", "Users:(OI)(CI)R"],
+                        check=False,
+                        capture_output=True,
+                    )
+            else:
+                raise Exception("VST copy verification failed")
+
+        except PermissionError as e:
+            self.log(f"Permission denied copying VST: {e}", "ERROR")
+            self.log("Manual copy instructions:", "WARNING")
+            self.log(f"   Copy from: {vst_file}", "INFO")
+            self.log(f"   Copy to: {target_path}", "INFO")
+            self.log("   Ensure your DAW can access the VST3 folder", "INFO")
+
+        except Exception as e:
+            self.log(f"Error copying VST: {e}", "ERROR")
+            self.log("Manual copy may be required:", "WARNING")
+            self.log(f"   Source: {vst_file}", "INFO")
+            self.log(f"   Destination: {target_path}", "INFO")
+
+    def find_system_python(self):
+        if not (hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix):
+            current_python = sys.executable
+            if self.test_python_executable(current_python):
+                return current_python
+
+        if hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix:
+            if platform.system() == "Windows":
+                base_python = Path(sys.base_prefix) / "python.exe"
+            else:
+                base_python = Path(sys.base_prefix) / "bin" / "python"
+
+            if base_python.exists() and self.test_python_executable(str(base_python)):
+                return str(base_python)
+
+        import shutil
+
+        for py_name in ["python", "python3", "python.exe"]:
+            py_path = shutil.which(py_name)
+            if py_path and self.test_python_executable(py_path):
+                return py_path
+
+        if platform.system() == "Windows":
+            common_paths = [
+                "C:\\Python311\\python.exe",
+                "C:\\Python310\\python.exe",
+                "C:\\Python39\\python.exe",
+                "C:\\Python38\\python.exe",
+                "C:\\Program Files\\Python311\\python.exe",
+                "C:\\Program Files\\Python310\\python.exe",
+                "C:\\Users\\Public\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+            ]
+
+            for py_path in common_paths:
+                if Path(py_path).exists() and self.test_python_executable(py_path):
+                    return py_path
+
+        return "python"
+
+    def test_python_executable(self, python_path):
+        try:
+            result = subprocess.run(
+                [python_path, "--version"], capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                version_output = result.stdout.strip()
+                if "Python 3." in version_output:
+                    version_parts = version_output.split()[1].split(".")
+                    major, minor = int(version_parts[0]), int(version_parts[1])
+                    return major == 3 and minor >= 8
+        except:
+            pass
+        return False
 
     def install_python_deps(self, install_dir):
+        self.log(f"Installing dependencies in: {install_dir}")
+
         if platform.system() == "Windows":
             pip_path = install_dir / "env" / "Scripts" / "pip.exe"
             python_path = install_dir / "env" / "Scripts" / "python.exe"
@@ -1200,21 +1492,81 @@ class ObsidianNeuralInstaller:
             pip_path = install_dir / "env" / "bin" / "pip"
             python_path = install_dir / "env" / "bin" / "python"
 
-        self.log("pip update...")
+        self.log(f"Looking for Python at: {python_path}")
+
+        if not python_path.exists():
+            self.log(f"Python executable not found at: {python_path}", "ERROR")
+            self.log("Searching for Python in virtual environment...", "INFO")
+
+            venv_dir = install_dir / "env"
+            self.log(f"Checking virtual environment directory: {venv_dir}")
+
+            if not venv_dir.exists():
+                self.log(
+                    f"Virtual environment directory does not exist: {venv_dir}", "ERROR"
+                )
+                raise Exception(f"Virtual environment not found at: {venv_dir}")
+
+            if platform.system() == "Windows":
+                possible_python_paths = [
+                    venv_dir / "Scripts" / "python.exe",
+                    venv_dir / "Scripts" / "python3.exe",
+                    venv_dir / "python.exe",
+                ]
+            else:
+                possible_python_paths = [
+                    venv_dir / "bin" / "python",
+                    venv_dir / "bin" / "python3",
+                ]
+
+            for py_path in possible_python_paths:
+                self.log(f"Checking: {py_path}")
+                if py_path.exists():
+                    python_path = py_path
+                    self.log(f"Found Python at: {python_path}")
+                    break
+            else:
+                try:
+                    venv_contents = list(venv_dir.iterdir())
+                    self.log(
+                        f"Virtual environment contents: {[str(p) for p in venv_contents]}"
+                    )
+                    if (venv_dir / "Scripts").exists():
+                        scripts_contents = list((venv_dir / "Scripts").iterdir())
+                        self.log(
+                            f"Scripts directory contents: {[str(p) for p in scripts_contents]}"
+                        )
+                except:
+                    self.log("Could not list virtual environment contents")
+
+                raise Exception(
+                    f"No Python executable found in virtual environment: {venv_dir}"
+                )
+
+        if not pip_path.exists():
+            self.log(f"Pip executable not found at: {pip_path}", "WARNING")
+            self.log("Will use python -m pip instead")
+            pip_path = None
+
+        self.log("Updating pip...")
         try:
-            subprocess.run(
-                [str(python_path), "-m", "pip", "install", "--upgrade", "pip"],
-                check=True,
-                capture_output=True,
-                text=True,
+            if pip_path and pip_path.exists():
+                cmd = [str(pip_path), "install", "--upgrade", "pip"]
+            else:
+                cmd = [str(python_path), "-m", "pip", "install", "--upgrade", "pip"]
+
+            result = subprocess.run(
+                cmd, check=True, capture_output=True, text=True, timeout=300
             )
-            self.log("✅ Pip updated")
+            self.log("Pip updated successfully")
         except subprocess.CalledProcessError as e:
-            self.log(f"⚠️ PIP update failed: {e.stderr}", "WARNING")
-            self.log("Continuation with the existing version...", "INFO")
+            self.log(f"Pip update failed: {e.stderr}", "WARNING")
+            self.log("Continuing with existing version...", "INFO")
+        except subprocess.TimeoutExpired:
+            self.log("Pip update timed out, continuing...", "WARNING")
 
         if self.system_info.get("cuda_available"):
-            self.log("PyTorch installation with CUDA support...")
+            self.log("Installing PyTorch with CUDA support...")
             cmd = [
                 str(python_path),
                 "-m",
@@ -1226,9 +1578,17 @@ class ObsidianNeuralInstaller:
                 "--index-url",
                 "https://download.pytorch.org/whl/cu118",
             ]
-            subprocess.run(cmd, check=True)
+            try:
+                subprocess.run(cmd, check=True, timeout=900)
+                self.log("PyTorch with CUDA installed successfully")
+            except subprocess.TimeoutExpired:
+                self.log("PyTorch installation timed out", "ERROR")
+                raise Exception("PyTorch installation timed out")
+            except subprocess.CalledProcessError as e:
+                self.log(f"PyTorch CUDA installation failed: {e.stderr}", "ERROR")
+                raise
 
-            self.log("Llama CPP Python Installation with CUDA Support...")
+            self.log("Installing Llama CPP Python with CUDA support...")
             cmd = [
                 str(python_path),
                 "-m",
@@ -1238,12 +1598,22 @@ class ObsidianNeuralInstaller:
                 "--prefer-binary",
                 "--extra-index-url=https://jllllll.github.io/llama-cpp-python-cuBLAS-wheels/AVX2/cu118",
             ]
-            subprocess.run(cmd, check=True)
+            try:
+                subprocess.run(cmd, check=True, timeout=900)
+                self.log("Llama CPP Python with CUDA installed successfully")
+            except subprocess.TimeoutExpired:
+                self.log("Llama CPP Python installation timed out", "ERROR")
+                raise Exception("Llama CPP Python installation timed out")
+            except subprocess.CalledProcessError as e:
+                self.log(f"Llama CPP Python installation failed: {e.stderr}", "ERROR")
+                raise
 
         elif self.system_info.get("gpu_type") == "amd":
-            self.log("PyTorch installation with ROCm support...")
+            self.log("Installing PyTorch with ROCm support...")
             cmd = [
-                str(pip_path),
+                str(python_path),
+                "-m",
+                "pip",
                 "install",
                 "torch",
                 "torchvision",
@@ -1251,14 +1621,30 @@ class ObsidianNeuralInstaller:
                 "--index-url",
                 "https://download.pytorch.org/whl/rocm5.6",
             ]
-            subprocess.run(cmd, check=True)
+            try:
+                subprocess.run(cmd, check=True, timeout=900)
+                self.log("PyTorch with ROCm installed successfully")
+            except subprocess.TimeoutExpired:
+                self.log("PyTorch installation timed out", "ERROR")
+                raise Exception("PyTorch installation timed out")
+            except subprocess.CalledProcessError as e:
+                self.log(f"PyTorch ROCm installation failed: {e.stderr}", "ERROR")
+                raise
 
-            self.log("Llama CPP Python installation for CPU/ROCm...")
-            cmd = [str(pip_path), "install", "llama-cpp-python==0.3.9"]
-            subprocess.run(cmd, check=True)
+            self.log("Installing Llama CPP Python for CPU/ROCm...")
+            cmd = [str(python_path), "-m", "pip", "install", "llama-cpp-python==0.3.9"]
+            try:
+                subprocess.run(cmd, check=True, timeout=600)
+                self.log("Llama CPP Python installed successfully")
+            except subprocess.TimeoutExpired:
+                self.log("Llama CPP Python installation timed out", "ERROR")
+                raise Exception("Llama CPP Python installation timed out")
+            except subprocess.CalledProcessError as e:
+                self.log(f"Llama CPP Python installation failed: {e.stderr}", "ERROR")
+                raise
 
         else:
-            self.log("PyTorch Installation for CPU...")
+            self.log("Installing PyTorch for CPU...")
             cmd = [
                 str(python_path),
                 "-m",
@@ -1268,13 +1654,29 @@ class ObsidianNeuralInstaller:
                 "torchvision",
                 "torchaudio",
             ]
-            subprocess.run(cmd, check=True)
+            try:
+                subprocess.run(cmd, check=True, timeout=900)
+                self.log("PyTorch for CPU installed successfully")
+            except subprocess.TimeoutExpired:
+                self.log("PyTorch installation timed out", "ERROR")
+                raise Exception("PyTorch installation timed out")
+            except subprocess.CalledProcessError as e:
+                self.log(f"PyTorch installation failed: {e.stderr}", "ERROR")
+                raise
 
             self.log("Installing Llama CPP Python for CPU...")
             cmd = [str(python_path), "-m", "pip", "install", "llama-cpp-python==0.3.9"]
-            subprocess.run(cmd, check=True)
+            try:
+                subprocess.run(cmd, check=True, timeout=600)
+                self.log("Llama CPP Python for CPU installed successfully")
+            except subprocess.TimeoutExpired:
+                self.log("Llama CPP Python installation timed out", "ERROR")
+                raise Exception("Llama CPP Python installation timed out")
+            except subprocess.CalledProcessError as e:
+                self.log(f"Llama CPP Python installation failed: {e.stderr}", "ERROR")
+                raise
 
-        self.log("Installing Libraries...")
+        self.log("Installing additional libraries...")
         packages = [
             "stable-audio-tools",
             "librosa",
@@ -1288,69 +1690,19 @@ class ObsidianNeuralInstaller:
         ]
 
         for package in packages:
-            self.log(f"Installation of {package}...")
+            self.log(f"Installing {package}...")
             cmd = [str(python_path), "-m", "pip", "install", package]
             try:
-                subprocess.run(cmd, check=True, capture_output=True, text=True)
-            except subprocess.CalledProcessError as e:
-                self.log(f"⚠️ Installation error {package}: {e.stderr}", "WARNING")
-
-        self.log("✅ All Python dependencies installed")
-
-    def install_vst(self, install_dir):
-        vst_build_dir = install_dir / "vst" / "build"
-        vst_target_dir = Path(self.vst_path.get())
-
-        vst_files = list(vst_build_dir.rglob("*.vst3"))
-
-        if not vst_files:
-            self.log("⚠️ No VST3 files found after compilation", "WARNING")
-            self.log(f"Search in: {vst_build_dir}", "INFO")
-
-            if vst_build_dir.exists():
-                all_files = list(vst_build_dir.rglob("*"))
-                self.log(f"Files found: {[f.name for f in all_files[:10]]}", "INFO")
-            return
-
-        vst_file = vst_files[0]
-        target_path = vst_target_dir / vst_file.name
-
-        try:
-            vst_target_dir.mkdir(parents=True, exist_ok=True)
-            self.log(f"📁 VST3 folder created: {vst_target_dir}")
-
-            if vst_file.is_file():
-                shutil.copy2(vst_file, target_path)
-                self.log(f"📋 Copied VST file: {vst_file.name}")
-            else:
-                if target_path.exists():
-                    shutil.rmtree(target_path)
-                shutil.copytree(vst_file, target_path, dirs_exist_ok=True)
-                self.log(f"📦 Copied VST Bundle: {vst_file.name}")
-
-            self.log(f"✅ VST plugin installed in: {target_path}", "SUCCESS")
-
-            if target_path.exists():
-                size_mb = (
-                    target_path.stat().st_size / (1024 * 1024)
-                    if target_path.is_file()
-                    else 0
+                subprocess.run(
+                    cmd, check=True, capture_output=True, text=True, timeout=300
                 )
-                self.log(f"📊 Plugin size: {size_mb:.1f} MB")
+                self.log(f"{package} installed successfully")
+            except subprocess.CalledProcessError as e:
+                self.log(f"Installation error for {package}: {e.stderr}", "WARNING")
+            except subprocess.TimeoutExpired:
+                self.log(f"Installation timeout for {package}", "WARNING")
 
-        except PermissionError as e:
-            self.log("❌ Insufficient privileges to copy the VST", "ERROR")
-            self.log(f"Error: {e}", "ERROR")
-            self.log("💡 Manual solution:", "WARNING")
-            self.log(f" Source: {vst_file}", "INFO")
-            self.log(f" Destination: {target_path}", "INFO")
-            self.log("Copy manually with administrator privileges", "INFO")
-
-        except Exception as e:
-            self.log(f"❌ Error copying VST: {str(e)}", "ERROR")
-            self.log("💡 You can copy manually:", "WARNING")
-            self.log(f" From: {vst_file}", "INFO")
-            self.log(f" To: {target_path}", "INFO")
+        self.log("All Python dependencies installation completed")
 
     def setup_environment(self, install_dir):
         env_content = f"""DJ_IA_API_KEYS=api keys separated by commas
@@ -1405,11 +1757,27 @@ class ObsidianNeuralInstaller:
                 raise Exception(f"SoundTouch download failed: {result.stderr}")
 
         build_dir = vst_dir / "build"
+
+        if build_dir.exists():
+            self.log("Cleaning previous build cache...")
+            import shutil
+
+            shutil.rmtree(build_dir)
+
         build_dir.mkdir(exist_ok=True)
 
+        if self.is_admin:
+            import subprocess
+
+            subprocess.run(
+                ["icacls", str(build_dir), "/grant", "Authenticated Users:(OI)(CI)F"],
+                check=False,
+                capture_output=True,
+            )
+
         self.log("Configuring CMake...")
-        self.log(f"📁 Build directory: {build_dir}")
-        self.log(f"📁 Source directory: {vst_dir}")
+        self.log(f"Build directory: {build_dir}")
+        self.log(f"Source directory: {vst_dir}")
 
         cmake_cmd = ["cmake", ".."]
         result = subprocess.run(
@@ -1417,13 +1785,13 @@ class ObsidianNeuralInstaller:
         )
 
         if result.returncode != 0:
-            self.log("❌ CMake configuration failed", "ERROR")
+            self.log("CMake configuration failed", "ERROR")
             self.log(f"Stdout: {result.stdout}", "ERROR")
             self.log(f"Stderr: {result.stderr}", "ERROR")
-            self.log("💡 Check that CMake and Build Tools are installed", "WARNING")
+            self.log("Check that CMake and Build Tools are installed", "WARNING")
             raise Exception("CMake configuration failed")
 
-        self.log("✅ CMake configuration successful")
+        self.log("CMake configuration successful")
 
         self.log("Compiling VST plugin...")
         build_cmd = ["cmake", "--build", ".", "--config", "Release"]
@@ -1432,40 +1800,33 @@ class ObsidianNeuralInstaller:
         )
 
         if result.returncode != 0:
-            self.log("❌ VST compilation failed", "ERROR")
+            self.log("VST compilation failed", "ERROR")
             self.log(f"Stdout: {result.stdout}", "ERROR")
             self.log(f"Stderr: {result.stderr}", "ERROR")
-            self.log("💡 Check CMake configuration and Build Tools", "WARNING")
+            self.log("Check CMake configuration and Build Tools", "WARNING")
             raise Exception("VST compilation failed")
         else:
-            self.log("✅ VST plugin compiled successfully")
+            self.log("VST plugin compiled successfully")
 
     def finalize_installation(self, install_dir):
         summary = f"""OBSIDIAN-Neural - Installation Complete
-=========================================
+======================================
 
-📁 Installation: {install_dir}
-🎛️ VST Plugin: {self.vst_path.get()}
-🤖 AI Model: Gemma-3-4B (2.49 GB)
+Installation: {install_dir}
+VST Plugin: {self.vst_path.get()}
+AI Model: Gemma-3-4B (2.49 GB)
 
-🚀 To get started:
-1. Activate the environment: env\Scripts\activate.bat (Windows) or source env/bin/activate (Linux/Mac)
-2. Run: python main.py
+To start:
+1. Activate: env\\Scripts\\activate.bat
+2. Launch: python main.py
 3. Load OBSIDIAN-Neural in your DAW
-4. Configure the URL: http://localhost:8000 
+4. URL: http://localhost:8000
 
-⚙️ main.py options: 
---model-path PATH Override LLM model path 
---host HOST Server host (default: from .env) 
---port PORT Server port (default: from .env) 
-
-💡 Example: python main.py --host 0.0.0.0 --port 8000 
-
-🎵 Ready to jam! 
+Ready to jam!
 """
 
-        (install_dir / "README.txt").write_text(summary)
-        self.log("📋 Installation completed!")
+        (install_dir / "README.txt").write_text(summary, encoding="utf-8")
+        self.log("Installation finalized!")
 
     def start_server(self, install_dir):
         try:
