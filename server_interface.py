@@ -9,14 +9,24 @@ import time
 from pathlib import Path
 import psutil
 import sqlite3
-
+import pystray
 
 try:
-    from PIL import Image, ImageTk
+    import pystray
+    from pystray import MenuItem, Menu
 
-    PIL_AVAILABLE = True
+    TRAY_AVAILABLE = True
+    try:
+        from PIL import Image, ImageDraw, ImageTk
+
+        PIL_AVAILABLE = True
+    except ImportError:
+        PIL_AVAILABLE = False
+        TRAY_AVAILABLE = False
+
 except ImportError:
-    PIL_AVAILABLE = False
+    TRAY_AVAILABLE = False
+    print("pystray not available - tray functionality disabled")
 from core.secure_storage import SecureStorage
 
 
@@ -32,10 +42,11 @@ class ObsidianNeuralLauncher:
         x = (self.root.winfo_screenwidth() // 2) - (900 // 2)
         y = (self.root.winfo_screenheight() // 2) - (700 // 2)
         self.root.geometry(f"900x700+{x}+{y}")
-
+        self.tray_icon = None
+        self.is_in_tray = False
         self.server_process = None
         self.is_server_running = False
-
+        self.root.protocol("WM_DELETE_WINDOW", self.on_window_close)
         self.log_text = None
 
         self.init_database()
@@ -55,6 +66,198 @@ class ObsidianNeuralLauncher:
 
         self.enable_auto_save()
         self.monitor_server()
+
+    def create_tray_image(self):
+        width = 64
+        height = 64
+        image = Image.new("RGB", (width, height), color="black")
+        draw = ImageDraw.Draw(image)
+
+        draw.ellipse([10, 10, 54, 54], outline="white", width=6)
+        draw.text((22, 20), "AI", fill="white", anchor="ms")
+
+        return image
+
+    def create_tray_menu(self):
+        return Menu(
+            MenuItem("🎵 OBSIDIAN Neural", lambda: None, enabled=False),
+            Menu.SEPARATOR,
+            MenuItem(
+                "🟢 Server Running" if self.is_server_running else "🔴 Server Stopped",
+                lambda: None,
+                enabled=False,
+            ),
+            MenuItem(
+                f"📡 {self.server_url.get()}" if self.server_url.get() else "No URL",
+                self.copy_server_url if self.server_url.get() else lambda: None,
+                enabled=bool(self.server_url.get()),
+            ),
+            Menu.SEPARATOR,
+            MenuItem(
+                "▶️ Start Server" if not self.is_server_running else None,
+                self.start_server,
+                enabled=not self.is_server_running,
+            ),
+            MenuItem(
+                "⏹️ Stop Server" if self.is_server_running else None,
+                self.stop_server,
+                enabled=self.is_server_running,
+            ),
+            MenuItem(
+                "🔄 Restart Server" if self.is_server_running else None,
+                self.restart_server,
+                enabled=self.is_server_running,
+            ),
+            Menu.SEPARATOR,
+            MenuItem("📊 Show Control Panel", self.show_window),
+            MenuItem("📁 Open Project Folder", self.open_project_folder),
+            Menu.SEPARATOR,
+            MenuItem("❌ Quit", self.quit_application),
+        )
+
+    def copy_server_url(self):
+        try:
+            import tkinter as tk
+
+            root = tk.Tk()
+            root.withdraw()
+            root.clipboard_clear()
+            root.clipboard_append(self.server_url.get())
+            root.destroy()
+            self.log("Server URL copied to clipboard", "SUCCESS")
+        except:
+            pass
+
+    def setup_tray_icon(self):
+        try:
+            image = Image.new("RGBA", (64, 64), color=(0, 0, 0, 0))
+            draw = ImageDraw.Draw(image)
+
+            green_main = (0, 255, 100, 255)
+            green_dark = (0, 180, 70, 255)
+
+            triangle_points = [(32, 12), (16, 48), (48, 48)]
+
+            shadow_points = [(p[0] + 2, p[1] + 2) for p in triangle_points]
+            draw.polygon(shadow_points, fill=(0, 0, 0, 100))
+
+            draw.polygon(triangle_points, fill=green_main, outline=green_dark, width=2)
+
+            inner_points = [(32, 20), (24, 36), (40, 36)]
+            draw.polygon(
+                inner_points, fill=(255, 255, 255, 180), outline=green_dark, width=1
+            )
+
+            self.tray_icon = pystray.Icon(
+                "obsidian_neural",
+                image,
+                "OBSIDIAN Neural Server",
+                menu=self.create_tray_menu(),
+            )
+
+            self.log("Tray icon configured with green triangle ✅")
+
+        except Exception as e:
+            self.log(f"Error setting up tray icon: {e}", "ERROR")
+            self.tray_icon = None
+
+    def show_in_tray(self):
+        try:
+            if not TRAY_AVAILABLE:
+                messagebox.showinfo(
+                    "Not Available",
+                    "System tray functionality requires pystray and PIL packages",
+                )
+                return
+
+            self.setup_tray_icon()
+
+            self.root.withdraw()
+            self.is_in_tray = True
+
+            self.root.after(100, self._start_tray_icon)
+
+            self.log("Application minimized to system tray", "SUCCESS")
+
+        except Exception as e:
+            self.log(f"Error showing in tray: {e}", "ERROR")
+            self.root.deiconify()
+            self.is_in_tray = False
+
+    def _start_tray_icon(self):
+        try:
+            if self.tray_icon and self.is_in_tray:
+                import threading
+
+                self.tray_thread = threading.Thread(target=self._run_tray, daemon=True)
+                self.tray_thread.start()
+        except Exception as e:
+            self.log(f"Error starting tray icon: {e}", "ERROR")
+            self.show_window()
+
+    def _run_tray(self):
+        try:
+            if self.tray_icon:
+                self.tray_icon.run()
+        except Exception as e:
+            self.log(f"Tray icon stopped: {e}", "WARNING")
+
+    def show_window(self):
+        try:
+            if self.is_in_tray and self.tray_icon:
+                self.tray_icon.stop()
+                self.tray_icon = None
+
+            self.is_in_tray = False
+
+            self.root.deiconify()
+            self.root.lift()
+            self.root.focus_force()
+
+            self.log("Window restored from system tray")
+
+        except Exception as e:
+            self.log(f"Error showing window: {e}", "ERROR")
+
+    def update_tray_menu(self):
+        if self.tray_icon and self.is_in_tray:
+            try:
+                self.tray_icon.menu = self.create_tray_menu()
+            except Exception as e:
+                self.log(f"Error updating tray menu: {e}", "WARNING")
+
+    def on_window_close(self):
+        if self.is_server_running:
+            result = messagebox.askyesnocancel(
+                "OBSIDIAN Neural",
+                "Server is running. What would you like to do?\n\n"
+                "• Yes: Minimize to system tray (keep server running)\n"
+                "• No: Stop server and quit\n"
+                "• Cancel: Return to application",
+            )
+
+            if result is True:
+                self.show_in_tray()
+            elif result is False:
+                self.quit_application()
+        else:
+            self.quit_application()
+
+    def quit_application(self):
+        try:
+            if self.is_server_running:
+                self.stop_server()
+                time.sleep(1)
+
+            if self.tray_icon and self.is_in_tray:
+                self.tray_icon.stop()
+                self.tray_icon = None
+
+            self.root.quit()
+
+        except Exception as e:
+            self.log(f"Error during quit: {e}", "ERROR")
+            self.root.quit()
 
     def handle_admin_install(self):
         install_dir = self.detect_installation_dir()
@@ -279,6 +482,12 @@ class ObsidianNeuralLauncher:
 
         ttk.Button(
             actions_button_frame, text="📊 System Info", command=self.show_system_info
+        ).pack(side="left", padx=(0, 10))
+
+        ttk.Button(
+            actions_button_frame,
+            text="📍 Minimize to Tray",
+            command=self.show_in_tray,
         ).pack(side="left")
 
     def save_hf_token(self):
@@ -507,13 +716,15 @@ class ObsidianNeuralLauncher:
         api_buttons_frame.pack(fill="x", pady=(0, 10))
 
         ttk.Button(
-            api_buttons_frame, text="🔑 Generate New Key", command=self.generate_api_key
+            api_buttons_frame,
+            text="🔑 Generate New Key",
+            command=self.generate_api_key_with_options,
         ).pack(side="left", padx=(0, 5))
         ttk.Button(
             api_buttons_frame, text="📋 Add Custom Key", command=self.add_custom_api_key
         ).pack(side="left", padx=(0, 5))
         ttk.Button(
-            api_buttons_frame, text="✏️ Rename Selected", command=self.rename_api_key
+            api_buttons_frame, text="✏️ Edit Selected", command=self.edit_api_key
         ).pack(side="left", padx=(0, 5))
         ttk.Button(
             api_buttons_frame, text="🗑 Remove Selected", command=self.remove_api_keys
@@ -728,54 +939,6 @@ class ObsidianNeuralLauncher:
             self.log(f"Error removing API keys: {e}", "ERROR")
             messagebox.showerror("Error", f"Could not remove API keys: {e}")
 
-    def rename_api_key(self):
-        selection = self.api_keys_listbox.curselection()
-        if not selection:
-            messagebox.showwarning("No Selection", "Please select an API key to rename")
-            return
-
-        index = selection[0]
-
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-
-            cursor.execute(
-                "SELECT id, key_value_encrypted, name FROM api_keys ORDER BY created_at"
-            )
-            rows = cursor.fetchall()
-
-            if index >= len(rows):
-                conn.close()
-                messagebox.showerror("Error", "Invalid selection")
-                return
-
-            db_id, encrypted_key, current_name = rows[index]
-            decrypted_key = self.secure_storage.decrypt(encrypted_key)
-
-            new_name = tk.simpledialog.askstring(
-                "Rename API Key",
-                f"Enter new name for key {decrypted_key[:8]}...:",
-                initialvalue=current_name or f"Key {index + 1}",
-            )
-
-            if new_name and new_name.strip():
-                cursor.execute(
-                    "UPDATE api_keys SET name = ? WHERE id = ?",
-                    (new_name.strip(), db_id),
-                )
-                conn.commit()
-                conn.close()
-
-                self.update_api_keys_listbox()
-                self.log(f"API key renamed to '{new_name.strip()}'", "SUCCESS")
-            else:
-                conn.close()
-
-        except Exception as e:
-            self.log(f"Error renaming API key: {e}", "ERROR")
-            messagebox.showerror("Error", f"Could not rename API key: {e}")
-
     def manual_save_config(self):
         if self.save_config():
             messagebox.showinfo("Saved", "Configuration saved successfully!")
@@ -814,9 +977,7 @@ class ObsidianNeuralLauncher:
     def init_database(self):
         self.db_path = Path.home() / ".obsidian_neural" / "config.db"
         self.db_path.parent.mkdir(exist_ok=True)
-
         self.secure_storage = SecureStorage(self.db_path)
-
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
@@ -826,6 +987,11 @@ class ObsidianNeuralLauncher:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 key_value_encrypted TEXT UNIQUE NOT NULL,
                 name TEXT,
+                is_limited INTEGER DEFAULT 1,
+                is_expired INTEGER DEFAULT 0,
+                total_credits INTEGER DEFAULT 50,
+                credits_used INTEGER DEFAULT 0,
+                date_of_expiration TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_used TIMESTAMP
             )
@@ -843,11 +1009,27 @@ class ObsidianNeuralLauncher:
         )
 
         cursor.execute("PRAGMA table_info(api_keys)")
+        existing_columns = [column[1] for column in cursor.fetchall()]
+
+        new_columns = [
+            ("is_limited", "INTEGER DEFAULT 1"),
+            ("is_expired", "INTEGER DEFAULT 0"),
+            ("total_credits", "INTEGER DEFAULT 50"),
+            ("credits_used", "INTEGER DEFAULT 0"),
+            ("date_of_expiration", "TEXT"),
+        ]
+
+        for col_name, col_def in new_columns:
+            if col_name not in existing_columns:
+                cursor.execute(f"ALTER TABLE api_keys ADD COLUMN {col_name} {col_def}")
+                self.log(f"Added column {col_name} to api_keys table", "SUCCESS")
+
+        # Migration des anciennes clés non-chiffrées (si elles existent encore)
+        cursor.execute("PRAGMA table_info(api_keys)")
         api_columns = [column[1] for column in cursor.fetchall()]
 
         if "key_value" in api_columns:
             self.log("Migrating API keys to encrypted storage...", "WARNING")
-
             cursor.execute("SELECT key_value, name FROM api_keys")
             old_data = cursor.fetchall()
 
@@ -858,6 +1040,11 @@ class ObsidianNeuralLauncher:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     key_value_encrypted TEXT UNIQUE NOT NULL,
                     name TEXT,
+                    is_limited INTEGER DEFAULT 1,
+                    is_expired INTEGER DEFAULT 0,
+                    total_credits INTEGER DEFAULT 50,
+                    credits_used INTEGER DEFAULT 0,
+                    date_of_expiration TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     last_used TIMESTAMP
                 )
@@ -866,15 +1053,20 @@ class ObsidianNeuralLauncher:
 
             for key_value, name in old_data:
                 encrypted_key = self.secure_storage.encrypt(key_value)
+                # Les anciennes clés deviennent limitées par défaut avec 50 crédits
                 cursor.execute(
-                    "INSERT INTO api_keys (key_value_encrypted, name) VALUES (?, ?)",
+                    """INSERT INTO api_keys 
+                    (key_value_encrypted, name, is_limited, total_credits, credits_used) 
+                    VALUES (?, ?, 1, 50, 0)""",
                     (encrypted_key, name),
                 )
 
             self.log(
-                f"Migrated {len(old_data)} API keys to encrypted storage", "SUCCESS"
+                f"Migrated {len(old_data)} API keys to encrypted storage with credit system",
+                "SUCCESS",
             )
 
+        # Migration de la table config
         cursor.execute("PRAGMA table_info(config)")
         config_columns = [column[1] for column in cursor.fetchall()]
 
@@ -887,8 +1079,132 @@ class ObsidianNeuralLauncher:
 
         conn.commit()
         conn.close()
-
         self.log(f"Secure database initialized at: {self.db_path}")
+
+    def generate_api_key_with_options(self):
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Generate API Key")
+        dialog.geometry("500x400")
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        frame = ttk.Frame(dialog, padding="20")
+        frame.pack(fill="both", expand=True)
+
+        ttk.Label(frame, text="Key Name:").pack(anchor="w")
+        name_var = tk.StringVar(value=f"API Key {len(self.api_keys_list) + 1}")
+        ttk.Entry(frame, textvariable=name_var, width=40).pack(fill="x", pady=(5, 15))
+
+        ttk.Label(frame, text="Key Type:").pack(anchor="w")
+        is_limited = tk.BooleanVar(value=True)
+        ttk.Radiobutton(
+            frame,
+            text="🔒 Limited (with credit limit)",
+            variable=is_limited,
+            value=True,
+        ).pack(anchor="w")
+        ttk.Radiobutton(
+            frame, text="🔓 Unlimited (no limits)", variable=is_limited, value=False
+        ).pack(anchor="w", pady=(0, 15))
+
+        limited_frame = ttk.LabelFrame(frame, text="Limited Key Options", padding="10")
+        limited_frame.pack(fill="x", pady=(0, 15))
+
+        ttk.Label(limited_frame, text="Total Credits:").pack(anchor="w")
+        credits_var = tk.StringVar(value="50")
+        ttk.Entry(limited_frame, textvariable=credits_var, width=10).pack(
+            anchor="w", pady=(5, 10)
+        )
+
+        ttk.Label(limited_frame, text="Expiration Date (optional):").pack(anchor="w")
+        exp_var = tk.StringVar()
+        exp_frame = ttk.Frame(limited_frame)
+        exp_frame.pack(fill="x", pady=(5, 0))
+        ttk.Entry(exp_frame, textvariable=exp_var, width=20).pack(side="left")
+        ttk.Label(exp_frame, text="Format: YYYY-MM-DD", font=("Arial", 8)).pack(
+            side="left", padx=(10, 0)
+        )
+
+        def toggle_limited_options():
+            if is_limited.get():
+                for child in limited_frame.winfo_children():
+                    child.configure(state="normal")
+            else:
+                for child in limited_frame.winfo_children():
+                    if hasattr(child, "configure"):
+                        child.configure(state="disabled")
+
+        is_limited.trace_add("write", lambda *args: toggle_limited_options())
+
+        def create_key():
+            name = name_var.get().strip()
+            if not name:
+                messagebox.showerror("Error", "Please enter a key name")
+                return
+
+            api_key = self.generate_unique_api_key()
+
+            total_credits = 0 if not is_limited.get() else int(credits_var.get() or 50)
+            exp_date = exp_var.get().strip() if is_limited.get() else None
+
+            if self.save_api_key_advanced(
+                api_key, name, is_limited.get(), total_credits, exp_date
+            ):
+                self.load_api_keys()
+                self.show_api_key_dialog(api_key, f"Generated: {name}")
+                self.log(
+                    f"API key '{name}' created: {'Limited' if is_limited.get() else 'Unlimited'}",
+                    "SUCCESS",
+                )
+                dialog.destroy()
+
+        button_frame = ttk.Frame(frame)
+        button_frame.pack(fill="x", pady=(20, 0))
+        ttk.Button(button_frame, text="Generate Key", command=create_key).pack(
+            side="right"
+        )
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
+            side="right", padx=(0, 10)
+        )
+
+    def save_api_key_advanced(
+        self,
+        api_key,
+        name=None,
+        is_limited=True,
+        total_credits=50,
+        expiration_date=None,
+    ):
+        try:
+            encrypted_key = self.secure_storage.encrypt(api_key)
+
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO api_keys 
+                (key_value_encrypted, name, is_limited, is_expired, total_credits, credits_used, date_of_expiration) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    encrypted_key,
+                    name,
+                    int(is_limited),
+                    0,
+                    total_credits,
+                    0,
+                    expiration_date,
+                ),
+            )
+
+            conn.commit()
+            conn.close()
+            return True
+
+        except Exception as e:
+            self.log(f"Error saving API key: {e}", "ERROR")
+            return False
 
     def create_logs_tab(self):
         logs_frame = ttk.Frame(self.notebook, padding="20")
@@ -963,26 +1279,6 @@ class ObsidianNeuralLauncher:
         except Exception as e:
             self.log(f"Error loading API keys: {e}", "WARNING")
             self.api_keys_list = []
-
-    def save_api_key(self, api_key, name=None):
-        try:
-            encrypted_key = self.secure_storage.encrypt(api_key)
-
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-
-            cursor.execute(
-                "INSERT OR IGNORE INTO api_keys (key_value_encrypted, name) VALUES (?, ?)",
-                (encrypted_key, name),
-            )
-
-            conn.commit()
-            conn.close()
-
-            return True
-        except Exception as e:
-            self.log(f"Error saving API key: {e}", "ERROR")
-            return False
 
     def remove_api_key(self):
         selection = self.api_keys_listbox.curselection()
@@ -1129,84 +1425,17 @@ class ObsidianNeuralLauncher:
         except Exception as e:
             self.log(f"Error loading configuration: {e}", "WARNING")
 
-    def generate_api_key(self):
-        name_dialog = tk.Toplevel(self.root)
-        name_dialog.title("Name Your API Key")
-        name_dialog.geometry("400x150")
-        name_dialog.transient(self.root)
-        name_dialog.grab_set()
-
-        name_dialog.update_idletasks()
-        x = (name_dialog.winfo_screenwidth() // 2) - (400 // 2)
-        y = (name_dialog.winfo_screenheight() // 2) - (150 // 2)
-        name_dialog.geometry(f"400x150+{x}+{y}")
-
-        frame = ttk.Frame(name_dialog, padding="20")
-        frame.pack(fill="both", expand=True)
-
-        ttk.Label(frame, text="Enter a name for this API key:").pack(anchor="w")
-
-        name_var = tk.StringVar(value=f"API Key {len(self.api_keys_list) + 1}")
-        name_entry = ttk.Entry(frame, textvariable=name_var, width=40)
-        name_entry.pack(fill="x", pady=(10, 20))
-        name_entry.select_range(0, tk.END)
-        name_entry.focus()
-
-        result = {"name": None}
-
-        def confirm_name():
-            name = name_var.get().strip()
-            if name:
-                result["name"] = name
-                name_dialog.destroy()
-            else:
-                messagebox.showerror("Error", "Please enter a key name")
-
-        def cancel_name():
-            name_dialog.destroy()
-
-        button_frame = ttk.Frame(frame)
-        button_frame.pack(fill="x")
-
-        ttk.Button(button_frame, text="Generate Key", command=confirm_name).pack(
-            side="right"
-        )
-        ttk.Button(button_frame, text="Cancel", command=cancel_name).pack(
-            side="right", padx=(0, 10)
-        )
-
-        name_entry.bind("<Return>", lambda e: confirm_name())
-
-        name_dialog.wait_window()
-
-        if result["name"]:
-            api_key = self.generate_unique_api_key()
-
-            if self.save_api_key(api_key, result["name"]):
-                self.api_keys_list.append(api_key)
-                self.update_api_keys_listbox()
-
-                self.show_api_key_dialog(
-                    api_key, f"Generated API Key: {result['name']}"
-                )
-                self.log(
-                    f"New API key '{result['name']}' generated: {api_key[:8]}...",
-                    "SUCCESS",
-                )
-            else:
-                messagebox.showerror("Error", "Could not save API key to database")
-
     def add_custom_api_key(self):
         dialog = tk.Toplevel(self.root)
         dialog.title("Add Custom API Key")
-        dialog.geometry("450x200")
+        dialog.geometry("500x450")
         dialog.transient(self.root)
         dialog.grab_set()
 
         dialog.update_idletasks()
-        x = (dialog.winfo_screenwidth() // 2) - (450 // 2)
-        y = (dialog.winfo_screenheight() // 2) - (200 // 2)
-        dialog.geometry(f"450x200+{x}+{y}")
+        x = (dialog.winfo_screenwidth() // 2) - (500 // 2)
+        y = (dialog.winfo_screenheight() // 2) - (450 // 2)
+        dialog.geometry(f"500x450+{x}+{y}")
 
         frame = ttk.Frame(dialog, padding="20")
         frame.pack(fill="both", expand=True)
@@ -1218,12 +1447,13 @@ class ObsidianNeuralLauncher:
 
         ttk.Label(frame, text="API Key:").pack(anchor="w")
         key_var = tk.StringVar()
-        entry = ttk.Entry(frame, textvariable=key_var, width=50, show="*")
-        entry.pack(fill="x", pady=(5, 15))
-        entry.focus()
 
-        show_frame = ttk.Frame(frame)
-        show_frame.pack(fill="x", pady=(0, 15))
+        key_frame = ttk.Frame(frame)
+        key_frame.pack(fill="x", pady=(5, 15))
+
+        entry = ttk.Entry(key_frame, textvariable=key_var, width=40, show="*")
+        entry.pack(side="left", fill="x", expand=True)
+        entry.focus()
 
         show_custom = tk.BooleanVar(value=False)
 
@@ -1236,14 +1466,59 @@ class ObsidianNeuralLauncher:
                 show_btn.config(text="👁 Show")
 
         show_btn = ttk.Button(
-            show_frame,
+            key_frame,
             text="👁 Show",
+            width=8,
             command=lambda: [show_custom.set(not show_custom.get()), toggle_show()],
         )
-        show_btn.pack(side="left")
+        show_btn.pack(side="left", padx=(5, 0))
+
+        options_frame = ttk.LabelFrame(frame, text="Key Options", padding="10")
+        options_frame.pack(fill="x", pady=(0, 15))
+
+        is_limited = tk.BooleanVar(value=True)
+        ttk.Radiobutton(
+            options_frame,
+            text="🔒 Limited (with credit limit)",
+            variable=is_limited,
+            value=True,
+        ).pack(anchor="w")
+        ttk.Radiobutton(
+            options_frame,
+            text="🔓 Unlimited (no limits)",
+            variable=is_limited,
+            value=False,
+        ).pack(anchor="w", pady=(0, 10))
+
+        limited_frame = ttk.Frame(options_frame)
+        limited_frame.pack(fill="x")
+
+        credits_frame = ttk.Frame(limited_frame)
+        credits_frame.pack(fill="x", pady=(0, 10))
+        ttk.Label(credits_frame, text="Total Credits:").pack(side="left")
+        credits_var = tk.StringVar(value="50")
+        credits_entry = ttk.Entry(credits_frame, textvariable=credits_var, width=10)
+        credits_entry.pack(side="left", padx=(10, 0))
+
+        exp_frame = ttk.Frame(limited_frame)
+        exp_frame.pack(fill="x")
+        ttk.Label(exp_frame, text="Expiration Date (optional):").pack(side="left")
+        exp_var = tk.StringVar()
+        exp_entry = ttk.Entry(exp_frame, textvariable=exp_var, width=15)
+        exp_entry.pack(side="left", padx=(10, 5))
+        ttk.Label(
+            exp_frame, text="YYYY-MM-DD", font=("Arial", 8), foreground="gray"
+        ).pack(side="left")
+
+        def toggle_limited_options():
+            state = "normal" if is_limited.get() else "disabled"
+            credits_entry.configure(state=state)
+            exp_entry.configure(state=state)
+
+        is_limited.trace_add("write", lambda *args: toggle_limited_options())
 
         button_frame = ttk.Frame(frame)
-        button_frame.pack(fill="x")
+        button_frame.pack(fill="x", pady=(20, 0))
 
         def add_key():
             key = key_var.get().strip()
@@ -1253,32 +1528,305 @@ class ObsidianNeuralLauncher:
                 messagebox.showerror("Error", "Please enter a key name")
                 return
 
-            if key:
-                if key not in self.api_keys_list:
-                    if self.save_api_key(key, name):
-                        self.api_keys_list.append(key)
-                        self.update_api_keys_listbox()
-                        self.log(
-                            f"Custom API key '{name}' added: {key[:8]}...", "SUCCESS"
-                        )
-                        dialog.destroy()
-                    else:
-                        messagebox.showerror(
-                            "Error", "Could not save API key to database"
-                        )
-                else:
-                    messagebox.showwarning("Duplicate", "This API key already exists")
-            else:
+            if not key:
                 messagebox.showerror("Error", "Please enter a valid API key")
+                return
 
-        ttk.Button(button_frame, text="Add Key", command=add_key).pack(
-            side="left", padx=(0, 10)
-        )
+            if key in self.api_keys_list:
+                messagebox.showwarning("Duplicate", "This API key already exists")
+                return
+
+            limited = is_limited.get()
+            total_credits = 0 if not limited else int(credits_var.get() or 50)
+            exp_date = exp_var.get().strip() if limited else None
+
+            if exp_date:
+                try:
+                    from datetime import datetime
+
+                    datetime.fromisoformat(exp_date)
+                except ValueError:
+                    messagebox.showerror("Error", "Invalid date format. Use YYYY-MM-DD")
+                    return
+
+            if self.save_api_key_advanced(key, name, limited, total_credits, exp_date):
+                self.api_keys_list.append(key)
+                self.update_api_keys_listbox()
+                key_type = "Limited" if limited else "Unlimited"
+                self.log(
+                    f"Custom API key '{name}' added: {key[:8]}... ({key_type})",
+                    "SUCCESS",
+                )
+                dialog.destroy()
+            else:
+                messagebox.showerror("Error", "Could not save API key to database")
+
+        ttk.Button(button_frame, text="Add Key", command=add_key).pack(side="right")
         ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
-            side="left"
+            side="right", padx=(0, 10)
         )
 
         entry.bind("<Return>", lambda e: add_key())
+
+    def edit_api_key(self):
+        selection = self.api_keys_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select an API key to edit")
+            return
+
+        index = selection[0]
+
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT id, key_value_encrypted, name, is_limited, is_expired, 
+                    total_credits, credits_used, date_of_expiration 
+                FROM api_keys ORDER BY created_at
+            """
+            )
+            rows = cursor.fetchall()
+
+            if index >= len(rows):
+                conn.close()
+                messagebox.showerror("Error", "Invalid selection")
+                return
+
+            (
+                db_id,
+                encrypted_key,
+                current_name,
+                is_limited,
+                is_expired,
+                total_credits,
+                credits_used,
+                exp_date,
+            ) = rows[index]
+            decrypted_key = self.secure_storage.decrypt(encrypted_key)
+
+            dialog = tk.Toplevel(self.root)
+            dialog.title("Edit API Key")
+            dialog.geometry("550x700")
+            dialog.transient(self.root)
+            dialog.grab_set()
+
+            dialog.update_idletasks()
+            x = (dialog.winfo_screenwidth() // 2) - (550 // 2)
+            y = (dialog.winfo_screenheight() // 2) - (700 // 2)
+            dialog.geometry(f"550x700+{x}+{y}")
+
+            frame = ttk.Frame(dialog, padding="20")
+            frame.pack(fill="both", expand=True)
+
+            ttk.Label(frame, text="API Key:", font=("Arial", 10, "bold")).pack(
+                anchor="w"
+            )
+            key_display = ttk.Label(
+                frame,
+                text=f"{decrypted_key[:12]}...{decrypted_key[-6:]}",
+                font=("Consolas", 10),
+                foreground="gray",
+            )
+            key_display.pack(anchor="w", pady=(0, 15))
+
+            ttk.Label(frame, text="Key Name:").pack(anchor="w")
+            name_var = tk.StringVar(value=current_name or f"Key {index + 1}")
+            ttk.Entry(frame, textvariable=name_var, width=50).pack(
+                fill="x", pady=(5, 15)
+            )
+
+            status_frame = ttk.LabelFrame(frame, text="Key Status", padding="10")
+            status_frame.pack(fill="x", pady=(0, 15))
+
+            expired_var = tk.BooleanVar(value=bool(is_expired))
+            ttk.Checkbutton(
+                status_frame, text="🔴 Mark as Expired", variable=expired_var
+            ).pack(anchor="w")
+
+            type_frame = ttk.LabelFrame(frame, text="Key Type", padding="10")
+            type_frame.pack(fill="x", pady=(0, 15))
+
+            limited_var = tk.BooleanVar(value=bool(is_limited))
+            ttk.Radiobutton(
+                type_frame,
+                text="🔒 Limited (with credit limit)",
+                variable=limited_var,
+                value=True,
+            ).pack(anchor="w")
+            ttk.Radiobutton(
+                type_frame,
+                text="🔓 Unlimited (no limits)",
+                variable=limited_var,
+                value=False,
+            ).pack(anchor="w")
+
+            credits_frame = ttk.LabelFrame(
+                frame, text="Credit Management", padding="10"
+            )
+            credits_frame.pack(fill="x", pady=(0, 15))
+
+            total_frame = ttk.Frame(credits_frame)
+            total_frame.pack(fill="x", pady=(0, 10))
+            ttk.Label(total_frame, text="Total Credits:").pack(side="left")
+            total_var = tk.StringVar(value=str(total_credits or 50))
+            total_entry = ttk.Entry(total_frame, textvariable=total_var, width=10)
+            total_entry.pack(side="left", padx=(10, 0))
+
+            used_frame = ttk.Frame(credits_frame)
+            used_frame.pack(fill="x", pady=(0, 10))
+            ttk.Label(used_frame, text="Credits Used:").pack(side="left")
+            used_var = tk.StringVar(value=str(credits_used or 0))
+            used_entry = ttk.Entry(used_frame, textvariable=used_var, width=10)
+            used_entry.pack(side="left", padx=(10, 0))
+
+            actions_frame = ttk.Frame(credits_frame)
+            actions_frame.pack(fill="x")
+
+            def reset_credits():
+                used_var.set("0")
+
+            def add_credits():
+                try:
+                    current = int(total_var.get() or 0)
+                    total_var.set(str(current + 50))
+                except:
+                    pass
+
+            ttk.Button(actions_frame, text="🔄 Reset Used", command=reset_credits).pack(
+                side="left", padx=(0, 5)
+            )
+            ttk.Button(actions_frame, text="➕ Add 50", command=add_credits).pack(
+                side="left"
+            )
+
+            exp_frame = ttk.LabelFrame(frame, text="Expiration", padding="10")
+            exp_frame.pack(fill="x", pady=(0, 15))
+
+            exp_var = tk.StringVar(value=exp_date or "")
+            exp_entry_frame = ttk.Frame(exp_frame)
+            exp_entry_frame.pack(fill="x")
+
+            ttk.Label(exp_entry_frame, text="Expiration Date:").pack(side="left")
+            exp_entry = ttk.Entry(exp_entry_frame, textvariable=exp_var, width=15)
+            exp_entry.pack(side="left", padx=(10, 5))
+            ttk.Label(
+                exp_entry_frame,
+                text="YYYY-MM-DD (empty = no expiration)",
+                font=("Arial", 8),
+                foreground="gray",
+            ).pack(side="left")
+
+            def clear_expiration():
+                exp_var.set("")
+
+            ttk.Button(
+                exp_frame, text="🗑 Clear Expiration", command=clear_expiration
+            ).pack(anchor="w", pady=(5, 0))
+
+            def toggle_credit_controls():
+                state = "normal" if limited_var.get() else "disabled"
+                total_entry.configure(state=state)
+                used_entry.configure(state=state)
+                exp_entry.configure(state=state)
+
+            limited_var.trace_add("write", lambda *args: toggle_credit_controls())
+            toggle_credit_controls()
+
+            button_frame = ttk.Frame(frame)
+            button_frame.pack(fill="x", pady=(20, 0))
+
+            def save_changes():
+                try:
+                    save_conn = sqlite3.connect(self.db_path)
+                    save_cursor = save_conn.cursor()
+                    name = name_var.get().strip()
+                    if not name:
+                        messagebox.showerror("Error", "Please enter a key name")
+                        return
+
+                    is_limited_new = limited_var.get()
+                    is_expired_new = expired_var.get()
+
+                    if is_limited_new:
+                        try:
+                            total_new = int(total_var.get() or 50)
+                            used_new = int(used_var.get() or 0)
+                            if used_new > total_new:
+                                messagebox.showerror(
+                                    "Error",
+                                    "Credits used cannot be greater than total credits",
+                                )
+                                return
+                        except ValueError:
+                            messagebox.showerror(
+                                "Error", "Credits must be valid numbers"
+                            )
+                            return
+                    else:
+                        total_new = 0
+                        used_new = 0
+
+                    exp_new = exp_var.get().strip() or None
+                    if exp_new:
+                        try:
+                            from datetime import datetime
+
+                            datetime.fromisoformat(exp_new)
+                        except ValueError:
+                            messagebox.showerror(
+                                "Error", "Invalid date format. Use YYYY-MM-DD"
+                            )
+                            return
+
+                    save_cursor.execute(
+                        """
+                        UPDATE api_keys 
+                        SET name = ?, is_limited = ?, is_expired = ?, 
+                            total_credits = ?, credits_used = ?, date_of_expiration = ?
+                        WHERE id = ?
+                    """,
+                        (
+                            name,
+                            int(is_limited_new),
+                            int(is_expired_new),
+                            total_new,
+                            used_new,
+                            exp_new,
+                            db_id,
+                        ),
+                    )
+
+                    save_conn.commit()
+                    save_conn.close()
+
+                    self.update_api_keys_listbox()
+
+                    status = (
+                        "Expired"
+                        if is_expired_new
+                        else ("Unlimited" if not is_limited_new else "Limited")
+                    )
+                    self.log(f"API key '{name}' updated: {status}", "SUCCESS")
+                    dialog.destroy()
+
+                except Exception as e:
+                    self.log(f"Error updating API key: {e}", "ERROR")
+                    messagebox.showerror("Error", f"Could not update API key: {e}")
+
+            ttk.Button(button_frame, text="💾 Save Changes", command=save_changes).pack(
+                side="right"
+            )
+            ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
+                side="right", padx=(0, 10)
+            )
+
+            conn.close()
+
+        except Exception as e:
+            self.log(f"Error editing API key: {e}", "ERROR")
+            messagebox.showerror("Error", f"Could not edit API key: {e}")
 
     def copy_api_key(self):
         selection = self.api_keys_listbox.curselection()
@@ -1371,22 +1919,54 @@ class ObsidianNeuralLauncher:
             cursor = conn.cursor()
 
             cursor.execute(
-                "SELECT key_value_encrypted, name FROM api_keys ORDER BY created_at"
+                """
+                SELECT key_value_encrypted, name, is_limited, is_expired, 
+                    total_credits, credits_used, date_of_expiration 
+                FROM api_keys ORDER BY created_at
+            """
             )
             rows = cursor.fetchall()
 
             self.api_keys_list = []
 
-            for i, (encrypted_key, name) in enumerate(rows):
+            for i, row in enumerate(rows):
+                (
+                    encrypted_key,
+                    name,
+                    is_limited,
+                    is_expired,
+                    total_credits,
+                    credits_used,
+                    exp_date,
+                ) = row
                 decrypted_key = self.secure_storage.decrypt(encrypted_key)
+
                 if decrypted_key:
                     self.api_keys_list.append(decrypted_key)
 
+                    # Créer l'affichage
                     display_name = name if name else f"Unnamed Key {i+1}"
-                    display_key = (
-                        f"[{display_name}] {decrypted_key[:8]}...{decrypted_key[-4:]}"
-                    )
-                    self.api_keys_listbox.insert(tk.END, display_key)
+                    key_preview = f"{decrypted_key[:8]}...{decrypted_key[-4:]}"
+
+                    # Indicateurs de statut
+                    status_indicators = []
+                    if is_expired:
+                        status_indicators.append("🔴 EXPIRED")
+                    elif not is_limited:
+                        status_indicators.append("🔓 UNLIMITED")
+                    else:
+                        remaining = total_credits - credits_used
+                        if remaining <= 0:
+                            status_indicators.append("❌ NO CREDITS")
+                        elif remaining <= 5:
+                            status_indicators.append(f"⚠️ {remaining} left")
+                        else:
+                            status_indicators.append(f"✅ {remaining}/{total_credits}")
+
+                    status_text = " ".join(status_indicators)
+                    display_text = f"[{display_name}] {key_preview} {status_text}"
+
+                    self.api_keys_listbox.insert(tk.END, display_text)
 
             conn.close()
 
@@ -1631,6 +2211,7 @@ class ObsidianNeuralLauncher:
             self.start_button.configure(state="normal")
             self.stop_button.configure(state="disabled")
             self.restart_button.configure(state="disabled")
+        self.update_tray_menu()
 
     def check_first_launch(self):
         try:
@@ -2051,7 +2632,13 @@ class ObsidianNeuralLauncher:
 
                     self.hf_token_var.set(hf_token)
 
-                if self.save_api_key(wizard_api_key.get(), wizard_api_name.get()):
+                if self.save_api_key_advanced(
+                    wizard_api_key.get(),
+                    wizard_api_name.get(),
+                    is_limited=False,
+                    total_credits=0,
+                    expiration_date=None,
+                ):
                     self.api_keys_list.append(wizard_api_key.get())
                     self.update_api_keys_listbox()
 
