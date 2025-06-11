@@ -4,27 +4,34 @@
 
 OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM prompts and Stable Audio Open to create contextually aware loops directly in your DAW.
 
-## 🏆 Press Coverage
+## ⚠️ Pre-Release Status
 
-**[Featured on Bedroom Producers Blog](https://bedroomproducersblog.com/2025/06/06/obsidian-neural-sound-engine/)**  
-_"OBSIDIAN Neural Sound Engine, a FREE AI-powered jam partner"_
+**OBSIDIAN-Neural is currently in pre-release.** While functional, you may encounter bugs and instabilities between versions. Your feedback and bug reports help us improve! 🙏
 
-> "Too many AI projects focus on the things AI can save you from doing rather than how AI can help you get better at what you do."  
-> — James Nugent, BPB
+## 🚀 Quick Start
 
-**[Listed on AudioZ (community mirror)](https://audioz.download/software/win/278483-download_innermost47-obsidian-v047-real-time-ai-music-generator-for-live-performance-vst3-standalone-win-mac-free.html)**  
-_(Unofficial mirror of an early test build — for the latest stable version, always use the [official GitHub release](https://github.com/innermost47/ai-dj/releases))_
+### New: GUI Tools Available!
 
-**[Featured on DTM Plugin Sale (Japan)](https://projectofnapskint.com/obsidian-2/)**  
-_"AI を楽器に変える時代が来た！"_  
-(The era of turning AI into musical instruments has arrived!)
+- **🔧 [Installer](https://github.com/innermost47/ai-dj/releases)** - One-click setup _(Windows .exe)_
+- **🎛️ [Server GUI](https://github.com/innermost47/ai-dj/releases)** - Control panel for server management _(Windows .exe)_
 
-**[Featured on Shuziyinpin (China)](https://www.shuziyinpin.vip/31549.html)**  
-_International coverage in Asian music production communities_
+**Cross-Platform Alternative:**
 
----
+- **Mac/Linux users:** Run the tools directly with Python:
+  ```bash
+  python installer.py      # For installation
+  python server_interface.py  # For server control
+  ```
+
+## 📢 Community Update
+
+**Thank you!** We've gained **52 stars since June 6th** - the support has been incredible! 🌟
+
+_Your bug reports and feedback help us improve with each release._
 
 > ✨ OBSIDIAN is 100% free and open source. All contributions, builds, and community use are welcome — but for the best experience, get it from the [official GitHub](https://github.com/innermost47/ai-dj).
+
+> 📰 **Press coverage moved to [PRESS.md](PRESS.md)**
 
 ---
 
@@ -208,6 +215,26 @@ Found a bug or unexpected behavior? Help improve OBSIDIAN-Neural by reporting is
 ## 📝 License
 
 MIT License - Feel free to modify, but please keep original attribution to InnerMost47
+
+---
+
+## 🌐 More from innermost47
+
+**🎵 Music & Creative Coding:**
+
+- **[Unexpected Records](https://unexpected.anthony-charretier.fr/)** - Mobile recording studio & web creation for musicians
+- **[YouTube Channel](https://www.youtube.com/@innermost9675)** - Original music compositions
+- **[Randomizer](https://randomizer.anthony-charretier.fr/)** - Generative music studio in pure HTML/CSS/JS
+
+**🤖 AI Art Projects:**
+
+- **[AutoGenius Daily](https://autogenius.anthony-charretier.fr/)** - Automated media platform with AI personas
+- **[Echoes of Extinction](https://echoes-of-extinction.anthony-charretier.fr/)** - 30-day immersive AI takeover installation
+- **[AI Harmony Radio](https://autogenius.anthony-charretier.fr/webradio)** - 24/7 experimental webradio: original music + AI personas & stories
+
+**💭 Digital Philosophy:**
+
+- **[Manifesto for a Creative & Free Web](https://manifeste.chroniquesquantique.com/)** - Call for creative web experimentation
 
 ---
 

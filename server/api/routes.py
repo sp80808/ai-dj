@@ -2,10 +2,11 @@ import time
 import os
 import librosa
 import hashlib
-from fastapi import APIRouter, HTTPException, Depends, Security, Request
+from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi.security import APIKeyHeader
 from fastapi.responses import Response
 from .models import GenerateRequest
-from config.config import API_KEYS, API_KEY_HEADER, ENVIRONMENT, audio_lock, llm_lock
+from config.config import API_KEYS, ENVIRONMENT, audio_lock, llm_lock
 from server.api.api_request_handler import APIRequestHandler
 
 
@@ -24,11 +25,16 @@ def get_dj_system(request: Request):
     raise RuntimeError("No DJSystem instance found in FastAPI application!")
 
 
-async def verify_api_key(api_key: str = Security(API_KEY_HEADER)):
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+async def verify_api_key(api_key: str = Depends(api_key_header)):
     if ENVIRONMENT == "dev":
         return "dev-bypass"
     if not API_KEYS:
         raise HTTPException(status_code=500, detail="No API keys configured")
+    if not api_key:
+        raise HTTPException(status_code=401, detail="API Key required")
     if api_key not in API_KEYS:
         raise HTTPException(status_code=403, detail="Invalid API key")
     return api_key
@@ -45,6 +51,7 @@ async def generate_loop(
     api_key: str = Depends(verify_api_key),
     dj_system=Depends(get_dj_system),
 ):
+    processed_path = None
     try:
         request_id = int(time.time())
         print(f"===== 🎵 QUERY #{request_id} =====")
@@ -85,5 +92,5 @@ async def generate_loop(
         raise HTTPException(status_code=500, detail=str(e))
 
     finally:
-        if os.path.exists(processed_path):
+        if processed_path and os.path.exists(processed_path):
             os.remove(processed_path)

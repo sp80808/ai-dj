@@ -43,7 +43,7 @@ class DJSystem:
         if not os.path.exists(self.output_dir_base):
             os.makedirs(self.output_dir_base)
         print("⌛ Loading sample generator...")
-        self.music_gen = MusicGenerator()
+        self.music_gen = MusicGenerator(args.audio_model)
 
         print("⏳ Initializing LayerManager...")
         self.layer_manager = LayerManager(
