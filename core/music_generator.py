@@ -12,13 +12,11 @@ from einops import rearrange
 from stable_audio_tools.inference.generation import (
     generate_diffusion_cond,
 )
-from dotenv import load_dotenv
 
 
 class MusicGenerator:
-    def __init__(self):
-        load_dotenv()
-        self.model_id = os.environ.get("AUDIO_MODEL")
+    def __init__(self, model_id="stable-audio-open-1.0"):
+        self.model_id = model_id
         self.model = None
         self.sample_rate = 44100
         self.default_duration = 6
