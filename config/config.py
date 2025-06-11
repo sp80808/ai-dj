@@ -1,3 +1,4 @@
+import asyncio
 from typing import List
 
 API_KEYS: List[str] = []
@@ -5,8 +6,9 @@ ENVIRONMENT: str = "dev"
 AUDIO_MODEL: str = "stabilityai/stable-audio-open-1.0"
 
 API_KEY_HEADER = "X-API-Key"
-audio_lock = None
-llm_lock = None
+
+audio_lock = asyncio.Lock()
+llm_lock = asyncio.Lock()
 
 
 def init_config_from_args(args):

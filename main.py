@@ -115,6 +115,7 @@ def main():
         api_keys=",".join(api_keys) if api_keys else "",
         environment=environment,
         audio_model=audio_model,
+        use_stored_keys=args.use_stored_keys,
     )
 
     init_config_from_args(config_args)
