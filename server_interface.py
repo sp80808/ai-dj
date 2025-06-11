@@ -448,6 +448,29 @@ class ObsidianNeuralLauncher:
         canvas.bind("<Configure>", configure_scroll_region)
         canvas.configure(yscrollcommand=scrollbar.set)
 
+        def _on_canvas_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        def _on_listbox_mousewheel(event):
+            self.api_keys_listbox.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        def _bind_canvas_mousewheel(event):
+            canvas.bind_all("<MouseWheel>", _on_canvas_mousewheel)
+
+        def _unbind_canvas_mousewheel(event):
+            canvas.unbind_all("<MouseWheel>")
+
+        def _bind_listbox_mousewheel(event):
+            canvas.unbind_all("<MouseWheel>")
+            self.api_keys_listbox.bind_all("<MouseWheel>", _on_listbox_mousewheel)
+
+        def _unbind_listbox_mousewheel(event):
+            self.api_keys_listbox.unbind_all("<MouseWheel>")
+            canvas.bind_all("<MouseWheel>", _on_canvas_mousewheel)
+
+        canvas.bind("<Enter>", _bind_canvas_mousewheel)
+        canvas.bind("<Leave>", _unbind_canvas_mousewheel)
+
         api_frame = ttk.LabelFrame(
             scrollable_frame, text="API Keys Management", padding="15"
         )
@@ -460,12 +483,19 @@ class ObsidianNeuralLauncher:
 
         list_scroll = ttk.Scrollbar(list_frame, orient="vertical")
         self.api_keys_listbox = tk.Listbox(
-            list_frame, height=4, yscrollcommand=list_scroll.set, font=("Consolas", 9)
+            list_frame,
+            height=4,
+            yscrollcommand=list_scroll.set,
+            font=("Consolas", 9),
+            selectmode=tk.EXTENDED,
         )
         list_scroll.config(command=self.api_keys_listbox.yview)
 
         self.api_keys_listbox.pack(side="left", fill="both", expand=True)
         list_scroll.pack(side="right", fill="y")
+
+        self.api_keys_listbox.bind("<Enter>", _bind_listbox_mousewheel)
+        self.api_keys_listbox.bind("<Leave>", _unbind_listbox_mousewheel)
 
         api_buttons_frame = ttk.Frame(api_frame)
         api_buttons_frame.pack(fill="x", pady=(0, 10))
@@ -480,7 +510,7 @@ class ObsidianNeuralLauncher:
             api_buttons_frame, text="✏️ Rename Selected", command=self.rename_api_key
         ).pack(side="left", padx=(0, 5))
         ttk.Button(
-            api_buttons_frame, text="🗑 Remove Selected", command=self.remove_api_key
+            api_buttons_frame, text="🗑 Remove Selected", command=self.remove_api_keys
         ).pack(side="left", padx=(0, 5))
         ttk.Button(
             api_buttons_frame, text="📋 Copy Selected", command=self.copy_api_key
@@ -560,6 +590,13 @@ class ObsidianNeuralLauncher:
         ).pack(side="right", padx=(5, 0))
 
         ttk.Label(model_frame, text="Audio Model:").pack(anchor="w")
+        ttk.Label(
+            model_frame,
+            text="(Only these two models are currently supported)",
+            font=("Arial", 9),
+            foreground="gray",
+        ).pack(anchor="w", pady=(0, 5))
+
         audio_model_combo = ttk.Combobox(
             model_frame,
             textvariable=self.audio_model,
@@ -567,7 +604,6 @@ class ObsidianNeuralLauncher:
                 "stabilityai/stable-audio-open-1.0",
                 "stabilityai/stable-audio-open-small",
             ],
-            state="readonly",
         )
         audio_model_combo.pack(fill="x", pady=(5, 0))
 
@@ -617,10 +653,74 @@ class ObsidianNeuralLauncher:
             button_frame, text="🔧 Reset to Defaults", command=self.reset_to_defaults
         ).pack(side="left")
 
-        def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+    def remove_api_keys(self):
+        selections = self.api_keys_listbox.curselection()
+        if not selections:
+            messagebox.showwarning(
+                "No Selection", "Please select one or more API keys to remove"
+            )
+            return
 
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        count = len(selections)
+        if count == 1:
+            self.remove_api_key()
+            return
+
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute(
+                "SELECT id, key_value_encrypted, name FROM api_keys ORDER BY created_at"
+            )
+            rows = cursor.fetchall()
+
+            keys_to_delete = []
+            for index in selections:
+                if index < len(rows):
+                    db_id, encrypted_key, name = rows[index]
+                    decrypted_key = self.secure_storage.decrypt(encrypted_key)
+                    display_name = name if name else f"Key {index + 1}"
+                    keys_to_delete.append(
+                        {
+                            "id": db_id,
+                            "name": display_name,
+                            "preview": f"{decrypted_key[:8]}...{decrypted_key[-4:]}",
+                        }
+                    )
+
+            if not keys_to_delete:
+                conn.close()
+                messagebox.showerror("Error", "Invalid selection")
+                return
+
+            key_list = "\n".join(
+                [f"• {key['name']} ({key['preview']})" for key in keys_to_delete]
+            )
+            if not messagebox.askyesno(
+                "Confirm Multiple Deletion",
+                f"Are you sure you want to delete {count} API keys?\n\n{key_list}",
+            ):
+                conn.close()
+                return
+
+            deleted_count = 0
+            for key_info in keys_to_delete:
+                cursor.execute("DELETE FROM api_keys WHERE id = ?", (key_info["id"],))
+                deleted_count += cursor.rowcount
+
+            conn.commit()
+            conn.close()
+
+            if deleted_count > 0:
+                self.load_api_keys()
+                self.log(f"{deleted_count} API key(s) removed successfully", "SUCCESS")
+            else:
+                messagebox.showerror("Error", "Could not remove API keys from database")
+
+        except Exception as e:
+            self.log(f"Error removing API keys: {e}", "ERROR")
+            messagebox.showerror("Error", f"Could not remove API keys: {e}")
 
     def rename_api_key(self):
         selection = self.api_keys_listbox.curselection()
@@ -986,6 +1086,8 @@ class ObsidianNeuralLauncher:
 
     def load_config(self):
         try:
+            old_auto_save = self.auto_save_enabled
+            self.auto_save_enabled = False
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
 
@@ -1010,6 +1112,12 @@ class ObsidianNeuralLauncher:
                         self.audio_model.set(value)
 
             conn.close()
+
+            def restore_auto_save():
+                self.auto_save_enabled = old_auto_save
+                self.log("Auto-save re-enabled after config load")
+
+            self.root.after(1000, restore_auto_save)
             self.log(f"Configuration loaded with encryption support")
 
         except Exception as e:
@@ -1541,15 +1649,15 @@ class ObsidianNeuralLauncher:
     def show_setup_wizard(self):
         wizard = tk.Toplevel(self.root)
         wizard.title("OBSIDIAN-Neural - First Time Setup")
-        wizard.geometry("650x800")
+        wizard.geometry("650x900")
         wizard.transient(self.root)
         wizard.grab_set()
         wizard.resizable(True, True)
 
         wizard.update_idletasks()
         x = (wizard.winfo_screenwidth() // 2) - (650 // 2)
-        y = (wizard.winfo_screenheight() // 2) - (800 // 2)
-        wizard.geometry(f"650x800+{x}+{y}")
+        y = (wizard.winfo_screenheight() // 2) - (900 // 2)
+        wizard.geometry(f"650x900+{x}+{y}")
 
         wizard_model_path = tk.StringVar()
         wizard_api_key = tk.StringVar()
@@ -1669,27 +1777,100 @@ class ObsidianNeuralLauncher:
                 messagebox.showerror("Error", "Please enter your Hugging Face token")
                 return
 
+            if not token.startswith("hf_") or len(token) < 30:
+                messagebox.showerror(
+                    "Invalid Format",
+                    "Hugging Face tokens should start with 'hf_' and be ~37 characters long.\n\n"
+                    "Create a token at: https://huggingface.co/settings/tokens",
+                )
+                return
+
             try:
                 import requests
 
                 headers = {"Authorization": f"Bearer {token}"}
+
                 response = requests.get(
-                    "https://huggingface.co/api/whoami", headers=headers, timeout=10
+                    "https://huggingface.co/api/whoami-v2", headers=headers, timeout=15
                 )
 
-                if response.status_code == 200:
-                    user_info = response.json()
-                    username = user_info.get("name", "Unknown")
-                    messagebox.showinfo(
-                        "Token Valid", f"✅ Token verified!\nUser: {username}"
-                    )
-                    return True
-                else:
-                    messagebox.showerror(
-                        "Invalid Token", "❌ Token is invalid or expired"
-                    )
+                if response.status_code != 200:
+                    if response.status_code == 401:
+                        messagebox.showerror(
+                            "Invalid Token",
+                            "❌ Token is invalid or expired\n\n"
+                            "Please check your token at:\n"
+                            "https://huggingface.co/settings/tokens",
+                        )
+                    else:
+                        messagebox.showerror(
+                            "Verification Failed",
+                            f"❌ Could not verify token\n"
+                            f"HTTP {response.status_code}: {response.text[:200]}",
+                        )
                     return False
 
+                user_info = response.json()
+                username = user_info.get("name", user_info.get("fullname", "Unknown"))
+
+                model_tests = [
+                    (
+                        "HEAD request",
+                        "HEAD",
+                        "https://huggingface.co/stabilityai/stable-audio-open-1.0",
+                    ),
+                    (
+                        "Model info API",
+                        "GET",
+                        "https://huggingface.co/api/models/stabilityai/stable-audio-open-1.0",
+                    ),
+                ]
+
+                for test_name, method, url in model_tests:
+                    try:
+                        if method == "HEAD":
+                            test_response = requests.head(
+                                url, headers=headers, timeout=10
+                            )
+                        else:
+                            test_response = requests.get(
+                                url, headers=headers, timeout=10
+                            )
+
+                        if test_response.status_code == 200:
+                            messagebox.showinfo(
+                                "Token Valid",
+                                f"✅ Token verified!\n"
+                                f"User: {username}\n"
+                                f"✅ Stable Audio access confirmed",
+                            )
+                            return True
+
+                    except Exception as e:
+                        continue
+
+                messagebox.showwarning(
+                    "Access Required",
+                    f"✅ Token is valid for user: {username}\n"
+                    f"❌ Access to Stable Audio model required\n\n"
+                    f"Steps to fix:\n"
+                    f"1. Go to: https://huggingface.co/stabilityai/stable-audio-open-1.0\n"
+                    f"2. Click 'Request access'\n"
+                    f"3. Wait for approval (usually instant)\n"
+                    f"4. Create a NEW token with 'read' permissions",
+                )
+                return False
+
+            except requests.exceptions.Timeout:
+                messagebox.showerror(
+                    "Timeout", "❌ Request timed out. Check your internet connection."
+                )
+                return False
+            except requests.exceptions.ConnectionError:
+                messagebox.showerror(
+                    "Connection Error", "❌ Could not connect to Hugging Face."
+                )
+                return False
             except Exception as e:
                 messagebox.showerror(
                     "Verification Error", f"Could not verify token:\n{e}"
@@ -1760,7 +1941,7 @@ class ObsidianNeuralLauncher:
         )
 
         step3_frame = ttk.LabelFrame(
-            main_frame, text="Step 3: Server Configuration", padding="15"
+            main_frame, text="Step 4: Server Configuration", padding="15"
         )
         step3_frame.pack(fill="x", pady=(0, 15))
 
@@ -1845,14 +2026,21 @@ class ObsidianNeuralLauncher:
                 self.environment.set(wizard_environment.get())
                 self.audio_model.set(wizard_audio_model.get())
 
-                conn = sqlite3.connect(self.db_path)
-                cursor = conn.cursor()
-                cursor.execute(
-                    "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
-                    ("hf_token", wizard_hf_token.get().strip()),
-                )
-                conn.commit()
-                conn.close()
+                hf_token = wizard_hf_token.get().strip()
+                if hf_token:
+                    conn = sqlite3.connect(self.db_path)
+                    cursor = conn.cursor()
+
+                    encrypted_token = self.secure_storage.encrypt(hf_token)
+                    cursor.execute(
+                        "INSERT OR REPLACE INTO config (key, value, is_encrypted) VALUES (?, ?, ?)",
+                        ("hf_token", encrypted_token, 1),
+                    )
+
+                    conn.commit()
+                    conn.close()
+
+                    self.hf_token_var.set(hf_token)
 
                 if self.save_api_key(wizard_api_key.get(), wizard_api_name.get()):
                     self.api_keys_list.append(wizard_api_key.get())

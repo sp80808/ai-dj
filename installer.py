@@ -807,12 +807,12 @@ class ObsidianNeuralInstaller:
         ).pack(anchor="w")
         ttk.Checkbutton(
             options_frame,
-            text="⬇️ Skip VST build (download from releases instead)",
+            text="⬇️ Skip VST compilation (manual download required)",
             variable=self.skip_vst_build,
         ).pack(anchor="w")
         info_label = ttk.Label(
             options_frame,
-            text="   💡 VST will be downloaded from: github.com/innermost47/ai-dj/releases",
+            text="      💡 You'll need to manually download the VST from releases",
             font=("Arial", 8),
             foreground="gray",
         )
@@ -848,9 +848,10 @@ class ObsidianNeuralInstaller:
         )
         self.install_button.pack(side="left", padx=(0, 10))
 
-        ttk.Button(button_frame, text="❌ Cancel", command=self.root.quit).pack(
-            side="left"
+        self.cancel_button = ttk.Button(
+            button_frame, text="❌ Cancel", command=self.root.quit
         )
+        self.cancel_button.pack(side="left")
 
         def _on_mousewheel(event):
             canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
@@ -961,15 +962,17 @@ class ObsidianNeuralInstaller:
                     ("Downloading the source code", self.download_source),
                     ("Creating the Python Environment", self.create_venv),
                     ("Installing Python Dependencies", self.install_python_deps),
+                    (
+                        "Server setup & desktop shortcut",
+                        self.create_server_executable_and_shortcut,
+                    ),
                     ("AI Model Download (2.49 GB)", self.download_model),
                     ("VST Setup", self.setup_vst),
-                    ("Creating server executable", self.create_server_executable),
-                    ("Creating desktop shortcut", self.create_desktop_shortcut),
                     ("Environment configuration", self.setup_environment),
                 ]
             )
 
-            if self.auto_copy_vst.get():
+            if self.auto_copy_vst.get() and not self.skip_vst_build.get():
                 steps.append(("Installing the VST plugin", self.install_vst))
 
             if self.run_benchmark.get():
@@ -991,6 +994,7 @@ class ObsidianNeuralInstaller:
             self.log(
                 "🎉 OBSIDIAN-Neural installation completed successfully!", "SUCCESS"
             )
+            self.cancel_button.config(text="✅ Close")
 
             if self.start_after_install.get():
                 self.start_server(install_dir)
@@ -1007,112 +1011,87 @@ class ObsidianNeuralInstaller:
         finally:
             self.install_button.config(state="normal")
 
-    def create_server_executable(self, install_dir):
-        self.log("Building server executable...")
+    def setup_vst(self, install_dir):
+        if self.skip_vst_build.get():
+            self.skip_vst_manual(install_dir)
+        else:
+            self.build_vst(install_dir)
 
-        bat_script = Path(__file__).parent / "scripts" / "build_executable.bat"
+    def create_server_executable_and_shortcut(self, install_dir):
+        self.log("Creating desktop shortcut...")
+        exe_path = install_dir / "bin" / "OBSIDIAN-Neural-Server.exe"
 
-        result = self.safe_subprocess_run(
-            [str(bat_script), str(install_dir)], cwd=install_dir, shell=True
+        if not exe_path.exists():
+            self.log("Pre-built executable not found in bin/", "WARNING")
+            self.log("You can manually compile later if needed")
+            return
+
+        desktop = Path.home() / "Desktop"
+        shortcut_path = desktop / "OBSIDIAN-Neural Server.lnk"
+        logo_path = install_dir / "logo.png"
+        ico_path = install_dir / "logo.ico"
+
+        icon_line = (
+            f'$Shortcut.IconLocation = "{ico_path}"' if ico_path.exists() else ""
         )
 
-        if result.returncode != 0:
-            raise Exception("Failed to build executable")
-
-        self.log("Server executable created successfully!", "SUCCESS")
-
-    def create_desktop_shortcut(self, install_dir):
-        self.log("Creating desktop shortcut...")
-
-        if platform.system() == "Windows":
-            desktop = Path.home() / "Desktop"
-            shortcut_path = desktop / "OBSIDIAN-Neural Server.lnk"
-
-            if platform.system() == "Windows":
-                exe_path = install_dir / "OBSIDIAN-Neural-Server.exe"
-                logo_path = install_dir / "logo.png"
-                ico_path = install_dir / "logo.ico"
-
-                ps_script = f"""
+        ps_script = f"""
     $WshShell = New-Object -comObject WScript.Shell
     $Shortcut = $WshShell.CreateShortcut("{shortcut_path}")
     $Shortcut.TargetPath = "{exe_path}"
     $Shortcut.WorkingDirectory = "{install_dir}"
     $Shortcut.Description = "OBSIDIAN-Neural AI Music Generation Server"
-    {"$Shortcut.IconLocation = " + str(ico_path)}
+    {icon_line}
     $Shortcut.Save()
     """
 
-                cmd = ["powershell", "-Command", ps_script]
-                result = self.safe_subprocess_run(cmd, capture_output=True, text=True)
+        cmd = ["powershell", "-Command", ps_script]
+        result = self.safe_subprocess_run(cmd, capture_output=True, text=True)
 
-                if result.returncode == 0:
-                    self.log("✅ Desktop shortcut created")
-                else:
-                    self.log(f"Could not create shortcut: {result.stderr}", "WARNING")
-
-        else:
-            desktop = Path.home() / "Desktop"
-            shortcut_path = desktop / "OBSIDIAN-Neural-Server.desktop"
-
-            exe_path = install_dir / "OBSIDIAN-Neural-Server"
-            logo_path = install_dir / "logo.png"
-
-            desktop_content = f"""[Desktop Entry]
-    Name=OBSIDIAN-Neural Server
-    Comment=AI Music Generation Inference Server
-    Exec={exe_path}
-    Icon={logo_path if logo_path.exists() else ""}
-    Terminal=true
-    Type=Application
-    Categories=AudioVideo;Audio;
-    """
-            shortcut_path.write_text(desktop_content)
-            shortcut_path.chmod(0o755)
+        if result.returncode == 0:
             self.log("✅ Desktop shortcut created")
-
-    def setup_vst(self, install_dir):
-        if self.skip_vst_build.get():
-            self.download_vst_release(install_dir)
         else:
-            self.build_vst(install_dir)
+            self.log(f"Could not create shortcut: {result.stderr}", "WARNING")
 
-    def download_vst_release(self, install_dir):
-        self.log("Downloading latest VST3 from GitHub releases...")
-        import json
+        self.log("Server setup completed!", "SUCCESS")
 
-        api_url = "https://api.github.com/repos/innermost47/ai-dj/releases/latest"
+    def skip_vst_manual(self, install_dir):
+        self.log("VST build skipped - manual download required")
+        self.log("=" * 60)
+        self.log("📋 MANUAL VST INSTALLATION REQUIRED", "WARNING")
+        self.log("=" * 60)
+        self.log("1. Go to: https://github.com/innermost47/ai-dj/releases")
+        self.log("2. Download the latest .vst3 file")
+        self.log("3. Extract/copy it to your VST3 folder:")
+        self.log(f"   → {self.vst_path.get()}")
+        self.log("=" * 60)
+        self.log("💡 The installer will continue without VST compilation")
 
-        try:
-            with urllib.request.urlopen(api_url) as response:
-                release_data = json.loads(response.read().decode())
+        vst_build_dir = install_dir / "vst" / "build"
+        vst_build_dir.mkdir(parents=True, exist_ok=True)
 
-            vst_asset = None
-            for asset in release_data.get("assets", []):
-                if asset["name"].endswith(".vst3") or "vst3" in asset["name"].lower():
-                    vst_asset = asset
-                    break
+        desktop = Path.home() / "Desktop"
+        readme_content = f"""OBSIDIAN-Neural VST - MANUAL DOWNLOAD REQUIRED
 
-            if not vst_asset:
-                raise Exception("No VST3 file found in latest release")
+    The VST3 plugin compilation was skipped during installation.
+    Please follow these steps to install the VST3 plugin:
 
-            self.log(f"Downloading {vst_asset['name']}...")
+    1. Visit: https://github.com/innermost47/ai-dj/releases
+    2. Download the latest .vst3 file from the releases
+    3. Copy it to your VST3 folder:
+    {self.vst_path.get()}
 
-            vst_build_dir = install_dir / "vst" / "build"
-            vst_build_dir.mkdir(parents=True, exist_ok=True)
+    The server will work without the VST, but you'll need the VST 
+    for DAW integration (FL Studio, Ableton, etc.).
 
-            vst_path = vst_build_dir / vst_asset["name"]
-            urllib.request.urlretrieve(vst_asset["browser_download_url"], vst_path)
+    Installation completed at: {install_dir}
+    """
 
-            self.log("✅ VST3 downloaded successfully from releases")
+        readme_file = desktop / "OBSIDIAN-Neural_VST_Instructions.txt"
+        readme_file.write_text(readme_content)
 
-        except Exception as e:
-            self.log(f"Failed to download VST from releases: {e}", "ERROR")
-            self.log(
-                "💡 You can manually download from: https://github.com/innermost47/ai-dj/releases",
-                "WARNING",
-            )
-            raise
+        self.log(f"📄 Instructions saved to desktop: {readme_file}")
+        self.log("💡 Check your desktop for VST installation instructions")
 
     def run_benchmark_func(self, install_dir):
         self.log("🧪 Starting the performance benchmark...")
@@ -1649,22 +1628,34 @@ class ObsidianNeuralInstaller:
                     check=False,
                     capture_output=True,
                 )
-
         except PermissionError as e:
             self.log(f"Permission error: {e}", "ERROR")
             raise Exception(f"Cannot create installation directory: {e}")
 
+        if venv_path.exists():
+            if platform.system() == "Windows":
+                python_in_venv = venv_path / "Scripts" / "python.exe"
+                pip_in_venv = venv_path / "Scripts" / "pip.exe"
+            else:
+                python_in_venv = venv_path / "bin" / "python"
+                pip_in_venv = venv_path / "bin" / "pip"
+
+            if python_in_venv.exists():
+                self.log("Virtual environment already exists - reusing it")
+                self.log(f"Using existing environment: {venv_path}")
+                return install_dir
+            else:
+                self.log("Invalid virtual environment detected - recreating...")
+                try:
+                    import shutil
+
+                    shutil.rmtree(venv_path)
+                    self.log("Old environment removed")
+                except Exception as e:
+                    self.log(f"Could not remove old environment: {e}", "WARNING")
+
         self.log("Creating Python virtual environment...")
         self.log(f"Installation directory: {install_dir}")
-
-        if venv_path.exists():
-            try:
-                import shutil
-
-                shutil.rmtree(venv_path)
-                self.log("Old environment removed")
-            except Exception as e:
-                self.log(f"Could not remove old environment: {e}", "WARNING")
 
         python_exe = self.find_system_python()
         cmd = [python_exe, "-m", "venv", str(venv_path)]
@@ -2272,8 +2263,6 @@ class ObsidianNeuralInstaller:
         build_dir.mkdir(exist_ok=True)
 
         if self.is_admin:
-            import subprocess
-
             self.safe_subprocess_run(
                 ["icacls", str(build_dir), "/grant", "Authenticated Users:(OI)(CI)F"],
                 check=False,
@@ -2315,16 +2304,21 @@ class ObsidianNeuralInstaller:
 
     def start_server(self, install_dir):
         try:
-            if platform.system() == "Windows":
-                python_path = install_dir / "env" / "Scripts" / "python.exe"
+            exe_path = install_dir / "bin" / "OBSIDIAN-Neural-Server.exe"
+
+            if exe_path.exists():
+                subprocess.Popen([str(exe_path)], cwd=install_dir)
+                self.log("✅ Server started via executable!")
             else:
-                python_path = install_dir / "env" / "bin" / "python"
+                self.log("Executable not found, falling back to Python mode")
+                if platform.system() == "Windows":
+                    python_path = install_dir / "env" / "Scripts" / "python.exe"
+                else:
+                    python_path = install_dir / "env" / "bin" / "python"
 
-            main_script = install_dir / "main.py"
-
-            subprocess.Popen([str(python_path), str(main_script)], cwd=install_dir)
-
-            self.log("✅ Server started via main.py!")
+                main_script = install_dir / "main.py"
+                subprocess.Popen([str(python_path), str(main_script)], cwd=install_dir)
+                self.log("✅ Server started via main.py!")
 
         except Exception as e:
             self.log(f"❌ Startup error: {e}", "ERROR")
