@@ -40,6 +40,10 @@ Help me improve OBSIDIAN-Neural by:
 - What you'd like to test/explore with OBSIDIAN-Neural
 - Commitment to provide feedback via GitHub Issues
 
+**Via:**
+
+- **Email:** b03caa1n5@mozmail.com
+
 _Note: I'm aware that requiring GPU creates accessibility barriers. This beta program aims to lower that barrier while I gather feedback to improve the plugin for everyone._
 
 ---
