@@ -1,3 +1,4 @@
+import platform
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
 import subprocess
@@ -90,11 +91,16 @@ class ObsidianNeuralLauncher:
         return self.handle_admin_install()
 
     def detect_installation_dir(self):
+        current_dir = Path.cwd()
+
         possible_paths = [
             Path("C:/ProgramData/OBSIDIAN-Neural"),
             Path.home() / "OBSIDIAN-Neural",
-            Path.cwd(),
+            current_dir,
+            current_dir.parent,
         ]
+        if current_dir.name == "bin":
+            possible_paths.insert(0, current_dir.parent)
 
         for path in possible_paths:
             if (path / "main.py").exists():
@@ -102,7 +108,7 @@ class ObsidianNeuralLauncher:
                 return path
 
         self.log("Using current directory as installation path")
-        return Path.cwd()
+        return current_dir
 
     def setup_variables(self):
         self.api_keys_list = []
@@ -1515,7 +1521,9 @@ class ObsidianNeuralLauncher:
                 self.log("Development mode: no API keys configured, bypass enabled")
 
             self.log(f"Command: {' '.join(cmd)}")
-
+            creation_flags = 0
+            if platform.system() == "Windows":
+                creation_flags = subprocess.CREATE_NO_WINDOW
             self.server_process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -1526,6 +1534,7 @@ class ObsidianNeuralLauncher:
                 env=env,
                 encoding="utf-8",
                 errors="replace",
+                creationflags=creation_flags,
             )
 
             self.is_server_running = True
