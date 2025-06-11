@@ -8,6 +8,46 @@ OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM
 
 **OBSIDIAN-Neural is currently in pre-release.** While functional, you may encounter bugs and instabilities between versions. Your feedback and bug reports help us improve! 🙏
 
+## 🚀 Beta Testing Program - Free API Access Available!
+
+**Testing Period:** Daily 10:00 - 00:00 (French Time)
+
+### 🎯 What I'm Offering
+
+**10 free API keys** for motivated testers - no GPU required on your end! Generate up to **50 AI samples** using my hosted Stable Audio Open Small model.
+
+### 🤝 What I Ask in Return
+
+Help me improve OBSIDIAN-Neural by:
+
+- **Reporting bugs** via GitHub Issues
+- **Testing edge cases** and unusual workflows
+- **Sharing feedback** on user experience
+- **Documenting issues** with clear reproduction steps
+
+### 🎵 Perfect For
+
+- **Musicians** wanting to try AI-generated loops without GPU investment
+- **Developers** interested in AI music plugin architecture
+- **Beta testers** who love breaking things (constructively!)
+- **Electronic music producers** exploring new creative workflows
+
+### 📞 How to Apply
+
+**Contact me privately** with:
+
+- Brief intro about your music/testing background
+- What you'd like to test/explore with OBSIDIAN-Neural
+- Commitment to provide feedback via GitHub Issues
+
+**Via:**
+
+- **Email:** b03caa1n5@mozmail.com
+
+_Note: I'm aware that requiring GPU creates accessibility barriers. This beta program aims to lower that barrier while I gather feedback to improve the plugin for everyone._
+
+---
+
 ## 🚀 Quick Start
 
 ### New: GUI Tools Available!
