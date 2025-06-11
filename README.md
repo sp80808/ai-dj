@@ -13,7 +13,7 @@ OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM
 ### New: GUI Tools Available!
 
 - **🔧 [Installer](https://github.com/innermost47/ai-dj/releases)** - One-click setup _(Windows .exe)_
-- **🎛️ [Server GUI](https://github.com/innermost47/ai-dj/releases)** - Control panel for server management _(Windows .exe)_
+- **🎛️ Server GUI** - Control panel for server management
 
 **Cross-Platform Alternative:**
 
@@ -25,7 +25,7 @@ OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM
 
 ## 📢 Community Update
 
-**Thank you!** We've gained **52 stars since June 6th** - the support has been incredible! 🌟
+**Thank you!** We've gained **53 stars since June 6th** - the support has been incredible! 🌟
 
 _Your bug reports and feedback help us improve with each release._
 
