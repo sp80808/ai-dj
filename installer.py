@@ -1020,12 +1020,7 @@ class ObsidianNeuralInstaller:
         subprocess.run(cmd, check=True, timeout=300)
 
         logo_path = install_dir / "logo.png"
-        icon_option = f"--icon={logo_path}" if logo_path.exists() else ""
-
         main_script = install_dir / "server_interface.py"
-
-        if not main_script.exists():
-            raise Exception(f"server_interface.py not found at {main_script}")
 
         cmd = [
             str(python_path),
@@ -1035,18 +1030,61 @@ class ObsidianNeuralInstaller:
             "--noconsole",
             "--name",
             "OBSIDIAN-Neural-Server",
-            "--hidden-import=tkinter",
-            "--hidden-import=tkinter.ttk",
-            "--hidden-import=tkinter.messagebox",
-            "--hidden-import=tkinter.filedialog",
-            "--hidden-import=tkinter.scrolledtext",
             "--distpath",
             str(install_dir),
-            str(main_script),
         ]
 
-        if icon_option:
-            cmd.insert(-1, icon_option)
+        if platform.system() == "Windows":
+            import tkinter
+
+            tk_lib = Path(tkinter.__file__).parent
+
+            tk_dll = None
+            tcl_dll = None
+
+            for dll_path in [
+                tk_lib,
+                tk_lib.parent / "DLLs",
+                Path(sys.executable).parent / "DLLs",
+            ]:
+                if dll_path.exists():
+                    for dll_file in dll_path.glob("tk*.dll"):
+                        if not tk_dll:
+                            tk_dll = dll_file
+                            break
+                    for dll_file in dll_path.glob("tcl*.dll"):
+                        if not tcl_dll:
+                            tcl_dll = dll_file
+                            break
+
+            if tk_dll:
+                cmd.extend(["--add-binary", f"{tk_dll};."])
+            if tcl_dll:
+                cmd.extend(["--add-binary", f"{tcl_dll};."])
+
+        elif platform.system() == "Darwin":
+            cmd.extend(
+                [
+                    "--add-binary",
+                    "/System/Library/Frameworks/Tk.framework/Tk:tk",
+                    "--add-binary",
+                    "/System/Library/Frameworks/Tcl.framework/Tcl:tcl",
+                ]
+            )
+        elif platform.system() == "Linux":
+            possible_paths = ["/usr/lib", "/usr/lib/x86_64-linux-gnu"]
+            for lib_path in possible_paths:
+                tk_so = Path(lib_path) / "libtk8.6.so"
+                tcl_so = Path(lib_path) / "libtcl8.6.so"
+                if tk_so.exists():
+                    cmd.extend(["--add-binary", f"{tk_so}:."])
+                if tcl_so.exists():
+                    cmd.extend(["--add-binary", f"{tcl_so}:."])
+
+        if logo_path.exists():
+            cmd.extend(["--icon", str(logo_path)])
+
+        cmd.append(str(main_script))
 
         self.log(f"PyInstaller command: {' '.join(cmd)}")
 
@@ -1058,7 +1096,7 @@ class ObsidianNeuralInstaller:
             self.log(f"PyInstaller build failed: {result.stderr}", "ERROR")
             raise Exception("Failed to build server executable")
 
-        self.log("Server executable created successfully", "SUCCESS")
+        self.log("Server executable created successfully!", "SUCCESS")
 
     def create_desktop_shortcut(self, install_dir):
         self.log("Creating desktop shortcut...")
