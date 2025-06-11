@@ -173,7 +173,7 @@ void DjIaVstEditor::onGenerationComplete(const juce::String &selectedTrackId, co
 			}
 			else {
 				statusLabel.setColour(juce::Label::textColourId, juce::Colours::green);
-				juce::Timer::callAfterDelay(2000, [this]() {
+				juce::Timer::callAfterDelay(3000, [this]() {
 					statusLabel.setText("Ready", juce::dontSendNotification);
 					statusLabel.setColour(juce::Label::textColourId, juce::Colours::white);
 					});
@@ -941,13 +941,16 @@ void DjIaVstEditor::setAllGenerateButtonsEnabled(bool enabled)
 
 void DjIaVstEditor::onGenerateButtonClicked()
 {
-	if (serverUrlInput.getText().isEmpty())
+	juce::String serverUrl = audioProcessor.getServerUrl();
+	juce::String apiKey = audioProcessor.getApiKey();
+
+	if (serverUrl.isEmpty())
 	{
 		statusLabel.setText("Error: Server URL is required", juce::dontSendNotification);
 		return;
 	}
 
-	if (apiKeyInput.getText().isEmpty())
+	if (apiKey.isEmpty())
 	{
 		statusLabel.setText("Error: API Key is required", juce::dontSendNotification);
 		return;
@@ -985,8 +988,8 @@ void DjIaVstEditor::onGenerateButtonClicked()
 						juce::dontSendNotification);
 					});
 
-				audioProcessor.setServerUrl(serverUrlInput.getText());
-				audioProcessor.setApiKey(apiKeyInput.getText());
+				audioProcessor.setServerUrl(audioProcessor.getServerUrl());
+				audioProcessor.setApiKey(audioProcessor.getApiKey());
 
 				juce::Thread::sleep(100);
 
@@ -1021,8 +1024,6 @@ void DjIaVstEditor::onGenerateButtonClicked()
 							break;
 						}
 					}
-					statusLabel.setText("Loop generated successfully! Press Play to listen.",
-						juce::dontSendNotification);
 					generateButton.setEnabled(true);
 					setAllGenerateButtonsEnabled(true);
 					audioProcessor.setIsGenerating(false);
@@ -1039,7 +1040,6 @@ void DjIaVstEditor::onGenerateButtonClicked()
 						}
 					}
 
-					statusLabel.setText("Error: " + error, juce::dontSendNotification);
 					generateButton.setEnabled(true);
 					setAllGenerateButtonsEnabled(true);
 					audioProcessor.setIsGenerating(false);

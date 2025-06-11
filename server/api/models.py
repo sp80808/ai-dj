@@ -8,5 +8,5 @@ class GenerateRequest(BaseModel):
     key: Optional[str] = None
     measures: Optional[int] = 4
     preferred_stems: Optional[List[str]] = None
-    generation_duration: Optional[int] = 6
+    generation_duration: Optional[float] = 6.0
     sample_rate: Optional[float] = 48000.00
