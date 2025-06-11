@@ -22,9 +22,34 @@ def create_api_app():
         description="API for the VST OBSIDIAN-Neural plugin",
         version="1.0.0",
     )
+    
+    from fastapi.exceptions import RequestValidationError
+    from fastapi.responses import JSONResponse
+    
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        print(f"❌ Validation Error on {request.method} {request.url}")
+        print(f"❌ Error details: {exc.errors()}")
+        
+        try:
+            body = await request.body()
+            print(f"❌ Raw request body: {body.decode('utf-8')}")
+        except:
+            print("❌ Could not read request body")
+        
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": f"Request validation failed: {exc.errors()}"
+                }
+            }
+        )
+    
     from server.api.routes import router
-
     app.include_router(router, prefix="/api/v1", dependencies=[Depends(get_dj_system)])
+    
     return app
 
 

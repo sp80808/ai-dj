@@ -2183,6 +2183,7 @@ class ObsidianNeuralInstaller:
             "demucs",
             "cryptography",
             "pyinstaller",
+            "pystray",
         ]
 
         for package in packages:

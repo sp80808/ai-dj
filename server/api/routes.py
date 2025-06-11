@@ -70,6 +70,7 @@ async def verify_api_key(api_key: str = Depends(api_key_header)):
     return api_key
 
 
+
 @router.post("/verify_key")
 async def verify_key(_: str = Depends(verify_api_key)):
     return {"status": "valid", "message": "API Key valid"}

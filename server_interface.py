@@ -1241,18 +1241,23 @@ class ObsidianNeuralLauncher:
         emoji = {"INFO": "ℹ️ ", "SUCCESS": "✅", "WARNING": "⚠️ ", "ERROR": "❌"}.get(
             level, "ℹ️"
         )
-
         formatted_msg = f"[{timestamp}] {emoji} {message}\n"
+        print(f"{formatted_msg.strip()}")
+        try:
+            if (
+                self.log_text is not None
+                and not self.is_in_tray
+                and self.root.winfo_exists()
+            ):
 
-        if self.log_text is not None:
-            self.log_text.insert(tk.END, formatted_msg, level)
+                self.log_text.insert(tk.END, formatted_msg, level)
 
-            if hasattr(self, "auto_scroll") and self.auto_scroll.get():
-                self.log_text.see(tk.END)
+                if hasattr(self, "auto_scroll") and self.auto_scroll.get():
+                    self.log_text.see(tk.END)
 
-            self.root.update_idletasks()
-        else:
-            print(f"{formatted_msg.strip()}")
+                self.root.update_idletasks()
+        except:
+            pass
 
     def load_api_keys(self):
         try:
@@ -2168,13 +2173,38 @@ class ObsidianNeuralLauncher:
                 if line:
                     line = line.rstrip()
                     if line:
-                        self.log(f"[SERVER] {line}")
+                        if (
+                            "ERROR" in line
+                            or "Exception" in line
+                            or "Traceback" in line
+                        ):
+                            self.log(f"[SERVER ERROR] {line}", "ERROR")
+                        elif "WARNING" in line or "⚠️" in line:
+                            self.log(f"[SERVER] {line}", "WARNING")
+                        else:
+                            self.log(f"[SERVER] {line}")
 
                 if self.server_process.poll() is not None:
                     break
 
         except Exception as e:
             self.log(f"Error monitoring output: {e}", "ERROR")
+
+        if self.server_process:
+            return_code = self.server_process.poll()
+            if return_code is not None:
+                self.log(
+                    f"Server exited with code: {return_code}",
+                    "ERROR" if return_code != 0 else "INFO",
+                )
+
+            try:
+                if self.server_process.stderr:
+                    stderr_output = self.server_process.stderr.read()
+                    if stderr_output:
+                        self.log(f"[SERVER STDERR] {stderr_output}", "ERROR")
+            except:
+                pass
 
         if self.is_server_running:
             self.is_server_running = False

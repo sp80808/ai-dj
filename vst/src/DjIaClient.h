@@ -101,112 +101,62 @@ public:
 				DBG("ERROR: Invalid URL format: " + baseUrl);
 				throw std::runtime_error("Invalid server URL format. Must start with http:// or https://");
 			}
-			auto url = juce::URL(baseUrl + "/generate").withPOSTData(jsonString);
+			int statusCode = 0;
+			juce::StringPairArray responseHeaders;
+			auto url = juce::URL(baseUrl + "/generate")
+						   .withPOSTData(jsonString);
 			auto options = juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inPostData)
-							   .withConnectionTimeoutMs(requestTimeoutMS)
-							   .withExtraHeaders(headerString);
+							   .withStatusCode(&statusCode)
+							   .withResponseHeaders(&responseHeaders)
+							   .withExtraHeaders(headerString)
+							   .withConnectionTimeoutMs(requestTimeoutMS);
 
 			auto response = url.createInputStream(options);
+			if (!response)
+			{
+				DBG("ERROR: Failed to connect to server");
+				throw std::runtime_error(("Cannot connect to server at " + baseUrl +
+										  ". Please check: Server is running, URL is correct, Network connection")
+											 .toStdString());
+			}
+
+			DBG("HTTP Status Code: " + juce::String(statusCode));
+
+			if (statusCode == 403)
+			{
+				DBG("ERROR: HTTP 403 Forbidden");
+				throw std::runtime_error("Authentication failed: Invalid or expired API key. Please check your credentials.");
+			}
+			else if (statusCode == 401)
+			{
+				DBG("ERROR: HTTP 401 Unauthorized");
+				throw std::runtime_error("Authentication failed: API key required or invalid.");
+			}
+			else if (statusCode == 422)
+			{
+				DBG("ERROR: HTTP 422 Unprocessable Entity");
+				throw std::runtime_error("Invalid request: The server could not process your request. Please check your prompt and parameters.");
+			}
+			else if (statusCode == 500)
+			{
+				DBG("ERROR: HTTP 500 Internal Server Error");
+				throw std::runtime_error("Server error: The audio generation service is temporarily unavailable. Please try again later.");
+			}
+			else if (statusCode == 503)
+			{
+				DBG("ERROR: HTTP 503 Service Unavailable");
+				throw std::runtime_error("Service unavailable: All GPU providers are currently busy. Please try again in a few moments.");
+			}
+			else if (statusCode != 200)
+			{
+				DBG("ERROR: HTTP " + juce::String(statusCode));
+				throw std::runtime_error("HTTP Error " + std::to_string(statusCode) + ": Request failed.");
+			}
 
 			if (response->isExhausted())
 			{
 				DBG("ERROR: Empty response from server");
 				throw std::runtime_error("Server returned empty response. Server may be overloaded or misconfigured.");
-			}
-
-			auto responseBody = response->readEntireStreamAsString();
-			if (responseBody.isEmpty())
-			{
-				DBG("ERROR: Empty response body");
-				throw std::runtime_error("Server returned empty data. Please try again.");
-			}
-
-			auto json = juce::JSON::parse(responseBody);
-			if (json.isObject())
-			{
-				auto errorObj = json["error"];
-				if (!errorObj.isVoid())
-				{
-					auto errorCode = errorObj["code"].toString();
-					auto errorMessage = errorObj["message"].toString();
-
-					if (errorCode == "INVALID_KEY")
-					{
-						DBG("ERROR: Invalid API key");
-						throw std::runtime_error("Authentication failed: Invalid API key. Please check your credentials.");
-					}
-					else if (errorCode == "KEY_EXPIRED")
-					{
-						DBG("ERROR: API key expired");
-						throw std::runtime_error("Your API key has expired. Please contact support to renew your access.");
-					}
-					else if (errorCode == "CREDITS_EXHAUSTED")
-					{
-						DBG("ERROR: No credits remaining");
-
-						auto fullMessage = errorMessage.toStdString();
-						std::string userMessage = "No generation credits remaining on your API key.";
-
-						size_t usedPos = fullMessage.find("used ");
-						if (usedPos != std::string::npos)
-						{
-							size_t endPos = fullMessage.find(" generations", usedPos);
-							if (endPos != std::string::npos)
-							{
-								std::string creditsInfo = fullMessage.substr(usedPos, endPos - usedPos + 12);
-								userMessage += " You have " + creditsInfo + " for this API key.";
-							}
-						}
-						else
-						{
-							userMessage += " " + fullMessage;
-						}
-
-						throw std::runtime_error(userMessage);
-					}
-					else if (errorCode == "ACCESS_DENIED")
-					{
-						DBG("ERROR: Access forbidden");
-						throw std::runtime_error("Access denied: Your API key may be expired or you don't have permission to access this resource.");
-					}
-					else if (errorCode == "RATE_LIMIT")
-					{
-						DBG("ERROR: Rate limit exceeded");
-						throw std::runtime_error("Rate limit exceeded: Too many requests. Please wait before trying again.");
-					}
-					else if (errorCode == "SERVER_ERROR")
-					{
-						DBG("ERROR: Server internal error");
-						throw std::runtime_error("Server error: The audio generation service is temporarily unavailable. Please try again later.");
-					}
-					else if (errorCode == "GPU_UNAVAILABLE")
-					{
-						DBG("ERROR: No GPU available");
-						throw std::runtime_error("No GPU providers available: " + errorMessage.toStdString() +
-												 " Please try again in a few minutes.");
-					}
-					else if (errorCode == "INVALID_PROMPT")
-					{
-						DBG("ERROR: Invalid prompt");
-						throw std::runtime_error("Invalid prompt: " + errorMessage.toStdString());
-					}
-					else
-					{
-						DBG("ERROR: API error - " + errorCode);
-						throw std::runtime_error("API Error: " + errorMessage.toStdString());
-					}
-				}
-				auto audioData = json["audio"];
-				if (audioData.isVoid())
-				{
-					DBG("ERROR: No audio data in response");
-					throw std::runtime_error("Server response missing audio data. Please try again.");
-				}
-			}
-			else
-			{
-				DBG("ERROR: Invalid JSON response");
-				throw std::runtime_error("Invalid server response. Please check if the service is available.");
 			}
 
 			LoopResponse result;
@@ -225,28 +175,22 @@ public:
 			result.bpm = request.bpm;
 			result.key = request.key;
 			result.stemsUsed = request.preferredStems;
-			if (json.hasProperty("credits_remaining"))
+			juce::String creditsRemaining = responseHeaders["X-Credits-Remaining"];
+			juce::String duration = responseHeaders["X-Duration"];
+			if (creditsRemaining.isNotEmpty())
 			{
-				auto creditsStr = json["credits_remaining"].toString();
-				if (creditsStr == "unlimited")
+				if (creditsRemaining == "unlimited")
 				{
 					result.isUnlimitedKey = true;
 					result.creditsRemaining = -1;
 				}
 				else
 				{
-					result.creditsRemaining = creditsStr.getIntValue();
+					result.creditsRemaining = creditsRemaining.getIntValue();
 					result.isUnlimitedKey = false;
 				}
 			}
-			if (json.hasProperty("total_credits"))
-			{
-				result.totalCredits = json["total_credits"];
-			}
-			if (json.hasProperty("used_credits"))
-			{
-				result.usedCredits = json["used_credits"];
-			}
+
 			DBG("WAV file created: " + result.audioData.getFullPathName() +
 				" (" + juce::String(result.audioData.getSize()) + " bytes)");
 
