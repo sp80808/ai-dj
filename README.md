@@ -223,17 +223,18 @@ MIT License - Feel free to modify, but please keep original attribution to Inner
 **🎵 Music & Creative Coding:**
 
 - **[Unexpected Records](https://unexpected.anthony-charretier.fr/)** - Mobile recording studio & web creation for musicians
-- **[YouTube Channel](https://www.youtube.com/@innermost9675)** - Music production, AI experiments & tech tutorials
+- **[YouTube Channel](https://www.youtube.com/@innermost9675)** - Original music compositions
+- **[Randomizer](https://randomizer.anthony-charretier.fr/)** - Generative music studio in pure HTML/CSS/JS
 
 **🤖 AI Art Projects:**
 
 - **[AutoGenius Daily](https://autogenius.anthony-charretier.fr/)** - Automated media platform with AI personas
 - **[Echoes of Extinction](https://echoes-of-extinction.anthony-charretier.fr/)** - 30-day immersive AI takeover installation
-- **[AI Harmony Radio](https://autogenius.anthony-charretier.fr/webradio)** - 24/7 AI-generated news & music webradio
+- **[AI Harmony Radio](https://autogenius.anthony-charretier.fr/webradio)** - 24/7 experimental webradio: original music + AI personas & stories
 
 **💭 Digital Philosophy:**
 
-- **[Manifesto for a Creative & Free Web](https://manifeste.chroniquesquantique.com/)** - Digital resistance against commercialization
+- **[Manifesto for a Creative & Free Web](https://manifeste.chroniquesquantique.com/)** - Call for creative web experimentation
 
 ---
 

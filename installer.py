@@ -1010,91 +1010,14 @@ class ObsidianNeuralInstaller:
     def create_server_executable(self, install_dir):
         self.log("Building server executable...")
 
-        if platform.system() == "Windows":
-            python_path = install_dir / "env" / "Scripts" / "python.exe"
-        else:
-            python_path = install_dir / "env" / "bin" / "python"
-
-        self.log("Installing PyInstaller...")
-        cmd = [str(python_path), "-m", "pip", "install", "pyinstaller"]
-        subprocess.run(cmd, check=True, timeout=300)
-
-        logo_path = install_dir / "logo.png"
-        main_script = install_dir / "server_interface.py"
-
-        cmd = [
-            str(python_path),
-            "-m",
-            "PyInstaller",
-            "--onefile",
-            "--noconsole",
-            "--name",
-            "OBSIDIAN-Neural-Server",
-            "--distpath",
-            str(install_dir),
-        ]
-
-        if platform.system() == "Windows":
-            import tkinter
-
-            tk_lib = Path(tkinter.__file__).parent
-
-            tk_dll = None
-            tcl_dll = None
-
-            for dll_path in [
-                tk_lib,
-                tk_lib.parent / "DLLs",
-                Path(sys.executable).parent / "DLLs",
-            ]:
-                if dll_path.exists():
-                    for dll_file in dll_path.glob("tk*.dll"):
-                        if not tk_dll:
-                            tk_dll = dll_file
-                            break
-                    for dll_file in dll_path.glob("tcl*.dll"):
-                        if not tcl_dll:
-                            tcl_dll = dll_file
-                            break
-
-            if tk_dll:
-                cmd.extend(["--add-binary", f"{tk_dll};."])
-            if tcl_dll:
-                cmd.extend(["--add-binary", f"{tcl_dll};."])
-
-        elif platform.system() == "Darwin":
-            cmd.extend(
-                [
-                    "--add-binary",
-                    "/System/Library/Frameworks/Tk.framework/Tk:tk",
-                    "--add-binary",
-                    "/System/Library/Frameworks/Tcl.framework/Tcl:tcl",
-                ]
-            )
-        elif platform.system() == "Linux":
-            possible_paths = ["/usr/lib", "/usr/lib/x86_64-linux-gnu"]
-            for lib_path in possible_paths:
-                tk_so = Path(lib_path) / "libtk8.6.so"
-                tcl_so = Path(lib_path) / "libtcl8.6.so"
-                if tk_so.exists():
-                    cmd.extend(["--add-binary", f"{tk_so}:."])
-                if tcl_so.exists():
-                    cmd.extend(["--add-binary", f"{tcl_so}:."])
-
-        if logo_path.exists():
-            cmd.extend(["--icon", str(logo_path)])
-
-        cmd.append(str(main_script))
-
-        self.log(f"PyInstaller command: {' '.join(cmd)}")
+        bat_script = Path(__file__).parent / "scripts" / "build_executable.bat"
 
         result = self.safe_subprocess_run(
-            cmd, cwd=install_dir, capture_output=True, text=True
+            [str(bat_script), str(install_dir)], cwd=install_dir, shell=True
         )
 
         if result.returncode != 0:
-            self.log(f"PyInstaller build failed: {result.stderr}", "ERROR")
-            raise Exception("Failed to build server executable")
+            raise Exception("Failed to build executable")
 
         self.log("Server executable created successfully!", "SUCCESS")
 
@@ -1108,22 +1031,7 @@ class ObsidianNeuralInstaller:
             if platform.system() == "Windows":
                 exe_path = install_dir / "OBSIDIAN-Neural-Server.exe"
                 logo_path = install_dir / "logo.png"
-
                 ico_path = install_dir / "logo.ico"
-                if logo_path.exists():
-                    try:
-                        from PIL import Image
-
-                        img = Image.open(logo_path)
-                        img.save(
-                            ico_path, format="ICO", sizes=[(32, 32), (48, 48), (64, 64)]
-                        )
-                        self.log("Logo converted to ICO format")
-                    except Exception as e:
-                        self.log(f"Could not convert logo to ICO: {e}", "WARNING")
-                        ico_path = None
-                else:
-                    ico_path = None
 
                 ps_script = f"""
     $WshShell = New-Object -comObject WScript.Shell
@@ -1131,7 +1039,7 @@ class ObsidianNeuralInstaller:
     $Shortcut.TargetPath = "{exe_path}"
     $Shortcut.WorkingDirectory = "{install_dir}"
     $Shortcut.Description = "OBSIDIAN-Neural AI Music Generation Server"
-    {"$Shortcut.IconLocation = " + str(ico_path) if ico_path else ""}
+    {"$Shortcut.IconLocation = " + str(ico_path)}
     $Shortcut.Save()
     """
 
@@ -2283,6 +2191,7 @@ class ObsidianNeuralInstaller:
             "apscheduler",
             "demucs",
             "cryptography",
+            "pyinstaller",
         ]
 
         for package in packages:
