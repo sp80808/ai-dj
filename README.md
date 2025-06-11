@@ -21,6 +21,8 @@ OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM
   ```bash
   python installer.py      # For installation
   python server_interface.py  # For server control
+  pyinstaller --onefile --name OBSIDIAN-Neural-Installer --icon=logo.png --noconsole .\installer.py # Build the installer
+  pyinstaller --onefile --name OBSIDIAN-Neural-Server --icon=logo.png --noconsole .\server_interface.py # Build the server interface
   ```
 
 ## 📢 Community Update
