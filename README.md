@@ -11,6 +11,8 @@ OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM
 **No Python, no compilation, no debugging - just music creation.**  
 **⚠️ Limited to 10 testers + queue system during peak hours**
 
+---
+
 ## ⚠️ PRE-RELEASE PROJECT
 
 **OBSIDIAN-Neural is currently in active development.** This is NOT an official v1.0 release. While functional, you may encounter bugs and instabilities. I'm working on this continuously and push updates regularly (sometimes multiple times per day).
