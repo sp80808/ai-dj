@@ -250,6 +250,7 @@ void MixerChannel::updateUIFromParameter(const juce::String& paramName,
 		}
 	}
 }
+
 void MixerChannel::parameterGestureChanged(int parameterIndex, bool gestureIsStarting)
 {
 }

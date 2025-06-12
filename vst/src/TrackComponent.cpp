@@ -2,15 +2,22 @@
 #include "WaveformDisplay.h"
 #include "PluginProcessor.h"
 #include "SequencerComponent.h"
+#include "PluginEditor.h"
 
 TrackComponent::TrackComponent(const juce::String& trackId, DjIaVstProcessor& processor)
 	: trackId(trackId), track(nullptr), audioProcessor(processor)
 {
 	setupUI();
+	addListener("Generate");
+	setupMidiLearn();
 }
 
 TrackComponent::~TrackComponent()
 {
+	removeListener("Generate");
+	isDestroyed.store(true);
+	stopTimer();
+	track = nullptr;
 }
 
 void TrackComponent::setTrackData(TrackData* trackData)
@@ -27,6 +34,85 @@ bool TrackComponent::isWaveformVisible() const
 void TrackComponent::updateWaveformWithTimeStretch()
 {
 	calculateHostBasedDisplay();
+}
+
+void TrackComponent::updateUIFromParameter(const juce::String& paramName,
+	const juce::String& slotPrefix,
+	float newValue)
+{
+	if (isDestroyed.load())
+		return;
+	if (paramName == slotPrefix + " Generate")
+	{
+		if (newValue > 0.5 && audioProcessor.getIsGenerating()) {
+			return;
+		}
+	}
+}
+
+void TrackComponent::parameterGestureChanged(int parameterIndex, bool gestureIsStarting)
+{
+}
+
+void TrackComponent::parameterValueChanged(int parameterIndex, float newValue)
+{
+	if (!track || track->slotIndex == -1)
+		return;
+
+	juce::String slotPrefix = "Slot " + juce::String(track->slotIndex + 1);
+	auto& allParams = audioProcessor.AudioProcessor::getParameters();
+
+	if (parameterIndex >= 0 && parameterIndex < allParams.size())
+	{
+		auto* param = allParams[parameterIndex];
+		juce::String paramName = param->getName(256);
+
+		if (juce::MessageManager::getInstance()->isThisTheMessageThread())
+		{
+			juce::Timer::callAfterDelay(50, [this, paramName, slotPrefix, newValue]()
+				{ updateUIFromParameter(paramName, slotPrefix, newValue); });
+		}
+		else
+		{
+			juce::MessageManager::callAsync([this, paramName, slotPrefix, newValue]()
+				{ juce::Timer::callAfterDelay(50, [this, paramName, slotPrefix, newValue]()
+					{ updateUIFromParameter(paramName, slotPrefix, newValue); }); });
+		}
+	}
+}
+
+
+void TrackComponent::setButtonParameter(juce::String name, juce::Button& button)
+{
+	if (!track || track->slotIndex == -1)
+		return;
+	if (this == nullptr)
+		return;
+
+	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
+	try
+	{
+		auto* param = audioProcessor.getParameters().getParameter(paramName);
+		if (param != nullptr)
+		{
+			if (name == "Generate")
+			{
+				param->setValueNotifyingHost(1.0f);
+				juce::Timer::callAfterDelay(100, [param]() {
+					param->setValueNotifyingHost(0.0f);
+					});
+			}
+			else
+			{
+				bool state = button.getToggleState();
+				param->setValueNotifyingHost(state ? 1.0f : 0.0f);
+			}
+		}
+	}
+	catch (...)
+	{
+		DBG("Exception in setButtonParameter for " << paramName);
+	}
 }
 
 void TrackComponent::calculateHostBasedDisplay()
@@ -380,6 +466,32 @@ void TrackComponent::setGenerateButtonEnabled(bool enabled)
 	generateButton.setEnabled(enabled);
 }
 
+void TrackComponent::removeListener(juce::String name)
+{
+	if (!track || track->slotIndex == -1)
+		return;
+	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
+	auto* param = audioProcessor.getParameterTreeState().getParameter(paramName);
+	if (param)
+	{
+		param->removeListener(this);
+	}
+}
+
+void TrackComponent::addListener(juce::String name)
+{
+	if (!track || track->slotIndex == -1)
+	{
+		return;
+	}
+	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
+	auto* param = audioProcessor.getParameterTreeState().getParameter(paramName);
+	if (param)
+	{
+		param->addListener(this);
+	}
+}
+
 void TrackComponent::setupUI()
 {
 	addAndMakeVisible(selectButton);
@@ -405,7 +517,10 @@ void TrackComponent::setupUI()
 	generateButton.onClick = [this]()
 		{
 			if (onGenerateForTrack)
+			{
 				onGenerateForTrack(trackId);
+				setButtonParameter("Generate", generateButton);
+			}
 		};
 
 	addAndMakeVisible(sequencerToggleButton);
@@ -611,4 +726,44 @@ void TrackComponent::toggleSequencerDisplay()
 		}
 	}
 	resized();
+}
+
+
+void TrackComponent::learn(juce::String param, std::function<void(float)> uiCallback)
+{
+	if (audioProcessor.getActiveEditor() && track && track->slotIndex != -1)
+	{
+		juce::String parameterName = "slot" + juce::String(track->slotIndex + 1) + param;
+		juce::String description = "Slot " + juce::String(track->slotIndex + 1) + " " + param;
+		juce::MessageManager::callAsync([this, description]()
+			{
+				if (auto* editor = dynamic_cast<DjIaVstEditor*>(audioProcessor.getActiveEditor()))
+				{
+					editor->statusLabel.setText("Learning MIDI for " + description + "...", juce::dontSendNotification);
+				} });
+				audioProcessor.getMidiLearnManager()
+					.startLearning(parameterName, &audioProcessor, uiCallback, description);
+	}
+}
+
+void TrackComponent::removeMidiMapping(const juce::String& param)
+{
+	if (track && track->slotIndex != -1)
+	{
+		juce::String parameterName = "slot" + juce::String(track->slotIndex + 1) + param;
+		bool removed = audioProcessor.getMidiLearnManager().removeMappingForParameter(parameterName);
+	}
+}
+
+void TrackComponent::setupMidiLearn()
+{
+	generateButton.onMidiLearn = [this]()
+		{
+			learn("Generate");
+		};
+	generateButton.onMidiRemove = [this]()
+		{
+			removeMidiMapping("Generate");
+		};
+
 }

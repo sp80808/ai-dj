@@ -1,3 +1,7 @@
+#pragma once
+#include <JuceHeader.h>
+#include "DjIaClient.h"
+
 struct TrackData
 {
 	juce::String trackId;
@@ -43,6 +47,11 @@ struct TrackData
 	std::atomic<double> readPosition{ 0.0 };
 	bool showWaveform = false;
 	bool showSequencer = false;
+	juce::String generationPrompt = "Generate a techno drum loop";
+	float generationBpm = 127.0f;
+	juce::String generationKey = "C Minor";
+	int generationDuration = 6;
+	std::vector<juce::String> preferredStems = { "drums", "bass" };
 
 	enum class PendingAction {
 		None,
@@ -51,6 +60,26 @@ struct TrackData
 	};
 
 	PendingAction pendingAction = PendingAction::None;
+
+	DjIaClient::LoopRequest createLoopRequest() const
+	{
+		DjIaClient::LoopRequest request;
+		request.prompt = generationPrompt;
+		request.bpm = generationBpm;
+		request.key = generationKey;
+		request.generationDuration = generationDuration;
+		request.preferredStems = preferredStems;
+		return request;
+	}
+
+	void updateFromRequest(const DjIaClient::LoopRequest& request)
+	{
+		generationPrompt = request.prompt;
+		generationBpm = request.bpm;
+		generationKey = request.key;
+		generationDuration = request.generationDuration;
+		preferredStems = request.preferredStems;
+	}
 
 	struct SequencerData {
 		bool steps[4][16] = {};

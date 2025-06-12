@@ -5,7 +5,7 @@
 
 class SequencerComponent;
 
-class DjIaVstEditor : public juce::AudioProcessorEditor, public juce::MenuBarModel, public juce::Timer
+class DjIaVstEditor : public juce::AudioProcessorEditor, public juce::MenuBarModel, public juce::Timer, public DjIaVstProcessor::GenerationListener
 {
 public:
 	explicit DjIaVstEditor(DjIaVstProcessor&);
@@ -19,6 +19,7 @@ public:
 	void refreshTrackComponents();
 	void updateUIFromProcessor();
 	void refreshTracks();
+	void onGenerationComplete(const juce::String& trackId, const juce::String& message) override;
 
 	void initUI();
 
@@ -32,11 +33,12 @@ public:
 	{
 		return trackComponents;
 	}
-	void onGenerationComplete(const juce::String& selectedTrackId, const juce::String& notification);
 	MixerPanel* getMixerPanel() { return mixerPanel.get(); }
 	void toggleWaveFormButtonOnTrack();
 	void setStatusWithTimeout(const juce::String& message, int timeoutMs = 2000);
 	void* getSequencerForTrack(const juce::String& trackId);
+	void stopGenerationUI(const juce::String& trackId, bool success = true, const juce::String& errorMessage = "");
+	void startGenerationUI(const juce::String& trackId);
 
 private:
 	DjIaVstProcessor& audioProcessor;
