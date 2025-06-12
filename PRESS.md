@@ -59,4 +59,20 @@ _Note: Unofficial community mirror of an early test build. For the latest stable
 
 ---
 
+**### 🇪🇸 FutureMusic España (June 10, 2025)**
+**[Article: "OBSIDIAN‑Neural es una IA creativa en vivo con un VST3 generativo, gratuito y de código abierto"](https://www.futuremusic-es.com/obsidian-neural-vst3-ia-generativa/)**
+
+_An in-depth analysis of the OBSIDIAN-Neural plugin in the context of real-time music creation. The article praises its non-intrusive approach, contextual musicality, and live flexibility._
+
+> "OBSIDIAN-Neural acts like a neural DJ in your DAW, generating audio in real time based on the production environment..."
+
+_Highlighted as a collaborative, open-source, and generative AI instrument designed to amplify the creative workflow rather than replace it._
+
+---
+
+**### 📺 Amner Hunter (YouTube)**
+**[Video: "17 Best New FREE Effect Plugins, Virtual Instruments & Audio Plugin Deals - JUNE 2025 Week 1"](https://www.youtube.com/watch?v=40pkX_MkXjE)**
+
+---
+
 _OBSIDIAN-Neural: Where artificial intelligence meets live music performance._
