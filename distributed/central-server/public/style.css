@@ -1,0 +1,266 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+  color: #e1e5f2;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-x: hidden;
+}
+
+.container {
+  max-width: 450px;
+  width: 90%;
+  padding: 2rem;
+  background: rgba(25, 25, 45, 0.85);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.container::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #00d4ff, #9c27b0, #ff6b35);
+  opacity: 0.8;
+}
+
+.logo {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.logo h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #00d4ff, #9c27b0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+}
+
+.logo p {
+  color: #a0a3bd;
+  font-size: 0.95rem;
+  font-weight: 300;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #e1e5f2;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+select {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: #e1e5f2;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+input::placeholder {
+  color: #6b7280;
+}
+
+.password-requirements {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.requirement {
+  display: flex;
+  align-items: center;
+  margin: 0.25rem 0;
+  transition: all 0.3s ease;
+}
+
+.requirement.valid {
+  color: #22c55e;
+}
+
+.requirement.invalid {
+  color: #ef4444;
+}
+
+.requirement-icon {
+  margin-right: 0.5rem;
+  font-weight: bold;
+}
+
+.input-wrapper {
+  position: relative;
+}
+
+.input-validation {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.2rem;
+}
+
+.valid-icon {
+  color: #22c55e;
+}
+
+.invalid-icon {
+  color: #ef4444;
+}
+
+.btn {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #00d4ff, #0099cc);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 212, 255, 0.3);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn.loading::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 2px solid transparent;
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.alert {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.alert-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.alert-success {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #86efac;
+}
+
+.login-link {
+  text-align: center;
+  margin-top: 1.5rem;
+  color: #a0a3bd;
+  font-size: 0.9rem;
+}
+
+.login-link a {
+  color: #00d4ff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.login-link a:hover {
+  text-decoration: underline;
+}
+
+.verification-info {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #86efac;
+  padding: 1.5rem;
+  border-radius: 12px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.verification-info h3 {
+  margin-bottom: 1rem;
+  color: #22c55e;
+}
+
+.plan-info {
+  background: rgba(156, 39, 176, 0.1);
+  border: 1px solid rgba(156, 39, 176, 0.3);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: #c084fc;
+}
+
+.hidden {
+  display: none;
+}

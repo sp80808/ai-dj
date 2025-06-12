@@ -2,24 +2,29 @@ import json
 import re
 import time
 import gc
-import threading
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from llama_cpp import Llama
 import torch
+from typing import Dict, Any
 
 
 class DJAILL:
-
-    def __init__(self, model_path, config=None):
+    def __init__(self, model_path, config=None, memory_provider=None):
         self.model_path = model_path
         self.session_state = config or {}
-        self.conversations = {}
-        self.scheduler = BackgroundScheduler()
-        self.scheduler.add_job(
-            func=self.scheduled_cleanup, trigger="interval", minutes=60
-        )
-        self.conversations_lock = threading.Lock()
+        self.memory_provider = memory_provider
+
+        if self.memory_provider is None:
+            from distributed.shared.memory_providers import LocalMemoryProvider
+
+            self.memory_provider = LocalMemoryProvider()
+
+        if hasattr(self.memory_provider, "conversations"):
+            self.scheduler = BackgroundScheduler()
+            self.scheduler.add_job(
+                func=self.scheduled_cleanup, trigger="interval", minutes=60
+            )
 
     def destroy_model(self):
         if hasattr(self, "model"):
@@ -44,24 +49,33 @@ class DJAILL:
         print("✅ New LLM model initialized")
 
     def scheduled_cleanup(self):
-        if not self.conversations:
+        """Only works in local mode with LocalMemoryProvider"""
+        if not hasattr(self.memory_provider, "conversations"):
+            return
+
+        conversations = getattr(self.memory_provider, "conversations", {})
+        if not conversations:
             print("🧹 Cleanup: No conversations to clean")
             return
 
-        with self.conversations_lock:
-            cutoff_time = datetime.now() - timedelta(seconds=3600)
-            initial_count = len(self.conversations)
+        conversations_lock = getattr(self.memory_provider, "conversations_lock", None)
+        if not conversations_lock:
+            return
 
-            self.conversations = {
+        with conversations_lock:
+            cutoff_time = datetime.now() - timedelta(seconds=3600)
+            initial_count = len(conversations)
+
+            conversations = {
                 user_id: conv
-                for user_id, conv in self.conversations.items()
+                for user_id, conv in conversations.items()
                 if not (
                     isinstance(conv, dict)
                     and conv.get("last_message_timestamp", datetime.now()) < cutoff_time
                 )
             }
 
-            final_count = len(self.conversations)
+            final_count = len(conversations)
             cleaned_count = initial_count - final_count
 
             if cleaned_count > 0:
@@ -72,13 +86,16 @@ class DJAILL:
                 print(f"🧹 Cleanup: No old conversations found, {final_count} active")
 
     def init_user_conversation_history(self, user_id):
-        if user_id not in self.conversations:
-            self.conversations[user_id] = {
-                "conversation_history": [
-                    {"role": "system", "content": self.get_system_prompt()}
-                ],
-                "last_message_timestamp": datetime.now(),
-            }
+        conversation = self.memory_provider.get_or_create_conversation(user_id)
+
+        if not conversation.get("conversation_history"):
+            conversation["conversation_history"] = [
+                {"role": "system", "content": self.get_system_prompt()}
+            ]
+            conversation["last_message_timestamp"] = datetime.now()
+            self.memory_provider.update_conversation(user_id, conversation)
+
+        return conversation
 
     def get_next_decision(self):
         current_time = time.time()
@@ -88,59 +105,72 @@ class DJAILL:
                 self.session_state.get("session_duration", 0) + elapsed
             )
         self.session_state["last_action_time"] = current_time
+
         user_prompt = self._build_prompt()
-        user_id = self.session_state["user_id"]
-        with self.conversations_lock:
-            self.init_user_conversation_history(user_id)
-            self.conversations[user_id]["conversation_history"].append(
-                {"role": "user", "content": user_prompt}
-            )
-            print(
-                f"🧠 AI-DJ generation with {len(self.conversations[user_id]['conversation_history'])} history messages..."
-            )
-            response = self.model.create_chat_completion(
-                self.conversations[user_id]["conversation_history"]
-            )
-            print("✅ Generation complete!")
-            try:
-                response_text = response["choices"][0]["message"]["content"]
-                json_match = re.search(r"({.*})", response_text, re.DOTALL)
-                if json_match:
-                    json_str = json_match.group(1)
-                    decision = json.loads(json_str)
-                else:
-                    decision = {
-                        "action_type": "generate_sample",
-                        "parameters": {
-                            "sample_details": {
-                                "musicgen_prompt": "techno kick drum, driving beat",
-                                "key": self.session_state.get("current_key", "C minor"),
-                            }
-                        },
-                        "reasoning": "Fallback: No valid JSON response",
-                    }
+        user_id = self.session_state.get("user_id", "default")
 
-            except (json.JSONDecodeError, KeyError) as e:
-                print(f"❌ Error parsing response: {e}")
-                print(f"Raw response: {response_text}")
+        conversation = self.init_user_conversation_history(user_id)
 
+        conversation["conversation_history"].append(
+            {"role": "user", "content": user_prompt}
+        )
+
+        print(
+            f"🧠 AI-DJ generation with {len(conversation['conversation_history'])} history messages..."
+        )
+
+        response = self.model.create_chat_completion(
+            conversation["conversation_history"]
+        )
+        print("✅ Generation complete!")
+
+        try:
+            response_text = response["choices"][0]["message"]["content"]
+            json_match = re.search(r"({.*})", response_text, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(1)
+                decision = json.loads(json_str)
+            else:
                 decision = {
                     "action_type": "generate_sample",
                     "parameters": {
                         "sample_details": {
-                            "musicgen_prompt": "electronic music sample",
+                            "musicgen_prompt": "techno kick drum, driving beat",
                             "key": self.session_state.get("current_key", "C minor"),
                         }
                     },
-                    "reasoning": f"Parsing error: {str(e)}",
+                    "reasoning": "Fallback: No valid JSON response",
                 }
-            self.conversations[user_id]["conversation_history"].append(
-                {"role": "assistant", "content": decision}
+
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"❌ Error parsing response: {e}")
+            print(f"Raw response: {response_text}")
+
+            decision = {
+                "action_type": "generate_sample",
+                "parameters": {
+                    "sample_details": {
+                        "musicgen_prompt": "electronic music sample",
+                        "key": self.session_state.get("current_key", "C minor"),
+                    }
+                },
+                "reasoning": f"Parsing error: {str(e)}",
+            }
+
+        conversation["conversation_history"].append(
+            {"role": "assistant", "content": decision}
+        )
+        conversation["last_message_timestamp"] = datetime.now()
+
+        if len(conversation["conversation_history"]) > 9:
+            conversation["conversation_history"] = (
+                conversation["conversation_history"][:1]
+                + conversation["conversation_history"][3:]
             )
-            self.conversations[user_id]["last_message_timestamp"] = datetime.now()
-            if len(self.conversations[user_id]["conversation_history"]) > 9:
-                del self.conversations[user_id]["conversation_history"][1:3]
-            return decision
+
+        self.memory_provider.update_conversation(user_id, conversation)
+
+        return decision
 
     def _build_prompt(self):
         user_prompt = self.session_state.get("user_prompt", "")
@@ -187,7 +217,18 @@ User: "ambient space" → musicgen_prompt: "ambient atmospheric space soundscape
 User: "jazzy piano" → musicgen_prompt: "jazz piano, smooth chords, melodic improvisation"""
 
     def reset_conversation(self):
-        self.conversation_history = [
-            {"role": "system", "content": self.get_system_prompt()}
-        ]
+        """Reset conversation - behavior depends on memory provider"""
+        user_id = self.session_state.get("user_id", "default")
+        fresh_conversation = {
+            "conversation_history": [
+                {"role": "system", "content": self.get_system_prompt()}
+            ],
+            "last_message_timestamp": datetime.now(),
+        }
+        self.memory_provider.update_conversation(user_id, fresh_conversation)
         print("🔄 Conversation history reset")
+
+    def get_conversation_state(self) -> Dict[str, Any]:
+        """Get current conversation state for distributed mode"""
+        user_id = self.session_state.get("user_id", "default")
+        return self.memory_provider.get_or_create_conversation(user_id)

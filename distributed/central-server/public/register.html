@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OBSIDIAN Neural Sound Engine - Registration</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="logo">
+        <h1>OBSIDIAN</h1>
+        <p>Neural Sound Engine</p>
+      </div>
+
+      <div id="registrationForm">
+        <div id="alertContainer"></div>
+
+        <form id="registerForm">
+          <div class="form-group">
+            <label for="username">Username</label>
+            <div class="input-wrapper">
+              <input
+                type="text"
+                id="username"
+                name="username"
+                required
+                placeholder="Enter your username"
+                minlength="3"
+                maxlength="50"
+                oninput="validateUsernameRealTime(this.value)"
+              />
+              <span class="input-validation" id="usernameValidationIcon"></span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="email">Email Address</label>
+            <div class="input-wrapper">
+              <input
+                type="email"
+                id="email"
+                name="email"
+                required
+                placeholder="Enter your email address"
+                oninput="validateEmailRealTime(this.value)"
+              />
+              <span class="input-validation" id="emailValidationIcon"></span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <div class="input-wrapper">
+              <input
+                type="password"
+                id="password"
+                name="password"
+                required
+                placeholder="Enter your password"
+                oninput="validatePasswordRealTime(this.value)"
+              />
+              <span class="input-validation" id="passwordValidationIcon"></span>
+            </div>
+
+            <div class="password-requirements" id="passwordRequirements">
+              <div class="requirement" id="req-length">
+                <span class="requirement-icon">○</span>
+                At least 8 characters
+              </div>
+              <div class="requirement" id="req-uppercase">
+                <span class="requirement-icon">○</span>
+                One uppercase letter (A-Z)
+              </div>
+              <div class="requirement" id="req-lowercase">
+                <span class="requirement-icon">○</span>
+                One lowercase letter (a-z)
+              </div>
+              <div class="requirement" id="req-number">
+                <span class="requirement-icon">○</span>
+                One number (0-9)
+              </div>
+              <div class="requirement" id="req-special">
+                <span class="requirement-icon">○</span>
+                One special character (!@#$%^&*)
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="firstName">First Name (Optional)</label>
+            <input
+              type="text"
+              id="firstName"
+              name="firstName"
+              placeholder="Enter your first name"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="lastName">Last Name (Optional)</label>
+            <input
+              type="text"
+              id="lastName"
+              name="lastName"
+              placeholder="Enter your last name"
+            />
+          </div>
+
+          <div class="plan-info">
+            <strong>🎵 Free for Everyone:</strong> 25 audio generations per day
+            - No payment required!<br />
+            <small>Quota resets every day at midnight</small>
+          </div>
+
+          <button type="submit" class="btn" id="registerBtn">
+            Create Account
+          </button>
+        </form>
+
+        <div class="login-link">
+          Already have an account?
+          <a href="#" onclick="showLoginForm()">Sign In</a>
+        </div>
+      </div>
+
+      <div id="loginForm" class="hidden">
+        <div id="loginAlertContainer"></div>
+
+        <form id="loginFormElement">
+          <div class="form-group">
+            <label for="loginEmailOrUsername">Email or Username</label>
+            <input
+              type="text"
+              id="loginEmailOrUsername"
+              name="emailOrUsername"
+              required
+              placeholder="Enter your email or username"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <input
+              type="password"
+              id="loginPassword"
+              name="password"
+              required
+              placeholder="Enter your password"
+            />
+          </div>
+
+          <button type="submit" class="btn" id="loginBtn">Sign In</button>
+        </form>
+
+        <div class="login-link">
+          Don't have an account?
+          <a href="#" onclick="showRegistrationForm()">Create Account</a>
+        </div>
+      </div>
+
+      <div id="verificationSuccess" class="hidden">
+        <div class="verification-info">
+          <h3>🎉 Registration Successful!</h3>
+          <p>A verification email has been sent to your email address.</p>
+          <p>
+            Please check your inbox and click the verification link to activate
+            your account.
+          </p>
+          <p><strong>Don't forget to check your spam folder!</strong></p>
+        </div>
+
+        <div class="login-link">
+          <a href="#" onclick="showLoginForm()">Back to Sign In</a>
+        </div>
+      </div>
+
+      <div id="userDashboard" class="hidden">
+        <div class="verification-info">
+          <h3>Welcome to OBSIDIAN!</h3>
+          <p id="userInfo"></p>
+          <p id="creditsInfo"></p>
+          <br />
+          <p><strong>Your account is ready!</strong></p>
+          <p>You can now use the OBSIDIAN VST plugin with your credentials.</p>
+        </div>
+
+        <button class="btn" onclick="logout()" style="margin-top: 1rem">
+          Sign Out
+        </button>
+      </div>
+
+      <div id="apiKeysManagement" class="hidden">
+        <div class="verification-info">
+          <h3>🔑 API Keys Management</h3>
+          <p>Generate API keys to use with the OBSIDIAN VST plugin</p>
+        </div>
+
+        <div style="margin: 1rem 0">
+          <button class="btn" onclick="generateNewApiKey()" id="generateKeyBtn">
+            Generate New API Key
+          </button>
+        </div>
+
+        <div id="apiKeysList"></div>
+
+        <button
+          class="btn"
+          onclick="backToDashboard()"
+          style="margin-top: 1rem; background: #666"
+        >
+          ← Back to Dashboard
+        </button>
+      </div>
+    </div>
+    <script src="script.js"></script>
+  </body>
+</html>

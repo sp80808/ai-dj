@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OBSIDIAN - Donation Transparency</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: linear-gradient(135deg, #1e1e2e 0%, #2d1b69 100%);
+        color: #e0e0e0;
+        margin: 0;
+        padding: 20px;
+        min-height: 100vh;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+      .header h1 {
+        color: #9c27b0;
+        margin: 0;
+        font-size: 2.5rem;
+      }
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        margin-bottom: 40px;
+      }
+      .stat-card {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 20px;
+        border-radius: 12px;
+        backdrop-filter: blur(10px);
+      }
+      .stat-card h3 {
+        margin: 0 0 15px 0;
+        color: #9c27b0;
+      }
+      .month-selector {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .month-selector select {
+        padding: 10px 15px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        color: #e0e0e0;
+        font-size: 16px;
+      }
+      .report-section {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 25px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+      }
+      .workers-list {
+        display: grid;
+        gap: 10px;
+      }
+      .worker-item {
+        background: rgba(255, 255, 255, 0.08);
+        padding: 15px;
+        border-radius: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .loading {
+        text-align: center;
+        color: #9c27b0;
+        font-size: 18px;
+      }
+      .amount {
+        color: #4caf50;
+        font-weight: bold;
+      }
+      .percentage {
+        color: #ff9800;
+        font-size: 0.9em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>OBSIDIAN</h1>
+        <p>Donation Transparency & Revenue Distribution</p>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3>📊 Overall Stats</h3>
+          <div id="overallStats">Loading...</div>
+        </div>
+        <div class="stat-card">
+          <h3>💰 Distribution Model</h3>
+          <div id="distributionModel">Loading...</div>
+        </div>
+        <div class="stat-card">
+          <h3>🔧 Active Workers</h3>
+          <div id="activeWorkers">Loading...</div>
+        </div>
+      </div>
+
+      <div class="month-selector">
+        <label for="monthSelect">Select Month: </label>
+        <select id="monthSelect" onchange="loadMonthlyReport()">
+          <option value="">Loading months...</option>
+        </select>
+      </div>
+
+      <div id="monthlyReport" class="report-section">
+        <div class="loading">Select a month to view detailed report...</div>
+      </div>
+    </div>
+
+    <script>
+      async function loadStats() {
+        try {
+          const response = await fetch("/api/v1/transparency/stats");
+          const result = await response.json();
+
+          if (result.success) {
+            const stats = result.data;
+
+            document.getElementById("overallStats").innerHTML = `
+                        <strong>Total Donations:</strong> $${stats.all_time.total_donations.toFixed(
+                          2
+                        )}<br>
+                        <strong>Number of Donations:</strong> ${
+                          stats.all_time.total_count
+                        }<br>
+                        <strong>Average Donation:</strong> $${stats.all_time.average_donation.toFixed(
+                          2
+                        )}
+                    `;
+
+            document.getElementById("distributionModel").innerHTML = `
+                        <strong>Workers:</strong> ${stats.distribution_ratios.worker_share}%<br>
+                        <strong>Platform Maintenance:</strong> ${stats.distribution_ratios.platform_maintenance}%<br>
+                        <strong>Development Fund:</strong> ${stats.distribution_ratios.development_fund}%
+                    `;
+
+            document.getElementById("activeWorkers").innerHTML = `
+                        <strong>${stats.active_workers_count}</strong> active workers<br>
+                        contributing to the network
+                    `;
+          }
+        } catch (error) {
+          console.error("Failed to load stats:", error);
+        }
+      }
+
+      async function loadAvailableMonths() {
+        try {
+          const response = await fetch("/api/v1/transparency/months");
+          const result = await response.json();
+
+          if (result.success) {
+            const select = document.getElementById("monthSelect");
+            select.innerHTML = result.data.months
+              .map((month) => `<option value="${month}">${month}</option>`)
+              .join("");
+
+            if (result.data.months.length > 0) {
+              select.value = result.data.months[0];
+              loadMonthlyReport();
+            }
+          }
+        } catch (error) {
+          console.error("Failed to load months:", error);
+        }
+      }
+
+      async function loadMonthlyReport() {
+        const month = document.getElementById("monthSelect").value;
+        if (!month) return;
+
+        document.getElementById("monthlyReport").innerHTML =
+          '<div class="loading">Loading report...</div>';
+
+        try {
+          const response = await fetch(`/api/v1/transparency/month/${month}`);
+          const result = await response.json();
+
+          if (result.success) {
+            const report = result.data;
+
+            document.getElementById("monthlyReport").innerHTML = `
+                        <h3>📅 Monthly Report - ${month}</h3>
+                        
+                        <div style="margin-bottom: 25px;">
+                            <h4>💰 Financial Summary</h4>
+                            <div style="background: rgba(255,255,255,0.08); padding: 15px; border-radius: 8px;">
+                                <strong>Total Donations:</strong> <span class="amount">$${report.total_donations.toFixed(
+                                  2
+                                )}</span><br>
+                                <strong>Distributed to Workers:</strong> <span class="amount">$${report.total_distributed_to_workers.toFixed(
+                                  2
+                                )}</span><br>
+                                <strong>Platform Maintenance:</strong> $${report.platform_maintenance.toFixed(
+                                  2
+                                )}<br>
+                                <strong>Development Fund:</strong> $${report.development_fund.toFixed(
+                                  2
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 25px;">
+                            <h4>🎯 Donation Sources</h4>
+                            <div class="workers-list">
+                                ${report.donation_sources
+                                  .map(
+                                    (source) => `
+                                    <div class="worker-item">
+                                        <span>${source.source_type} (${
+                                      source.donation_count
+                                    } donations)</span>
+                                        <span class="amount">$${parseFloat(
+                                          source.total_amount
+                                        ).toFixed(2)}</span>
+                                    </div>
+                                `
+                                  )
+                                  .join("")}
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4>🔧 Worker Distributions (${
+                              report.active_workers
+                            } workers)</h4>
+                            <div class="workers-list">
+                                ${report.worker_distributions
+                                  .map(
+                                    (worker) => `
+                                    <div class="worker-item">
+                                        <div>
+                                            <strong>${
+                                              worker.worker_name ||
+                                              worker.worker_id
+                                            }</strong><br>
+                                            <small>Worker ID: ${
+                                              worker.worker_id
+                                            }</small>
+                                        </div>
+                                        <div style="text-align: right;">
+                                            <span class="amount">$${parseFloat(
+                                              worker.worker_share
+                                            ).toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                `
+                                  )
+                                  .join("")}
+                            </div>
+                        </div>
+                    `;
+          }
+        } catch (error) {
+          document.getElementById("monthlyReport").innerHTML =
+            '<div style="color: #ef4444;">Failed to load monthly report</div>';
+        }
+      }
+
+      window.addEventListener("load", () => {
+        loadStats();
+        loadAvailableMonths();
+      });
+    </script>
+  </body>
+</html>
