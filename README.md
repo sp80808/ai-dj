@@ -4,6 +4,8 @@
 
 OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM prompts and Stable Audio Open to create contextually aware loops directly in your DAW.
 
+---
+
 **🚨 FRUSTRATED WITH INSTALLATION? 🚨**  
 **Skip the complexity! Get a free API key instead.**  
 **No Python, no compilation, no debugging - just music creation.**  
