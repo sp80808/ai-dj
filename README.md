@@ -42,8 +42,8 @@ OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM
 
 ### The Reality of Modern AI:
 
-- **Stable Audio Open**: ~2.5GB model size
-- **VRAM needed**: 8+ GB minimum
+- **Stable Audio Open**: ~4.8GB model size
+- **VRAM needed**: 6+ GB minimum
 - **Loading time**: 30-60 seconds
 - **A normal VST**: 50MB, loads instantly
 
