@@ -15,6 +15,14 @@ OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM
 
 ---
 
+### 🔴 Latest Live Stream
+
+[![OBSIDIAN Live Stream](https://img.youtube.com/vi/O5j6xa_9_0s/maxresdefault.jpg)](https://www.youtube.com/watch?v=O5j6xa_9_0s)
+
+_Live YouTube session: Real-time AI music generation with all the unpredictability that comes with it! 57 minutes of pure improvisation - the good, the weird, and the moments where you just adapt and roll with whatever the AI throws at you. Welcome to live AI music!_
+
+---
+
 ## ⚠️ PRE-RELEASE PROJECT
 
 **OBSIDIAN-Neural is currently in active development.** This is NOT an official v1.0 release. While functional, you may encounter bugs and instabilities. I'm working on this continuously and push updates regularly (sometimes multiple times per day).
