@@ -204,6 +204,17 @@ public:
 			trackState.setProperty("isArmed", track->isArmed.load(), nullptr);
 			trackState.setProperty("isArmedToStop", track->isArmedToStop.load(), nullptr);
 			trackState.setProperty("isCurrentlyPlaying", track->isCurrentlyPlaying.load(), nullptr);
+			trackState.setProperty("generationPrompt", track->generationPrompt, nullptr);
+			trackState.setProperty("generationBpm", track->generationBpm, nullptr);
+			trackState.setProperty("generationKey", track->generationKey, nullptr);
+			trackState.setProperty("generationDuration", track->generationDuration, nullptr);
+			juce::String stemsString;
+			for (int i = 0; i < track->preferredStems.size(); ++i)
+			{
+				if (i > 0) stemsString += ",";
+				stemsString += track->preferredStems[i];
+			}
+			trackState.setProperty("preferredStems", stemsString, nullptr);
 			if (track->numSamples > 0 && !track->audioFilePath.isEmpty())
 			{
 				trackState.setProperty("audioFilePath", track->audioFilePath, nullptr);
@@ -278,6 +289,20 @@ public:
 			track->isArmed = trackState.getProperty("isArmed", false);
 			track->isArmedToStop = trackState.getProperty("isArmedToStop", false);
 			track->isCurrentlyPlaying = trackState.getProperty("isCurrentlyPlaying", false);
+			track->generationPrompt = trackState.getProperty("generationPrompt", "Generate a techno drum loop");
+			track->generationBpm = trackState.getProperty("generationBpm", 127.0f);
+			track->generationKey = trackState.getProperty("generationKey", "C Minor");
+			track->generationDuration = trackState.getProperty("generationDuration", 6);
+			juce::String stemsString = trackState.getProperty("preferredStems", "drums,bass");
+			track->preferredStems.clear();
+			if (stemsString.isNotEmpty())
+			{
+				juce::StringArray stemsArray = juce::StringArray::fromTokens(stemsString, ",", "");
+				for (const auto& stem : stemsArray)
+				{
+					track->preferredStems.push_back(stem.trim());
+				}
+			}
 			auto sequencerState = trackState.getChildWithName("Sequencer");
 			if (sequencerState.isValid())
 			{

@@ -1,6 +1,7 @@
 #pragma once
 #include "JuceHeader.h"
 #include "TrackManager.h"
+#include "MidiLearnableComponents.h"
 
 class WaveformDisplay;
 class SequencerComponent;
@@ -26,7 +27,7 @@ public:
 	}
 };
 
-class TrackComponent : public juce::Component, public juce::Timer
+class TrackComponent : public juce::Component, public juce::Timer, public juce::AudioProcessorParameter::Listener
 {
 public:
 	TrackComponent(const juce::String& trackId, DjIaVstProcessor& processor);
@@ -86,7 +87,7 @@ private:
 	juce::TextButton selectButton;
 	juce::Label trackNameLabel;
 	juce::TextButton deleteButton;
-	juce::TextButton generateButton;
+	MidiLearnableButton generateButton;
 	juce::Label infoLabel;
 
 	juce::ComboBox timeStretchModeSelector;
@@ -95,6 +96,8 @@ private:
 	juce::Label bpmOffsetLabel;
 
 	juce::Label midiNoteLabel;
+
+	std::atomic<bool> isDestroyed{ false };
 
 	bool isGenerating = false;
 	bool blinkState = false;
@@ -105,10 +108,20 @@ private:
 	void paint(juce::Graphics& g);
 	void resized();
 	void timerCallback() override;
+	void parameterValueChanged(int parameterIndex, float newValue) override;
+	void parameterGestureChanged(int parameterIndex, bool gestureIsStarting) override;
 	void setupUI();
 	void adjustLoopPointsToTempo();
 	void updateTrackInfo();
 	void setupMidiLearn();
+	void learn(juce::String param, std::function<void(float)> uiCallback = nullptr);
+	void removeMidiMapping(const juce::String& param);
+	void addListener(juce::String name);
+	void removeListener(juce::String name);
+	void setButtonParameter(juce::String name, juce::Button& button);
+	void updateUIFromParameter(const juce::String& paramName,
+		const juce::String& slotPrefix,
+		float newValue);
 
 	juce::Colour getTrackColour(int trackIndex);
 };
