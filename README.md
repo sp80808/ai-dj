@@ -195,14 +195,6 @@ If using the installer + manual VST3:
 
 ---
 
-## 🎵 Live Demo
-
-[![OBSIDIAN Live Performance](https://img.youtube.com/vi/l4KMC5adxVA/maxresdefault.jpg)](https://www.youtube.com/watch?v=l4KMC5adxVA)
-
-_Click to watch: World's First AI Jam Partner in action!_
-
----
-
 ## ⚙️ Technical Requirements (For Self-Hosting)
 
 **If you choose the full installation:**
