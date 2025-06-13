@@ -92,6 +92,8 @@ public:
 		masterLowEQ = low;
 	}
 	float getMasterVolume() const { return masterVolume.load(); }
+	int getTimeSignatureNumerator() const { return timeSignatureNumerator.load(); }
+	int getTimeSignatureDenominator() const { return timeSignatureDenominator.load(); }
 	float getMasterPan() const { return masterPan.load(); }
 	juce::String createNewTrack(const juce::String& name = "Track");
 	void deleteTrack(const juce::String& trackId);
@@ -224,6 +226,8 @@ private:
 	int lastPresetIndex = -1;
 	int currentBlockSize = 512;
 	int requestTimeoutMS = 360000;
+	std::atomic<int> timeSignatureNumerator{ 4 };
+	std::atomic<int> timeSignatureDenominator{ 4 };
 
 	juce::String globalPrompt = "Generate a techno drum loop";
 	float globalBpm = 127.0f;

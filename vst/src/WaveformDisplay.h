@@ -54,7 +54,12 @@ private:
 
 	bool isUpdatingMarkers = false;
 	bool snapToGrid = true;
-	enum SnapResolution { WHOLE_BEAT, HALF_BEAT, QUARTER_BEAT, EIGHTH_BEAT };
+	enum SnapResolution {
+		WHOLE_BEAT = 0,
+		HALF_BEAT = 1,
+		QUARTER_BEAT = 2,
+		EIGHTH_BEAT = 3
+	};
 	SnapResolution snapResolution = QUARTER_BEAT;
 
 	std::unique_ptr<juce::ScrollBar> horizontalScrollBar;
@@ -113,6 +118,7 @@ private:
 	void handleMenuResult(int result, int markerIndex, bool hasMultiSelection);
 	void deleteSelectedMarkers();
 	void snapSelectedMarkersToGrid();
+	void drawSubdivisions(juce::Graphics& g, float subdivisionDuration, double viewEndTime, float barDuration, double viewDuration);
 
 	void paint(juce::Graphics& g) override;
 	void mouseDown(const juce::MouseEvent& e) override;

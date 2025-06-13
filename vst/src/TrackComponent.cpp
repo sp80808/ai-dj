@@ -624,8 +624,9 @@ void TrackComponent::adjustLoopPointsToTempo()
 	if (effectiveBpm <= 0)
 		return;
 
+	int numerator = audioProcessor.getTimeSignatureNumerator();
 	double beatDuration = 60.0 / effectiveBpm;
-	double barDuration = beatDuration * 4.0;
+	double barDuration = beatDuration * numerator;
 	double originalDuration = track->numSamples / track->sampleRate;
 	double stretchRatio = effectiveBpm / track->originalBpm;
 	double effectiveDuration = originalDuration / stretchRatio;

@@ -177,7 +177,8 @@ juce::Rectangle<int> SequencerComponent::getStepBounds(int step)
 
 void SequencerComponent::mouseDown(const juce::MouseEvent& event)
 {
-	int stepsToShow = beatsPerMeasure * 4;
+	int numerator = audioProcessor.getTimeSignatureNumerator();
+	int stepsToShow = numerator * 4;
 
 	for (int i = 0; i < stepsToShow; ++i) {
 		if (getStepBounds(i).contains(event.getPosition())) {
@@ -211,7 +212,8 @@ void SequencerComponent::toggleStep(int step)
 
 void SequencerComponent::setCurrentStep(int step)
 {
-	currentStep = step % (beatsPerMeasure * 4);
+	int numerator = audioProcessor.getTimeSignatureNumerator();
+	currentStep = step % (numerator * 4);
 	repaint();
 }
 

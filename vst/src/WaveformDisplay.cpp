@@ -273,10 +273,10 @@ void WaveformDisplay::showMarkerContextMenu(int markerIndex, juce::Point<int> po
 	menu.addItem(10, "Snap to Grid: " + juce::String(snapToGrid ? "ON" : "OFF"));
 
 	juce::PopupMenu snapMenu;
-	snapMenu.addItem(20, "Whole Beat", true, snapResolution == WHOLE_BEAT);
-	snapMenu.addItem(21, "Half Beat", true, snapResolution == HALF_BEAT);
-	snapMenu.addItem(22, "Quarter Beat", true, snapResolution == QUARTER_BEAT);
-	snapMenu.addItem(23, "Eighth Beat", true, snapResolution == EIGHTH_BEAT);
+	snapMenu.addItem(20, "1/4", true, snapResolution == WHOLE_BEAT);
+	snapMenu.addItem(21, "1/8", true, snapResolution == HALF_BEAT);
+	snapMenu.addItem(22, "1/16", true, snapResolution == QUARTER_BEAT);
+	snapMenu.addItem(23, "1/32", true, snapResolution == EIGHTH_BEAT);
 
 	menu.addSubMenu("Snap Resolution", snapMenu);
 
@@ -330,10 +330,29 @@ void WaveformDisplay::handleMenuResult(int result, int markerIndex, bool hasMult
 		repaint();
 		break;
 
-	case 20: snapResolution = WHOLE_BEAT; break;
-	case 21: snapResolution = HALF_BEAT; break;
-	case 22: snapResolution = QUARTER_BEAT; break;
-	case 23: snapResolution = EIGHTH_BEAT; break;
+	case 20:
+		snapResolution = WHOLE_BEAT;
+		if (onMarkersChanged) onMarkersChanged();
+		repaint();
+		break;
+
+	case 21:
+		snapResolution = HALF_BEAT;
+		if (onMarkersChanged) onMarkersChanged();
+		repaint();
+		break;
+
+	case 22:
+		snapResolution = QUARTER_BEAT;
+		if (onMarkersChanged) onMarkersChanged();
+		repaint();
+		break;
+
+	case 23:
+		snapResolution = EIGHTH_BEAT;
+		if (onMarkersChanged) onMarkersChanged();
+		repaint();
+		break;
 	}
 }
 
@@ -425,12 +444,19 @@ void WaveformDisplay::mouseDrag(const juce::MouseEvent& e)
 
 	if (isDraggingMarker && selectedMarkerId >= 0 && selectedMarkerId < stretchMarkers.size())
 	{
-		double newTime = xToTime(e.x);
+		double rawTime = xToTime(e.x);
+
 		if (snapToGrid)
 		{
-			newTime = snapTimeToGrid(newTime);
+			double snappedTime = snapTimeToGrid(rawTime);
+			float expectedX = timeToX(snappedTime);
+			DBG("Raw time: " << rawTime);
+			DBG("Snapped time: " << snappedTime);
+			DBG("Mouse X: " << e.x);
+			DBG("Expected X for snapped time: " << expectedX);
+
+			stretchMarkers[selectedMarkerId].currentTime = snappedTime;
 		}
-		stretchMarkers[selectedMarkerId].currentTime = newTime;
 		stretchMarkers[selectedMarkerId].isSelected = true;
 		calculateStretchRatios();
 		repaint();
@@ -472,19 +498,23 @@ double WaveformDisplay::snapTimeToGrid(double time)
 	float hostBpm = getHostBpm();
 	if (hostBpm <= 0.0f) return time;
 
-	double beatDuration = 60.0 / hostBpm;
+	int numerator = audioProcessor.getTimeSignatureNumerator();
+	double beatDuration = (60.0 / hostBpm) * stretchRatio;
 	double snapInterval;
 
 	switch (snapResolution)
 	{
-	case WHOLE_BEAT:    snapInterval = beatDuration * 4.0; break;
-	case HALF_BEAT:     snapInterval = beatDuration * 2.0; break;
-	case QUARTER_BEAT:  snapInterval = beatDuration; break;
-	case EIGHTH_BEAT:   snapInterval = beatDuration * 0.5; break;
+	case WHOLE_BEAT:    snapInterval = beatDuration; break;
+	case HALF_BEAT:     snapInterval = beatDuration * 0.5; break;
+	case QUARTER_BEAT:  snapInterval = beatDuration * 0.25; break;
+	case EIGHTH_BEAT:   snapInterval = beatDuration * 0.125; break;
 	default:            snapInterval = beatDuration; break;
 	}
 
-	return round(time / snapInterval) * snapInterval;
+	double snapped = round(time / snapInterval) * snapInterval;
+
+	DBG("Snap: " << time << " -> " << snapped << " (to nearest " << snapInterval << "s grid)");
+	return snapped;
 }
 
 void WaveformDisplay::calculateStretchRatios()
@@ -501,8 +531,10 @@ double WaveformDisplay::getMinLoopDuration() const
 	if (trackBpm <= 0.0f)
 		return 1.0;
 
+	int numerator = audioProcessor.getTimeSignatureNumerator();
+
 	double beatDuration = 60.0 / trackBpm;
-	return beatDuration * 4.0;
+	return beatDuration * numerator;
 }
 
 void WaveformDisplay::setAudioFile(const juce::File& file)
@@ -924,6 +956,8 @@ void WaveformDisplay::drawVisibleBarLabels(juce::Graphics& g)
 	if (trackBpm <= 0.0f)
 		return;
 
+	int numerator = audioProcessor.getTimeSignatureNumerator();
+
 	float effectiveBpm = trackBpm;
 	if (stretchRatio > 0.0f && stretchRatio != 1.0f)
 	{
@@ -931,13 +965,12 @@ void WaveformDisplay::drawVisibleBarLabels(juce::Graphics& g)
 	}
 
 	double beatDuration = 60.0 / effectiveBpm;
-	double barDuration = beatDuration * 4.0;
+	double barDuration = beatDuration * numerator;
 
 	double viewStart = getViewStartTime();
 	double viewEnd = getViewEndTime();
 
 	int leftBar = (int)(viewStart / barDuration) + 1;
-
 	int rightBar = (int)(viewEnd / barDuration) + 1;
 
 	if (fmod(viewEnd, barDuration) < 0.01)
@@ -947,22 +980,17 @@ void WaveformDisplay::drawVisibleBarLabels(juce::Graphics& g)
 
 	g.setColour(juce::Colours::lightgrey);
 	g.setFont(12.0f);
-
 	g.drawText("Bar " + juce::String(leftBar),
-		5, 2, 60, 15,
-		juce::Justification::left);
-
+		5, 2, 60, 15, juce::Justification::left);
 	g.drawText("Bar " + juce::String(rightBar),
-		getWidth() - 65, 2, 60, 15,
-		juce::Justification::right);
+		getWidth() - 65, 2, 60, 15, juce::Justification::right);
 
 	int visibleBars = rightBar - leftBar + 1;
 	if (visibleBars > 1)
 	{
 		g.setFont(10.0f);
 		g.drawText("(" + juce::String(visibleBars) + " bars visible)",
-			getWidth() / 2 - 40, 2, 80, 15,
-			juce::Justification::centred);
+			getWidth() / 2 - 40, 2, 80, 15, juce::Justification::centred);
 	}
 }
 
@@ -1011,32 +1039,58 @@ float WaveformDisplay::timeToX(double time)
 
 void WaveformDisplay::drawBeatMarkers(juce::Graphics& g)
 {
-	if (thumbnail.empty())
-		return;
+	if (thumbnail.empty()) return;
 
 	float hostBpm = getHostBpm();
-	if (hostBpm <= 0.0f)
-		return;
+	if (hostBpm <= 0.0f) return;
+
+	int numerator = audioProcessor.getTimeSignatureNumerator();
+	int denominator = audioProcessor.getTimeSignatureDenominator();
 
 	double totalDuration = getTotalDuration();
 	double viewDuration = totalDuration / zoomFactor;
 	double viewEndTime = juce::jlimit(viewStartTime, totalDuration, viewStartTime + viewDuration);
 
-
 	float beatDuration = 60.0f / hostBpm * stretchRatio;
-	float barDuration = beatDuration * 4.0f;
+	float barDuration = beatDuration * numerator;
 
-	g.setColour(juce::Colours::white.withAlpha(0.8f));
-
+	g.setColour(juce::Colours::white.withAlpha(0.9f));
 	double firstBarTime = floor(viewStartTime / barDuration) * barDuration;
 	for (double time = firstBarTime; time <= viewEndTime; time += barDuration)
 	{
 		drawMeasures(time, g, barDuration, viewDuration);
 	}
 
-	if (zoomFactor > 2.0)
+	g.setColour(juce::Colours::white.withAlpha(0.6f));
+	drawBeats(g, beatDuration, viewEndTime, barDuration, viewDuration);
+
+	g.setColour(juce::Colours::white.withAlpha(0.3f));
+	drawSubdivisions(g, beatDuration * 0.5f, viewEndTime, barDuration, viewDuration);
+
+	g.setColour(juce::Colours::white.withAlpha(0.2f));
+	drawSubdivisions(g, beatDuration * 0.25f, viewEndTime, barDuration, viewDuration);
+
+}
+
+void WaveformDisplay::drawSubdivisions(juce::Graphics& g, float subdivisionDuration, double viewEndTime, float barDuration, double viewDuration)
+{
+	double firstSubdivisionTime = floor(viewStartTime / subdivisionDuration) * subdivisionDuration;
+
+	for (double time = firstSubdivisionTime; time <= viewEndTime; time += subdivisionDuration)
 	{
-		drawBeats(g, beatDuration, viewEndTime, barDuration, viewDuration);
+		bool isOnBeat = (fmod(time, subdivisionDuration * 2.0) < 0.01);
+		bool isOnBar = (fmod(time, barDuration) < 0.01);
+
+		if (!isOnBeat && !isOnBar && time >= viewStartTime)
+		{
+			double relativeTime = time - viewStartTime;
+			float x = (relativeTime / viewDuration) * getWidth();
+
+			if (x >= 0 && x <= getWidth())
+			{
+				g.drawLine(x, getHeight() * 0.2f, x, getHeight() * 0.8f, 0.5f);
+			}
+		}
 	}
 }
 

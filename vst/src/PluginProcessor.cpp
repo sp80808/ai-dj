@@ -504,9 +504,11 @@ void DjIaVstProcessor::getDawInformations(juce::AudioPlayHead* playHead, bool& h
 	{
 		hostSampleRate = currentSampleRate;
 	}
+
 	if (auto positionInfo = playHead->getPosition())
 	{
 		hostIsPlaying = positionInfo->getIsPlaying();
+
 		if (auto bpm = positionInfo->getBpm())
 		{
 			double newBpm = *bpm;
@@ -520,9 +522,15 @@ void DjIaVstProcessor::getDawInformations(juce::AudioPlayHead* playHead, bool& h
 				}
 			}
 		}
+
 		if (auto ppq = positionInfo->getPpqPosition())
 		{
 			hostPpqPosition = *ppq;
+		}
+		if (auto timeSig = positionInfo->getTimeSignature())
+		{
+			timeSignatureNumerator.store(timeSig->numerator);
+			timeSignatureDenominator.store(timeSig->denominator);
 		}
 	}
 }
@@ -1813,7 +1821,7 @@ void DjIaVstProcessor::updateSequencers(bool hostIsPlaying)
 
 			if (shouldAdvanceStep)
 			{
-				int stepsPerMeasure = track->sequencerData.beatsPerMeasure * 4;
+				int stepsPerMeasure = track->sequencerData.beatsPerMeasure * getTimeSignatureNumerator();
 				int newStep = track->customStepCounter % stepsPerMeasure;
 				int newMeasure = (track->customStepCounter / stepsPerMeasure) % track->sequencerData.numMeasures;
 
