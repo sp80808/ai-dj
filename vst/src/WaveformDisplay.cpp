@@ -1,7 +1,7 @@
 ﻿#include "JuceHeader.h"
 #include "WaveformDisplay.h"
 #include "PluginProcessor.h" 
-
+#include "TrackData.h"
 
 WaveformDisplay::WaveformDisplay(DjIaVstProcessor& processor) : audioProcessor(processor)
 {
@@ -116,6 +116,7 @@ void WaveformDisplay::paint(juce::Graphics& g)
 	drawLoopMarkers(g);
 	drawBeatMarkers(g);
 	drawPlaybackHead(g);
+	drawStretchMarkers(g);
 
 	drawVisibleBarLabels(g);
 
@@ -134,63 +135,275 @@ void WaveformDisplay::paint(juce::Graphics& g)
 	}
 }
 
+void WaveformDisplay::drawStretchMarkers(juce::Graphics& g)
+{
+	for (int i = 0; i < stretchMarkers.size(); ++i)
+	{
+		const auto& marker = stretchMarkers[i];
+		float markerX = timeToX(marker.currentTime);
+
+		juce::Colour markerColour = marker.isSelected ?
+			juce::Colours::yellow : juce::Colours::cyan;
+
+		if (marker.isMultiSelected)
+			markerColour = juce::Colours::magenta;
+		else if (i == selectedMarkerId)
+			markerColour = juce::Colours::orange;
+		else if (marker.isSelected)
+			markerColour = juce::Colours::yellow;
+		else
+			markerColour = juce::Colours::cyan;
+
+		g.setColour(markerColour);
+		g.drawLine(markerX, 0, markerX, getHeight(), 2.0f);
+
+		juce::Path arrow;
+		arrow.addTriangle(markerX - 6, 0, markerX + 6, 0, markerX, 12);
+		g.fillPath(arrow);
+
+		g.setColour(juce::Colours::white);
+		g.setFont(9.0f);
+		g.drawText(juce::String(marker.id), markerX - 10, 15, 20, 12,
+			juce::Justification::centred);
+	}
+}
+
 void WaveformDisplay::mouseDown(const juce::MouseEvent& e)
 {
 	if (e.mods.isRightButtonDown())
 	{
+		int markerIndex = getMarkerAtPosition(e.x);
+		if (markerIndex >= 0)
+		{
+			showMarkerContextMenu(markerIndex, e.getPosition());
+			return;
+		}
 		loopPointsLocked = !loopPointsLocked;
 		repaint();
 		return;
 	}
 
 	if (e.mods.isCtrlDown())
+	{
+		int markerIndex = getMarkerAtPosition(e.x);
+		if (markerIndex >= 0)
+		{
+			stretchMarkers[markerIndex].isMultiSelected = !stretchMarkers[markerIndex].isMultiSelected;
+			repaint();
+			return;
+		}
 		return;
+	}
 
 	if (loopPointsLocked)
 		return;
 
+	clearMultiSelection();
+
 	float startX = timeToX(loopStart);
 	float endX = timeToX(loopEnd);
-
 	float tolerance = 15.0f;
 
 	if (std::abs(e.x - startX) < tolerance)
 	{
 		draggingStart = true;
+		return;
 	}
 	else if (std::abs(e.x - endX) < tolerance)
 	{
 		draggingEnd = true;
+		return;
+	}
+
+	selectedMarkerId = getMarkerAtPosition(e.x);
+	if (selectedMarkerId >= 0)
+	{
+		isDraggingMarker = true;
+		stretchMarkers[selectedMarkerId].isSelected = true;
+		repaint();
+		return;
+	}
+
+	createMarkerAtPosition(e.x);
+}
+
+void WaveformDisplay::clearMultiSelection()
+{
+	for (auto& marker : stretchMarkers)
+	{
+		marker.isMultiSelected = false;
+	}
+}
+
+int WaveformDisplay::getMultiSelectedCount()
+{
+	int count = 0;
+	for (const auto& marker : stretchMarkers)
+	{
+		if (marker.isMultiSelected) count++;
+	}
+	return count;
+}
+
+void WaveformDisplay::showMarkerContextMenu(int markerIndex, juce::Point<int> position)
+{
+	if (markerIndex < 0 || markerIndex >= stretchMarkers.size()) return;
+
+	float markerX = timeToX(stretchMarkers[markerIndex].currentTime);
+	auto screenPos = localPointToGlobal(juce::Point<int>((int)markerX, 20));
+
+	juce::PopupMenu menu;
+
+	int multiSelectedCount = getMultiSelectedCount();
+	bool hasMultiSelection = multiSelectedCount > 0;
+
+	if (hasMultiSelection)
+	{
+		menu.addItem(1, "Delete " + juce::String(multiSelectedCount) + " Selected Markers");
+		menu.addItem(2, "Clear Selection");
+		menu.addSeparator();
+		menu.addItem(3, "Snap Selected to Grid");
 	}
 	else
 	{
-		double clickTime = xToTime(e.x);
-		double distToStart = std::abs(clickTime - loopStart);
-		double distToEnd = std::abs(clickTime - loopEnd);
+		menu.addItem(1, "Delete Marker");
+		menu.addSeparator();
+	}
 
-		if (distToStart < distToEnd)
+	menu.addItem(10, "Snap to Grid: " + juce::String(snapToGrid ? "ON" : "OFF"));
+
+	juce::PopupMenu snapMenu;
+	snapMenu.addItem(20, "Whole Beat", true, snapResolution == WHOLE_BEAT);
+	snapMenu.addItem(21, "Half Beat", true, snapResolution == HALF_BEAT);
+	snapMenu.addItem(22, "Quarter Beat", true, snapResolution == QUARTER_BEAT);
+	snapMenu.addItem(23, "Eighth Beat", true, snapResolution == EIGHTH_BEAT);
+
+	menu.addSubMenu("Snap Resolution", snapMenu);
+
+	menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this)
+		.withTargetScreenArea(juce::Rectangle<int>(screenPos.x - 10, screenPos.y, 20, 10)),
+		[this, markerIndex, hasMultiSelection](int result)
 		{
-			loopStart = clickTime;
-			if (loopStart >= loopEnd)
-			{
-				loopStart = loopEnd;
-			}
+			handleMenuResult(result, markerIndex, hasMultiSelection);
+		});
+}
+
+void WaveformDisplay::deleteMarker(int markerIndex)
+{
+	if (markerIndex >= 0 && markerIndex < stretchMarkers.size())
+	{
+		stretchMarkers.erase(stretchMarkers.begin() + markerIndex);
+		selectedMarkerId = -1;
+		repaint();
+		if (onMarkersChanged && !isUpdatingMarkers)
+			onMarkersChanged();
+	}
+}
+
+void WaveformDisplay::handleMenuResult(int result, int markerIndex, bool hasMultiSelection)
+{
+	switch (result)
+	{
+	case 1:
+		if (hasMultiSelection)
+		{
+			deleteSelectedMarkers();
 		}
 		else
 		{
-			loopEnd = clickTime;
-			if (loopEnd <= loopStart)
-			{
-				loopEnd = loopStart;
-			}
+			deleteMarker(markerIndex);
 		}
+		break;
 
-		if (onLoopPointsChanged)
-		{
-			onLoopPointsChanged(loopStart, loopEnd);
-		}
+	case 2:
+		clearMultiSelection();
 		repaint();
+		break;
+
+	case 3:
+		snapSelectedMarkersToGrid();
+		break;
+
+	case 10:
+		snapToGrid = !snapToGrid;
+		if (onMarkersChanged) onMarkersChanged();
+		repaint();
+		break;
+
+	case 20: snapResolution = WHOLE_BEAT; break;
+	case 21: snapResolution = HALF_BEAT; break;
+	case 22: snapResolution = QUARTER_BEAT; break;
+	case 23: snapResolution = EIGHTH_BEAT; break;
 	}
+}
+
+void WaveformDisplay::deleteSelectedMarkers()
+{
+	for (int i = stretchMarkers.size() - 1; i >= 0; --i)
+	{
+		if (stretchMarkers[i].isMultiSelected)
+		{
+			stretchMarkers.erase(stretchMarkers.begin() + i);
+		}
+	}
+
+	selectedMarkerId = -1;
+	repaint();
+
+	if (onMarkersChanged)
+		onMarkersChanged();
+
+}
+
+void WaveformDisplay::snapSelectedMarkersToGrid()
+{
+	for (auto& marker : stretchMarkers)
+	{
+		if (marker.isMultiSelected)
+		{
+			marker.currentTime = snapTimeToGrid(marker.currentTime);
+		}
+	}
+
+	repaint();
+
+	if (onMarkersChanged)
+		onMarkersChanged();
+
+}
+
+int WaveformDisplay::getMarkerAtPosition(float x)
+{
+	float tolerance = 15.0f;
+
+	for (int i = 0; i < stretchMarkers.size(); ++i)
+	{
+		float markerX = timeToX(stretchMarkers[i].currentTime);
+		if (std::abs(x - markerX) < tolerance)
+		{
+			return i;
+		}
+	}
+	return -1;
+}
+
+void WaveformDisplay::createMarkerAtPosition(float x)
+{
+	double time = xToTime(x);
+
+	StretchMarker newMarker;
+	newMarker.originalTime = time;
+	newMarker.currentTime = time;
+	newMarker.isSelected = true;
+	newMarker.id = nextMarkerId++;
+
+	stretchMarkers.push_back(newMarker);
+	selectedMarkerId = stretchMarkers.size() - 1;
+
+	repaint();
+
+	if (onMarkersChanged)
+		onMarkersChanged();
 }
 
 void WaveformDisplay::mouseDrag(const juce::MouseEvent& e)
@@ -208,6 +421,22 @@ void WaveformDisplay::mouseDrag(const juce::MouseEvent& e)
 			DBG("Drag result: " << (success ? "SUCCESS" : "FAILED"));
 			return;
 		}
+	}
+
+	if (isDraggingMarker && selectedMarkerId >= 0 && selectedMarkerId < stretchMarkers.size())
+	{
+		double newTime = xToTime(e.x);
+		if (snapToGrid)
+		{
+			newTime = snapTimeToGrid(newTime);
+		}
+		stretchMarkers[selectedMarkerId].currentTime = newTime;
+		stretchMarkers[selectedMarkerId].isSelected = true;
+		calculateStretchRatios();
+		repaint();
+		if (onMarkersChanged && !isUpdatingMarkers)
+			onMarkersChanged();
+		return;
 	}
 
 	if (loopPointsLocked || trackBpm <= 0.0f)
@@ -238,6 +467,35 @@ void WaveformDisplay::mouseDrag(const juce::MouseEvent& e)
 	}
 }
 
+double WaveformDisplay::snapTimeToGrid(double time)
+{
+	float hostBpm = getHostBpm();
+	if (hostBpm <= 0.0f) return time;
+
+	double beatDuration = 60.0 / hostBpm;
+	double snapInterval;
+
+	switch (snapResolution)
+	{
+	case WHOLE_BEAT:    snapInterval = beatDuration * 4.0; break;
+	case HALF_BEAT:     snapInterval = beatDuration * 2.0; break;
+	case QUARTER_BEAT:  snapInterval = beatDuration; break;
+	case EIGHTH_BEAT:   snapInterval = beatDuration * 0.5; break;
+	default:            snapInterval = beatDuration; break;
+	}
+
+	return round(time / snapInterval) * snapInterval;
+}
+
+void WaveformDisplay::calculateStretchRatios()
+{
+	for (const auto& marker : stretchMarkers)
+	{
+		double ratio = marker.currentTime / marker.originalTime;
+		DBG("Marker " << marker.id << " ratio: " << ratio);
+	}
+}
+
 double WaveformDisplay::getMinLoopDuration() const
 {
 	if (trackBpm <= 0.0f)
@@ -255,9 +513,16 @@ void WaveformDisplay::setAudioFile(const juce::File& file)
 
 void WaveformDisplay::mouseUp(const juce::MouseEvent& e)
 {
+	bool wasDraggingMarker = isDraggingMarker;
 	draggingStart = false;
 	draggingEnd = false;
 	isDraggingAudio = false;
+	isDraggingMarker = false;
+	selectedMarkerId = -1;
+	if (wasDraggingMarker && onMarkersChanged)
+	{
+		onMarkersChanged();
+	}
 }
 
 void WaveformDisplay::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
@@ -850,4 +1115,57 @@ double WaveformDisplay::getViewEndTime() const
 {
 	return juce::jlimit(viewStartTime, getTotalDuration(),
 		viewStartTime + (getTotalDuration() / zoomFactor));
+}
+
+void WaveformDisplay::loadMarkersFromTrack(TrackData* track)
+{
+	if (!track) return;
+
+	isUpdatingMarkers = true;
+	int currentSelectedId = (selectedMarkerId >= 0 && selectedMarkerId < stretchMarkers.size())
+		? stretchMarkers[selectedMarkerId].id : -1;
+
+	stretchMarkers.clear();
+	selectedMarkerId = -1;
+	for (const auto& saved : track->stretchMarkers)
+	{
+		StretchMarker marker;
+		marker.originalTime = saved.originalTime;
+		marker.currentTime = saved.currentTime;
+		marker.id = saved.id;
+		marker.isMultiSelected = saved.isMultiSelected;
+		marker.isSelected = (saved.id == currentSelectedId);
+		stretchMarkers.push_back(marker);
+
+		if (saved.id == currentSelectedId)
+		{
+			selectedMarkerId = stretchMarkers.size() - 1;
+		}
+	}
+
+	snapToGrid = track->snapToGrid;
+	snapResolution = (SnapResolution)track->snapResolution;
+	nextMarkerId = track->nextMarkerId;
+	isUpdatingMarkers = false;
+	repaint();
+}
+
+void WaveformDisplay::saveMarkersToTrack(TrackData* track)
+{
+	if (!track) return;
+
+	track->stretchMarkers.clear();
+	for (const auto& marker : stretchMarkers)
+	{
+		SavedStretchMarker saved;
+		saved.originalTime = marker.originalTime;
+		saved.currentTime = marker.currentTime;
+		saved.isMultiSelected = marker.isMultiSelected;
+		saved.id = marker.id;
+		track->stretchMarkers.push_back(saved);
+	}
+
+	track->snapToGrid = snapToGrid;
+	track->snapResolution = snapResolution;
+	track->nextMarkerId = nextMarkerId;
 }

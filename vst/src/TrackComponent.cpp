@@ -153,19 +153,29 @@ void TrackComponent::toggleWaveformDisplay()
 						}
 					}
 				};
+			waveformDisplay->onMarkersChanged = [this]()
+				{
+					if (track && !waveformDisplay->isDraggingMarker)
+					{
+						waveformDisplay->saveMarkersToTrack(track);
+					}
+				};
+
 			addAndMakeVisible(*waveformDisplay);
 		}
+
 		if (track && track->numSamples > 0)
 		{
 			waveformDisplay->setAudioData(track->audioBuffer, track->sampleRate);
 			waveformDisplay->setLoopPoints(track->loopStart, track->loopEnd);
+			if (!waveformDisplay->isDraggingMarker)
+			{
+				waveformDisplay->loadMarkersFromTrack(track);
+			}
 			calculateHostBasedDisplay();
-			waveformDisplay->setVisible(true);
 		}
-		else
-		{
-			waveformDisplay->setVisible(true);
-		}
+
+		waveformDisplay->setVisible(true);
 	}
 	else
 	{
@@ -254,6 +264,10 @@ void TrackComponent::updateFromTrackData()
 			double currentTimeInSection = (startSample + track->readPosition.load()) / track->sampleRate;
 			calculateHostBasedDisplay();
 			waveformDisplay->setPlaybackPosition(currentTimeInSection, isCurrentlyPlaying);
+			if (!waveformDisplay->isDraggingMarker && !waveformDisplay->hasMultiSelection())
+			{
+				waveformDisplay->loadMarkersFromTrack(track);
+			}
 		}
 	}
 	updateTrackInfo();

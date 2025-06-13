@@ -2,6 +2,21 @@
 #include <JuceHeader.h>
 #include "DjIaClient.h"
 
+struct SavedStretchMarker
+{
+	double originalTime = 0.0;
+	double currentTime = 0.0;
+	int id = 0;
+	bool isMultiSelected = false;
+
+	SavedStretchMarker() = default;
+
+	SavedStretchMarker(double origTime, double currTime, int markerId, bool multiSelected)
+		: originalTime(origTime), currentTime(currTime), id(markerId), isMultiSelected(multiSelected)
+	{
+	}
+};
+
 struct TrackData
 {
 	juce::String trackId;
@@ -52,6 +67,10 @@ struct TrackData
 	juce::String generationKey = "C Minor";
 	int generationDuration = 6;
 	std::vector<juce::String> preferredStems = { "drums", "bass" };
+	std::vector<SavedStretchMarker> stretchMarkers;
+	int nextMarkerId = 0;
+	bool snapToGrid = true;
+	int snapResolution = 2;
 
 	enum class PendingAction {
 		None,
@@ -120,6 +139,10 @@ struct TrackData
 		volume = 0.8f;
 		pan = 0.0f;
 		bpmOffset = 0.0;
+		stretchMarkers.clear();
+		nextMarkerId = 0;
+		snapToGrid = true;
+		snapResolution = 2;
 	}
 
 	void setPlaying(bool playing)
@@ -173,5 +196,22 @@ struct TrackData
 				if (onPlayStateChanged) {
 					onPlayStateChanged(false);
 				} });
+	}
+
+	void addStretchMarker(double originalTime, double currentTime)
+	{
+		SavedStretchMarker marker;
+		marker.originalTime = originalTime;
+		marker.currentTime = currentTime;
+		marker.id = nextMarkerId++;
+		stretchMarkers.push_back(marker);
+	}
+
+	void removeStretchMarker(int markerId)
+	{
+		stretchMarkers.erase(
+			std::remove_if(stretchMarkers.begin(), stretchMarkers.end(),
+				[markerId](const SavedStretchMarker& m) { return m.id == markerId; }),
+			stretchMarkers.end());
 	}
 };
