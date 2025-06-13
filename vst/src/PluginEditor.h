@@ -2,6 +2,7 @@
 #include "PluginProcessor.h"
 #include "TrackComponent.h"
 #include "MixerPanel.h"
+#include "MidiLearnableComponents.h"
 
 class SequencerComponent;
 
@@ -93,7 +94,7 @@ private:
 	juce::Label pluginNameLabel;
 	juce::Label developerLabel;
 	juce::Typeface::Ptr customFont;
-	juce::ComboBox promptPresetSelector;
+	MidiLearnableComboBox promptPresetSelector;
 	juce::TextButton savePresetButton;
 	juce::TextEditor promptInput;
 	juce::ComboBox styleSelector;

@@ -264,6 +264,33 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage& message)
 
 		if (matches && mapping.processor)
 		{
+			if (mapping.parameterName == "promptPresetSelector")
+			{
+				if (mapping.uiCallback && mapping.processor->getActiveEditor())
+				{
+					DBG("🎯 MIDI mapping found for virtual parameter: " << mapping.parameterName << " (value=" << value << ")");
+					mapping.uiCallback(value);
+
+					juce::MessageManager::callAsync([mapping, statusMessage]()
+						{
+							if (mapping.processor->getActiveEditor())
+							{
+								if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor()))
+								{
+									editor->statusLabel.setText(statusMessage, juce::dontSendNotification);
+									juce::Timer::callAfterDelay(2000, [mapping]() {
+										if (mapping.processor->getActiveEditor()) {
+											if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor())) {
+												editor->statusLabel.setText("Ready", juce::dontSendNotification);
+											}
+										}
+										});
+								}
+							}
+						});
+				}
+				continue;
+			}
 			auto* param = mapping.processor->getParameterTreeState().getParameter(mapping.parameterName);
 			if (param)
 			{

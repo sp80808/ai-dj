@@ -58,6 +58,7 @@ DjIaVstEditor::~DjIaVstEditor()
 {
 	audioProcessor.onUIUpdateNeeded = nullptr;
 	audioProcessor.setGenerationListener(nullptr);
+	audioProcessor.getMidiLearnManager().registerUICallback("promptPresetSelector", nullptr);
 }
 
 void DjIaVstEditor::updateMidiIndicator(const juce::String& noteInfo)
@@ -746,6 +747,40 @@ void DjIaVstEditor::addEventListeners()
 		}
 		refreshTracks();
 		};
+
+	promptPresetSelector.onMidiLearn = [this]()
+		{
+			audioProcessor.getMidiLearnManager().startLearning(
+				"promptPresetSelector",
+				&audioProcessor,
+				[this](float value) {
+					juce::MessageManager::callAsync([this, value]() {
+						int numItems = promptPresetSelector.getNumItems();
+						if (numItems > 0) {
+							int selectedIndex = (int)(value * (numItems - 1));
+							promptPresetSelector.setSelectedItemIndex(selectedIndex, juce::sendNotification);
+						}
+						});
+				},
+				"Prompt Preset Selector"
+			);
+		};
+
+	promptPresetSelector.onMidiRemove = [this]()
+		{
+			audioProcessor.getMidiLearnManager().removeMappingForParameter("promptPresetSelector");
+		};
+
+	audioProcessor.getMidiLearnManager().registerUICallback("promptPresetSelector",
+		[this](float value) {
+			juce::MessageManager::callAsync([this, value]() {
+				int numItems = promptPresetSelector.getNumItems();
+				if (numItems > 0) {
+					int selectedIndex = (int)(value * (numItems - 1));
+					promptPresetSelector.setSelectedItemIndex(selectedIndex, juce::sendNotification);
+				}
+				});
+		});
 }
 
 void DjIaVstEditor::mouseDown(const juce::MouseEvent& event)
@@ -1811,3 +1846,4 @@ void* DjIaVstEditor::getSequencerForTrack(const juce::String& trackId)
 	}
 	return nullptr;
 }
+
