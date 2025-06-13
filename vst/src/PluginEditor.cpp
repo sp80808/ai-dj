@@ -464,12 +464,90 @@ void DjIaVstEditor::setupUI()
 	bpmSlider.setEnabled(!audioProcessor.getHostBpmEnabled());
 
 	addAndMakeVisible(keySelector);
-	keySelector.addItem("C minor", 1);
-	keySelector.addItem("C major", 2);
-	keySelector.addItem("G minor", 3);
-	keySelector.addItem("F major", 4);
-	keySelector.addItem("A minor", 5);
-	keySelector.addItem("D minor", 6);
+	keySelector.addItem("C Ionian", 1);
+	keySelector.addItem("C# Ionian", 2);
+	keySelector.addItem("D Ionian", 3);
+	keySelector.addItem("D# Ionian", 4);
+	keySelector.addItem("E Ionian", 5);
+	keySelector.addItem("F Ionian", 6);
+	keySelector.addItem("F# Ionian", 7);
+	keySelector.addItem("G Ionian", 8);
+	keySelector.addItem("G# Ionian", 9);
+	keySelector.addItem("A Ionian", 10);
+	keySelector.addItem("A# Ionian", 11);
+	keySelector.addItem("B Ionian", 12);
+	keySelector.addItem("C Dorian", 13);
+	keySelector.addItem("C# Dorian", 14);
+	keySelector.addItem("D Dorian", 15);
+	keySelector.addItem("D# Dorian", 16);
+	keySelector.addItem("E Dorian", 17);
+	keySelector.addItem("F Dorian", 18);
+	keySelector.addItem("F# Dorian", 19);
+	keySelector.addItem("G Dorian", 20);
+	keySelector.addItem("G# Dorian", 21);
+	keySelector.addItem("A Dorian", 22);
+	keySelector.addItem("A# Dorian", 23);
+	keySelector.addItem("B Dorian", 24);
+	keySelector.addItem("C Phrygian", 25);
+	keySelector.addItem("C# Phrygian", 26);
+	keySelector.addItem("D Phrygian", 27);
+	keySelector.addItem("D# Phrygian", 28);
+	keySelector.addItem("E Phrygian", 29);
+	keySelector.addItem("F Phrygian", 30);
+	keySelector.addItem("F# Phrygian", 31);
+	keySelector.addItem("G Phrygian", 32);
+	keySelector.addItem("G# Phrygian", 33);
+	keySelector.addItem("A Phrygian", 34);
+	keySelector.addItem("A# Phrygian", 35);
+	keySelector.addItem("B Phrygian", 36);
+	keySelector.addItem("C Lydian", 37);
+	keySelector.addItem("C# Lydian", 38);
+	keySelector.addItem("D Lydian", 39);
+	keySelector.addItem("D# Lydian", 40);
+	keySelector.addItem("E Lydian", 41);
+	keySelector.addItem("F Lydian", 42);
+	keySelector.addItem("F# Lydian", 43);
+	keySelector.addItem("G Lydian", 44);
+	keySelector.addItem("G# Lydian", 45);
+	keySelector.addItem("A Lydian", 46);
+	keySelector.addItem("A# Lydian", 47);
+	keySelector.addItem("B Lydian", 48);
+	keySelector.addItem("C Mixolydian", 49);
+	keySelector.addItem("C# Mixolydian", 50);
+	keySelector.addItem("D Mixolydian", 51);
+	keySelector.addItem("D# Mixolydian", 52);
+	keySelector.addItem("E Mixolydian", 53);
+	keySelector.addItem("F Mixolydian", 54);
+	keySelector.addItem("F# Mixolydian", 55);
+	keySelector.addItem("G Mixolydian", 56);
+	keySelector.addItem("G# Mixolydian", 57);
+	keySelector.addItem("A Mixolydian", 58);
+	keySelector.addItem("A# Mixolydian", 59);
+	keySelector.addItem("B Mixolydian", 60);
+	keySelector.addItem("C Aeolian", 61);
+	keySelector.addItem("C# Aeolian", 62);
+	keySelector.addItem("D Aeolian", 63);
+	keySelector.addItem("D# Aeolian", 64);
+	keySelector.addItem("E Aeolian", 65);
+	keySelector.addItem("F Aeolian", 66);
+	keySelector.addItem("F# Aeolian", 67);
+	keySelector.addItem("G Aeolian", 68);
+	keySelector.addItem("G# Aeolian", 69);
+	keySelector.addItem("A Aeolian", 70);
+	keySelector.addItem("A# Aeolian", 71);
+	keySelector.addItem("B Aeolian", 72);
+	keySelector.addItem("C Locrian", 73);
+	keySelector.addItem("C# Locrian", 74);
+	keySelector.addItem("D Locrian", 75);
+	keySelector.addItem("D# Locrian", 76);
+	keySelector.addItem("E Locrian", 77);
+	keySelector.addItem("F Locrian", 78);
+	keySelector.addItem("F# Locrian", 79);
+	keySelector.addItem("G Locrian", 80);
+	keySelector.addItem("G# Locrian", 81);
+	keySelector.addItem("A Locrian", 82);
+	keySelector.addItem("A# Locrian", 83);
+	keySelector.addItem("B Locrian", 84);
 	keySelector.setText(audioProcessor.getGlobalKey(), juce::dontSendNotification);
 
 	addAndMakeVisible(durationSlider);
@@ -529,11 +607,11 @@ void DjIaVstEditor::setupUI()
 	addAndMakeVisible(autoLoadButton);
 	autoLoadButton.setButtonText("Auto-Load Samples");
 	autoLoadButton.setClickingTogglesState(true);
-	autoLoadButton.setToggleState(true, juce::dontSendNotification);
+	autoLoadButton.setToggleState(audioProcessor.getAutoLoadEnabled(), juce::dontSendNotification);
 
 	addAndMakeVisible(loadSampleButton);
 	loadSampleButton.setButtonText("Load Sample");
-	loadSampleButton.setEnabled(false);
+	loadSampleButton.setEnabled(!audioProcessor.getAutoLoadEnabled());
 
 	addAndMakeVisible(midiIndicator);
 	midiIndicator.setText("MIDI: Waiting...", juce::dontSendNotification);
@@ -759,6 +837,9 @@ void DjIaVstEditor::updateUIFromProcessor()
 	vocalsButton.setToggleState(audioProcessor.isGlobalStemEnabled("vocals"), juce::dontSendNotification);
 	guitarButton.setToggleState(audioProcessor.isGlobalStemEnabled("guitar"), juce::dontSendNotification);
 	pianoButton.setToggleState(audioProcessor.isGlobalStemEnabled("piano"), juce::dontSendNotification);
+
+	autoLoadButton.setToggleState(audioProcessor.getAutoLoadEnabled(), juce::dontSendNotification);
+	loadSampleButton.setEnabled(!audioProcessor.getAutoLoadEnabled());
 
 	int presetIndex = audioProcessor.getLastPresetIndex();
 	if (presetIndex >= 0 && presetIndex < promptPresets.size())
@@ -987,6 +1068,7 @@ void DjIaVstEditor::stopGenerationUI(const juce::String& trackId, bool success, 
 
 void DjIaVstEditor::onGenerateButtonClicked()
 {
+	audioProcessor.setIsGenerating(true);
 	juce::String serverUrl = audioProcessor.getServerUrl();
 	juce::String apiKey = audioProcessor.getApiKey();
 	if (serverUrl.isEmpty())
@@ -1153,25 +1235,31 @@ void DjIaVstEditor::onAutoLoadToggled()
 {
 	bool autoLoadOn = autoLoadButton.getToggleState();
 	audioProcessor.setAutoLoadEnabled(autoLoadOn);
-	loadSampleButton.setEnabled(!autoLoadOn);
 
 	if (autoLoadOn)
 	{
 		statusLabel.setText("Auto-load enabled - samples load automatically", juce::dontSendNotification);
 		loadSampleButton.setButtonText("Load Sample");
+		loadSampleButton.setEnabled(false);
 	}
 	else
 	{
 		statusLabel.setText("Manual mode - click Load Sample when ready", juce::dontSendNotification);
+		loadSampleButton.setEnabled(true);
 		updateLoadButtonState();
 	}
 }
 
 void DjIaVstEditor::onLoadSampleClicked()
 {
-	audioProcessor.loadPendingSample();
-	statusLabel.setText("Sample loaded manually!", juce::dontSendNotification);
-	updateLoadButtonState();
+	if (audioProcessor.hasSampleWaiting()) {
+		audioProcessor.loadPendingSample();
+		statusLabel.setText("Sample loaded manually!", juce::dontSendNotification);
+		updateLoadButtonState();
+	}
+	else {
+		statusLabel.setText("Generate a loop first", juce::dontSendNotification);
+	}
 }
 
 void DjIaVstEditor::updateLoadButtonState()

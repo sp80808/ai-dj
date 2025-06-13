@@ -182,6 +182,7 @@ bool MidiLearnManager::processMidiForLearning(const juce::MidiMessage& message)
 void MidiLearnManager::processMidiMappings(const juce::MidiMessage& message)
 {
 	int midiChannel = message.getChannel() - 1;
+	bool isWarning = false;
 	if (message.isController())
 	{
 		DBG("🎹 MIDI received: CC" << message.getControllerNumber() << " value=" << message.getControllerValue() << " channel=" << (midiChannel + 1));
@@ -218,6 +219,7 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage& message)
 							statusMessage += " (trigger)";
 							if (mapping.processor->getIsGenerating()) {
 								statusMessage += " (trigger) - Generation already in progress, please wait";
+								isWarning = true;
 							}
 						}
 						else
@@ -286,14 +288,18 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage& message)
 					}
 				}
 				param->setValueNotifyingHost(value);
-				juce::MessageManager::callAsync([mapping, statusMessage]()
+				juce::MessageManager::callAsync([mapping, statusMessage, isWarning]()
 					{
 						if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor()))
 						{
 							editor->statusLabel.setText(statusMessage, juce::dontSendNotification);
+							if (isWarning) {
+								editor->statusLabel.setColour(juce::Label::textColourId, juce::Colours::orange);
+							}
 							juce::Timer::callAfterDelay(2000, [mapping]() {
 								if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor())) {
 									editor->statusLabel.setText("Ready", juce::dontSendNotification);
+									editor->statusLabel.setColour(juce::Label::textColourId, juce::Colours::green);
 								}
 								});
 						} });

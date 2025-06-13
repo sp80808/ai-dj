@@ -175,10 +175,12 @@ public:
 	void updateGlobalStem(const juce::String& stem, bool enabled)
 	{
 		auto it = std::find(globalStems.begin(), globalStems.end(), stem);
-		if (enabled && it == globalStems.end()) {
+		if (enabled && it == globalStems.end())
+		{
 			globalStems.push_back(stem);
 		}
-		else if (!enabled && it != globalStems.end()) {
+		else if (!enabled && it != globalStems.end())
+		{
 			globalStems.erase(it);
 		}
 	}
@@ -247,7 +249,7 @@ private:
 	juce::String generatingTrackId = "";
 
 	juce::StringArray booleanParamIds = {
-		"generate", "play", "autoload",
+		"generate", "play",
 		"slot1Mute", "slot1Solo", "slot1Play", "slot1Stop", "slot1Generate",
 		"slot2Mute", "slot2Solo", "slot2Play", "slot2Stop", "slot2Generate",
 		"slot3Mute", "slot3Solo", "slot3Play", "slot3Stop", "slot3Generate",
@@ -281,7 +283,7 @@ private:
 	std::atomic<int> currentNoteNumber{ -1 };
 
 	std::atomic<bool> hasPendingAudioData{ false };
-	std::atomic<bool> autoLoadEnabled{ true };
+	std::atomic<bool> autoLoadEnabled;
 	std::atomic<bool> hasUnloadedSample{ false };
 	std::atomic<bool> waitingForMidiToLoad{ false };
 	std::atomic<bool> isNotePlaying{ false };
@@ -290,7 +292,6 @@ private:
 
 	std::atomic<float>* generateParam = nullptr;
 	std::atomic<float>* playParam = nullptr;
-	std::atomic<float>* autoLoadParam = nullptr;
 	std::atomic<float> masterVolume{ 0.8f };
 	std::atomic<float> masterPan{ 0.0f };
 	std::atomic<float> masterHighEQ{ 0.0f };
