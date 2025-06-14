@@ -22,11 +22,16 @@ class DJAILL:
         self.conversations_lock = threading.Lock()
 
     def destroy_model(self):
-        if hasattr(self, "model"):
+        if hasattr(self, "model") and self.model is not None:
             try:
+                if hasattr(self.model, "close"):
+                    self.model.close()
                 del self.model
+                self.model = None
                 if torch.cuda.is_available():
+                    torch.cuda.synchronize()
                     torch.cuda.empty_cache()
+
                 gc.collect()
                 print("🧹 Model destroyed")
             except Exception as e:

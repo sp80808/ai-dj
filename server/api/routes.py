@@ -88,7 +88,7 @@ async def generate_loop(
         request_id = int(time.time())
         print(f"===== 🎵 QUERY #{request_id} =====")
         print(
-            f"📝 '{request.prompt}' | {request.bpm} BPM | {request.key} | SAMPLE RATE {str(int(request.sample_rate))}"
+            f"📝 '{request.prompt}' | {request.bpm} BPM | {request.key} | SAMPLE RATE {str(int(request.sample_rate))} | GENERATION DURATION {str(int(request.generation_duration))}"
         )
         if not request.prompt or len(request.prompt.strip()) < 3:
             raise create_error_response(
