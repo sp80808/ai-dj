@@ -1298,6 +1298,7 @@ void DjIaVstEditor::updateBpmFromHost()
 		{
 			bpmSlider.setValue(hostBpm, juce::dontSendNotification);
 			bpmSlider.setEnabled(false);
+			audioProcessor.setGlobalBpm((float)hostBpm);
 			statusLabel.setText("BPM synced with host: " + juce::String(hostBpm, 1), juce::dontSendNotification);
 		}
 		else
