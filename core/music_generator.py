@@ -39,7 +39,6 @@ class MusicGenerator:
     def destroy_model(self):
         self.model = None
         if torch.cuda.is_available():
-            torch.cuda.synchronize()
             torch.cuda.empty_cache()
         gc.collect()
 
