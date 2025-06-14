@@ -138,9 +138,9 @@ void TrackComponent::toggleWaveformDisplay()
 {
 	if (showWaveformButton.getToggleState())
 	{
-		if (!waveformDisplay)
+		if (!waveformDisplay && track != nullptr)
 		{
-			waveformDisplay = std::make_unique<WaveformDisplay>(audioProcessor);
+			waveformDisplay = std::make_unique<WaveformDisplay>(audioProcessor, *track);
 			waveformDisplay->onLoopPointsChanged = [this](double start, double end)
 				{
 					if (track)
@@ -153,19 +153,18 @@ void TrackComponent::toggleWaveformDisplay()
 						}
 					}
 				};
+
 			addAndMakeVisible(*waveformDisplay);
 		}
+
 		if (track && track->numSamples > 0)
 		{
 			waveformDisplay->setAudioData(track->audioBuffer, track->sampleRate);
 			waveformDisplay->setLoopPoints(track->loopStart, track->loopEnd);
 			calculateHostBasedDisplay();
-			waveformDisplay->setVisible(true);
 		}
-		else
-		{
-			waveformDisplay->setVisible(true);
-		}
+
+		waveformDisplay->setVisible(true);
 	}
 	else
 	{
@@ -243,10 +242,6 @@ void TrackComponent::updateFromTrackData()
 	if (waveformDisplay)
 	{
 		bool isCurrentlyPlaying = track->isPlaying.load();
-		bool isMuted = track->isMuted.load();
-		bool shouldLock = isCurrentlyPlaying && !isMuted;
-
-		waveformDisplay->lockLoopPoints(false);
 
 		if (track->numSamples > 0 && track->sampleRate > 0)
 		{
@@ -610,8 +605,9 @@ void TrackComponent::adjustLoopPointsToTempo()
 	if (effectiveBpm <= 0)
 		return;
 
+	int numerator = audioProcessor.getTimeSignatureNumerator();
 	double beatDuration = 60.0 / effectiveBpm;
-	double barDuration = beatDuration * 4.0;
+	double barDuration = beatDuration * numerator;
 	double originalDuration = track->numSamples / track->sampleRate;
 	double stretchRatio = effectiveBpm / track->originalBpm;
 	double effectiveDuration = originalDuration / stretchRatio;

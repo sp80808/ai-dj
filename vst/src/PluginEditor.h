@@ -71,11 +71,21 @@ private:
 	void mouseDown(const juce::MouseEvent& event) override;
 	void editCustomPromptDialog(const juce::String& selectedPrompt);
 	void toggleSEQButtonOnTrack();
+	void startGenerationButtonAnimation();
+	void stopGenerationButtonAnimation();
 
 	juce::File getSessionsDirectory();
 	std::unique_ptr<MixerPanel> mixerPanel;
 	juce::TextButton showMixerButton;
 	bool mixerVisible = false;
+	std::atomic<bool> isGenerating{ false };
+	std::atomic<bool> wasGenerating{ false };
+	std::atomic<bool> isInitialized{ false };
+
+	bool isButtonBlinking = false;
+	juce::String generatingTrackId;
+	juce::String originalButtonText;
+	int blinkCounter = 0;
 
 	juce::StringArray promptPresets = {
 		"Techno kick rhythm",

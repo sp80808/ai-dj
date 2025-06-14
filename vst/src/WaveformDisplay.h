@@ -2,11 +2,12 @@
 #include "JuceHeader.h"
 
 class DjIaVstProcessor;
+struct TrackData;
 
 class WaveformDisplay : public juce::Component, public juce::ScrollBar::Listener, public juce::DragAndDropContainer
 {
 public:
-	WaveformDisplay(DjIaVstProcessor& processor);
+	WaveformDisplay(DjIaVstProcessor& processor, TrackData& trackData);
 	~WaveformDisplay();
 
 	std::function<void(double, double)> onLoopPointsChanged;
@@ -23,11 +24,10 @@ private:
 	juce::AudioBuffer<float> audioBuffer;
 	juce::File currentAudioFile;
 	juce::Point<int> dragStartPosition;
-
 	std::unique_ptr<juce::ScrollBar> horizontalScrollBar;
 
 	DjIaVstProcessor& audioProcessor;
-
+	TrackData& track;
 	std::vector<float> thumbnail;
 
 	double loopStart = 0.0;
@@ -71,6 +71,7 @@ private:
 	void updateScrollBar();
 	void drawVisibleBarLabels(juce::Graphics& g);
 	void setViewStartTime(double newViewStartTime);
+	void drawSubdivisions(juce::Graphics& g, float subdivisionDuration, double viewEndTime, float barDuration, double viewDuration);
 
 	void paint(juce::Graphics& g) override;
 	void mouseDown(const juce::MouseEvent& e) override;

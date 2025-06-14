@@ -14,7 +14,7 @@ class TrackComponent;
 
 class DjIaVstProcessor : public juce::AudioProcessor,
 	public juce::AudioProcessorValueTreeState::Listener,
-	public juce::Timer
+	public juce::Timer, public juce::AsyncUpdater
 {
 public:
 	void timerCallback() override;
@@ -92,6 +92,8 @@ public:
 		masterLowEQ = low;
 	}
 	float getMasterVolume() const { return masterVolume.load(); }
+	int getTimeSignatureNumerator() const { return timeSignatureNumerator.load(); }
+	int getTimeSignatureDenominator() const { return timeSignatureDenominator.load(); }
 	float getMasterPan() const { return masterPan.load(); }
 	juce::String createNewTrack(const juce::String& name = "Track");
 	void deleteTrack(const juce::String& trackId);
@@ -150,6 +152,7 @@ public:
 	juce::String getGlobalPrompt() const { return globalPrompt; }
 
 	void setGlobalBpm(float bpm) { globalBpm = bpm; }
+	void setCanLoad(bool load) { canLoad = load; }
 	float getGlobalBpm() const { return globalBpm; }
 
 	void setGlobalKey(const juce::String& key) { globalKey = key; }
@@ -224,12 +227,19 @@ private:
 	int lastPresetIndex = -1;
 	int currentBlockSize = 512;
 	int requestTimeoutMS = 360000;
+	std::atomic<int> timeSignatureNumerator{ 4 };
+	std::atomic<int> timeSignatureDenominator{ 4 };
 
 	juce::String globalPrompt = "Generate a techno drum loop";
 	float globalBpm = 127.0f;
-	juce::String globalKey = "C Minor";
+	juce::String globalKey = "C Aeolian";
 	int globalDuration = 6;
 	std::vector<juce::String> globalStems = { "drums", "bass" };
+
+	juce::String pendingMessage;
+	bool hasPendingNotification = false;
+
+	void handleAsyncUpdate() override;
 
 	juce::CriticalSection apiLock;
 	juce::CriticalSection sequencerMidiLock;
@@ -245,6 +255,7 @@ private:
 	juce::String lastKey = "C minor";
 	juce::String trackIdWaitingForLoad;
 	juce::String pendingTrackId;
+	juce::String lastGeneratedTrackId;
 	juce::String selectedTrackId;
 	juce::String generatingTrackId = "";
 
@@ -289,6 +300,7 @@ private:
 	std::atomic<bool> isNotePlaying{ false };
 	std::atomic<bool> correctMidiNoteReceived{ false };
 	std::atomic<bool> stateLoaded{ false };
+	std::atomic<bool> canLoad{ false };
 
 	std::atomic<float>* generateParam = nullptr;
 	std::atomic<float>* playParam = nullptr;
@@ -320,7 +332,7 @@ private:
 			.getChildFile("global_config.json");
 	}
 
-	void processIncomingAudio();
+	void processIncomingAudio(bool hostIsPlaying);
 	void clearPendingAudio();
 	void processMidiMessages(juce::MidiBuffer& midiMessages, bool hostIsPlaying, double hostBpm);
 	void playTrack(const juce::MidiMessage& message, double hostBpm);
@@ -354,5 +366,5 @@ private:
 
 	juce::File getTrackAudioFile(const juce::String& trackId);
 
-	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor)
+	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor);
 };

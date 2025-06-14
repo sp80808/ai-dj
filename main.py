@@ -22,34 +22,37 @@ def create_api_app():
         description="API for the VST OBSIDIAN-Neural plugin",
         version="1.0.0",
     )
-    
+
     from fastapi.exceptions import RequestValidationError
     from fastapi.responses import JSONResponse
-    
+
     @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    async def validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ):
         print(f"❌ Validation Error on {request.method} {request.url}")
         print(f"❌ Error details: {exc.errors()}")
-        
+
         try:
             body = await request.body()
             print(f"❌ Raw request body: {body.decode('utf-8')}")
         except:
             print("❌ Could not read request body")
-        
+
         return JSONResponse(
             status_code=422,
             content={
                 "error": {
                     "code": "VALIDATION_ERROR",
-                    "message": f"Request validation failed: {exc.errors()}"
+                    "message": f"Request validation failed: {exc.errors()}",
                 }
-            }
+            },
         )
-    
+
     from server.api.routes import router
+
     app.include_router(router, prefix="/api/v1", dependencies=[Depends(get_dj_system)])
-    
+
     return app
 
 
@@ -101,6 +104,11 @@ def main():
         action="store_true",
         help="Load API keys from encrypted database",
     )
+    parser.add_argument(
+        "--is-test",
+        action="store_true",
+        help="Bypass models generations for faster testing",
+    )
 
     args = parser.parse_args()
 
@@ -141,6 +149,7 @@ def main():
         environment=environment,
         audio_model=audio_model,
         use_stored_keys=args.use_stored_keys,
+        is_test=args.is_test,
     )
 
     init_config_from_args(config_args)
