@@ -14,7 +14,7 @@ class TrackComponent;
 
 class DjIaVstProcessor : public juce::AudioProcessor,
 	public juce::AudioProcessorValueTreeState::Listener,
-	public juce::Timer
+	public juce::Timer, public juce::AsyncUpdater
 {
 public:
 	void timerCallback() override;
@@ -232,9 +232,14 @@ private:
 
 	juce::String globalPrompt = "Generate a techno drum loop";
 	float globalBpm = 127.0f;
-	juce::String globalKey = "C Minor";
+	juce::String globalKey = "C Aeolian";
 	int globalDuration = 6;
 	std::vector<juce::String> globalStems = { "drums", "bass" };
+
+	juce::String pendingMessage;
+	bool hasPendingNotification = false;
+
+	void handleAsyncUpdate() override;
 
 	juce::CriticalSection apiLock;
 	juce::CriticalSection sequencerMidiLock;
@@ -360,5 +365,5 @@ private:
 
 	juce::File getTrackAudioFile(const juce::String& trackId);
 
-	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor)
+	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor);
 };

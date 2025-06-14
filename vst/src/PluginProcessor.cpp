@@ -1048,14 +1048,25 @@ void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest& request, cons
 
 void DjIaVstProcessor::notifyGenerationComplete(const juce::String& trackId, const juce::String& message)
 {
-	juce::MessageManager::callAsync([this, trackId, message]()
-		{
-			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
-				editor->stopGenerationUI(trackId, true);
-			}
-			if (generationListener) {
-				generationListener->onGenerationComplete(trackId, message);
-			} });
+	pendingTrackId = trackId;
+	pendingMessage = message;
+	hasPendingNotification = true;
+	triggerAsyncUpdate();
+}
+
+void DjIaVstProcessor::handleAsyncUpdate()
+{
+	if (!hasPendingNotification)
+		return;
+
+	hasPendingNotification = false;
+
+	if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+		editor->stopGenerationUI(pendingTrackId, true);
+		if (generationListener) {
+			generationListener->onGenerationComplete(pendingTrackId, pendingMessage);
+		}
+	}
 }
 
 void DjIaVstProcessor::processIncomingAudio(bool hostIsPlaying)

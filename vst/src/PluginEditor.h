@@ -76,6 +76,9 @@ private:
 	std::unique_ptr<MixerPanel> mixerPanel;
 	juce::TextButton showMixerButton;
 	bool mixerVisible = false;
+	std::atomic<bool> isGenerating{ false };
+	std::atomic<bool> wasGenerating{ false };
+	std::atomic<bool> isInitialized{ false };
 
 	juce::StringArray promptPresets = {
 		"Techno kick rhythm",

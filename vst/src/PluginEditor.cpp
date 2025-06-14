@@ -85,6 +85,16 @@ void DjIaVstEditor::updateMidiIndicator(const juce::String& noteInfo)
 
 void DjIaVstEditor::updateUIComponents()
 {
+	//if (!isGenerating.load() && audioProcessor.getIsGenerating()) {
+	//	isGenerating.store(true);
+	//	wasGenerating.store(true);
+	//	startTimer(200);
+	//}
+	//if (wasGenerating.load() && !audioProcessor.getIsGenerating()) {
+	//	isGenerating.store(false);
+	//	wasGenerating.store(false);
+	//	stopTimer();
+	//}
 	for (auto& trackComp : trackComponents)
 	{
 		if (trackComp->isShowing())
@@ -192,8 +202,8 @@ void DjIaVstEditor::initUI()
 		juce::Timer::callAfterDelay(500, [this]()
 			{ showFirstTimeSetup(); });
 	}
+	isInitialized.store(true);
 	juce::WeakReference<DjIaVstEditor> weakThis(this);
-
 	audioProcessor.setMidiIndicatorCallback([weakThis](const juce::String& noteInfo)
 		{
 			if (weakThis != nullptr) {
@@ -215,6 +225,7 @@ void DjIaVstEditor::initUI()
 								}
 							} });
 				};
+
 }
 
 void DjIaVstEditor::showFirstTimeSetup()
@@ -361,7 +372,7 @@ void DjIaVstEditor::showConfigDialog()
 
 void DjIaVstEditor::timerCallback()
 {
-	if (audioProcessor.isStateReady())
+	if (audioProcessor.isStateReady() && !isInitialized.load())
 	{
 		stopTimer();
 		initUI();
