@@ -8,8 +8,7 @@ IS_TEST: bool = False
 
 API_KEY_HEADER = "X-API-Key"
 
-audio_lock = asyncio.Lock()
-llm_lock = asyncio.Lock()
+lock = asyncio.Lock()
 
 
 def init_config_from_args(args):
