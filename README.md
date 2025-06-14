@@ -9,9 +9,17 @@ OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM
 **🚨 FRUSTRATED WITH INSTALLATION? 🚨**  
 **Skip the complexity! Get a free API key instead.**  
 **No Python, no compilation, no debugging - just music creation.**  
-**⚠️ Limited to 10 testers + queue system during peak hours**
-
+**⚠️ Limited to 10 testers + queue system during peak hours**  
+**⚠️ 50 generations per API key + Server available 9 AM - 12 AM (French time)**  
 **Contact me at: b03caa1n5@mozmail.com**
+
+---
+
+### 🔴 Latest Live Stream
+
+[![OBSIDIAN Live Stream](https://img.youtube.com/vi/O5j6xa_9_0s/maxresdefault.jpg)](https://www.youtube.com/watch?v=O5j6xa_9_0s)
+
+_Live YouTube session: Real-time AI music generation with all the unpredictability that comes with it! 57 minutes of pure improvisation - the good, the weird, and the moments where you just adapt and roll with whatever the AI throws at you. Welcome to live AI music!_
 
 ---
 
@@ -184,14 +192,6 @@ If using the installer + manual VST3:
 - **Session save/load** functionality
 - **Background processing** - works with VST window closed
 - **Global custom prompts** shared across projects
-
----
-
-## 🎵 Live Demo
-
-[![OBSIDIAN Live Performance](https://img.youtube.com/vi/l4KMC5adxVA/maxresdefault.jpg)](https://www.youtube.com/watch?v=l4KMC5adxVA)
-
-_Click to watch: World's First AI Jam Partner in action!_
 
 ---
 
