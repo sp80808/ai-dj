@@ -6,11 +6,11 @@ OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM
 
 ---
 
-**🚨 FRUSTRATED WITH INSTALLATION? 🚨**
-**Skip the complexity! Get a free API key instead.**
-**No Python, no compilation, no debugging - just music creation.**
-**⚠️ Limited to 10 testers + queue system during peak hours**
-**⚠️ 50 generations per API key + Server available 9 AM - 12 AM (French time)**
+**🚨 FRUSTRATED WITH INSTALLATION? 🚨**  
+**Skip the complexity! Get a free API key instead.**  
+**No Python, no compilation, no debugging - just music creation.**  
+**⚠️ Limited to 10 testers + queue system during peak hours**  
+**⚠️ 50 generations per API key + Server available 9 AM - 12 AM (French time)**  
 **Contact me at: b03caa1n5@mozmail.com**
 
 ---
