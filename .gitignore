@@ -24,3 +24,4 @@ OBSIDIAN-Neural-Server.spec
 OBSIDIAN-Neural-Installer.spec
 testfiles/*
 !testfiles/.gitkeep
+launch.bat
