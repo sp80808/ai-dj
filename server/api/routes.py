@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import APIKeyHeader
 from fastapi.responses import Response
 from .models import GenerateRequest
-from config.config import API_KEYS, ENVIRONMENT, audio_lock, llm_lock, IS_TEST
+from config.config import API_KEYS, ENVIRONMENT, lock, IS_TEST
 from server.api.api_request_handler import APIRequestHandler
 from core.api_keys_manager import check_api_key_status, increment_api_key_usage
 
@@ -103,10 +103,9 @@ async def generate_loop(
                 503,
             )
         if not IS_TEST:
-            async with llm_lock:
+            async with lock:
                 handler.setup_llm_session(request, request_id, user_id)
                 llm_decision = handler.get_llm_decision()
-            async with audio_lock:
                 audio, _ = handler.generate_simple(request, llm_decision)
                 processed_path, used_stems = handler.process_audio_pipeline(
                     audio, request, request_id
