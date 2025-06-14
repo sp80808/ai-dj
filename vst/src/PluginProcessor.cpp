@@ -302,7 +302,7 @@ void DjIaVstProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
 
 	if (hasPendingAudioData.load())
 	{
-		processIncomingAudio();
+		processIncomingAudio(hostIsPlaying);
 	}
 
 	resizeIndividualsBuffers(buffer);
@@ -504,9 +504,11 @@ void DjIaVstProcessor::getDawInformations(juce::AudioPlayHead* playHead, bool& h
 	{
 		hostSampleRate = currentSampleRate;
 	}
+
 	if (auto positionInfo = playHead->getPosition())
 	{
 		hostIsPlaying = positionInfo->getIsPlaying();
+
 		if (auto bpm = positionInfo->getBpm())
 		{
 			double newBpm = *bpm;
@@ -520,9 +522,15 @@ void DjIaVstProcessor::getDawInformations(juce::AudioPlayHead* playHead, bool& h
 				}
 			}
 		}
+
 		if (auto ppq = positionInfo->getPpqPosition())
 		{
 			hostPpqPosition = *ppq;
+		}
+		if (auto timeSig = positionInfo->getTimeSignature())
+		{
+			timeSignatureNumerator.store(timeSig->numerator);
+			timeSignatureDenominator.store(timeSig->denominator);
 		}
 	}
 }
@@ -949,7 +957,6 @@ void DjIaVstProcessor::selectTrack(const juce::String& trackId)
 void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest& request, const juce::String& targetTrackId)
 {
 	juce::String trackId = targetTrackId.isEmpty() ? selectedTrackId : targetTrackId;
-
 	try
 	{
 		auto response = apiClient.generateLoop(request, hostSampleRate, requestTimeoutMS);
@@ -1040,17 +1047,29 @@ void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest& request, cons
 
 void DjIaVstProcessor::notifyGenerationComplete(const juce::String& trackId, const juce::String& message)
 {
-	juce::MessageManager::callAsync([this, trackId, message]()
-		{
-			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
-				editor->stopGenerationUI(trackId, true);
-			}
-			if (generationListener) {
-				generationListener->onGenerationComplete(trackId, message);
-			} });
+	lastGeneratedTrackId = trackId;
+	pendingMessage = message;
+	hasPendingNotification = true;
+	triggerAsyncUpdate();
 }
 
-void DjIaVstProcessor::processIncomingAudio()
+void DjIaVstProcessor::handleAsyncUpdate()
+{
+	if (!hasPendingNotification)
+		return;
+
+	hasPendingNotification = false;
+
+	juce::MessageManager::callAsync([this]()
+		{
+			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+				if (generationListener) {
+					generationListener->onGenerationComplete(lastGeneratedTrackId, pendingMessage);
+				}
+			}});
+}
+
+void DjIaVstProcessor::processIncomingAudio(bool hostIsPlaying)
 {
 	if (!hasPendingAudioData.load())
 	{
@@ -1066,14 +1085,13 @@ void DjIaVstProcessor::processIncomingAudio()
 	{
 		return;
 	}
-
-	if (track->isPlaying.load() || track->isArmed.load())
+	if (waitingForMidiToLoad.load() && !correctMidiNoteReceived.load() && hostIsPlaying && track->isPlaying.load())
 	{
-		if (waitingForMidiToLoad.load() && !correctMidiNoteReceived.load())
-		{
-			hasUnloadedSample = true;
-			return;
-		}
+		return;
+	}
+	if (!canLoad.load() && !autoLoadEnabled.load()) {
+		hasUnloadedSample = true;
+		return;
 	}
 
 	juce::MessageManager::callAsync([this]()
@@ -1089,6 +1107,7 @@ void DjIaVstProcessor::processIncomingAudio()
 			hasUnloadedSample = false;
 			waitingForMidiToLoad = false;
 			correctMidiNoteReceived = false;
+			canLoad = false;
 			trackIdWaitingForLoad.clear();
 }
 
@@ -1341,6 +1360,7 @@ void DjIaVstProcessor::loadPendingSample()
 	if (hasUnloadedSample.load() && !pendingTrackId.isEmpty())
 	{
 		waitingForMidiToLoad = true;
+		canLoad = true;
 		trackIdWaitingForLoad = pendingTrackId;
 	}
 }
@@ -1813,7 +1833,7 @@ void DjIaVstProcessor::updateSequencers(bool hostIsPlaying)
 
 			if (shouldAdvanceStep)
 			{
-				int stepsPerMeasure = track->sequencerData.beatsPerMeasure * 4;
+				int stepsPerMeasure = track->sequencerData.beatsPerMeasure * getTimeSignatureNumerator();
 				int newStep = track->customStepCounter % stepsPerMeasure;
 				int newMeasure = (track->customStepCounter / stepsPerMeasure) % track->sequencerData.numMeasures;
 

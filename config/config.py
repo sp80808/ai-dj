@@ -4,6 +4,7 @@ from typing import List
 API_KEYS: List[str] = []
 ENVIRONMENT: str = "dev"
 AUDIO_MODEL: str = "stabilityai/stable-audio-open-1.0"
+IS_TEST: bool = False
 
 API_KEY_HEADER = "X-API-Key"
 
@@ -12,10 +13,11 @@ llm_lock = asyncio.Lock()
 
 
 def init_config_from_args(args):
-    global API_KEYS, ENVIRONMENT, AUDIO_MODEL
+    global API_KEYS, ENVIRONMENT, AUDIO_MODEL, IS_TEST
 
     ENVIRONMENT = args.environment or "dev"
     AUDIO_MODEL = args.audio_model or "stabilityai/stable-audio-open-1.0"
+    IS_TEST = args.is_test
 
     if args.use_stored_keys:
         API_KEYS = load_api_keys_from_db()

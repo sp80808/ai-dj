@@ -1,12 +1,14 @@
 import time
 import os
+from os import walk
+import random
 import librosa
 import hashlib
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import APIKeyHeader
 from fastapi.responses import Response
 from .models import GenerateRequest
-from config.config import API_KEYS, ENVIRONMENT, audio_lock, llm_lock
+from config.config import API_KEYS, ENVIRONMENT, audio_lock, llm_lock, IS_TEST
 from server.api.api_request_handler import APIRequestHandler
 from core.api_keys_manager import check_api_key_status, increment_api_key_usage
 
@@ -70,7 +72,6 @@ async def verify_api_key(api_key: str = Depends(api_key_header)):
     return api_key
 
 
-
 @router.post("/verify_key")
 async def verify_key(_: str = Depends(verify_api_key)):
     return {"status": "valid", "message": "API Key valid"}
@@ -101,14 +102,29 @@ async def generate_loop(
                 "Audio generation system is currently unavailable. Please try again later.",
                 503,
             )
-        async with llm_lock:
-            handler.setup_llm_session(request, request_id, user_id)
-            llm_decision = handler.get_llm_decision()
-        async with audio_lock:
-            audio, _ = handler.generate_simple(request, llm_decision)
-            processed_path, used_stems = handler.process_audio_pipeline(
-                audio, request, request_id
+        if not IS_TEST:
+            async with llm_lock:
+                handler.setup_llm_session(request, request_id, user_id)
+                llm_decision = handler.get_llm_decision()
+            async with audio_lock:
+                audio, _ = handler.generate_simple(request, llm_decision)
+                processed_path, used_stems = handler.process_audio_pipeline(
+                    audio, request, request_id
+                )
+        else:
+            test_files_path = "./testfiles"
+            test_files = []
+            for _, _, filenames in walk(test_files_path):
+                test_files.extend(filenames)
+                break
+            test_files.remove(".gitkeep")
+            processed_path = dj_system.layer_manager._prepare_sample_for_loop(
+                original_audio_path="./testfiles/" + random.choice(test_files),
+                layer_id=f"simple_loop_{request_id}",
+                sample_rate=int(request.sample_rate),
             )
+            used_stems = None
+            time.sleep(3)
         if not processed_path or not os.path.exists(processed_path):
             raise create_error_response(
                 "SERVER_ERROR", "Audio generation completed but file not found", 500

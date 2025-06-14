@@ -1,16 +1,16 @@
 ﻿#include "JuceHeader.h"
 #include "WaveformDisplay.h"
 #include "PluginProcessor.h" 
+#include "TrackData.h" 
 
-
-WaveformDisplay::WaveformDisplay(DjIaVstProcessor& processor) : audioProcessor(processor)
+WaveformDisplay::WaveformDisplay(DjIaVstProcessor& processor, TrackData& trackData) : audioProcessor(processor), track(trackData)
 {
 	setSize(400, 80);
 
 	zoomFactor = 1.0;
 	viewStartTime = 0.0;
 	sampleRate = 48000.0;
-
+	loopPointsLocked = track.loopPointsLocked.load();
 	horizontalScrollBar = std::make_unique<juce::ScrollBar>(false);
 	horizontalScrollBar->setRangeLimits(0.0, 1.0);
 	horizontalScrollBar->addListener(this);
@@ -49,14 +49,11 @@ void WaveformDisplay::setAudioData(const juce::AudioBuffer<float>& audioBuffer, 
 
 void WaveformDisplay::setLoopPoints(double startTime, double endTime)
 {
-	if (!loopPointsLocked)
-	{
-		loopStart = startTime;
-		loopEnd = endTime;
-		juce::MessageManager::callAsync([this]() {
-			repaint();
-			});
-	}
+	loopStart = startTime;
+	loopEnd = endTime;
+	juce::MessageManager::callAsync([this]() {
+		repaint();
+		});
 }
 
 void WaveformDisplay::lockLoopPoints(bool locked)
@@ -138,58 +135,28 @@ void WaveformDisplay::mouseDown(const juce::MouseEvent& e)
 {
 	if (e.mods.isRightButtonDown())
 	{
-		loopPointsLocked = !loopPointsLocked;
-		repaint();
+		loopPointsLocked = !track.loopPointsLocked.load();
+		track.loopPointsLocked.store(loopPointsLocked);
+		lockLoopPoints(loopPointsLocked);
 		return;
 	}
-
-	if (e.mods.isCtrlDown())
-		return;
 
 	if (loopPointsLocked)
 		return;
 
 	float startX = timeToX(loopStart);
 	float endX = timeToX(loopEnd);
-
 	float tolerance = 15.0f;
 
 	if (std::abs(e.x - startX) < tolerance)
 	{
 		draggingStart = true;
+		return;
 	}
 	else if (std::abs(e.x - endX) < tolerance)
 	{
 		draggingEnd = true;
-	}
-	else
-	{
-		double clickTime = xToTime(e.x);
-		double distToStart = std::abs(clickTime - loopStart);
-		double distToEnd = std::abs(clickTime - loopEnd);
-
-		if (distToStart < distToEnd)
-		{
-			loopStart = clickTime;
-			if (loopStart >= loopEnd)
-			{
-				loopStart = loopEnd;
-			}
-		}
-		else
-		{
-			loopEnd = clickTime;
-			if (loopEnd <= loopStart)
-			{
-				loopEnd = loopStart;
-			}
-		}
-
-		if (onLoopPointsChanged)
-		{
-			onLoopPointsChanged(loopStart, loopEnd);
-		}
-		repaint();
+		return;
 	}
 }
 
@@ -243,15 +210,16 @@ double WaveformDisplay::getMinLoopDuration() const
 	if (trackBpm <= 0.0f)
 		return 1.0;
 
+	int numerator = audioProcessor.getTimeSignatureNumerator();
+
 	double beatDuration = 60.0 / trackBpm;
-	return beatDuration * 4.0;
+	return beatDuration * numerator;
 }
 
 void WaveformDisplay::setAudioFile(const juce::File& file)
 {
 	currentAudioFile = file;
 }
-
 
 void WaveformDisplay::mouseUp(const juce::MouseEvent& e)
 {
@@ -659,6 +627,8 @@ void WaveformDisplay::drawVisibleBarLabels(juce::Graphics& g)
 	if (trackBpm <= 0.0f)
 		return;
 
+	int numerator = audioProcessor.getTimeSignatureNumerator();
+
 	float effectiveBpm = trackBpm;
 	if (stretchRatio > 0.0f && stretchRatio != 1.0f)
 	{
@@ -666,13 +636,12 @@ void WaveformDisplay::drawVisibleBarLabels(juce::Graphics& g)
 	}
 
 	double beatDuration = 60.0 / effectiveBpm;
-	double barDuration = beatDuration * 4.0;
+	double barDuration = beatDuration * numerator;
 
 	double viewStart = getViewStartTime();
 	double viewEnd = getViewEndTime();
 
 	int leftBar = (int)(viewStart / barDuration) + 1;
-
 	int rightBar = (int)(viewEnd / barDuration) + 1;
 
 	if (fmod(viewEnd, barDuration) < 0.01)
@@ -682,22 +651,17 @@ void WaveformDisplay::drawVisibleBarLabels(juce::Graphics& g)
 
 	g.setColour(juce::Colours::lightgrey);
 	g.setFont(12.0f);
-
 	g.drawText("Bar " + juce::String(leftBar),
-		5, 2, 60, 15,
-		juce::Justification::left);
-
+		5, 2, 60, 15, juce::Justification::left);
 	g.drawText("Bar " + juce::String(rightBar),
-		getWidth() - 65, 2, 60, 15,
-		juce::Justification::right);
+		getWidth() - 65, 2, 60, 15, juce::Justification::right);
 
 	int visibleBars = rightBar - leftBar + 1;
 	if (visibleBars > 1)
 	{
 		g.setFont(10.0f);
 		g.drawText("(" + juce::String(visibleBars) + " bars visible)",
-			getWidth() / 2 - 40, 2, 80, 15,
-			juce::Justification::centred);
+			getWidth() / 2 - 40, 2, 80, 15, juce::Justification::centred);
 	}
 }
 
@@ -746,32 +710,58 @@ float WaveformDisplay::timeToX(double time)
 
 void WaveformDisplay::drawBeatMarkers(juce::Graphics& g)
 {
-	if (thumbnail.empty())
-		return;
+	if (thumbnail.empty()) return;
 
 	float hostBpm = getHostBpm();
-	if (hostBpm <= 0.0f)
-		return;
+	if (hostBpm <= 0.0f) return;
+
+	int numerator = audioProcessor.getTimeSignatureNumerator();
+	int denominator = audioProcessor.getTimeSignatureDenominator();
 
 	double totalDuration = getTotalDuration();
 	double viewDuration = totalDuration / zoomFactor;
 	double viewEndTime = juce::jlimit(viewStartTime, totalDuration, viewStartTime + viewDuration);
 
-
 	float beatDuration = 60.0f / hostBpm * stretchRatio;
-	float barDuration = beatDuration * 4.0f;
+	float barDuration = beatDuration * numerator;
 
-	g.setColour(juce::Colours::white.withAlpha(0.8f));
-
+	g.setColour(juce::Colours::white.withAlpha(0.9f));
 	double firstBarTime = floor(viewStartTime / barDuration) * barDuration;
 	for (double time = firstBarTime; time <= viewEndTime; time += barDuration)
 	{
 		drawMeasures(time, g, barDuration, viewDuration);
 	}
 
-	if (zoomFactor > 2.0)
+	g.setColour(juce::Colours::white.withAlpha(0.6f));
+	drawBeats(g, beatDuration, viewEndTime, barDuration, viewDuration);
+
+	g.setColour(juce::Colours::white.withAlpha(0.3f));
+	drawSubdivisions(g, beatDuration * 0.5f, viewEndTime, barDuration, viewDuration);
+
+	g.setColour(juce::Colours::white.withAlpha(0.2f));
+	drawSubdivisions(g, beatDuration * 0.25f, viewEndTime, barDuration, viewDuration);
+
+}
+
+void WaveformDisplay::drawSubdivisions(juce::Graphics& g, float subdivisionDuration, double viewEndTime, float barDuration, double viewDuration)
+{
+	double firstSubdivisionTime = floor(viewStartTime / subdivisionDuration) * subdivisionDuration;
+
+	for (double time = firstSubdivisionTime; time <= viewEndTime; time += subdivisionDuration)
 	{
-		drawBeats(g, beatDuration, viewEndTime, barDuration, viewDuration);
+		bool isOnBeat = (fmod(time, subdivisionDuration * 2.0) < 0.01);
+		bool isOnBar = (fmod(time, barDuration) < 0.01);
+
+		if (!isOnBeat && !isOnBar && time >= viewStartTime)
+		{
+			double relativeTime = time - viewStartTime;
+			float x = (relativeTime / viewDuration) * getWidth();
+
+			if (x >= 0 && x <= getWidth())
+			{
+				g.drawLine(x, getHeight() * 0.2f, x, getHeight() * 0.8f, 0.5f);
+			}
+		}
 	}
 }
 
