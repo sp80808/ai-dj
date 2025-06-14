@@ -29,8 +29,8 @@ class DJAILL:
                 del self.model
                 self.model = None
                 if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
                     torch.cuda.synchronize()
+                    torch.cuda.empty_cache()
 
                 gc.collect()
                 print("🧹 Model destroyed")
