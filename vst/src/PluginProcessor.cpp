@@ -957,7 +957,6 @@ void DjIaVstProcessor::selectTrack(const juce::String& trackId)
 void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest& request, const juce::String& targetTrackId)
 {
 	juce::String trackId = targetTrackId.isEmpty() ? selectedTrackId : targetTrackId;
-
 	try
 	{
 		auto response = apiClient.generateLoop(request, hostSampleRate, requestTimeoutMS);
@@ -1048,7 +1047,7 @@ void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest& request, cons
 
 void DjIaVstProcessor::notifyGenerationComplete(const juce::String& trackId, const juce::String& message)
 {
-	pendingTrackId = trackId;
+	lastGeneratedTrackId = trackId;
 	pendingMessage = message;
 	hasPendingNotification = true;
 	triggerAsyncUpdate();
@@ -1061,12 +1060,13 @@ void DjIaVstProcessor::handleAsyncUpdate()
 
 	hasPendingNotification = false;
 
-	if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
-		editor->stopGenerationUI(pendingTrackId, true);
-		if (generationListener) {
-			generationListener->onGenerationComplete(pendingTrackId, pendingMessage);
-		}
-	}
+	juce::MessageManager::callAsync([this]()
+		{
+			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+				if (generationListener) {
+					generationListener->onGenerationComplete(lastGeneratedTrackId, pendingMessage);
+				}
+			}});
 }
 
 void DjIaVstProcessor::processIncomingAudio(bool hostIsPlaying)

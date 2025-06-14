@@ -255,6 +255,7 @@ private:
 	juce::String lastKey = "C minor";
 	juce::String trackIdWaitingForLoad;
 	juce::String pendingTrackId;
+	juce::String lastGeneratedTrackId;
 	juce::String selectedTrackId;
 	juce::String generatingTrackId = "";
 
