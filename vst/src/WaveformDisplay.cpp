@@ -1,16 +1,16 @@
 ﻿#include "JuceHeader.h"
 #include "WaveformDisplay.h"
 #include "PluginProcessor.h" 
-#include "TrackData.h"
+#include "TrackData.h" 
 
-WaveformDisplay::WaveformDisplay(DjIaVstProcessor& processor) : audioProcessor(processor)
+WaveformDisplay::WaveformDisplay(DjIaVstProcessor& processor, TrackData& trackData) : audioProcessor(processor), track(trackData)
 {
 	setSize(400, 80);
 
 	zoomFactor = 1.0;
 	viewStartTime = 0.0;
 	sampleRate = 48000.0;
-
+	loopPointsLocked = track.loopPointsLocked.load();
 	horizontalScrollBar = std::make_unique<juce::ScrollBar>(false);
 	horizontalScrollBar->setRangeLimits(0.0, 1.0);
 	horizontalScrollBar->addListener(this);
@@ -49,14 +49,11 @@ void WaveformDisplay::setAudioData(const juce::AudioBuffer<float>& audioBuffer, 
 
 void WaveformDisplay::setLoopPoints(double startTime, double endTime)
 {
-	if (!loopPointsLocked)
-	{
-		loopStart = startTime;
-		loopEnd = endTime;
-		juce::MessageManager::callAsync([this]() {
-			repaint();
-			});
-	}
+	loopStart = startTime;
+	loopEnd = endTime;
+	juce::MessageManager::callAsync([this]() {
+		repaint();
+		});
 }
 
 void WaveformDisplay::lockLoopPoints(bool locked)
@@ -138,15 +135,14 @@ void WaveformDisplay::mouseDown(const juce::MouseEvent& e)
 {
 	if (e.mods.isRightButtonDown())
 	{
-		loopPointsLocked = !loopPointsLocked;
-		repaint();
+		loopPointsLocked = !track.loopPointsLocked.load();
+		track.loopPointsLocked.store(loopPointsLocked);
+		lockLoopPoints(loopPointsLocked);
 		return;
 	}
 
-
 	if (loopPointsLocked)
 		return;
-
 
 	float startX = timeToX(loopStart);
 	float endX = timeToX(loopEnd);
@@ -163,10 +159,6 @@ void WaveformDisplay::mouseDown(const juce::MouseEvent& e)
 		return;
 	}
 }
-
-
-
-
 
 void WaveformDisplay::mouseDrag(const juce::MouseEvent& e)
 {
@@ -213,7 +205,6 @@ void WaveformDisplay::mouseDrag(const juce::MouseEvent& e)
 	}
 }
 
-
 double WaveformDisplay::getMinLoopDuration() const
 {
 	if (trackBpm <= 0.0f)
@@ -229,7 +220,6 @@ void WaveformDisplay::setAudioFile(const juce::File& file)
 {
 	currentAudioFile = file;
 }
-
 
 void WaveformDisplay::mouseUp(const juce::MouseEvent& e)
 {

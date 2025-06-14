@@ -12,23 +12,6 @@ public:
 		masterChannel = std::make_unique<MasterChannel>(audioProcessor);
 		addAndMakeVisible(*masterChannel);
 
-		//masterChannel->onMasterVolumeChanged = [this](float volume)
-		//{
-		//	masterVolume = volume;
-		//	audioProcessor.setMasterVolume(volume);
-		//};
-
-		//masterChannel->onMasterPanChanged = [this](float pan)
-		//{
-		//	masterPan = pan;
-		//	audioProcessor.setMasterPan(pan);
-		//};
-
-		//masterChannel->onMasterEQChanged = [this](float high, float mid, float low)
-		//{
-		//	audioProcessor.setMasterEQ(high, mid, low);
-		//};
-
 		addAndMakeVisible(channelsViewport);
 		channelsViewport.setViewedComponent(&channelsContainer, false);
 		channelsViewport.setScrollBarsShown(false, true);

@@ -208,6 +208,7 @@ public:
 			trackState.setProperty("generationBpm", track->generationBpm, nullptr);
 			trackState.setProperty("generationKey", track->generationKey, nullptr);
 			trackState.setProperty("generationDuration", track->generationDuration, nullptr);
+			trackState.setProperty("loopPointsLocked", track->loopPointsLocked.load(), nullptr);
 			juce::String stemsString;
 			for (int i = 0; i < track->preferredStems.size(); ++i)
 			{
@@ -293,6 +294,7 @@ public:
 			track->generationBpm = trackState.getProperty("generationBpm", 127.0f);
 			track->generationKey = trackState.getProperty("generationKey", "C Minor");
 			track->generationDuration = trackState.getProperty("generationDuration", 6);
+			track->loopPointsLocked = trackState.getProperty("loopPointsLocked", false);
 
 			juce::String stemsString = trackState.getProperty("preferredStems", "drums,bass");
 			track->preferredStems.clear();

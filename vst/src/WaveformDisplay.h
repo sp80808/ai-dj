@@ -7,7 +7,7 @@ struct TrackData;
 class WaveformDisplay : public juce::Component, public juce::ScrollBar::Listener, public juce::DragAndDropContainer
 {
 public:
-	WaveformDisplay(DjIaVstProcessor& processor);
+	WaveformDisplay(DjIaVstProcessor& processor, TrackData& trackData);
 	~WaveformDisplay();
 
 	std::function<void(double, double)> onLoopPointsChanged;
@@ -24,11 +24,10 @@ private:
 	juce::AudioBuffer<float> audioBuffer;
 	juce::File currentAudioFile;
 	juce::Point<int> dragStartPosition;
-
 	std::unique_ptr<juce::ScrollBar> horizontalScrollBar;
 
 	DjIaVstProcessor& audioProcessor;
-
+	TrackData& track;
 	std::vector<float> thumbnail;
 
 	double loopStart = 0.0;

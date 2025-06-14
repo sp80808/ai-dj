@@ -36,6 +36,7 @@ struct TrackData
 	std::atomic<bool> isEnabled{ true };
 	std::atomic<bool> isSolo{ false };
 	std::atomic<bool> isMuted{ false };
+	std::atomic<bool> loopPointsLocked{ false };
 	std::atomic<float> volume{ 0.8f };
 	std::atomic<float> pan{ 0.0f };
 	juce::String prompt;
@@ -118,6 +119,7 @@ struct TrackData
 		isEnabled = true;
 		isMuted = false;
 		isSolo = false;
+		loopPointsLocked = false;
 		volume = 0.8f;
 		pan = 0.0f;
 		bpmOffset = 0.0;

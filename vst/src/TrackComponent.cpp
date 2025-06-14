@@ -138,9 +138,9 @@ void TrackComponent::toggleWaveformDisplay()
 {
 	if (showWaveformButton.getToggleState())
 	{
-		if (!waveformDisplay)
+		if (!waveformDisplay && track != nullptr)
 		{
-			waveformDisplay = std::make_unique<WaveformDisplay>(audioProcessor);
+			waveformDisplay = std::make_unique<WaveformDisplay>(audioProcessor, *track);
 			waveformDisplay->onLoopPointsChanged = [this](double start, double end)
 				{
 					if (track)
@@ -242,10 +242,6 @@ void TrackComponent::updateFromTrackData()
 	if (waveformDisplay)
 	{
 		bool isCurrentlyPlaying = track->isPlaying.load();
-		bool isMuted = track->isMuted.load();
-		bool shouldLock = isCurrentlyPlaying && !isMuted;
-
-		waveformDisplay->lockLoopPoints(false);
 
 		if (track->numSamples > 0 && track->sampleRate > 0)
 		{
