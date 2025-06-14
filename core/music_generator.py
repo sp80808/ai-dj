@@ -64,7 +64,7 @@ class MusicGenerator:
 
             cfg_scale = 7.0
             sampler_type = "dpmpp-3m-sde"
-            steps_value = 100
+            steps_value = 75
             if self.model_id == "stabilityai/stable-audio-open-small":
                 cfg_scale = 1.0
                 steps_value = 8
