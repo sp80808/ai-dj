@@ -153,13 +153,6 @@ void TrackComponent::toggleWaveformDisplay()
 						}
 					}
 				};
-			waveformDisplay->onMarkersChanged = [this]()
-				{
-					if (track && !waveformDisplay->isDraggingMarker)
-					{
-						waveformDisplay->saveMarkersToTrack(track);
-					}
-				};
 
 			addAndMakeVisible(*waveformDisplay);
 		}
@@ -168,10 +161,6 @@ void TrackComponent::toggleWaveformDisplay()
 		{
 			waveformDisplay->setAudioData(track->audioBuffer, track->sampleRate);
 			waveformDisplay->setLoopPoints(track->loopStart, track->loopEnd);
-			if (!waveformDisplay->isDraggingMarker)
-			{
-				waveformDisplay->loadMarkersFromTrack(track);
-			}
 			calculateHostBasedDisplay();
 		}
 
@@ -264,10 +253,6 @@ void TrackComponent::updateFromTrackData()
 			double currentTimeInSection = (startSample + track->readPosition.load()) / track->sampleRate;
 			calculateHostBasedDisplay();
 			waveformDisplay->setPlaybackPosition(currentTimeInSection, isCurrentlyPlaying);
-			if (!waveformDisplay->isDraggingMarker && !waveformDisplay->hasMultiSelection())
-			{
-				waveformDisplay->loadMarkersFromTrack(track);
-			}
 		}
 	}
 	updateTrackInfo();

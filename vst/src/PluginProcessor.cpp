@@ -302,7 +302,7 @@ void DjIaVstProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
 
 	if (hasPendingAudioData.load())
 	{
-		processIncomingAudio();
+		processIncomingAudio(hostIsPlaying);
 	}
 
 	resizeIndividualsBuffers(buffer);
@@ -1058,7 +1058,7 @@ void DjIaVstProcessor::notifyGenerationComplete(const juce::String& trackId, con
 			} });
 }
 
-void DjIaVstProcessor::processIncomingAudio()
+void DjIaVstProcessor::processIncomingAudio(bool hostIsPlaying)
 {
 	if (!hasPendingAudioData.load())
 	{
@@ -1074,14 +1074,13 @@ void DjIaVstProcessor::processIncomingAudio()
 	{
 		return;
 	}
-
-	if (track->isPlaying.load() || track->isArmed.load())
+	if (waitingForMidiToLoad.load() && !correctMidiNoteReceived.load() && hostIsPlaying && track->isPlaying.load())
 	{
-		if (waitingForMidiToLoad.load() && !correctMidiNoteReceived.load())
-		{
-			hasUnloadedSample = true;
-			return;
-		}
+		return;
+	}
+	if (!canLoad.load() && !autoLoadEnabled.load()) {
+		hasUnloadedSample = true;
+		return;
 	}
 
 	juce::MessageManager::callAsync([this]()
@@ -1097,6 +1096,7 @@ void DjIaVstProcessor::processIncomingAudio()
 			hasUnloadedSample = false;
 			waitingForMidiToLoad = false;
 			correctMidiNoteReceived = false;
+			canLoad = false;
 			trackIdWaitingForLoad.clear();
 }
 
@@ -1349,6 +1349,7 @@ void DjIaVstProcessor::loadPendingSample()
 	if (hasUnloadedSample.load() && !pendingTrackId.isEmpty())
 	{
 		waitingForMidiToLoad = true;
+		canLoad = true;
 		trackIdWaitingForLoad = pendingTrackId;
 	}
 }

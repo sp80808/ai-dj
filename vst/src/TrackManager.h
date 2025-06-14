@@ -240,21 +240,6 @@ public:
 				}
 			}
 			trackState.appendChild(sequencerState, nullptr);
-			trackState.setProperty("snapToGrid", track->snapToGrid, nullptr);
-			trackState.setProperty("snapResolution", track->snapResolution, nullptr);
-			trackState.setProperty("nextMarkerId", track->nextMarkerId, nullptr);
-			juce::ValueTree markersState("StretchMarkers");
-			for (const auto& marker : track->stretchMarkers)
-			{
-				auto markerState = juce::ValueTree("Marker");
-				markerState.setProperty("id", marker.id, nullptr);
-				markerState.setProperty("originalTime", marker.originalTime, nullptr);
-				markerState.setProperty("currentTime", marker.currentTime, nullptr);
-				markerState.setProperty("isMultiSelected", marker.isMultiSelected, nullptr);
-				markersState.appendChild(markerState, nullptr);
-			}
-			trackState.appendChild(markersState, nullptr);
-
 			state.appendChild(trackState, nullptr);
 		}
 
@@ -308,9 +293,6 @@ public:
 			track->generationBpm = trackState.getProperty("generationBpm", 127.0f);
 			track->generationKey = trackState.getProperty("generationKey", "C Minor");
 			track->generationDuration = trackState.getProperty("generationDuration", 6);
-			track->snapToGrid = trackState.getProperty("snapToGrid", true);
-			track->snapResolution = trackState.getProperty("snapResolution", 2);
-			track->nextMarkerId = trackState.getProperty("nextMarkerId", 0);
 
 			juce::String stemsString = trackState.getProperty("preferredStems", "drums,bass");
 			track->preferredStems.clear();
@@ -339,24 +321,6 @@ public:
 
 						juce::String velocityKey = "velocity_" + juce::String(m) + "_" + juce::String(s);
 						track->sequencerData.velocities[m][s] = sequencerState.getProperty(velocityKey, 0.8f);
-					}
-				}
-			}
-			auto markersState = trackState.getChildWithName("StretchMarkers");
-			if (markersState.isValid())
-			{
-				track->stretchMarkers.clear();
-				for (int m = 0; m < markersState.getNumChildren(); ++m)
-				{
-					auto markerState = markersState.getChild(m);
-					if (markerState.hasType("Marker"))
-					{
-						SavedStretchMarker marker;
-						marker.id = markerState.getProperty("id", 0);
-						marker.originalTime = markerState.getProperty("originalTime", 0.0);
-						marker.currentTime = markerState.getProperty("currentTime", 0.0);
-						marker.isMultiSelected = markerState.getProperty("isMultiSelected", false);
-						track->stretchMarkers.push_back(marker);
 					}
 				}
 			}

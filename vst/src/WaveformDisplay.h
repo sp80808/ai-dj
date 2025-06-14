@@ -2,17 +2,8 @@
 #include "JuceHeader.h"
 
 class DjIaVstProcessor;
-
-struct StretchMarker
-{
-	double originalTime;
-	double currentTime;
-	bool isSelected;
-	int id;
-	bool isMultiSelected = false;
-};
 struct TrackData;
-struct SavedStretchMarker;
+
 class WaveformDisplay : public juce::Component, public juce::ScrollBar::Listener, public juce::DragAndDropContainer
 {
 public:
@@ -20,18 +11,6 @@ public:
 	~WaveformDisplay();
 
 	std::function<void(double, double)> onLoopPointsChanged;
-	std::function<void()> onMarkersChanged;
-
-	bool isDraggingMarker = false;
-	bool WaveformDisplay::hasMultiSelection() const
-	{
-		for (const auto& marker : stretchMarkers)
-		{
-			if (marker.isMultiSelected)
-				return true;
-		}
-		return false;
-	}
 
 	void setOriginalBpm(float bpm);
 	void setSampleBpm(float bpm);
@@ -40,27 +19,11 @@ public:
 	void setAudioData(const juce::AudioBuffer<float>& audioBuffer, double sampleRate);
 	void setLoopPoints(double startTime, double endTime);
 	void setAudioFile(const juce::File& file);
-	void loadMarkersFromTrack(TrackData* track);
-	void saveMarkersToTrack(TrackData* track);
 
 private:
 	juce::AudioBuffer<float> audioBuffer;
 	juce::File currentAudioFile;
 	juce::Point<int> dragStartPosition;
-
-	std::vector<StretchMarker> stretchMarkers;
-	int nextMarkerId = 0;
-	int selectedMarkerId = -1;
-
-	bool isUpdatingMarkers = false;
-	bool snapToGrid = true;
-	enum SnapResolution {
-		WHOLE_BEAT = 0,
-		HALF_BEAT = 1,
-		QUARTER_BEAT = 2,
-		EIGHTH_BEAT = 3
-	};
-	SnapResolution snapResolution = QUARTER_BEAT;
 
 	std::unique_ptr<juce::ScrollBar> horizontalScrollBar;
 
@@ -109,15 +72,6 @@ private:
 	void updateScrollBar();
 	void drawVisibleBarLabels(juce::Graphics& g);
 	void setViewStartTime(double newViewStartTime);
-	void createMarkerAtPosition(float x);
-	void showMarkerContextMenu(int markerIndex, juce::Point<int> position);
-	void deleteMarker(int markerIndex);
-	void drawStretchMarkers(juce::Graphics& g);
-	void calculateStretchRatios();
-	void clearMultiSelection();
-	void handleMenuResult(int result, int markerIndex, bool hasMultiSelection);
-	void deleteSelectedMarkers();
-	void snapSelectedMarkersToGrid();
 	void drawSubdivisions(juce::Graphics& g, float subdivisionDuration, double viewEndTime, float barDuration, double viewDuration);
 
 	void paint(juce::Graphics& g) override;
@@ -132,9 +86,4 @@ private:
 	double getViewStartTime() const;
 	double getViewEndTime() const;
 	double getMinLoopDuration() const;
-
-	double snapTimeToGrid(double time);
-
-	int getMarkerAtPosition(float x);
-	int getMultiSelectedCount();
 };

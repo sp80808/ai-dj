@@ -152,6 +152,7 @@ public:
 	juce::String getGlobalPrompt() const { return globalPrompt; }
 
 	void setGlobalBpm(float bpm) { globalBpm = bpm; }
+	void setCanLoad(bool load) { canLoad = load; }
 	float getGlobalBpm() const { return globalBpm; }
 
 	void setGlobalKey(const juce::String& key) { globalKey = key; }
@@ -293,6 +294,7 @@ private:
 	std::atomic<bool> isNotePlaying{ false };
 	std::atomic<bool> correctMidiNoteReceived{ false };
 	std::atomic<bool> stateLoaded{ false };
+	std::atomic<bool> canLoad{ false };
 
 	std::atomic<float>* generateParam = nullptr;
 	std::atomic<float>* playParam = nullptr;
@@ -324,7 +326,7 @@ private:
 			.getChildFile("global_config.json");
 	}
 
-	void processIncomingAudio();
+	void processIncomingAudio(bool hostIsPlaying);
 	void clearPendingAudio();
 	void processMidiMessages(juce::MidiBuffer& midiMessages, bool hostIsPlaying, double hostBpm);
 	void playTrack(const juce::MidiMessage& message, double hostBpm);
