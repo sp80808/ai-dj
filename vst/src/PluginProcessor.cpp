@@ -33,6 +33,7 @@ DjIaVstProcessor::DjIaVstProcessor()
 			handleSampleParams(slot, track);
 		};
 	startTimerHz(30);
+	autoLoadEnabled.store(true);
 	stateLoaded = true;
 }
 
@@ -1548,7 +1549,7 @@ void DjIaVstProcessor::setStateInformation(const void* data, int sizeInBytes)
 	lastKeyIndex = state.getProperty("lastKeyIndex", 1);
 	isGenerating = state.getProperty("isGenerating", false);
 	generatingTrackId = state.getProperty("generatingTrackId", "").toString();
-	autoLoadEnabled.store(state.getProperty("autoLoadEnabled", false));
+	autoLoadEnabled.store(state.getProperty("autoLoadEnabled", true));
 	auto tracksState = state.getChildWithName("TrackManager");
 	if (tracksState.isValid())
 	{
