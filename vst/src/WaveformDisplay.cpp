@@ -649,16 +649,10 @@ void WaveformDisplay::drawVisibleBarLabels(juce::Graphics& g)
 		rightBar--;
 	}
 
-	g.setColour(juce::Colours::lightgrey);
-	g.setFont(12.0f);
-	g.drawText("Bar " + juce::String(leftBar),
-		5, 2, 60, 15, juce::Justification::left);
-	g.drawText("Bar " + juce::String(rightBar),
-		getWidth() - 65, 2, 60, 15, juce::Justification::right);
-
 	int visibleBars = rightBar - leftBar + 1;
 	if (visibleBars > 1)
 	{
+		g.setColour(juce::Colours::lightgrey);
 		g.setFont(10.0f);
 		g.drawText("(" + juce::String(visibleBars) + " bars visible)",
 			getWidth() / 2 - 40, 2, 80, 15, juce::Justification::centred);
