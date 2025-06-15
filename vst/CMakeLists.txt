@@ -1,10 +1,17 @@
 ﻿cmake_minimum_required(VERSION 3.16)
-project(OBSIDIAN-Neural VERSION 1.0.0)
+project(OBSIDIAN-Neural VERSION 0.6.4)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_subdirectory(JUCE)
 add_subdirectory(soundtouch)
+
+string(TIMESTAMP BUILD_NUMBER "%Y%m%d_%H%M") 
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/version.h.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/version.h"
+    @ONLY
+)
 
 juce_add_plugin(ObsidianNeuralVST
     VERSION "1.0.0"
@@ -36,6 +43,7 @@ target_sources(ObsidianNeuralVST
 
 target_include_directories(ObsidianNeuralVST
     PRIVATE
+        ${CMAKE_CURRENT_BINARY_DIR}       
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}/soundtouch/include)
 

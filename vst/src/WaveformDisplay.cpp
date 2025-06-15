@@ -725,49 +725,67 @@ void WaveformDisplay::drawBeatMarkers(juce::Graphics& g)
 	float beatDuration = 60.0f / hostBpm * stretchRatio;
 	float barDuration = beatDuration * numerator;
 
+	double measureAtLoopStart = floor(loopStart / barDuration);
+	double gridOffset = loopStart - (measureAtLoopStart * barDuration);
+
+	double extendedStart = viewStartTime - (beatDuration * 50);
+	double extendedEnd = viewEndTime + (beatDuration * 50);
+
+	extendedStart -= gridOffset;
+	extendedEnd -= gridOffset;
+
 	g.setColour(juce::Colours::white.withAlpha(0.9f));
-	double firstBarTime = floor(viewStartTime / barDuration) * barDuration;
-	for (double time = firstBarTime; time <= viewEndTime; time += barDuration)
+	double firstBarTime = floor(extendedStart / barDuration) * barDuration;
+	for (double time = firstBarTime; time <= extendedEnd; time += barDuration)
 	{
-		drawMeasures(time, g, barDuration, viewDuration);
+		double shiftedTime = time + gridOffset;
+		drawMeasureLine(shiftedTime, g, barDuration, viewDuration);
 	}
 
 	g.setColour(juce::Colours::white.withAlpha(0.6f));
-	drawBeats(g, beatDuration, viewEndTime, barDuration, viewDuration);
+	double firstBeatTime = floor(extendedStart / beatDuration) * beatDuration;
+	for (double time = firstBeatTime; time <= extendedEnd; time += beatDuration)
+	{
+		double shiftedTime = time + gridOffset;
+		if (fmod(shiftedTime, barDuration) > 0.01)
+		{
+			drawBeatLine(shiftedTime, g, viewDuration);
+		}
+	}
 
 	g.setColour(juce::Colours::white.withAlpha(0.3f));
-	drawSubdivisions(g, beatDuration * 0.5f, viewEndTime, barDuration, viewDuration);
+	double subdivisionDuration = beatDuration * 0.5f;
+	double firstSubTime = floor(extendedStart / subdivisionDuration) * subdivisionDuration;
+	for (double time = firstSubTime; time <= extendedEnd; time += subdivisionDuration)
+	{
+		double shiftedTime = time + gridOffset;
+		bool isOnBeat = (fmod(shiftedTime, beatDuration) < 0.01);
+		bool isOnBar = (fmod(shiftedTime, barDuration) < 0.01);
+		if (!isOnBeat && !isOnBar)
+		{
+			drawSubdivisionLine(shiftedTime, g, viewDuration);
+		}
+	}
 
 	g.setColour(juce::Colours::white.withAlpha(0.2f));
-	drawSubdivisions(g, beatDuration * 0.25f, viewEndTime, barDuration, viewDuration);
-
-}
-
-void WaveformDisplay::drawSubdivisions(juce::Graphics& g, float subdivisionDuration, double viewEndTime, float barDuration, double viewDuration)
-{
-	double firstSubdivisionTime = floor(viewStartTime / subdivisionDuration) * subdivisionDuration;
-
-	for (double time = firstSubdivisionTime; time <= viewEndTime; time += subdivisionDuration)
+	subdivisionDuration = beatDuration * 0.25f;
+	firstSubTime = floor(extendedStart / subdivisionDuration) * subdivisionDuration;
+	for (double time = firstSubTime; time <= extendedEnd; time += subdivisionDuration)
 	{
-		bool isOnBeat = (fmod(time, subdivisionDuration * 2.0) < 0.01);
-		bool isOnBar = (fmod(time, barDuration) < 0.01);
-
-		if (!isOnBeat && !isOnBar && time >= viewStartTime)
+		double shiftedTime = time + gridOffset;
+		bool isOnBeat = (fmod(shiftedTime, beatDuration) < 0.01);
+		bool isOnHalfBeat = (fmod(shiftedTime, beatDuration * 0.5f) < 0.01);
+		bool isOnBar = (fmod(shiftedTime, barDuration) < 0.01);
+		if (!isOnBeat && !isOnHalfBeat && !isOnBar)
 		{
-			double relativeTime = time - viewStartTime;
-			float x = (relativeTime / viewDuration) * getWidth();
-
-			if (x >= 0 && x <= getWidth())
-			{
-				g.drawLine(x, getHeight() * 0.2f, x, getHeight() * 0.8f, 0.5f);
-			}
+			drawSubdivisionLine(shiftedTime, g, viewDuration);
 		}
 	}
 }
 
-void WaveformDisplay::drawMeasures(float time, juce::Graphics& g, float barDuration, double viewDuration)
+void WaveformDisplay::drawMeasureLine(double time, juce::Graphics& g, float barDuration, double viewDuration)
 {
-	if (time >= viewStartTime)
+	if (time >= viewStartTime && time <= (viewStartTime + viewDuration))
 	{
 		double relativeTime = time - viewStartTime;
 		float x = (relativeTime / viewDuration) * getWidth();
@@ -776,8 +794,33 @@ void WaveformDisplay::drawMeasures(float time, juce::Graphics& g, float barDurat
 			g.drawLine(x, 0, x, getHeight(), 2.0f);
 			int measureNumber = (int)(time / barDuration) + 1;
 			g.setFont(10.0f);
-			g.drawText(juce::String(measureNumber), x + 2, 2, 30, 15,
-				juce::Justification::left);
+			g.drawText(juce::String(measureNumber), x + 2, 2, 30, 15, juce::Justification::left);
+		}
+	}
+}
+
+void WaveformDisplay::drawBeatLine(double time, juce::Graphics& g, double viewDuration)
+{
+	if (time >= viewStartTime && time <= (viewStartTime + viewDuration))
+	{
+		double relativeTime = time - viewStartTime;
+		float x = (relativeTime / viewDuration) * getWidth();
+		if (x >= 0 && x <= getWidth())
+		{
+			g.drawLine(x, 0, x, getHeight(), 1.0f);
+		}
+	}
+}
+
+void WaveformDisplay::drawSubdivisionLine(double time, juce::Graphics& g, double viewDuration)
+{
+	if (time >= viewStartTime && time <= (viewStartTime + viewDuration))
+	{
+		double relativeTime = time - viewStartTime;
+		float x = (relativeTime / viewDuration) * getWidth();
+		if (x >= 0 && x <= getWidth())
+		{
+			g.drawLine(x, getHeight() * 0.2f, x, getHeight() * 0.8f, 0.5f);
 		}
 	}
 }
