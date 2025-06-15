@@ -52,7 +52,7 @@ struct TrackData
 	float generationBpm = 127.0f;
 	juce::String generationKey = "C Minor";
 	int generationDuration = 6;
-	std::vector<juce::String> preferredStems = { "drums", "bass" };
+	std::vector<juce::String> preferredStems = {};
 
 
 	enum class PendingAction {
