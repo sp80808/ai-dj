@@ -64,15 +64,15 @@ private:
 	void drawLoopBarLabels(juce::Graphics& g, float startX, float endX) const;
 	void drawPlaybackHead(juce::Graphics& g);
 	void drawBeatMarkers(juce::Graphics& g);
-	void drawMeasures(float time, juce::Graphics& g, float barDuration, double viewDuration);
 	void drawBeats(juce::Graphics& g, float beatDuration, float viewEndTime, float barDuration, double viewDuration);
 	void calculateStretchRatio() const;
 	void updateScrollBarVisibility();
 	void updateScrollBar();
 	void drawVisibleBarLabels(juce::Graphics& g);
 	void setViewStartTime(double newViewStartTime);
-	void drawSubdivisions(juce::Graphics& g, float subdivisionDuration, double viewEndTime, float barDuration, double viewDuration);
-
+	void drawMeasureLine(double time, juce::Graphics& g, float barDuration, double viewDuration);
+	void drawBeatLine(double time, juce::Graphics& g, double viewDuration);
+	void drawSubdivisionLine(double time, juce::Graphics& g, double viewDuration);
 	void paint(juce::Graphics& g) override;
 	void mouseDown(const juce::MouseEvent& e) override;
 	void mouseDrag(const juce::MouseEvent& e) override;
