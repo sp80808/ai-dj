@@ -746,9 +746,9 @@ void WaveformDisplay::drawBeatMarkers(juce::Graphics& g)
 	double firstBeatTime = floor(extendedStart / beatDuration) * beatDuration;
 	for (double time = firstBeatTime; time <= extendedEnd; time += beatDuration)
 	{
-		if (fmod(time, barDuration) > 0.01)
+		double shiftedTime = time + gridOffset;
+		if (fmod(shiftedTime, barDuration) > 0.01)
 		{
-			double shiftedTime = time + gridOffset;
 			drawBeatLine(shiftedTime, g, viewDuration);
 		}
 	}
@@ -758,11 +758,11 @@ void WaveformDisplay::drawBeatMarkers(juce::Graphics& g)
 	double firstSubTime = floor(extendedStart / subdivisionDuration) * subdivisionDuration;
 	for (double time = firstSubTime; time <= extendedEnd; time += subdivisionDuration)
 	{
-		bool isOnBeat = (fmod(time, beatDuration) < 0.01);
-		bool isOnBar = (fmod(time, barDuration) < 0.01);
+		double shiftedTime = time + gridOffset;
+		bool isOnBeat = (fmod(shiftedTime, beatDuration) < 0.01);
+		bool isOnBar = (fmod(shiftedTime, barDuration) < 0.01);
 		if (!isOnBeat && !isOnBar)
 		{
-			double shiftedTime = time + gridOffset;
 			drawSubdivisionLine(shiftedTime, g, viewDuration);
 		}
 	}
@@ -772,12 +772,12 @@ void WaveformDisplay::drawBeatMarkers(juce::Graphics& g)
 	firstSubTime = floor(extendedStart / subdivisionDuration) * subdivisionDuration;
 	for (double time = firstSubTime; time <= extendedEnd; time += subdivisionDuration)
 	{
-		bool isOnBeat = (fmod(time, beatDuration) < 0.01);
-		bool isOnHalfBeat = (fmod(time, beatDuration * 0.5f) < 0.01);
-		bool isOnBar = (fmod(time, barDuration) < 0.01);
+		double shiftedTime = time + gridOffset;
+		bool isOnBeat = (fmod(shiftedTime, beatDuration) < 0.01);
+		bool isOnHalfBeat = (fmod(shiftedTime, beatDuration * 0.5f) < 0.01);
+		bool isOnBar = (fmod(shiftedTime, barDuration) < 0.01);
 		if (!isOnBeat && !isOnHalfBeat && !isOnBar)
 		{
-			double shiftedTime = time + gridOffset;
 			drawSubdivisionLine(shiftedTime, g, viewDuration);
 		}
 	}

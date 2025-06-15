@@ -147,6 +147,7 @@ void TrackComponent::toggleWaveformDisplay()
 					{
 						track->loopStart = start;
 						track->loopEnd = end;
+						waveformDisplay->setLoopPoints(start, end);
 						if (track->isPlaying.load())
 						{
 							track->readPosition = 0.0;
