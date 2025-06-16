@@ -3,6 +3,7 @@
 #include "PluginProcessor.h"
 #include "SequencerComponent.h"
 #include "PluginEditor.h"
+#include "ColourPalette.h"
 
 TrackComponent::TrackComponent(const juce::String& trackId, DjIaVstProcessor& processor)
 	: trackId(trackId), track(nullptr), audioProcessor(processor)
@@ -236,7 +237,7 @@ void TrackComponent::updateFromTrackData()
 
 	bpmOffsetSlider.setValue(track->bpmOffset, juce::dontSendNotification);
 	timeStretchModeSelector.setSelectedId(track->timeStretchMode, juce::dontSendNotification);
-	trackNumberLabel.setColour(juce::Label::backgroundColourId, getTrackColour(track->slotIndex));
+	trackNumberLabel.setColour(juce::Label::backgroundColourId, ColourPalette::getTrackColour(track->slotIndex));
 
 	if (waveformDisplay)
 	{
@@ -251,24 +252,6 @@ void TrackComponent::updateFromTrackData()
 		}
 	}
 	updateTrackInfo();
-}
-
-juce::Colour TrackComponent::getTrackColour(int trackIndex)
-{
-	static const std::vector<juce::Colour> trackColours = {
-		juce::Colour(0xff5a7a9a),
-		juce::Colour(0xff9a7a5a),
-		juce::Colour(0xff6a8a6a),
-		juce::Colour(0xff8a5a6a),
-		juce::Colour(0xff7a6a8a),
-		juce::Colour(0xff5a8a8a),
-		juce::Colour(0xff7a8a6a),
-		juce::Colour(0xff8a6a7a),
-		juce::Colour(0xff8a6a5a),
-		juce::Colour(0xff6a7a8a),
-	};
-
-	return trackColours[trackIndex % trackColours.size()];
 }
 
 float TrackComponent::calculateEffectiveBpm()
@@ -317,40 +300,33 @@ float TrackComponent::calculateEffectiveBpm()
 void TrackComponent::setSelected(bool selected)
 {
 	isSelected = selected;
-	if (selected)
-	{
-		setColour(juce::TextButton::buttonColourId, juce::Colours::orange.withAlpha(0.3f));
-	}
-	else
-	{
-		setColour(juce::TextButton::buttonColourId, juce::Colours::grey.withAlpha(0.2f));
-	}
 	repaint();
 }
 
 void TrackComponent::paint(juce::Graphics& g)
 {
 	auto bounds = getLocalBounds();
-
 	juce::Colour bgColour;
 
 	if (isGenerating && blinkState)
 	{
-		bgColour = juce::Colour(0xffff6600).withAlpha(0.3f);
+		bgColour = ColourPalette::playArmed.withAlpha(0.3f);
 	}
 	else if (isSelected)
 	{
-		bgColour = juce::Colour(0xff00ff88).withAlpha(0.1f);
+		bgColour = ColourPalette::trackSelected.withAlpha(0.1f);
 	}
 	else
 	{
-		bgColour = juce::Colour(0xff2a2a2a).withAlpha(0.8f);
+		bgColour = ColourPalette::backgroundDark.withAlpha(0.8f);
 	}
 
 	g.setColour(bgColour);
 	g.fillRoundedRectangle(bounds.toFloat(), 6.0f);
 
-	juce::Colour borderColour = isGenerating ? juce::Colour(0xffff6600) : (isSelected ? juce::Colour(0xff00ff88) : juce::Colour(0xff555555));
+	juce::Colour borderColour = isGenerating ? ColourPalette::playArmed :
+		(isSelected ? ColourPalette::trackSelected :
+			ColourPalette::backgroundLight);
 
 	g.setColour(borderColour);
 	g.drawRoundedRectangle(bounds.toFloat().reduced(1), 6.0f,
@@ -498,7 +474,7 @@ void TrackComponent::setupUI()
 
 	addAndMakeVisible(deleteButton);
 	deleteButton.setButtonText("X");
-	deleteButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
+	deleteButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonDanger);
 	deleteButton.onClick = [this]()
 		{
 			if (onDeleteTrack)
@@ -507,7 +483,7 @@ void TrackComponent::setupUI()
 
 	addAndMakeVisible(generateButton);
 	generateButton.setButtonText("Gen");
-	generateButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green);
+	generateButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonSuccess);
 	generateButton.onClick = [this]()
 		{
 			if (onGenerateForTrack)
@@ -527,7 +503,7 @@ void TrackComponent::setupUI()
 
 	addAndMakeVisible(infoLabel);
 	infoLabel.setText("Empty track - Generate your sample!", juce::dontSendNotification);
-	infoLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+	infoLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 	infoLabel.setFont(juce::Font(12.0f));
 
 	addAndMakeVisible(showWaveformButton);
@@ -560,7 +536,7 @@ void TrackComponent::setupUI()
 
 	addAndMakeVisible(trackNameLabel);
 	trackNameLabel.setText(track ? track->trackName : "Track", juce::dontSendNotification);
-	trackNameLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+	trackNameLabel.setColour(juce::Label::textColourId, ColourPalette::textPrimary);
 	trackNameLabel.setEditable(true);
 	trackNameLabel.onEditorShow = [this]() {
 		isEditingLabel = true;
@@ -584,11 +560,11 @@ void TrackComponent::setupUI()
 	addAndMakeVisible(trackNumberLabel);
 	trackNumberLabel.setJustificationType(juce::Justification::centred);
 	trackNumberLabel.setFont(juce::Font(16.0f, juce::Font::bold));
-	trackNumberLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-	trackNumberLabel.setColour(juce::Label::backgroundColourId, juce::Colour(0xff5a7a9a));
+	trackNumberLabel.setColour(juce::Label::textColourId, ColourPalette::textPrimary);
+
 	addAndMakeVisible(previewButton);
 	previewButton.setButtonText("Preview");
-	previewButton.setColour(juce::TextButton::buttonColourId, juce::Colours::blue);
+	previewButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonPrimary);
 	previewButton.setTooltip("Preview sample (independent of ARM/STOP state)");
 	previewButton.onClick = [this]()
 		{

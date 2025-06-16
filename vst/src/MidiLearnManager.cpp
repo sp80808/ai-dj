@@ -2,6 +2,7 @@
 #include "MidiLearnManager.h"
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "ColourPalette.h"
 
 MidiLearnManager::MidiLearnManager()
 {
@@ -321,12 +322,12 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage& message)
 						{
 							editor->statusLabel.setText(statusMessage, juce::dontSendNotification);
 							if (isWarning) {
-								editor->statusLabel.setColour(juce::Label::textColourId, juce::Colours::orange);
+								editor->statusLabel.setColour(juce::Label::textColourId, ColourPalette::textWarning);
 							}
 							juce::Timer::callAfterDelay(2000, [mapping]() {
 								if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor())) {
 									editor->statusLabel.setText("Ready", juce::dontSendNotification);
-									editor->statusLabel.setColour(juce::Label::textColourId, juce::Colours::green);
+									editor->statusLabel.setColour(juce::Label::textColourId, ColourPalette::textSuccess);
 								}
 								});
 						} });

@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "MasterChannel.h"
 #include "PluginEditor.h"
+#include "ColourPalette.h"
 
 MasterChannel::MasterChannel(DjIaVstProcessor& processor) : audioProcessor(processor)
 {
@@ -190,64 +191,64 @@ void MasterChannel::setupUI()
 	masterVolumeSlider.setValue(0.8);
 	masterVolumeSlider.setSliderStyle(juce::Slider::LinearVertical);
 	masterVolumeSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-	masterVolumeSlider.setColour(juce::Slider::thumbColourId, juce::Colour(0xffff6600));
-	masterVolumeSlider.setColour(juce::Slider::trackColourId, juce::Colour(0xff404040));
+	masterVolumeSlider.setColour(juce::Slider::thumbColourId, ColourPalette::playArmed);
+	masterVolumeSlider.setColour(juce::Slider::trackColourId, ColourPalette::sliderTrack);
 
 	addAndMakeVisible(masterPanKnob);
 	masterPanKnob.setRange(-1.0, 1.0, 0.01);
 	masterPanKnob.setValue(0.0);
 	masterPanKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 	masterPanKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-	masterPanKnob.setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xffff6600));
+	masterPanKnob.setColour(juce::Slider::rotarySliderFillColourId, ColourPalette::playArmed);
 
 	addAndMakeVisible(highKnob);
 	highKnob.setRange(-12.0, 12.0, 0.1);
 	highKnob.setValue(0.0);
 	highKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 	highKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-	highKnob.setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xffff6600));
+	highKnob.setColour(juce::Slider::rotarySliderFillColourId, ColourPalette::playArmed);
 
 	addAndMakeVisible(midKnob);
 	midKnob.setRange(-12.0, 12.0, 0.1);
 	midKnob.setValue(0.0);
 	midKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 	midKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-	midKnob.setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xffff6600));
+	midKnob.setColour(juce::Slider::rotarySliderFillColourId, ColourPalette::playArmed);
 
 	addAndMakeVisible(lowKnob);
 	lowKnob.setRange(-12.0, 12.0, 0.1);
 	lowKnob.setValue(0.0);
 	lowKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 	lowKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-	lowKnob.setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xffff6600));
+	lowKnob.setColour(juce::Slider::rotarySliderFillColourId, ColourPalette::playArmed);
 
 	addAndMakeVisible(masterLabel);
 	masterLabel.setText("MASTER", juce::dontSendNotification);
-	masterLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+	masterLabel.setColour(juce::Label::textColourId, ColourPalette::textPrimary);
 	masterLabel.setJustificationType(juce::Justification::centred);
 	masterLabel.setFont(juce::Font(14.0f, juce::Font::bold));
 
 	addAndMakeVisible(highLabel);
 	highLabel.setText("HIGH", juce::dontSendNotification);
-	highLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+	highLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 	highLabel.setJustificationType(juce::Justification::centred);
 	highLabel.setFont(juce::Font(9.0f));
 
 	addAndMakeVisible(midLabel);
 	midLabel.setText("MID", juce::dontSendNotification);
-	midLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+	midLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 	midLabel.setJustificationType(juce::Justification::centred);
 	midLabel.setFont(juce::Font(9.0f));
 
 	addAndMakeVisible(lowLabel);
 	lowLabel.setText("LOW", juce::dontSendNotification);
-	lowLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+	lowLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 	lowLabel.setJustificationType(juce::Justification::centred);
 	lowLabel.setFont(juce::Font(9.0f));
 
 	addAndMakeVisible(panLabel);
 	panLabel.setText("PAN", juce::dontSendNotification);
-	panLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+	panLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 	panLabel.setJustificationType(juce::Justification::centred);
 	panLabel.setFont(juce::Font(9.0f));
 }
@@ -255,13 +256,10 @@ void MasterChannel::setupUI()
 void MasterChannel::paint(juce::Graphics& g)
 {
 	auto bounds = getLocalBounds();
-
-	g.setColour(juce::Colour(0xff3a2a1a));
+	g.setColour(ColourPalette::backgroundMid);
 	g.fillRoundedRectangle(bounds.toFloat(), 8.0f);
-
-	g.setColour(juce::Colour(0xffff6600));
+	g.setColour(ColourPalette::playArmed);
 	g.drawRoundedRectangle(bounds.toFloat().reduced(1), 8.0f, 2.0f);
-
 	drawMasterVUMeter(g, bounds);
 }
 
@@ -308,11 +306,9 @@ void MasterChannel::resized()
 void MasterChannel::drawMasterVUMeter(juce::Graphics& g, juce::Rectangle<int> bounds) const
 {
 	auto vuArea = juce::Rectangle<float>(bounds.getWidth() - 15, 40, 10, bounds.getHeight() - 80);
-
-	g.setColour(juce::Colour(0xff0a0a0a));
+	g.setColour(ColourPalette::backgroundDeep);
 	g.fillRoundedRectangle(vuArea, 2.0f);
-
-	g.setColour(juce::Colour(0xffff6600));
+	g.setColour(ColourPalette::playArmed);
 	g.drawRoundedRectangle(vuArea, 2.0f, 1.0f);
 
 	int numSegments = 25;
@@ -341,8 +337,7 @@ void MasterChannel::drawPeakHoldLine(int numSegments, juce::Rectangle<float>& vu
 	{
 		float peakY = vuArea.getBottom() - 2 - (peakSegment + 1) * segmentHeight;
 		juce::Rectangle<float> peakRect(vuArea.getX() + 1, peakY, vuArea.getWidth() - 2, 3);
-
-		g.setColour(juce::Colours::white);
+		g.setColour(ColourPalette::vuPeak);
 		g.fillRect(peakRect);
 	}
 }
@@ -351,11 +346,10 @@ void MasterChannel::drawMasterClipping(juce::Rectangle<float>& vuArea, juce::Gra
 {
 	auto clipRect = juce::Rectangle<float>(vuArea.getX() - 2, vuArea.getY() - 12, vuArea.getWidth() + 4, 8);
 	g.setColour(isClipping && (juce::Time::getCurrentTime().toMilliseconds() % 500 < 250)
-		? juce::Colours::red
-		: juce::Colours::darkred);
+		? ColourPalette::buttonDangerLight
+		: ColourPalette::buttonDangerDark);
 	g.fillRoundedRectangle(clipRect, 4.0f);
-
-	g.setColour(juce::Colours::white);
+	g.setColour(ColourPalette::textPrimary);
 	g.setFont(juce::Font(8.0f, juce::Font::bold));
 	g.drawText("CLIP", clipRect, juce::Justification::centred);
 }
@@ -369,14 +363,12 @@ void MasterChannel::drawMasterChanelSegments(juce::Rectangle<float>& vuArea, int
 		vuArea.getX() + 1, segmentY, vuArea.getWidth() - 2, segmentHeight - 1);
 
 	juce::Colour segmentColour;
-	if (segmentLevel < 0.6f)
-		segmentColour = juce::Colours::green;
-	else if (segmentLevel < 0.8f)
-		segmentColour = juce::Colours::orange;
-	else if (segmentLevel < 0.95f)
-		segmentColour = juce::Colours::red;
+	if (segmentLevel < 0.7f)
+		segmentColour = ColourPalette::vuGreen;
+	else if (segmentLevel < 0.9f)
+		segmentColour = ColourPalette::vuOrange;
 	else
-		segmentColour = juce::Colours::white;
+		segmentColour = ColourPalette::vuRed;
 
 	if (masterLevel >= segmentLevel)
 	{

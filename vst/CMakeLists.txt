@@ -39,6 +39,8 @@ target_sources(ObsidianNeuralVST
         src/MasterChannel.cpp
         src/WaveformDisplay.cpp
         src/SequencerComponent.cpp
+        src/ColourPalette.cpp
+        src/MixerPanel.cpp
         )
 
 target_include_directories(ObsidianNeuralVST

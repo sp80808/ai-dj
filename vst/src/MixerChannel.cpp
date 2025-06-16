@@ -2,6 +2,7 @@
 #include "MixerChannel.h"
 #include <string>
 #include "PluginEditor.h"
+#include "ColourPalette.h"
 
 MixerChannel::MixerChannel(const juce::String& trackId, DjIaVstProcessor& processor, TrackData* trackData)
 	: trackId(trackId), audioProcessor(processor), track(nullptr)
@@ -239,14 +240,14 @@ void MixerChannel::updateUIFromParameter(const juce::String& paramName,
 		if (newValue < 0.5 && !track->isCurrentlyPlaying.load()) {
 			playButton.setToggleState(false, juce::dontSendNotification);
 			playButton.setButtonText("ARM");
-			playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff404040));
-			stopButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff404040));
+			playButton.setColour(juce::TextButton::buttonOnColourId, ColourPalette::buttonInactive);
+			stopButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonInactive);
 		}
 		else if (newValue > 0.5 && !track->isCurrentlyPlaying.load()) {
 			playButton.setToggleState(true, juce::dontSendNotification);
 			playButton.setButtonText("ARM");
-			playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffff6600));
-			stopButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffaa4400));
+			playButton.setColour(juce::TextButton::buttonOnColourId, ColourPalette::playArmed);
+			stopButton.setColour(juce::TextButton::buttonColourId, ColourPalette::stopActive);
 		}
 	}
 }
@@ -417,7 +418,7 @@ void MixerChannel::timerCallback()
 	{
 		blinkState = !blinkState;
 		stopButton.setColour(juce::TextButton::buttonColourId,
-			blinkState ? juce::Colours::red : juce::Colours::darkred);
+			blinkState ? ColourPalette::buttonDangerLight : ColourPalette::buttonDangerDark);
 	}
 	else
 	{
@@ -481,13 +482,13 @@ void MixerChannel::updateFromTrackData()
 void MixerChannel::paint(juce::Graphics& g)
 {
 	auto bounds = getLocalBounds();
-
-	juce::Colour bgColour = isSelected ? juce::Colour(0xff3a3a3a) : juce::Colour(0xff2a2a2a);
+	juce::Colour bgColour = isSelected ? ColourPalette::backgroundMid : ColourPalette::backgroundDark;
 	g.setColour(bgColour);
 	g.fillRoundedRectangle(bounds.toFloat(), 8.0f);
 
-	juce::Colour borderColour = isSelected ? juce::Colour(0xff00ff88) : juce::Colour(0xff404040);
+	juce::Colour borderColour = isSelected ? ColourPalette::trackSelected : ColourPalette::sliderTrack;
 	float borderWidth = isSelected ? 2.0f : 1.0f;
+	g.setColour(borderColour);
 	g.drawRoundedRectangle(bounds.toFloat().reduced(1), 8.0f, borderWidth);
 
 	if (isSelected)
@@ -495,17 +496,16 @@ void MixerChannel::paint(juce::Graphics& g)
 		g.setColour(borderColour.withAlpha(0.3f));
 		g.drawRoundedRectangle(bounds.toFloat().reduced(1), 10.0f, 1.0f);
 	}
+
 	drawVUMeter(g, bounds);
 }
 
 void MixerChannel::drawVUMeter(juce::Graphics& g, juce::Rectangle<int> bounds)
 {
 	auto vuArea = juce::Rectangle<float>(bounds.getWidth() - 10, 110, 6, bounds.getHeight() - 120);
-
-	g.setColour(juce::Colour(0xff0a0a0a));
+	g.setColour(ColourPalette::backgroundDeep);
 	g.fillRoundedRectangle(vuArea, 2.0f);
-
-	g.setColour(juce::Colour(0xff666666));
+	g.setColour(ColourPalette::backgroundLight);
 	g.drawRoundedRectangle(vuArea, 2.0f, 0.5f);
 
 	if (!track)
@@ -513,7 +513,6 @@ void MixerChannel::drawVUMeter(juce::Graphics& g, juce::Rectangle<int> bounds)
 
 	float currentLevel = getCurrentAudioLevel();
 	float peakLevel = getPeakLevel();
-
 	int numSegments = 20;
 	float segmentHeight = (vuArea.getHeight() - 4) / numSegments;
 
@@ -530,16 +529,14 @@ void MixerChannel::drawVUMeter(juce::Graphics& g, juce::Rectangle<int> bounds)
 			float peakY = vuArea.getBottom() - 2 - (peakSegment + 1) * segmentHeight;
 			juce::Rectangle<float> peakRect(
 				vuArea.getX() + 1, peakY, vuArea.getWidth() - 2, 2);
-
-			g.setColour(juce::Colours::white);
+			g.setColour(ColourPalette::vuPeak);
 			g.fillRect(peakRect);
 		}
 	}
-
 	if (peakLevel >= 0.95f)
 	{
 		auto clipRect = juce::Rectangle<float>(vuArea.getX(), vuArea.getY() - 8, vuArea.getWidth(), 4);
-		g.setColour(juce::Colours::red);
+		g.setColour(ColourPalette::vuClipping);
 		g.fillRoundedRectangle(clipRect, 2.0f);
 	}
 }
@@ -554,11 +551,11 @@ void MixerChannel::fillMeters(juce::Rectangle<float>& vuArea, int i, float segme
 
 	juce::Colour segmentColour;
 	if (segmentLevel < 0.7f)
-		segmentColour = juce::Colours::green;
+		segmentColour = ColourPalette::vuGreen;
 	else if (segmentLevel < 0.9f)
-		segmentColour = juce::Colours::orange;
+		segmentColour = ColourPalette::vuOrange;
 	else
-		segmentColour = juce::Colours::red;
+		segmentColour = ColourPalette::vuRed;
 
 	if (currentLevel >= segmentLevel)
 	{
@@ -699,7 +696,7 @@ void MixerChannel::setupUI()
 {
 	addAndMakeVisible(trackNameLabel);
 	trackNameLabel.setText("Track", juce::dontSendNotification);
-	trackNameLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+	trackNameLabel.setColour(juce::Label::textColourId, ColourPalette::textPrimary);
 	trackNameLabel.setJustificationType(juce::Justification::centred);
 	trackNameLabel.setFont(juce::Font(12.0f, juce::Font::bold));
 
@@ -723,18 +720,18 @@ void MixerChannel::setupUI()
 	volumeSlider.setRange(0.0, 1.0, 0.01);
 	volumeSlider.setSliderStyle(juce::Slider::LinearVertical);
 	volumeSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-	volumeSlider.setColour(juce::Slider::thumbColourId, juce::Colour(0xff00ff88));
-	volumeSlider.setColour(juce::Slider::trackColourId, juce::Colour(0xff404040));
+	volumeSlider.setColour(juce::Slider::thumbColourId, ColourPalette::sliderThumb);
+	volumeSlider.setColour(juce::Slider::trackColourId, ColourPalette::sliderTrack);
 
 	addAndMakeVisible(pitchKnob);
 	pitchKnob.setRange(-12.0, 12.0, 0.01);
 	pitchKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 	pitchKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-	pitchKnob.setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xff00ff88));
+	pitchKnob.setColour(juce::Slider::rotarySliderFillColourId, ColourPalette::sliderThumb);
 
 	addAndMakeVisible(pitchLabel);
 	pitchLabel.setText("PITCH", juce::dontSendNotification);
-	pitchLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+	pitchLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 	pitchLabel.setJustificationType(juce::Justification::centred);
 	pitchLabel.setFont(juce::Font(9.0f));
 
@@ -742,11 +739,11 @@ void MixerChannel::setupUI()
 	fineKnob.setRange(-50.0, 50.0, 1.0);
 	fineKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 	fineKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-	fineKnob.setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xff00ff88));
+	fineKnob.setColour(juce::Slider::rotarySliderFillColourId, ColourPalette::sliderThumb);
 
 	addAndMakeVisible(fineLabel);
 	fineLabel.setText("FINE", juce::dontSendNotification);
-	fineLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+	fineLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 	fineLabel.setJustificationType(juce::Justification::centred);
 	fineLabel.setFont(juce::Font(9.0f));
 
@@ -754,11 +751,11 @@ void MixerChannel::setupUI()
 	panKnob.setRange(-1.0, 1.0, 0.01);
 	panKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 	panKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-	panKnob.setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xff00ff88));
+	panKnob.setColour(juce::Slider::rotarySliderFillColourId, ColourPalette::sliderThumb);
 
 	addAndMakeVisible(panLabel);
 	panLabel.setText("PAN", juce::dontSendNotification);
-	panLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+	panLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 	panLabel.setJustificationType(juce::Justification::centred);
 	panLabel.setFont(juce::Font(9.0f));
 }
@@ -786,42 +783,34 @@ void MixerChannel::updateButtonColors()
 
 	if (isPlaying)
 	{
-		playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff00ff44));
+		playButton.setColour(juce::TextButton::buttonOnColourId, ColourPalette::playActive);
 		playButton.setButtonText("PLY");
 	}
 	else if (isArmed)
 	{
-		playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffff6600));
+		playButton.setColour(juce::TextButton::buttonOnColourId, ColourPalette::playArmed);
 		playButton.setButtonText("ARM");
 	}
 	else
 	{
-		playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff404040));
+		playButton.setColour(juce::TextButton::buttonOnColourId, ColourPalette::buttonInactive);
 		playButton.setButtonText("ARM");
 	}
 
 	muteButton.setToggleState(isMuted, juce::dontSendNotification);
-	muteButton.setColour(juce::TextButton::buttonOnColourId,
-		juce::Colour(0xffaa0000));
-	muteButton.setColour(juce::TextButton::textColourOnId,
-		juce::Colours::white);
-	muteButton.setColour(juce::TextButton::buttonColourId,
-		juce::Colour(0xff404040));
-	muteButton.setColour(juce::TextButton::textColourOffId,
-		juce::Colours::white);
+	muteButton.setColour(juce::TextButton::buttonOnColourId, ColourPalette::muteActive);
+	muteButton.setColour(juce::TextButton::textColourOnId, ColourPalette::textPrimary);
+	muteButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonInactive);
+	muteButton.setColour(juce::TextButton::textColourOffId, ColourPalette::textPrimary);
 
 	soloButton.setToggleState(isSolo, juce::dontSendNotification);
-	soloButton.setColour(juce::TextButton::buttonOnColourId,
-		juce::Colour(0xffffff00));
-	soloButton.setColour(juce::TextButton::textColourOnId,
-		juce::Colours::black);
-	soloButton.setColour(juce::TextButton::buttonColourId,
-		juce::Colour(0xff404040));
-	soloButton.setColour(juce::TextButton::textColourOffId,
-		juce::Colours::white);
+	soloButton.setColour(juce::TextButton::buttonOnColourId, ColourPalette::soloActive);
+	soloButton.setColour(juce::TextButton::textColourOnId, ColourPalette::soloText);
+	soloButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonInactive);
+	soloButton.setColour(juce::TextButton::textColourOffId, ColourPalette::textPrimary);
 
 	stopButton.setColour(juce::TextButton::buttonColourId,
-		(isArmed || isPlaying) ? juce::Colour(0xffaa4400) : juce::Colour(0xff404040));
+		(isArmed || isPlaying) ? ColourPalette::stopActive : ColourPalette::buttonInactive);
 }
 
 void MixerChannel::learn(juce::String param, std::function<void(float)> uiCallback)
