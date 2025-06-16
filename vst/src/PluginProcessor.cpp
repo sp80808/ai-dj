@@ -823,9 +823,6 @@ void DjIaVstProcessor::stopNotePlaybackForTrack(int noteNumber)
 		if (track)
 		{
 			track->isPlaying = false;
-			track->sequencerData.currentStep = 0;
-			track->sequencerData.currentMeasure = 0;
-			track->sequencerData.stepAccumulator = 0.0;
 		}
 		playingTracks.erase(it);
 	}
