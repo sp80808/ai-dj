@@ -52,6 +52,7 @@ public:
 	TrackData* getTrack() const { return track; }
 
 	std::function<void(const juce::String&, const juce::String&)> onReorderTrack;
+	std::function<void(const juce::String&)> onPreviewTrack;
 
 	void setSelected(bool selected);
 	void setTrackData(TrackData* trackData);
@@ -89,13 +90,12 @@ private:
 	juce::TextButton deleteButton;
 	MidiLearnableButton generateButton;
 	juce::Label infoLabel;
+	juce::TextButton previewButton;
 
 	juce::ComboBox timeStretchModeSelector;
 
 	juce::Slider bpmOffsetSlider;
 	juce::Label bpmOffsetLabel;
-
-	juce::Label midiNoteLabel;
 
 	std::atomic<bool> isDestroyed{ false };
 

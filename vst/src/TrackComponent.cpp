@@ -232,13 +232,11 @@ void TrackComponent::updateFromTrackData()
 
 	trackNameLabel.setText(track->trackName, juce::dontSendNotification);
 	juce::String noteName = juce::MidiMessage::getMidiNoteName(track->midiNote, true, true, 3);
-	midiNoteLabel.setText(noteName, juce::dontSendNotification);
+	trackNumberLabel.setText(noteName, juce::dontSendNotification);
 
 	bpmOffsetSlider.setValue(track->bpmOffset, juce::dontSendNotification);
 	timeStretchModeSelector.setSelectedId(track->timeStretchMode, juce::dontSendNotification);
-	trackNumberLabel.setText(juce::String(track->slotIndex + 1), juce::dontSendNotification);
 	trackNumberLabel.setColour(juce::Label::backgroundColourId, getTrackColour(track->slotIndex));
-	midiNoteLabel.setColour(juce::Label::backgroundColourId, getTrackColour(track->slotIndex));
 
 	if (waveformDisplay)
 	{
@@ -385,13 +383,13 @@ void TrackComponent::resized()
 	headerArea.removeFromRight(5);
 	generateButton.setBounds(headerArea.removeFromRight(45));
 	headerArea.removeFromRight(5);
+	previewButton.setBounds(headerArea.removeFromRight(55));
+	headerArea.removeFromRight(5);
 	showWaveformButton.setBounds(headerArea.removeFromRight(50));
 	headerArea.removeFromRight(5);
 	sequencerToggleButton.setBounds(headerArea.removeFromRight(40));
 	headerArea.removeFromRight(5);
 	timeStretchModeSelector.setBounds(headerArea.removeFromRight(80));
-	headerArea.removeFromRight(5);
-	midiNoteLabel.setBounds(headerArea.removeFromRight(65));
 
 	if (waveformDisplay && showWaveformButton.getToggleState())
 	{
@@ -532,12 +530,6 @@ void TrackComponent::setupUI()
 	infoLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
 	infoLabel.setFont(juce::Font(12.0f));
 
-	addAndMakeVisible(midiNoteLabel);
-	midiNoteLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-	midiNoteLabel.setColour(juce::Label::backgroundColourId, juce::Colour(0xff404040));
-	midiNoteLabel.setJustificationType(juce::Justification::centred);
-	midiNoteLabel.setFont(juce::Font(10.0f, juce::Font::bold));
-
 	addAndMakeVisible(showWaveformButton);
 	showWaveformButton.setButtonText("Wave");
 	showWaveformButton.setClickingTogglesState(true);
@@ -590,11 +582,19 @@ void TrackComponent::setupUI()
 	trackNameLabel.toFront(false);
 
 	addAndMakeVisible(trackNumberLabel);
-	trackNumberLabel.setText(juce::String(track ? track->slotIndex + 1 : 1), juce::dontSendNotification);
 	trackNumberLabel.setJustificationType(juce::Justification::centred);
 	trackNumberLabel.setFont(juce::Font(16.0f, juce::Font::bold));
 	trackNumberLabel.setColour(juce::Label::textColourId, juce::Colours::white);
 	trackNumberLabel.setColour(juce::Label::backgroundColourId, juce::Colour(0xff5a7a9a));
+	addAndMakeVisible(previewButton);
+	previewButton.setButtonText("Preview");
+	previewButton.setColour(juce::TextButton::buttonColourId, juce::Colours::blue);
+	previewButton.setTooltip("Preview sample (independent of ARM/STOP state)");
+	previewButton.onClick = [this]()
+		{
+			if (track && onPreviewTrack)
+				onPreviewTrack(trackId);
+		};
 }
 
 void TrackComponent::adjustLoopPointsToTempo()
