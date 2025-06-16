@@ -564,15 +564,28 @@ void DjIaVstProcessor::processMidiMessages(juce::MidiBuffer& midiMessages, bool 
 		midiLearnManager.processMidiMappings(message);
 		handlePlayAndStop(hostIsPlaying);
 		handleGenerate();
-		if (message.isNoteOn())
-		{
-			playTrack(message, hostBpm);
+		if (hostIsPlaying) {
+			if (message.isNoteOn())
+			{
+				playTrack(message, hostBpm);
+			}
+			else if (message.isNoteOff())
+			{
+				int noteNumber = message.getNoteNumber();
+				stopNotePlaybackForTrack(noteNumber);
+			}
 		}
-		else if (message.isNoteOff())
-		{
-			int noteNumber = message.getNoteNumber();
-			stopNotePlaybackForTrack(noteNumber);
-		}
+	}
+}
+
+void DjIaVstProcessor::previewTrack(const juce::String& trackId)
+{
+	TrackData* track = trackManager.getTrack(trackId);
+	if (track && track->numSamples > 0)
+	{
+		track->readPosition = 0.0;
+		track->isPlaying.store(true);
+		needsUIUpdate = true;
 	}
 }
 
@@ -785,7 +798,7 @@ void DjIaVstProcessor::startNotePlaybackForTrack(const juce::String& trackId, in
 	{
 		return;
 	}
-	if (!track->isArmed.load())
+	if (!track->isArmed.load() && !track->isCurrentlyPlaying.load())
 	{
 		return;
 	}
@@ -796,7 +809,8 @@ void DjIaVstProcessor::startNotePlaybackForTrack(const juce::String& trackId, in
 
 	track->readPosition = 0.0;
 	track->setPlaying(true);
-
+	track->isCurrentlyPlaying.store(true);
+	track->isArmed = false;
 	playingTracks[noteNumber] = trackId;
 }
 
@@ -809,7 +823,6 @@ void DjIaVstProcessor::stopNotePlaybackForTrack(int noteNumber)
 		if (track)
 		{
 			track->isPlaying = false;
-			track->isCurrentlyPlaying = false;
 			track->sequencerData.currentStep = 0;
 			track->sequencerData.currentMeasure = 0;
 			track->sequencerData.stepAccumulator = 0.0;
@@ -1776,7 +1789,6 @@ void DjIaVstProcessor::executePendingAction(TrackData* track) const
 			track->sequencerData.currentMeasure = 0;
 			track->sequencerData.stepAccumulator = 0.0;
 			track->isCurrentlyPlaying = true;
-			track->isArmed = false;
 		}
 		break;
 
@@ -1887,6 +1899,7 @@ void DjIaVstProcessor::triggerSequencerStep(TrackData* track)
 {
 	int step = track->sequencerData.currentStep;
 	int measure = track->sequencerData.currentMeasure;
+	track->isArmed = false;
 	if (track->sequencerData.steps[measure][step])
 	{
 		track->readPosition = 0.0;
