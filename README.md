@@ -155,6 +155,75 @@ If using the installer + manual VST3:
 
 ---
 
+## 🛠️ Building Standalone Executables
+
+### Prerequisites
+
+Install PyInstaller:
+
+```bash
+pip install pyinstaller
+```
+
+### Building the Installer
+
+```bash
+pyinstaller --onefile --windowed --add-data "logo.png;." installer.py
+```
+
+### Building the Server Interface
+
+```bash
+pyinstaller --onefile --windowed --add-data "logo.png;." .\server_interface.py
+```
+
+### Build Output
+
+Executables will be created in `dist/` folder:
+
+- `dist/installer.exe` - One-click installation tool
+- `dist/server_interface.exe` - Standalone AI server interface
+
+---
+
+## ⚠️ IMPORTANT: Antivirus False Positive Issue
+
+**Our installer.exe is flagged by 5/70 antivirus engines as malicious - THIS IS A FALSE POSITIVE**
+
+**Current detections:**
+
+- Bkav Pro: W64.AIDetectMalware
+- Gridinsoft: Trojan.Win64.Agent.oa!s1
+- Microsoft: Trojan:Win32/Wacatac.B!ml
+- Jiangmin: Trojan.PSW.Python.ll
+- SecureAge: Malicious
+
+**Why this happens:**
+
+- Python-to-exe converters are commonly used by malware authors
+- Creates suspicious binary signatures that antivirus engines flag
+- Industry-wide problem affecting thousands of legitimate Python projects
+- **65/70 engines report the file as CLEAN**
+
+**The file is 100% safe:**
+
+- ✅ Full source code available in [installer.py](./installer.py)
+- ✅ No obfuscation, readable Python code
+- ✅ Does exactly what the Python script does
+- ✅ [VirusTotal scan](https://www.virustotal.com/gui/file/1cd741f75675381dbdb998f0c5ace2b360e6a6ac0c6b24106ed15821bc03fe76) - majority of engines report clean
+
+## 🚀 RECOMMENDED SOLUTION: Skip the .exe
+
+**Use Python directly - much safer and easier:**
+
+```bash
+git clone https://github.com/innermost47/ai-dj.git
+cd ai-dj
+python installer.py
+```
+
+---
+
 ## 📰 **Press coverage moved to [PRESS.md](PRESS.md)**
 
 ---
@@ -231,7 +300,7 @@ If using the installer + manual VST3:
 3. **Perform**: Trigger tracks with MIDI, auto-sync to DAW tempo
 4. **Control**: Map hardware controllers with MIDI Learn
 
-**Example LLM-generated prompt:**  
+**Example LLM-generated prompt:**
 _"Deep techno kick with sidechain compression, 126 BPM, dark atmosphere, minimal hi-hats, rolling bassline"_
 
 ---
@@ -261,9 +330,9 @@ _"Deep techno kick with sidechain compression, 126 BPM, dark atmosphere, minimal
 
 ## 📈 Project Status
 
-✅ **VST3 Plugin**: Fully functional for live performance  
-⚠️ **Pre-release**: Active development, frequent updates  
-🔄 **Installation**: Working on simplification  
+✅ **VST3 Plugin**: Fully functional for live performance
+⚠️ **Pre-release**: Active development, frequent updates
+🔄 **Installation**: Working on simplification
 🌍 **Community**: Building distributed GPU network
 
 **Star count since June 6th: 53** ⭐ - Thank you for the support!
@@ -294,3 +363,7 @@ MIT License - Feel free to modify, but please keep attribution to InnerMost47
 **OBSIDIAN-Neural** - Where artificial intelligence meets live music performance.
 
 _Developed by InnerMost47_
+
+```
+
+```
