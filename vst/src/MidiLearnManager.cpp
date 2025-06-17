@@ -67,11 +67,10 @@ void MidiLearnManager::timerCallback()
 void MidiLearnManager::removeMappingsForSlot(int slotNumber)
 {
 	juce::String slotPrefix = "slot" + juce::String(slotNumber);
-	for (int i = mappings.size() - 1; i >= 0; --i)
+	for (int i = static_cast<int>(mappings.size()) - 1; i >= 0; --i)
 	{
 		if (mappings[i].parameterName.startsWith(slotPrefix))
 		{
-			DBG("🗑️ Removing MIDI mapping: " << mappings[i].parameterName);
 			mappings.erase(mappings.begin() + i);
 		}
 	}
@@ -88,7 +87,6 @@ void MidiLearnManager::moveMappingsFromSlotToSlot(int fromSlot, int toSlot)
 		{
 			juce::String suffix = mapping.parameterName.substring(fromPrefix.length());
 			mapping.parameterName = toPrefix + suffix;
-			DBG("🔄 Moved MIDI mapping: " << fromPrefix << suffix << " → " << mapping.parameterName);
 		}
 	}
 }
@@ -161,7 +159,7 @@ bool MidiLearnManager::processMidiForLearning(const juce::MidiMessage& message)
 		break;
 	}
 
-	juce::String fullMessage = "MIDI mapping created: " + midiDescription + " → " + learningDescription;
+	juce::String fullMessage = "MIDI mapping created: " + midiDescription + " >> " + learningDescription;
 	DBG(fullMessage);
 	juce::MessageManager::callAsync([mapping, fullMessage]()
 		{
@@ -184,10 +182,6 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage& message)
 {
 	int midiChannel = message.getChannel() - 1;
 	bool isWarning = false;
-	if (message.isController())
-	{
-		DBG("🎹 MIDI received: CC" << message.getControllerNumber() << " value=" << message.getControllerValue() << " channel=" << (midiChannel + 1));
-	}
 	for (auto& mapping : mappings)
 	{
 		bool matches = false;
@@ -207,7 +201,7 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage& message)
 			if (message.getNoteNumber() == mapping.midiNumber)
 			{
 				matches = true;
-				statusMessage = "Note " + juce::String(mapping.midiNumber) + " → " + mapping.parameterName;
+				statusMessage = "Note " + juce::String(mapping.midiNumber) + " >> " + mapping.parameterName;
 
 				if (message.isNoteOn() && isBooleanParameter(mapping.parameterName))
 				{
@@ -250,16 +244,15 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage& message)
 			{
 				matches = true;
 				value = message.getControllerValue() / 127.0f;
-				statusMessage = "CC" + juce::String(mapping.midiNumber) + " → " + mapping.parameterName +
+				statusMessage = "CC" + juce::String(mapping.midiNumber) + " >> " + mapping.parameterName +
 					" (" + juce::String(message.getControllerValue()) + ")";
-				DBG("🎯 MIDI mapping found: CC" << mapping.midiNumber << " → " << mapping.parameterName << " (value=" << value << ")");
 			}
 		}
 		else if (mapping.midiType == 2 && message.isPitchWheel() && mapping.midiChannel == midiChannel)
 		{
 			matches = true;
 			value = (message.getPitchWheelValue() + 8192) / 16383.0f;
-			statusMessage = "Pitch Wheel → " + mapping.parameterName +
+			statusMessage = "Pitch Wheel >> " + mapping.parameterName +
 				" (" + juce::String(message.getPitchWheelValue()) + ")";
 		}
 
@@ -269,7 +262,6 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage& message)
 			{
 				if (mapping.uiCallback && mapping.processor->getActiveEditor())
 				{
-					DBG("🎯 MIDI mapping found for virtual parameter: " << mapping.parameterName << " (value=" << value << ")");
 					mapping.uiCallback(value);
 
 					juce::MessageManager::callAsync([mapping, statusMessage]()
@@ -295,11 +287,9 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage& message)
 			auto* param = mapping.processor->getParameterTreeState().getParameter(mapping.parameterName);
 			if (param)
 			{
-				DBG("🔧 Setting parameter: " << mapping.parameterName << " to value: " << value);
 				if (mapping.parameterName.startsWith("slot"))
 				{
 					juce::String slotPart = mapping.parameterName.substring(0, 5);
-					DBG("📍 Slot parameter detected: " << slotPart << " (full param: " << mapping.parameterName << ")");
 					auto trackIds = mapping.processor->getAllTrackIds();
 					for (const auto& trackId : trackIds)
 					{
@@ -309,7 +299,6 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage& message)
 							juce::String expectedSlot = "slot" + juce::String(track->slotIndex + 1);
 							if (slotPart == expectedSlot)
 							{
-								DBG("✅ This affects track: " << track->trackName << " (trackId: " << trackId << ", slotIndex: " << track->slotIndex << ")");
 								break;
 							}
 						}

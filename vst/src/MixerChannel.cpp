@@ -103,7 +103,7 @@ void MixerChannel::setTrackData(TrackData* trackData)
 							} });
 				}
 			};
-		track->onArmedStateChanged = [weakThis](bool isArmed)
+		track->onArmedStateChanged = [weakThis](bool /*isArmed*/)
 			{
 				if (weakThis != nullptr)
 				{
@@ -116,7 +116,7 @@ void MixerChannel::setTrackData(TrackData* trackData)
 				}
 			};
 
-		track->onArmedToStopStateChanged = [weakThis](bool isArmedToStop)
+		track->onArmedToStopStateChanged = [weakThis](bool /*isArmedToStop*/)
 			{
 				if (weakThis != nullptr)
 				{
@@ -252,7 +252,7 @@ void MixerChannel::updateUIFromParameter(const juce::String& paramName,
 	}
 }
 
-void MixerChannel::parameterGestureChanged(int parameterIndex, bool gestureIsStarting)
+void MixerChannel::parameterGestureChanged(int /*parameterIndex*/, bool /*gestureIsStarting*/)
 {
 }
 
@@ -270,7 +270,7 @@ void MixerChannel::setSliderParameter(juce::String name, juce::Slider& slider)
 
 		if (param != nullptr)
 		{
-			float value = slider.getValue();
+			float value = static_cast<float>(slider.getValue());
 			if (!std::isnan(value) && !std::isinf(value))
 			{
 				if (name == "Pitch")
@@ -502,7 +502,12 @@ void MixerChannel::paint(juce::Graphics& g)
 
 void MixerChannel::drawVUMeter(juce::Graphics& g, juce::Rectangle<int> bounds)
 {
-	auto vuArea = juce::Rectangle<float>(bounds.getWidth() - 10, 110, 6, bounds.getHeight() - 120);
+	auto vuArea = juce::Rectangle<float>(
+		static_cast<float>(bounds.getWidth() - 10),
+		110.0f,
+		6.0f,
+		static_cast<float>(bounds.getHeight() - 120)
+	);
 	g.setColour(ColourPalette::backgroundDeep);
 	g.fillRoundedRectangle(vuArea, 2.0f);
 	g.setColour(ColourPalette::backgroundLight);
@@ -764,7 +769,7 @@ void MixerChannel::setupUI()
 	panLabel.setText("PAN", juce::dontSendNotification);
 	panLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 	panLabel.setJustificationType(juce::Justification::centred);
-	panLabel.setFont(juce::Font(9.0f));
+	panLabel.setFont(juce::FontOptions(9.0f));
 }
 
 void MixerChannel::updateButtonColors()
@@ -842,7 +847,7 @@ void MixerChannel::removeMidiMapping(const juce::String& param)
 	if (track && track->slotIndex != -1)
 	{
 		juce::String parameterName = "slot" + juce::String(track->slotIndex + 1) + param;
-		bool removed = audioProcessor.getMidiLearnManager().removeMappingForParameter(parameterName);
+		audioProcessor.getMidiLearnManager().removeMappingForParameter(parameterName);
 	}
 }
 

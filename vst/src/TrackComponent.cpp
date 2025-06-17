@@ -722,7 +722,7 @@ void TrackComponent::removeMidiMapping(const juce::String& param)
 	if (track && track->slotIndex != -1)
 	{
 		juce::String parameterName = "slot" + juce::String(track->slotIndex + 1) + param;
-		bool removed = audioProcessor.getMidiLearnManager().removeMappingForParameter(parameterName);
+		audioProcessor.getMidiLearnManager().removeMappingForParameter(parameterName);
 	}
 }
 

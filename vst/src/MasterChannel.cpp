@@ -310,7 +310,9 @@ void MasterChannel::resized()
 
 void MasterChannel::drawMasterVUMeter(juce::Graphics& g, juce::Rectangle<int> bounds) const
 {
-	auto vuArea = juce::Rectangle<float>(bounds.getWidth() - 15, 40, 10, bounds.getHeight() - 80);
+	float width = static_cast<float>(bounds.getWidth());
+	float height = static_cast<float>(bounds.getHeight());
+	auto vuArea = juce::Rectangle<float>(width - 15.0f, 40.0f, 10.0f, height - 80.0f);
 	g.setColour(ColourPalette::backgroundDeep);
 	g.fillRoundedRectangle(vuArea, 2.0f);
 	g.setColour(ColourPalette::playArmed);
@@ -456,7 +458,7 @@ void MasterChannel::learn(juce::String param, juce::String description, std::fun
 void MasterChannel::removeMidiMapping(const juce::String& param)
 {
 
-	bool removed = audioProcessor.getMidiLearnManager().removeMappingForParameter(param);
+	audioProcessor.getMidiLearnManager().removeMappingForParameter(param);
 
 }
 

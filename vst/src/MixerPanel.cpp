@@ -143,9 +143,10 @@ void MixerPanel::positionMixer(std::unique_ptr<MixerChannel>& mixerChannel, int&
 void MixerPanel::paint(juce::Graphics& g)
 {
 	auto bounds = getLocalBounds();
+	float height = static_cast<float>(getHeight());
 	juce::ColourGradient gradient(
-		ColourPalette::backgroundDeep, 0, 0,
-		ColourPalette::backgroundDark, 0, getHeight(),
+		ColourPalette::backgroundDeep, 0.0f, 0.0f,
+		ColourPalette::backgroundDark, 0.0f, height,
 		false);
 	g.setGradientFill(gradient);
 	g.fillAll();
@@ -153,13 +154,13 @@ void MixerPanel::paint(juce::Graphics& g)
 	g.setColour(ColourPalette::backgroundMid);
 	for (int i = 0; i < getWidth(); i += 2)
 	{
-		g.drawVerticalLine(i, 0, getHeight());
+		g.drawVerticalLine(i, 0.0f, static_cast<float>(getHeight()));
 		g.setOpacity(0.1f);
 	}
 
 	int masterX = getWidth() - 100;
 	g.setColour(ColourPalette::backgroundLight);
-	g.drawLine(masterX - 5, 10, masterX - 5, getHeight() - 10, 2.0f);
+	g.drawLine(static_cast<float>(masterX - 5), 10.0f, static_cast<float>(masterX - 5), static_cast<float>(getHeight() - 10), 2.0f);
 }
 
 void MixerPanel::resized()

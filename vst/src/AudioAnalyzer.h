@@ -27,7 +27,7 @@ public:
 			float detectedBPM = bpmDetect.getBpm();
 			return returnDetectedBPMorFallback(detectedBPM, buffer, sampleRate);
 		}
-		catch (const std::exception& e)
+		catch (const std::exception& /*e*/)
 		{
 			return 0.0f;
 		}
@@ -157,7 +157,7 @@ public:
 
 			return 0.0f;
 		}
-		catch (const std::exception& e)
+		catch (const std::exception& /*e*/)
 		{
 			return 0.0f;
 		}
