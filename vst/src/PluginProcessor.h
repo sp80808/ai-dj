@@ -47,7 +47,7 @@ public:
 	void copyTracksToIndividualOutputs(juce::AudioSampleBuffer& buffer);
 	void clearOutputBuffers(juce::AudioSampleBuffer& buffer);
 	void resizeIndividualsBuffers(juce::AudioSampleBuffer& buffer);
-	void getDawInformations(juce::AudioPlayHead* playHead, bool& hostIsPlaying, double& hostBpm, double& hostPpqPosition);
+	void getDawInformations(juce::AudioPlayHead* currentPlayHead, bool& hostIsPlaying, double& hostBpm, double& hostPpqPosition);
 	bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
 	bool getDrumsEnabled() const { return drumsEnabled; }
 	void setDrumsEnabled(bool enabled) { drumsEnabled = enabled; }
@@ -171,7 +171,7 @@ public:
 		request.prompt = globalPrompt;
 		request.bpm = globalBpm;
 		request.key = globalKey;
-		request.generationDuration = globalDuration;
+		request.generationDuration = static_cast<float>(globalDuration);
 		request.preferredStems = globalStems;
 		return request;
 	}

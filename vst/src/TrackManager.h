@@ -27,7 +27,7 @@ public:
 		auto track = std::make_unique<TrackData>();
 		track->trackName = name + " " + juce::String(tracks.size() + 1);
 		track->bpmOffset = 0.0;
-		track->midiNote = 60 + tracks.size();
+		track->midiNote = 60 + static_cast<int>(tracks.size());
 		juce::String trackId = track->trackId;
 		std::string stdId = trackId.toStdString();
 		track->slotIndex = findFreeSlot();
@@ -419,7 +419,7 @@ private:
 		return -1;
 	}
 
-	void loadAudioFileForTrack(TrackData* track, const juce::File& audioFile, std::atomic<bool> cachedHostBpm)
+	void loadAudioFileForTrack(TrackData* track, const juce::File& audioFile, std::atomic<bool> /*cachedHostBpm*/)
 	{
 		juce::AudioFormatManager formatManager;
 		formatManager.registerBasicFormats();
@@ -458,7 +458,7 @@ private:
 	void renderSingleTrack(TrackData& track,
 		juce::AudioBuffer<float>& mixOutput,
 		juce::AudioBuffer<float>& individualOutput,
-		int numSamples, int trackIndex, double hostBpm) const
+		int numSamples, int /*trackIndex*/, double hostBpm) const
 	{
 		if (parameterUpdateCallback)
 		{
@@ -485,7 +485,7 @@ private:
 		case 2:
 			if (track.originalBpm > 0.0f)
 			{
-				float totalBpmAdjust = track.bpmOffset + track.fineOffset;
+				float totalBpmAdjust = static_cast<float>(track.bpmOffset) + track.fineOffset;
 				float adjustedBpm = track.originalBpm + totalBpmAdjust;
 				playbackRatio = adjustedBpm / track.originalBpm;
 			}
@@ -501,8 +501,8 @@ private:
 		case 4:
 			if (track.originalBpm > 0.0f && hostBpm > 0.0)
 			{
-				float totalManualAdjust = track.bpmOffset + track.fineOffset;
-				float effectiveHostBpm = hostBpm + totalManualAdjust;
+				float totalManualAdjust = static_cast<float>(track.bpmOffset) + track.fineOffset;
+				float effectiveHostBpm = static_cast<float>(hostBpm) + totalManualAdjust;
 				playbackRatio = effectiveHostBpm / track.originalBpm;
 			}
 			break;
@@ -572,7 +572,7 @@ private:
 				}
 				if (absolutePosition > (endSample - 64))
 				{
-					float fadeGain = (endSample - absolutePosition) / 64.0f;
+					float fadeGain = (static_cast<float>(endSample) - static_cast<float>(absolutePosition)) / 64.0f;
 					fadeGain = juce::jlimit(0.0f, 1.0f, fadeGain);
 					sample *= fadeGain;
 				}

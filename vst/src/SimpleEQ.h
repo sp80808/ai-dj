@@ -6,9 +6,9 @@ class SimpleEQ
 public:
 	SimpleEQ() = default;
 
-	void prepare(double sampleRate, int samplesPerBlock)
+	void prepare(double newSampleRate, int /*samplesPerBlock*/)
 	{
-		this->sampleRate = sampleRate;
+		sampleRate = newSampleRate;
 		for (int ch = 0; ch < 2; ++ch)
 		{
 			highFilters[ch].setCoefficients(

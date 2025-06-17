@@ -281,14 +281,14 @@ void DjIaVstProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
 		buffer.clear(i, 0, buffer.getNumSamples());
 
 	bool hostIsPlaying = false;
-	auto playHead = getPlayHead();
+	auto currentPlayHead = getPlayHead();
 
 	double hostBpm = 126.0;
 	double hostPpqPosition = 0.0;
 
-	if (playHead)
+	if (currentPlayHead)
 	{
-		getDawInformations(playHead, hostIsPlaying, hostBpm, hostPpqPosition);
+		getDawInformations(currentPlayHead, hostIsPlaying, hostBpm, hostPpqPosition);
 	}
 	handleSequencerPlayState(hostIsPlaying);
 	updateSequencers(hostIsPlaying);
@@ -498,15 +498,15 @@ void DjIaVstProcessor::resizeIndividualsBuffers(juce::AudioSampleBuffer& buffer)
 	}
 }
 
-void DjIaVstProcessor::getDawInformations(juce::AudioPlayHead* playHead, bool& hostIsPlaying, double& hostBpm, double& hostPpqPosition)
+void DjIaVstProcessor::getDawInformations(juce::AudioPlayHead* currentPlayHead, bool& hostIsPlaying, double& hostBpm, double& hostPpqPosition)
 {
-	double currentSampleRate = getSampleRate();
-	if (currentSampleRate > 0.0)
+	double localSampleRate = getSampleRate();
+	if (localSampleRate > 0.0)
 	{
-		hostSampleRate = currentSampleRate;
+		hostSampleRate = localSampleRate;
 	}
 
-	if (auto positionInfo = playHead->getPosition())
+	if (auto positionInfo = currentPlayHead->getPosition())
 	{
 		hostIsPlaying = positionInfo->getIsPlaying();
 
@@ -604,7 +604,6 @@ void DjIaVstProcessor::playTrack(const juce::MidiMessage& message, double hostBp
 	for (const auto& trackId : trackIds)
 	{
 		TrackData* track = trackManager.getTrack(trackId);
-		int slot = track->slotIndex;
 		if (track && track->midiNote == noteNumber)
 		{
 			if (trackId == trackIdWaitingForLoad)
@@ -623,7 +622,7 @@ void DjIaVstProcessor::playTrack(const juce::MidiMessage& message, double hostBp
 
 void DjIaVstProcessor::updateMidiIndicatorWithActiveNotes(double hostBpm, const juce::Array<int>& triggeredNotes)
 {
-	juce::StringArray playingTracks;
+	juce::StringArray currentPlayingTracks;
 	auto trackIds = trackManager.getAllTrackIds();
 
 	for (const auto& trackId : trackIds)
@@ -632,13 +631,13 @@ void DjIaVstProcessor::updateMidiIndicatorWithActiveNotes(double hostBpm, const 
 		if (track && track->isPlaying.load() && triggeredNotes.contains(track->midiNote))
 		{
 			juce::String noteName = juce::MidiMessage::getMidiNoteName(track->midiNote, true, true, 3);
-			playingTracks.add(track->trackName + " (" + noteName + ")");
+			currentPlayingTracks.add(track->trackName + " (" + noteName + ")");
 		}
 	}
 
-	if (playingTracks.size() > 0)
+	if (currentPlayingTracks.size() > 0)
 	{
-		juce::String displayText = "Last played: " + playingTracks.joinIntoString(" + ") + " - BPM:" + juce::String(hostBpm, 0);
+		juce::String displayText = "Last played: " + currentPlayingTracks.joinIntoString(" + ") + " - BPM:" + juce::String(hostBpm, 0);
 		midiIndicatorCallback(displayText);
 	}
 	else
@@ -709,7 +708,7 @@ void DjIaVstProcessor::generateLoopFromMidi(const juce::String& trackId)
 					} });
 }
 
-void DjIaVstProcessor::handlePlayAndStop(bool hostIsPlaying)
+void DjIaVstProcessor::handlePlayAndStop(bool /*hostIsPlaying*/)
 {
 	int changedSlot = midiLearnManager.changedPlaySlotIndex.load();
 	if (changedSlot >= 0)
@@ -816,7 +815,7 @@ void DjIaVstProcessor::updateTimeStretchRatios(double hostBpm)
 	}
 }
 
-void DjIaVstProcessor::startNotePlaybackForTrack(const juce::String& trackId, int noteNumber, double hostBpm)
+void DjIaVstProcessor::startNotePlaybackForTrack(const juce::String& trackId, int noteNumber, double /*hostBpm*/)
 {
 	TrackData* track = trackManager.getTrack(trackId);
 	if (!track || track->numSamples == 0)
@@ -958,8 +957,6 @@ void DjIaVstProcessor::reassignTrackOutputsAndMidi()
 {
 	auto trackIds = trackManager.getAllTrackIds();
 
-	DBG("🔄 REASSIGNING TRACKS AND MIDI MAPPINGS");
-
 	for (int i = 0; i < trackIds.size(); ++i)
 	{
 		TrackData* track = trackManager.getTrack(trackIds[i]);
@@ -967,8 +964,6 @@ void DjIaVstProcessor::reassignTrackOutputsAndMidi()
 		{
 			int oldSlotIndex = track->slotIndex;
 			int newSlotIndex = i;
-
-			DBG("Track " << track->trackName << ": slot" << (oldSlotIndex + 1) << " → slot" << (newSlotIndex + 1));
 
 			if (oldSlotIndex != newSlotIndex && oldSlotIndex != -1)
 			{
@@ -980,8 +975,6 @@ void DjIaVstProcessor::reassignTrackOutputsAndMidi()
 			trackManager.usedSlots[newSlotIndex] = true;
 		}
 	}
-
-	DBG("🔄 REASSIGNMENT COMPLETE");
 }
 
 void DjIaVstProcessor::selectTrack(const juce::String& trackId)
@@ -1023,7 +1016,7 @@ void DjIaVstProcessor::generateLoop(const DjIaClient::LoopRequest& request, cons
 				notifyGenerationComplete(trackId, "Invalid response from API");
 			}
 		}
-		catch (const std::exception& e)
+		catch (const std::exception& /*e*/)
 		{
 			setIsGenerating(false);
 			setGeneratingTrackId("");
@@ -1262,7 +1255,7 @@ void DjIaVstProcessor::loadAudioFileAsync(const juce::String& trackId, const juc
 						});
 				} });
 	}
-	catch (const std::exception& e)
+	catch (const std::exception& /*e*/)
 	{
 		track->hasStagingData = false;
 		track->swapRequested = false;
@@ -1301,7 +1294,7 @@ void DjIaVstProcessor::saveBufferToFile(const juce::AudioBuffer<float>& buffer,
 		return;
 	}
 
-	bool success = writer->writeFromAudioSampleBuffer(buffer, 0, buffer.getNumSamples());
+	writer->writeFromAudioSampleBuffer(buffer, 0, buffer.getNumSamples());
 	writer.reset();
 }
 
@@ -1360,12 +1353,10 @@ void DjIaVstProcessor::processAudioBPMAndSync(TrackData* track)
 
 	if (hostBpmValid && originalBpmValid && bpmDifferenceSignificant && !isTempoBypass)
 	{
-		double stretchRatio = hostBpm / track->stagingOriginalBpm;
-		int originalSamples = track->stagingBuffer.getNumSamples();
-
+		double stretchRatio = hostBpm / static_cast<double>(track->stagingOriginalBpm);
 		AudioAnalyzer::timeStretchBuffer(track->stagingBuffer, stretchRatio, track->stagingSampleRate);
 		track->stagingNumSamples.store(track->stagingBuffer.getNumSamples());
-		track->stagingOriginalBpm = hostBpm;
+		track->stagingOriginalBpm = static_cast<float>(hostBpm);
 	}
 	else
 	{
@@ -1435,9 +1426,9 @@ void DjIaVstProcessor::setRequestTimeout(int newRequestTimeoutMS)
 
 double DjIaVstProcessor::getHostBpm() const
 {
-	if (auto playHead = getPlayHead())
+	if (auto currentPlayHead = getPlayHead())
 	{
-		if (auto positionInfo = playHead->getPosition())
+		if (auto positionInfo = currentPlayHead->getPosition())
 		{
 			if (positionInfo->getBpm().hasValue())
 			{
@@ -1477,13 +1468,6 @@ void DjIaVstProcessor::clearCustomPrompts()
 
 void DjIaVstProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
-	auto trackIds = trackManager.getAllTrackIds();
-
-	for (const auto& id : trackIds)
-	{
-		TrackData* track = trackManager.getTrack(id);
-	}
-
 	juce::ValueTree state("DjIaVstState");
 
 	state.setProperty("lastPrompt", juce::var(lastPrompt), nullptr);
@@ -1744,8 +1728,6 @@ void DjIaVstProcessor::addCustomPromptsToIndexedPrompts(juce::ValueTree& prompts
 
 void DjIaVstProcessor::loadCustomPromptsByCountProperty(juce::ValueTree& promptsState)
 {
-	int count = promptsState.getProperty("count", 0);
-
 	for (int i = 0; i < promptsState.getNumChildren(); ++i)
 	{
 		auto promptNode = promptsState.getChild(i);
@@ -1833,10 +1815,10 @@ void DjIaVstProcessor::executePendingAction(TrackData* track) const
 
 void DjIaVstProcessor::updateSequencers(bool hostIsPlaying)
 {
-	auto playHead = getPlayHead();
-	if (!playHead)
+	auto currentPlayHead = getPlayHead();
+	if (!currentPlayHead)
 		return;
-	auto positionInfo = playHead->getPosition();
+	auto positionInfo = currentPlayHead->getPosition();
 	if (!positionInfo)
 		return;
 	auto ppqPosition = positionInfo->getPpqPosition();

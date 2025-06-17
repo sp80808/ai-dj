@@ -69,7 +69,7 @@ struct TrackData
 		request.prompt = generationPrompt;
 		request.bpm = generationBpm;
 		request.key = generationKey;
-		request.generationDuration = generationDuration;
+		request.generationDuration = static_cast<float>(generationDuration);
 		request.preferredStems = preferredStems;
 		return request;
 	}
@@ -79,7 +79,7 @@ struct TrackData
 		generationPrompt = request.prompt;
 		generationBpm = request.bpm;
 		generationKey = request.key;
-		generationDuration = request.generationDuration;
+		generationDuration = static_cast<int>(request.generationDuration);
 		preferredStems = request.preferredStems;
 	}
 

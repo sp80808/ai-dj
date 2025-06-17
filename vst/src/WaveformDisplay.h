@@ -16,7 +16,7 @@ public:
 	void setSampleBpm(float bpm);
 	void lockLoopPoints(bool locked);
 	void setPlaybackPosition(double timeInSeconds, bool isPlaying);
-	void setAudioData(const juce::AudioBuffer<float>& audioBuffer, double sampleRate);
+	void setAudioData(const juce::AudioBuffer<float>& newAudioBuffer, double newSampleRate);
 	void setLoopPoints(double startTime, double endTime);
 	void setAudioFile(const juce::File& file);
 

@@ -57,16 +57,17 @@ void SequencerComponent::setupUI() {
 	currentPlayingMeasureLabel.setColour(juce::Label::textColourId, ColourPalette::textSuccess);
 	currentPlayingMeasureLabel.setColour(juce::Label::backgroundColourId, ColourPalette::backgroundDark);
 	currentPlayingMeasureLabel.setJustificationType(juce::Justification::centred);
-	currentPlayingMeasureLabel.setFont(juce::Font(11.0f, juce::Font::bold));
+	currentPlayingMeasureLabel.setFont(juce::FontOptions(11.0f, juce::Font::bold));
 }
 
 void SequencerComponent::paint(juce::Graphics& g)
 {
 	auto bounds = getLocalBounds();
 
+	float height = static_cast<float>(bounds.getHeight());
 	juce::ColourGradient gradient(
-		ColourPalette::backgroundDeep, 0, 0,
-		ColourPalette::backgroundMid, 0, bounds.getHeight(),
+		ColourPalette::backgroundDeep, 0.0f, 0.0f,
+		ColourPalette::backgroundMid, 0.0f, height,
 		false);
 	g.setGradientFill(gradient);
 	g.fillRoundedRectangle(bounds.toFloat(), 6.0f);
@@ -134,7 +135,7 @@ void SequencerComponent::paint(juce::Graphics& g)
 
 		if (isVisible) {
 			g.setColour(ColourPalette::textPrimary.withAlpha(isStrongBeat ? 0.9f : 0.6f));
-			g.setFont(juce::Font(9.0f, isStrongBeat ? juce::Font::bold : juce::Font::plain));
+			g.setFont(juce::FontOptions(9.0f, isStrongBeat ? juce::Font::bold : juce::Font::plain));
 			g.drawText(juce::String(i + 1), stepBounds, juce::Justification::centred);
 		}
 	}
@@ -276,7 +277,9 @@ void SequencerComponent::updateFromTrackData()
 		currentStep = juce::jlimit(0, 15, track->sequencerData.currentStep);
 		isPlaying = track->isCurrentlyPlaying;
 		numMeasures = track->sequencerData.numMeasures;
-
+		measureSlider.setValue(track->sequencerData.numMeasures);
+		measureLabel.setText(juce::String(currentMeasure + 1) + "/" + juce::String(numMeasures),
+			juce::dontSendNotification);
 		if (isPlaying) {
 			int playingMeasure = track->sequencerData.currentMeasure + 1;
 			currentPlayingMeasureLabel.setText("M " + juce::String(playingMeasure),
@@ -288,7 +291,6 @@ void SequencerComponent::updateFromTrackData()
 			track->sequencerData.currentMeasure = 0;
 			currentPlayingMeasureLabel.setText("M " + juce::String(track->sequencerData.currentMeasure + 1),
 				juce::dontSendNotification);
-			measureSlider.setValue(track->sequencerData.numMeasures);
 			currentPlayingMeasureLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 		}
 		repaint();
