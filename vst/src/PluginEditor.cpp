@@ -707,6 +707,7 @@ void DjIaVstEditor::setupUI()
 	loadSampleButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonSecondary);
 	statusLabel.setColour(juce::Label::backgroundColourId, ColourPalette::backgroundDeep);
 	statusLabel.setColour(juce::Label::textColourId, ColourPalette::textSuccess);
+	promptPresetSelector.setTooltip("Right-click: MIDI Learn | Ctrl+Right-click: Edit/Delete custom prompts");
 }
 
 void DjIaVstEditor::addEventListeners()
@@ -856,7 +857,7 @@ void DjIaVstEditor::mouseDown(const juce::MouseEvent& event)
 		juce::String selectedPrompt = promptPresetSelector.getText();
 		auto customPrompts = audioProcessor.getCustomPrompts();
 
-		if (customPrompts.contains(selectedPrompt))
+		if (event.mods.isCtrlDown() && customPrompts.contains(selectedPrompt))
 		{
 			juce::PopupMenu menu;
 			menu.addItem(1, "Edit");
@@ -882,6 +883,8 @@ void DjIaVstEditor::mouseDown(const juce::MouseEvent& event)
 										if (result == 1)
 										{
 											audioProcessor.removeCustomPrompt(selectedPrompt);
+											promptPresets.removeString(selectedPrompt);
+											audioProcessor.setLastPresetIndex(audioProcessor.getLastPresetIndex() - 1);
 											loadPromptPresets();
 										}
 									});
