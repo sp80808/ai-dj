@@ -968,8 +968,8 @@ void DjIaVstEditor::paint(juce::Graphics& g)
 {
 	auto bounds = getLocalBounds();
 	juce::ColourGradient gradient(
-		ColourPalette::backgroundDeep, 0, 0,
-		ColourPalette::backgroundMid, 0, getHeight(),
+		ColourPalette::backgroundDeep, 0.0f, 0.0f,
+		ColourPalette::backgroundMid, 0.0f, static_cast<float>(getHeight()),
 		false);
 	g.setGradientFill(gradient);
 	g.fillAll();
@@ -1042,7 +1042,6 @@ void DjIaVstEditor::resized()
 	static bool resizing = false;
 
 	const int spacing = 5;
-	const int margin = 10;
 	const int padding = 10;
 	const int reducing = 2;
 
@@ -1085,11 +1084,9 @@ void DjIaVstEditor::resized()
 	layoutConfigSection(leftSection, reducing);
 
 	area.removeFromTop(spacing);
-
 	auto tracksAndMixerArea = area.removeFromTop(area.getHeight() - 70);
-
-	auto tracksMainArea = tracksAndMixerArea.removeFromLeft(tracksAndMixerArea.getWidth() * 0.6f);
-
+	int tracksWidth = static_cast<int>(tracksAndMixerArea.getWidth() * 0.6f);
+	auto tracksMainArea = tracksAndMixerArea.removeFromLeft(tracksWidth);
 	tracksViewport.setBounds(tracksMainArea);
 
 	tracksAndMixerArea.removeFromLeft(5);
@@ -1193,6 +1190,7 @@ void DjIaVstEditor::onGenerateButtonClicked()
 	}
 
 	generatingTrackId = audioProcessor.getSelectedTrackId();
+	audioProcessor.setGeneratingTrackId(generatingTrackId);
 	TrackData* track = audioProcessor.trackManager.getTrack(generatingTrackId);
 
 	if (!track)
@@ -1422,6 +1420,10 @@ void DjIaVstEditor::refreshTrackComponents()
 			{
 				trackComponents[i]->setTrackData(audioProcessor.getTrack(trackIds[i]));
 				trackComponents[i]->updateFromTrackData();
+				if (auto* sequencer = trackComponents[i]->getSequencer())
+				{
+					sequencer->updateFromTrackData();
+				}
 			}
 			updateSelectedTrack();
 			return;
@@ -1764,7 +1766,7 @@ juce::StringArray DjIaVstEditor::getMenuBarNames()
 	return { "File", "Tracks", "Help" };
 }
 
-juce::PopupMenu DjIaVstEditor::getMenuForIndex(int topLevelMenuIndex, const juce::String& menuName)
+juce::PopupMenu DjIaVstEditor::getMenuForIndex(int topLevelMenuIndex, const juce::String& /*menuName*/)
 {
 	juce::PopupMenu menu;
 
@@ -1794,7 +1796,7 @@ juce::PopupMenu DjIaVstEditor::getMenuForIndex(int topLevelMenuIndex, const juce
 	return menu;
 }
 
-void DjIaVstEditor::menuItemSelected(int menuItemID, int topLevelMenuIndex)
+void DjIaVstEditor::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/)
 {
 	switch (menuItemID)
 	{
