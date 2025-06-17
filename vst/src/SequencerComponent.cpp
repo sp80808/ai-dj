@@ -57,7 +57,7 @@ void SequencerComponent::setupUI() {
 	currentPlayingMeasureLabel.setColour(juce::Label::textColourId, ColourPalette::textSuccess);
 	currentPlayingMeasureLabel.setColour(juce::Label::backgroundColourId, ColourPalette::backgroundDark);
 	currentPlayingMeasureLabel.setJustificationType(juce::Justification::centred);
-	currentPlayingMeasureLabel.setFont(juce::Font(11.0f, juce::Font::bold));
+	currentPlayingMeasureLabel.setFont(juce::FontOptions(11.0f, juce::Font::bold));
 }
 
 void SequencerComponent::paint(juce::Graphics& g)
@@ -134,7 +134,7 @@ void SequencerComponent::paint(juce::Graphics& g)
 
 		if (isVisible) {
 			g.setColour(ColourPalette::textPrimary.withAlpha(isStrongBeat ? 0.9f : 0.6f));
-			g.setFont(juce::Font(9.0f, isStrongBeat ? juce::Font::bold : juce::Font::plain));
+			g.setFont(juce::FontOptions(9.0f, isStrongBeat ? juce::Font::bold : juce::Font::plain));
 			g.drawText(juce::String(i + 1), stepBounds, juce::Justification::centred);
 		}
 	}

@@ -698,7 +698,7 @@ void MixerChannel::setupUI()
 	trackNameLabel.setText("Track", juce::dontSendNotification);
 	trackNameLabel.setColour(juce::Label::textColourId, ColourPalette::textPrimary);
 	trackNameLabel.setJustificationType(juce::Justification::centred);
-	trackNameLabel.setFont(juce::Font(12.0f, juce::Font::bold));
+	trackNameLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
 
 	addAndMakeVisible(playButton);
 	playButton.setButtonText("ARM");
@@ -736,7 +736,7 @@ void MixerChannel::setupUI()
 	pitchLabel.setText("PITCH", juce::dontSendNotification);
 	pitchLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 	pitchLabel.setJustificationType(juce::Justification::centred);
-	pitchLabel.setFont(juce::Font(9.0f));
+	pitchLabel.setFont(juce::FontOptions(9.0f));
 
 	addAndMakeVisible(fineKnob);
 	fineKnob.setRange(-50.0, 50.0, 1.0);
@@ -750,7 +750,7 @@ void MixerChannel::setupUI()
 	fineLabel.setText("FINE", juce::dontSendNotification);
 	fineLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 	fineLabel.setJustificationType(juce::Justification::centred);
-	fineLabel.setFont(juce::Font(9.0f));
+	fineLabel.setFont(juce::FontOptions(9.0f));
 
 	addAndMakeVisible(panKnob);
 	panKnob.setRange(-1.0, 1.0, 0.01);

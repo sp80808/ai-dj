@@ -171,7 +171,7 @@ public:
 		request.prompt = globalPrompt;
 		request.bpm = globalBpm;
 		request.key = globalKey;
-		request.generationDuration = globalDuration;
+		request.generationDuration = static_cast<float>(globalDuration);
 		request.preferredStems = globalStems;
 		return request;
 	}

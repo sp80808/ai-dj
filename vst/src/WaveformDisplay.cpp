@@ -35,10 +35,10 @@ void WaveformDisplay::setOriginalBpm(float bpm)
 	originalBpm = bpm;
 }
 
-void WaveformDisplay::setAudioData(const juce::AudioBuffer<float>& audioBuffer, double sampleRate)
+void WaveformDisplay::setAudioData(const juce::AudioBuffer<float>& newAudioBuffer, double newSampleRate)
 {
-	this->audioBuffer = audioBuffer;
-	this->sampleRate = sampleRate;
+	audioBuffer = newAudioBuffer;
+	sampleRate = newSampleRate;
 
 	zoomFactor = 1.0;
 	viewStartTime = 0.0;
@@ -176,7 +176,6 @@ void WaveformDisplay::mouseDrag(const juce::MouseEvent& e)
 			return;
 		}
 	}
-
 	if (loopPointsLocked || trackBpm <= 0.0f)
 		return;
 
@@ -184,7 +183,7 @@ void WaveformDisplay::mouseDrag(const juce::MouseEvent& e)
 	{
 		if (draggingStart)
 		{
-			double newStart = xToTime(e.x);
+			double newStart = xToTime(static_cast<float>(e.x));
 			loopStart = juce::jlimit(getViewStartTime(), loopEnd, newStart);
 			repaint();
 			if (onLoopPointsChanged)
@@ -194,7 +193,7 @@ void WaveformDisplay::mouseDrag(const juce::MouseEvent& e)
 		}
 		else if (draggingEnd)
 		{
-			double newEnd = xToTime(e.x);
+			double newEnd = xToTime(static_cast<float>(e.x));
 			loopEnd = juce::jlimit(loopStart, getViewEndTime(), newEnd);
 			repaint();
 			if (onLoopPointsChanged)
@@ -221,7 +220,7 @@ void WaveformDisplay::setAudioFile(const juce::File& file)
 	currentAudioFile = file;
 }
 
-void WaveformDisplay::mouseUp(const juce::MouseEvent& e)
+void WaveformDisplay::mouseUp(const juce::MouseEvent& /*e*/)
 {
 	draggingStart = false;
 	draggingEnd = false;
@@ -351,7 +350,7 @@ void WaveformDisplay::setViewStartTime(double newViewStartTime)
 
 float WaveformDisplay::getHostBpm() const
 {
-	return audioProcessor.getHostBpm();
+	return static_cast<float>(audioProcessor.getHostBpm());
 }
 
 void WaveformDisplay::generateThumbnail()
@@ -440,12 +439,12 @@ void WaveformDisplay::drawWaveform(juce::Graphics& g)
 	juce::Path waveformPath;
 	bool pathStarted = false;
 
-	int thumbnailSize = thumbnail.size();
-	float pixelsPerPoint = (float)getWidth() / thumbnailSize;
+	size_t thumbnailSize = thumbnail.size();
+	float pixelsPerPoint = static_cast<float>(getWidth()) / static_cast<float>(thumbnailSize);
 
 	for (int i = 0; i < thumbnailSize; ++i)
 	{
-		generateTopHalfPath(i, pixelsPerPoint, pathStarted, waveformPath, thumbnailSize);
+		generateTopHalfPath(i, pixelsPerPoint, pathStarted, waveformPath, static_cast<int>(thumbnailSize));
 	}
 
 	g.strokePath(waveformPath, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
@@ -455,13 +454,15 @@ void WaveformDisplay::drawWaveform(juce::Graphics& g)
 
 	for (int i = 0; i < thumbnailSize; ++i)
 	{
-		generateBottomHalfPath(i, pixelsPerPoint, pathStarted, bottomPath, thumbnailSize);
+		generateBottomHalfPath(i, pixelsPerPoint, pathStarted, bottomPath, static_cast<int>(thumbnailSize));
 	}
 
 	g.strokePath(bottomPath, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved));
 
 	g.setColour(juce::Colours::lightblue.withAlpha(0.3f));
-	g.drawLine(0, getHeight() * 0.5f, getWidth(), getHeight() * 0.5f, 0.5f);
+	float centerY = getHeight() * 0.5f;
+	float width = static_cast<float>(getWidth());
+	g.drawLine(0.0f, centerY, width, centerY, 0.5f);
 }
 
 void WaveformDisplay::setColorDependingTimeStretchRatio(juce::Colour& waveformColor) const
@@ -556,7 +557,6 @@ void WaveformDisplay::generateTopHalfPath(int i, float pixelsPerPoint, bool& pat
 	float waveHeight = amplitude * centerY * 0.8f;
 
 	float topY = centerY - waveHeight;
-	float bottomY = centerY + waveHeight;
 
 	if (!pathStarted)
 	{
@@ -588,8 +588,10 @@ void WaveformDisplay::drawLoopMarkers(juce::Graphics& g)
 
 	float lineWidth = loopPointsLocked ? 3.0f : 2.0f;
 	g.setColour(loopColour);
-	g.drawLine(startX, 0, startX, getHeight(), lineWidth);
-	g.drawLine(endX, 0, endX, getHeight(), lineWidth);
+	float height = static_cast<float>(getHeight());
+
+	g.drawLine(startX, 0.0f, startX, height, lineWidth);
+	g.drawLine(endX, 0.0f, endX, height, lineWidth);
 
 	if (trackBpm > 0.0f)
 	{
@@ -605,9 +607,11 @@ void WaveformDisplay::drawLoopTimeLabels(juce::Graphics& g, float startX, float 
 {
 	g.setColour(juce::Colours::white);
 	g.setFont(10.0f);
-	g.drawText(juce::String(loopStart, 2) + "s", startX + 2, 2, 50, 15,
+	int startTextX = static_cast<int>(startX + 2);
+	int endTextX = static_cast<int>(endX - 50);
+	g.drawText(juce::String(loopStart, 2) + "s", startTextX, 2, 50, 15,
 		juce::Justification::left);
-	g.drawText(juce::String(loopEnd, 2) + "s", endX - 50, 2, 48, 15,
+	g.drawText(juce::String(loopEnd, 2) + "s", endTextX, 2, 48, 15,
 		juce::Justification::right);
 }
 
@@ -615,9 +619,12 @@ void WaveformDisplay::drawLoopBarLabels(juce::Graphics& g, float startX, float e
 {
 	g.setColour(juce::Colours::white);
 	g.setFont(10.0f);
-	g.drawText(juce::String(loopStart, 2) + "s", startX + 5, getHeight() - 30, 50, 15,
+	int startTextX = static_cast<int>(startX + 5);
+	int endTextX = static_cast<int>(endX - 55);
+	int textY = getHeight() - 30;
+	g.drawText(juce::String(loopStart, 2) + "s", startTextX, textY, 50, 15,
 		juce::Justification::left);
-	g.drawText(juce::String(loopEnd, 2) + "s", endX - 55, getHeight() - 30, 48, 15,
+	g.drawText(juce::String(loopEnd, 2) + "s", endTextX, textY, 48, 15,
 		juce::Justification::right);
 }
 
@@ -671,20 +678,24 @@ void WaveformDisplay::drawPlaybackHead(juce::Graphics& g)
 		if (playbackPosition >= viewStart && playbackPosition <= viewEnd && headX >= 0 && headX <= getWidth())
 		{
 			g.setColour(juce::Colours::red);
-			g.drawLine(headX, 0, headX, getHeight(), 4.0f);
+			float height = static_cast<float>(getHeight());
+			g.drawLine(headX, 0.0f, headX, height, 4.0f);
 
 			juce::Path triangle;
-			triangle.addTriangle(headX - 8, 0, headX + 8, 0, headX, 16);
+			triangle.addTriangle(headX - 8, 0.0f, headX + 8, 0.0f, headX, 16.0f);
 			g.setColour(juce::Colours::yellow);
 			g.fillPath(triangle);
-
 			triangle.clear();
-			triangle.addTriangle(headX - 8, getHeight(), headX + 8, getHeight(), headX, getHeight() - 16);
+
+			triangle.addTriangle(headX - 8, height, headX + 8, height, headX, height - 16.0f);
 			g.fillPath(triangle);
 
 			g.setColour(juce::Colours::white);
 			g.setFont(14.0f);
-			g.drawText(juce::String(playbackPosition, 2) + "s", headX - 40, getHeight() / 2 - 10, 80, 20,
+			g.drawText(juce::String(playbackPosition, 2) + "s",
+				static_cast<int>(headX - 40),
+				getHeight() / 2 - 10,
+				80, 20,
 				juce::Justification::centred);
 		}
 	}
@@ -695,11 +706,9 @@ float WaveformDisplay::timeToX(double time)
 	double totalDuration = getTotalDuration();
 	if (totalDuration <= 0.0)
 		return 0.0f;
-
 	double viewDuration = totalDuration / zoomFactor;
 	double relativeTime = time - viewStartTime;
-
-	return juce::jmap(relativeTime, 0.0, viewDuration, 0.0, (double)getWidth());
+	return static_cast<float>(juce::jmap(relativeTime, 0.0, viewDuration, 0.0, static_cast<double>(getWidth())));
 }
 
 void WaveformDisplay::drawBeatMarkers(juce::Graphics& g)
@@ -710,7 +719,6 @@ void WaveformDisplay::drawBeatMarkers(juce::Graphics& g)
 	if (hostBpm <= 0.0f) return;
 
 	int numerator = audioProcessor.getTimeSignatureNumerator();
-	int denominator = audioProcessor.getTimeSignatureDenominator();
 
 	double totalDuration = getTotalDuration();
 	double viewDuration = totalDuration / zoomFactor;
@@ -782,13 +790,15 @@ void WaveformDisplay::drawMeasureLine(double time, juce::Graphics& g, float barD
 	if (time >= viewStartTime && time <= (viewStartTime + viewDuration))
 	{
 		double relativeTime = time - viewStartTime;
-		float x = (relativeTime / viewDuration) * getWidth();
+		float x = (static_cast<float>(relativeTime) / static_cast<float>(viewDuration)) * getWidth();
 		if (x >= 0 && x <= getWidth())
 		{
-			g.drawLine(x, 0, x, getHeight(), 2.0f);
-			int measureNumber = (int)(time / barDuration) + 1;
+			float height = static_cast<float>(getHeight());
+			g.drawLine(x, 0.0f, x, height, 2.0f);
+			int measureNumber = static_cast<int>(time / barDuration) + 1;
 			g.setFont(10.0f);
-			g.drawText(juce::String(measureNumber), x + 2, 2, 30, 15, juce::Justification::left);
+			int textX = static_cast<int>(x + 2);
+			g.drawText(juce::String(measureNumber), textX, 2, 30, 15, juce::Justification::left);
 		}
 	}
 }
@@ -798,10 +808,10 @@ void WaveformDisplay::drawBeatLine(double time, juce::Graphics& g, double viewDu
 	if (time >= viewStartTime && time <= (viewStartTime + viewDuration))
 	{
 		double relativeTime = time - viewStartTime;
-		float x = (relativeTime / viewDuration) * getWidth();
+		float x = static_cast<float>((relativeTime / viewDuration) * getWidth());
 		if (x >= 0 && x <= getWidth())
 		{
-			g.drawLine(x, 0, x, getHeight(), 1.0f);
+			g.drawLine(x, 0.0f, x, static_cast<float>(getHeight()), 1.0f);
 		}
 	}
 }
@@ -811,7 +821,7 @@ void WaveformDisplay::drawSubdivisionLine(double time, juce::Graphics& g, double
 	if (time >= viewStartTime && time <= (viewStartTime + viewDuration))
 	{
 		double relativeTime = time - viewStartTime;
-		float x = (relativeTime / viewDuration) * getWidth();
+		float x = static_cast<float>((relativeTime / viewDuration) * getWidth());
 		if (x >= 0 && x <= getWidth())
 		{
 			g.drawLine(x, getHeight() * 0.2f, x, getHeight() * 0.8f, 0.5f);
@@ -830,10 +840,10 @@ void WaveformDisplay::drawBeats(juce::Graphics& g, float beatDuration, float vie
 			if (time >= viewStartTime)
 			{
 				double relativeTime = time - viewStartTime;
-				float x = (relativeTime / viewDuration) * getWidth();
+				float x = static_cast<float>((relativeTime / viewDuration) * getWidth());
 				if (x >= 0 && x <= getWidth())
 				{
-					g.drawLine(x, 0, x, getHeight(), 1.0f);
+					g.drawLine(x, 0.0f, x, static_cast<float>(getHeight()), 1.0f);
 				}
 			}
 		}
@@ -854,7 +864,7 @@ double WaveformDisplay::xToTime(float x)
 		return 0.0;
 	}
 
-	double relativeTime = juce::jmap((double)x, 0.0, (double)getWidth(), 0.0, viewDuration);
+	double relativeTime = juce::jmap(static_cast<double>(x), 0.0, static_cast<double>(getWidth()), 0.0, viewDuration);
 	double result = viewStartTime + relativeTime;
 
 	return juce::jlimit(0.0, totalDuration, result);

@@ -32,7 +32,7 @@ MasterChannel::~MasterChannel()
 	removeListener("masterLow");
 }
 
-void MasterChannel::parameterGestureChanged(int parameterIndex, bool gestureIsStarting)
+void MasterChannel::parameterGestureChanged(int /*parameterIndex*/, bool /*gestureIsStarting*/)
 {
 }
 
@@ -131,7 +131,7 @@ void MasterChannel::setSliderParameter(juce::String name, juce::Slider& slider)
 
 	if (param != nullptr)
 	{
-		float value = slider.getValue();
+		float value = static_cast<float>(slider.getValue());
 		if (!std::isnan(value) && !std::isinf(value))
 		{
 			if (name == "masterHigh" || name == "masterMid" || name == "masterLow")
@@ -231,31 +231,31 @@ void MasterChannel::setupUI()
 	masterLabel.setText("MASTER", juce::dontSendNotification);
 	masterLabel.setColour(juce::Label::textColourId, ColourPalette::textPrimary);
 	masterLabel.setJustificationType(juce::Justification::centred);
-	masterLabel.setFont(juce::Font(14.0f, juce::Font::bold));
+	masterLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
 
 	addAndMakeVisible(highLabel);
 	highLabel.setText("HIGH", juce::dontSendNotification);
 	highLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 	highLabel.setJustificationType(juce::Justification::centred);
-	highLabel.setFont(juce::Font(9.0f));
+	highLabel.setFont(juce::FontOptions(9.0f));
 
 	addAndMakeVisible(midLabel);
 	midLabel.setText("MID", juce::dontSendNotification);
 	midLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 	midLabel.setJustificationType(juce::Justification::centred);
-	midLabel.setFont(juce::Font(9.0f));
+	midLabel.setFont(juce::FontOptions(9.0f));
 
 	addAndMakeVisible(lowLabel);
 	lowLabel.setText("LOW", juce::dontSendNotification);
 	lowLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 	lowLabel.setJustificationType(juce::Justification::centred);
-	lowLabel.setFont(juce::Font(9.0f));
+	lowLabel.setFont(juce::FontOptions(9.0f));
 
 	addAndMakeVisible(panLabel);
 	panLabel.setText("PAN", juce::dontSendNotification);
 	panLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 	panLabel.setJustificationType(juce::Justification::centred);
-	panLabel.setFont(juce::Font(9.0f));
+	panLabel.setFont(juce::FontOptions(9.0f));
 }
 
 void MasterChannel::paint(juce::Graphics& g)
@@ -355,7 +355,7 @@ void MasterChannel::drawMasterClipping(juce::Rectangle<float>& vuArea, juce::Gra
 		: ColourPalette::buttonDangerDark);
 	g.fillRoundedRectangle(clipRect, 4.0f);
 	g.setColour(ColourPalette::textPrimary);
-	g.setFont(juce::Font(8.0f, juce::Font::bold));
+	g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
 	g.drawText("CLIP", clipRect, juce::Justification::centred);
 }
 

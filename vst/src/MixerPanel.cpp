@@ -187,13 +187,13 @@ void MixerPanel::resized()
 	}
 }
 
-void MixerPanel::trackAdded(const juce::String& trackId)
+void MixerPanel::trackAdded(const juce::String& /*trackId*/)
 {
 	refreshMixerChannels();
 	resized();
 }
 
-void MixerPanel::trackRemoved(const juce::String& trackId)
+void MixerPanel::trackRemoved(const juce::String& /*trackId*/)
 {
 	refreshMixerChannels();
 	resized();
