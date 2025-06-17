@@ -193,6 +193,7 @@ void MasterChannel::setupUI()
 	masterVolumeSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
 	masterVolumeSlider.setColour(juce::Slider::thumbColourId, ColourPalette::playArmed);
 	masterVolumeSlider.setColour(juce::Slider::trackColourId, ColourPalette::sliderTrack);
+	masterVolumeSlider.setColour(juce::Slider::backgroundColourId, ColourPalette::backgroundDeep);
 
 	addAndMakeVisible(masterPanKnob);
 	masterPanKnob.setRange(-1.0, 1.0, 0.01);
@@ -200,6 +201,7 @@ void MasterChannel::setupUI()
 	masterPanKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 	masterPanKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
 	masterPanKnob.setColour(juce::Slider::rotarySliderFillColourId, ColourPalette::playArmed);
+	masterPanKnob.setColour(juce::Slider::rotarySliderOutlineColourId, ColourPalette::backgroundDeep);
 
 	addAndMakeVisible(highKnob);
 	highKnob.setRange(-12.0, 12.0, 0.1);
@@ -207,6 +209,7 @@ void MasterChannel::setupUI()
 	highKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 	highKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
 	highKnob.setColour(juce::Slider::rotarySliderFillColourId, ColourPalette::playArmed);
+	highKnob.setColour(juce::Slider::rotarySliderOutlineColourId, ColourPalette::backgroundDeep);
 
 	addAndMakeVisible(midKnob);
 	midKnob.setRange(-12.0, 12.0, 0.1);
@@ -214,6 +217,7 @@ void MasterChannel::setupUI()
 	midKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 	midKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
 	midKnob.setColour(juce::Slider::rotarySliderFillColourId, ColourPalette::playArmed);
+	midKnob.setColour(juce::Slider::rotarySliderOutlineColourId, ColourPalette::backgroundDeep);
 
 	addAndMakeVisible(lowKnob);
 	lowKnob.setRange(-12.0, 12.0, 0.1);
@@ -221,6 +225,7 @@ void MasterChannel::setupUI()
 	lowKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 	lowKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
 	lowKnob.setColour(juce::Slider::rotarySliderFillColourId, ColourPalette::playArmed);
+	lowKnob.setColour(juce::Slider::rotarySliderOutlineColourId, ColourPalette::backgroundDeep);
 
 	addAndMakeVisible(masterLabel);
 	masterLabel.setText("MASTER", juce::dontSendNotification);

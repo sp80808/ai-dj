@@ -722,12 +722,15 @@ void MixerChannel::setupUI()
 	volumeSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
 	volumeSlider.setColour(juce::Slider::thumbColourId, ColourPalette::sliderThumb);
 	volumeSlider.setColour(juce::Slider::trackColourId, ColourPalette::sliderTrack);
+	volumeSlider.setColour(juce::Slider::backgroundColourId, ColourPalette::backgroundDeep);
 
 	addAndMakeVisible(pitchKnob);
 	pitchKnob.setRange(-12.0, 12.0, 0.01);
 	pitchKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 	pitchKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
 	pitchKnob.setColour(juce::Slider::rotarySliderFillColourId, ColourPalette::sliderThumb);
+	pitchKnob.setColour(juce::Slider::backgroundColourId, ColourPalette::backgroundDeep);
+	pitchKnob.setColour(juce::Slider::rotarySliderOutlineColourId, ColourPalette::backgroundDeep);
 
 	addAndMakeVisible(pitchLabel);
 	pitchLabel.setText("PITCH", juce::dontSendNotification);
@@ -740,6 +743,8 @@ void MixerChannel::setupUI()
 	fineKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 	fineKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
 	fineKnob.setColour(juce::Slider::rotarySliderFillColourId, ColourPalette::sliderThumb);
+	fineKnob.setColour(juce::Slider::backgroundColourId, ColourPalette::backgroundDeep);
+	fineKnob.setColour(juce::Slider::rotarySliderOutlineColourId, ColourPalette::backgroundDeep);
 
 	addAndMakeVisible(fineLabel);
 	fineLabel.setText("FINE", juce::dontSendNotification);
@@ -752,6 +757,8 @@ void MixerChannel::setupUI()
 	panKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
 	panKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
 	panKnob.setColour(juce::Slider::rotarySliderFillColourId, ColourPalette::sliderThumb);
+	panKnob.setColour(juce::Slider::backgroundColourId, ColourPalette::backgroundDeep);
+	panKnob.setColour(juce::Slider::rotarySliderOutlineColourId, ColourPalette::backgroundDeep);
 
 	addAndMakeVisible(panLabel);
 	panLabel.setText("PAN", juce::dontSendNotification);
