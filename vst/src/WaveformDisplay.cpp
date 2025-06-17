@@ -171,8 +171,7 @@ void WaveformDisplay::mouseDrag(const juce::MouseEvent& e)
 			juce::StringArray files;
 			files.add(currentAudioFile.getFullPathName());
 			DBG("Starting external drag with: " << currentAudioFile.getFullPathName());
-			bool success = performExternalDragDropOfFiles(files, false);
-			DBG("Drag result: " << (success ? "SUCCESS" : "FAILED"));
+			performExternalDragDropOfFiles(files, false);
 			return;
 		}
 	}
