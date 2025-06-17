@@ -48,9 +48,9 @@ struct TrackData
 	std::atomic<double> readPosition{ 0.0 };
 	bool showWaveform = false;
 	bool showSequencer = false;
-	juce::String generationPrompt = "Generate a techno drum loop";
+	juce::String generationPrompt = "";
 	float generationBpm = 127.0f;
-	juce::String generationKey = "C Minor";
+	juce::String generationKey = "";
 	int generationDuration = 6;
 	std::vector<juce::String> preferredStems = {};
 
@@ -145,7 +145,6 @@ struct TrackData
 		isArmed = armed;
 		if (wasArmed != armed && onArmedStateChanged && audioBuffer.getNumChannels() > 0 && isPlaying.load())
 		{
-			DBG("🎯 setArmed called on Track " << trackName << " slot " << slotIndex << " -> " << (armed ? "true" : "false"));
 			juce::MessageManager::callAsync([this, armed]()
 				{
 					if (onArmedStateChanged) {
@@ -159,7 +158,6 @@ struct TrackData
 		isArmedToStop = armedToStop;
 		if (onArmedToStopStateChanged && audioBuffer.getNumChannels() > 0 && isCurrentlyPlaying.load())
 		{
-			DBG("🛑 setArmedToStop called on Track " << trackName << " slot " << slotIndex << " -> " << (armedToStop ? "true" : "false"));
 			juce::MessageManager::callAsync([this, armedToStop]()
 				{
 					if (onArmedToStopStateChanged) {
