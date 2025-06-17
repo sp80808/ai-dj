@@ -90,15 +90,13 @@ void MixerChannel::setTrackData(TrackData* trackData)
 	if (track)
 	{
 		juce::WeakReference<MixerChannel> weakThis(this);
-		track->onPlayStateChanged = [weakThis](bool isPlaying)
+		track->onPlayStateChanged = [weakThis](bool /*isPlaying*/)
 			{
-				DBG("🔄 onPlayStateChanged called with: " << (isPlaying ? "true" : "false"));
 				if (weakThis != nullptr)
 				{
 					juce::MessageManager::callAsync([weakThis]()
 						{
 							if (weakThis != nullptr && !weakThis->isUpdatingButtons) {
-								DBG("🎨 Calling updateButtonColors from onPlayStateChanged");
 								weakThis->updateButtonColors();
 							} });
 				}
@@ -783,13 +781,6 @@ void MixerChannel::updateButtonColors()
 	bool isPlaying = track->isCurrentlyPlaying.load();
 	bool isMuted = track->isMuted.load();
 	bool isSolo = track->isSolo.load();
-	bool isArmedToStop = track->isArmedToStop.load();
-
-	DBG("🔍 Reading isPlaying = " << (isPlaying ? "true" : "false") << " for " << track->trackName);
-	DBG("🔍 Reading isArmed = " << (isArmed ? "true" : "false") << " for " << track->trackName);
-	DBG("🔍 Reading isMuted = " << (isMuted ? "true" : "false") << " for " << track->trackName);
-	DBG("🔍 Reading isSolo = " << (isSolo ? "true" : "false") << " for " << track->trackName);
-	DBG("🔍 Reading isArmedToStop = " << (isArmedToStop ? "true" : "false") << " for " << track->trackName);
 
 	playButton.setToggleState(isArmed || isPlaying, juce::dontSendNotification);
 
