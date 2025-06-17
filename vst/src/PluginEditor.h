@@ -46,6 +46,7 @@ private:
 	juce::Image logoImage;
 	juce::Image bannerImage;
 	juce::Rectangle<int> bannerArea;
+
 	void setupUI();
 	void addEventListeners();
 	void onGenerateButtonClicked();

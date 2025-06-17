@@ -71,7 +71,7 @@ void DjIaVstEditor::updateMidiIndicator(const juce::String& noteInfo)
 		{
 			if (midiIndicator.isShowing())
 			{
-				midiIndicator.setText("MIDI: " + noteInfo, juce::dontSendNotification);
+				midiIndicator.setText(noteInfo, juce::dontSendNotification);
 				auto greenWithOpacity = ColourPalette::textSuccess.withAlpha(0.3f);
 				midiIndicator.setColour(juce::Label::backgroundColourId, greenWithOpacity);
 

@@ -553,7 +553,7 @@ void DjIaVstProcessor::processMidiMessages(juce::MidiBuffer& midiMessages, bool 
 	{
 		needsUIUpdate = true;
 	}
-
+	juce::Array<int> notesPlayedInThisBuffer;
 	for (const auto metadata : midiMessages)
 	{
 		const auto message = metadata.getMessage();
@@ -567,6 +567,8 @@ void DjIaVstProcessor::processMidiMessages(juce::MidiBuffer& midiMessages, bool 
 		if (hostIsPlaying) {
 			if (message.isNoteOn())
 			{
+				int noteNumber = message.getNoteNumber();
+				notesPlayedInThisBuffer.addIfNotAlreadyThere(noteNumber);
 				playTrack(message, hostBpm);
 			}
 			else if (message.isNoteOff())
@@ -575,6 +577,10 @@ void DjIaVstProcessor::processMidiMessages(juce::MidiBuffer& midiMessages, bool 
 				stopNotePlaybackForTrack(noteNumber);
 			}
 		}
+	}
+	if (midiIndicatorCallback && notesPlayedInThisBuffer.size() > 0)
+	{
+		updateMidiIndicatorWithActiveNotes(hostBpm, notesPlayedInThisBuffer);
 	}
 }
 
@@ -613,13 +619,9 @@ void DjIaVstProcessor::playTrack(const juce::MidiMessage& message, double hostBp
 			break;
 		}
 	}
-	if (midiIndicatorCallback && trackFound)
-	{
-		updateMidiIndicatorWithActiveNotes(hostBpm);
-	}
 }
 
-void DjIaVstProcessor::updateMidiIndicatorWithActiveNotes(double hostBpm)
+void DjIaVstProcessor::updateMidiIndicatorWithActiveNotes(double hostBpm, const juce::Array<int>& triggeredNotes)
 {
 	juce::StringArray playingTracks;
 	auto trackIds = trackManager.getAllTrackIds();
@@ -627,7 +629,7 @@ void DjIaVstProcessor::updateMidiIndicatorWithActiveNotes(double hostBpm)
 	for (const auto& trackId : trackIds)
 	{
 		TrackData* track = trackManager.getTrack(trackId);
-		if (track && track->isPlaying.load())
+		if (track && track->isPlaying.load() && triggeredNotes.contains(track->midiNote))
 		{
 			juce::String noteName = juce::MidiMessage::getMidiNoteName(track->midiNote, true, true, 3);
 			playingTracks.add(track->trackName + " (" + noteName + ")");
@@ -636,8 +638,12 @@ void DjIaVstProcessor::updateMidiIndicatorWithActiveNotes(double hostBpm)
 
 	if (playingTracks.size() > 0)
 	{
-		juce::String displayText = ">> " + playingTracks.joinIntoString(" + ") + " - BPM:" + juce::String(hostBpm, 0);
+		juce::String displayText = "Last played: " + playingTracks.joinIntoString(" + ") + " - BPM:" + juce::String(hostBpm, 0);
 		midiIndicatorCallback(displayText);
+	}
+	else
+	{
+		midiIndicatorCallback("MIDI: Ready - BPM:" + juce::String(hostBpm, 0));
 	}
 }
 
