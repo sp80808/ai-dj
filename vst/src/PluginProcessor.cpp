@@ -609,14 +609,35 @@ void DjIaVstProcessor::playTrack(const juce::MidiMessage& message, double hostBp
 			{
 				startNotePlaybackForTrack(trackId, noteNumber, hostBpm);
 				trackFound = true;
-
-				if (midiIndicatorCallback && track->isPlaying)
-				{
-					midiIndicatorCallback(">> " + track->trackName + " (" + noteName + ") - BPM:" + juce::String(hostBpm, 0));
-				}
 			}
 			break;
 		}
+	}
+	if (midiIndicatorCallback && trackFound)
+	{
+		updateMidiIndicatorWithActiveNotes(hostBpm);
+	}
+}
+
+void DjIaVstProcessor::updateMidiIndicatorWithActiveNotes(double hostBpm)
+{
+	juce::StringArray playingTracks;
+	auto trackIds = trackManager.getAllTrackIds();
+
+	for (const auto& trackId : trackIds)
+	{
+		TrackData* track = trackManager.getTrack(trackId);
+		if (track && track->isPlaying.load())
+		{
+			juce::String noteName = juce::MidiMessage::getMidiNoteName(track->midiNote, true, true, 3);
+			playingTracks.add(track->trackName + " (" + noteName + ")");
+		}
+	}
+
+	if (playingTracks.size() > 0)
+	{
+		juce::String displayText = ">> " + playingTracks.joinIntoString(" + ") + " - BPM:" + juce::String(hostBpm, 0);
+		midiIndicatorCallback(displayText);
 	}
 }
 

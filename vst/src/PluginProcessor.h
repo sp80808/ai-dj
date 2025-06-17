@@ -358,6 +358,7 @@ private:
 	void handleGenerate();
 	void notifyGenerationComplete(const juce::String& trackId, const juce::String& message);
 	void generateLoopFromMidi(const juce::String& trackId);
+	void updateMidiIndicatorWithActiveNotes(double hostBpm);
 
 	TrackComponent* findTrackComponentByName(const juce::String& trackName, DjIaVstEditor* editor);
 
