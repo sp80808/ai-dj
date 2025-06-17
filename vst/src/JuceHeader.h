@@ -12,12 +12,3 @@
 #include <juce_graphics/juce_graphics.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_gui_extra/juce_gui_extra.h>
-
-#define JucePlugin_Name "OBSIDIAN-Neural"
-#define JucePlugin_Desc "AI Loop Generator Instrument"
-#define JucePlugin_Manufacturer "InnerMost47"
-#define JucePlugin_ManufacturerCode 0x4D616E75
-#define JucePlugin_PluginCode 0x44656D80
-#define JucePlugin_VSTUniqueID JucePlugin_PluginCode
-#define JucePlugin_Vst3Category "Instrument"
-#define JucePlugin_ProducesMidiOutput 1

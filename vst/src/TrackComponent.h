@@ -19,7 +19,7 @@ public:
 		g.setColour(ColourPalette::textAccent.withAlpha(0.4f));
 		g.drawRoundedRectangle(bounds.reduced(0.5f), 4.0f, 1.0f);
 		g.setColour(ColourPalette::textAccent);
-		g.setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 10.0f, juce::Font::plain));
+		g.setFont(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 10.0f, juce::Font::plain));
 		g.drawText(label.getText(), bounds.reduced(8, 2),
 			juce::Justification::centredLeft, false);
 	}

@@ -147,16 +147,16 @@ void DjIaVstEditor::updateUIComponents()
 		}
 	}
 
-	static bool wasGenerating = false;
+	static bool currentWasGenerating = false;
 	bool isCurrentlyGenerating = generateButton.isEnabled() == false;
-	if (wasGenerating && !isCurrentlyGenerating)
+	if (currentWasGenerating && !isCurrentlyGenerating)
 	{
 		for (auto& trackComp : trackComponents)
 		{
 			trackComp->refreshWaveformIfNeeded();
 		}
 	}
-	wasGenerating = isCurrentlyGenerating;
+	currentWasGenerating = isCurrentlyGenerating;
 }
 
 void DjIaVstEditor::onGenerationComplete(const juce::String& trackId, const juce::String& message)
@@ -475,13 +475,13 @@ void DjIaVstEditor::setupUI()
 
 	addAndMakeVisible(pluginNameLabel);
 	pluginNameLabel.setText("NEURAL SOUND ENGINE", juce::dontSendNotification);
-	pluginNameLabel.setFont(juce::Font("Courier New", 22.0f, juce::Font::bold));
+	pluginNameLabel.setFont(juce::FontOptions("Courier New", 22.0f, juce::Font::bold));
 	pluginNameLabel.setColour(juce::Label::textColourId, ColourPalette::textAccent);
 	pluginNameLabel.setJustificationType(juce::Justification::left);
 
 	addAndMakeVisible(developerLabel);
 	developerLabel.setText("Developed by InnerMost47", juce::dontSendNotification);
-	developerLabel.setFont(juce::Font("Courier New", 14.0f, juce::Font::italic));
+	developerLabel.setFont(juce::FontOptions("Courier New", 14.0f, juce::Font::italic));
 	developerLabel.setColour(juce::Label::textColourId, ColourPalette::textPrimary);
 	developerLabel.setJustificationType(juce::Justification::left);
 
@@ -674,11 +674,11 @@ void DjIaVstEditor::setupUI()
 	midiIndicator.setColour(juce::Label::backgroundColourId, ColourPalette::backgroundDeep);
 	midiIndicator.setColour(juce::Label::textColourId, ColourPalette::textSuccess);
 	midiIndicator.setJustificationType(juce::Justification::left);
-	midiIndicator.setFont(juce::Font(12.0f, juce::Font::bold));
+	midiIndicator.setFont(juce::FontOptions(12.0f, juce::Font::bold));
 
 	addAndMakeVisible(tracksLabel);
 	tracksLabel.setText("Tracks:", juce::dontSendNotification);
-	tracksLabel.setFont(juce::Font(14.0f, juce::Font::bold));
+	tracksLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
 
 	addAndMakeVisible(addTrackButton);
 	addTrackButton.setButtonText("+ Add Track");
@@ -968,8 +968,8 @@ void DjIaVstEditor::paint(juce::Graphics& g)
 {
 	auto bounds = getLocalBounds();
 	juce::ColourGradient gradient(
-		ColourPalette::backgroundDeep, 0, 0,
-		ColourPalette::backgroundMid, 0, getHeight(),
+		ColourPalette::backgroundDeep, 0.0f, 0.0f,
+		ColourPalette::backgroundMid, 0.0f, static_cast<float>(getHeight()),
 		false);
 	g.setGradientFill(gradient);
 	g.fillAll();
@@ -1042,7 +1042,6 @@ void DjIaVstEditor::resized()
 	static bool resizing = false;
 
 	const int spacing = 5;
-	const int margin = 10;
 	const int padding = 10;
 	const int reducing = 2;
 
@@ -1085,11 +1084,9 @@ void DjIaVstEditor::resized()
 	layoutConfigSection(leftSection, reducing);
 
 	area.removeFromTop(spacing);
-
 	auto tracksAndMixerArea = area.removeFromTop(area.getHeight() - 70);
-
-	auto tracksMainArea = tracksAndMixerArea.removeFromLeft(tracksAndMixerArea.getWidth() * 0.6f);
-
+	int tracksWidth = static_cast<int>(tracksAndMixerArea.getWidth() * 0.6f);
+	auto tracksMainArea = tracksAndMixerArea.removeFromLeft(tracksWidth);
 	tracksViewport.setBounds(tracksMainArea);
 
 	tracksAndMixerArea.removeFromLeft(5);
@@ -1193,6 +1190,7 @@ void DjIaVstEditor::onGenerateButtonClicked()
 	}
 
 	generatingTrackId = audioProcessor.getSelectedTrackId();
+	audioProcessor.setGeneratingTrackId(generatingTrackId);
 	TrackData* track = audioProcessor.trackManager.getTrack(generatingTrackId);
 
 	if (!track)
@@ -1395,16 +1393,6 @@ void DjIaVstEditor::updateLoadButtonState()
 void DjIaVstEditor::refreshTrackComponents()
 {
 	auto trackIds = audioProcessor.getAllTrackIds();
-	DBG("🔍 BEFORE sorting - Raw track order:");
-	for (const auto& trackId : trackIds)
-	{
-		TrackData* track = audioProcessor.getTrack(trackId);
-		if (track)
-		{
-			DBG("  Track " << track->trackName << " → slotIndex: " << track->slotIndex << " (ID: " << trackId.substring(0, 8) << ")");
-		}
-	}
-
 	std::sort(trackIds.begin(), trackIds.end(),
 		[this](const juce::String& a, const juce::String& b)
 		{
@@ -1412,10 +1400,6 @@ void DjIaVstEditor::refreshTrackComponents()
 			TrackData* trackB = audioProcessor.getTrack(b);
 			if (!trackA || !trackB)
 				return false;
-			if (trackA->slotIndex == trackB->slotIndex)
-			{
-				DBG("⚠️ SLOT CONFLICT: " << trackA->trackName << " and " << trackB->trackName << " both have slotIndex " << trackA->slotIndex);
-			}
 
 			return trackA->slotIndex < trackB->slotIndex;
 		});
@@ -1436,6 +1420,10 @@ void DjIaVstEditor::refreshTrackComponents()
 			{
 				trackComponents[i]->setTrackData(audioProcessor.getTrack(trackIds[i]));
 				trackComponents[i]->updateFromTrackData();
+				if (auto* sequencer = trackComponents[i]->getSequencer())
+				{
+					sequencer->updateFromTrackData();
+				}
 			}
 			updateSelectedTrack();
 			return;
@@ -1593,20 +1581,12 @@ void DjIaVstEditor::onAddTrack()
 
 void DjIaVstEditor::updateSelectedTrack()
 {
-	DBG("🔍 updateSelectedTrack called");
-
 	for (auto& trackComp : trackComponents)
 	{
 		trackComp->setSelected(false);
 	}
 
 	juce::String selectedId = audioProcessor.getSelectedTrackId();
-	DBG("🎯 Looking for selectedId: " << selectedId);
-
-	for (int i = 0; i < trackComponents.size(); ++i)
-	{
-		DBG("📦 TrackComponent[" << i << "] trackId: " << trackComponents[i]->getTrackId() << " (track name: " << (trackComponents[i]->getTrack() ? trackComponents[i]->getTrack()->trackName : "NULL") << ")");
-	}
 
 	bool found = false;
 	for (auto& trackComp : trackComponents)
@@ -1615,14 +1595,8 @@ void DjIaVstEditor::updateSelectedTrack()
 		{
 			trackComp->setSelected(true);
 			found = true;
-			DBG("✅ Found and selected: " << trackComp->getTrackId());
 			break;
 		}
-	}
-
-	if (!found)
-	{
-		DBG("❌ Could not find trackComponent with selectedId: " << selectedId);
 	}
 
 	if (mixerPanel)
@@ -1792,7 +1766,7 @@ juce::StringArray DjIaVstEditor::getMenuBarNames()
 	return { "File", "Tracks", "Help" };
 }
 
-juce::PopupMenu DjIaVstEditor::getMenuForIndex(int topLevelMenuIndex, const juce::String& menuName)
+juce::PopupMenu DjIaVstEditor::getMenuForIndex(int topLevelMenuIndex, const juce::String& /*menuName*/)
 {
 	juce::PopupMenu menu;
 
@@ -1822,7 +1796,7 @@ juce::PopupMenu DjIaVstEditor::getMenuForIndex(int topLevelMenuIndex, const juce
 	return menu;
 }
 
-void DjIaVstEditor::menuItemSelected(int menuItemID, int topLevelMenuIndex)
+void DjIaVstEditor::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/)
 {
 	switch (menuItemID)
 	{

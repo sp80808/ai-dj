@@ -51,7 +51,7 @@ void TrackComponent::updateUIFromParameter(const juce::String& paramName,
 	}
 }
 
-void TrackComponent::parameterGestureChanged(int parameterIndex, bool gestureIsStarting)
+void TrackComponent::parameterGestureChanged(int /*parameterIndex*/, bool /*gestureIsStarting*/)
 {
 }
 
@@ -177,8 +177,6 @@ void TrackComponent::toggleWaveformDisplay()
 	}
 
 	bool waveformVisible = showWaveformButton.getToggleState();
-	bool sequencerVisible = this->sequencerVisible;
-
 	int newHeight = BASE_HEIGHT;
 	if (waveformVisible) newHeight += WAVEFORM_HEIGHT;
 	if (sequencerVisible) newHeight += SEQUENCER_HEIGHT;
@@ -268,7 +266,7 @@ float TrackComponent::calculateEffectiveBpm()
 		break;
 
 	case 2:
-		effectiveBpm = track->originalBpm + track->bpmOffset;
+		effectiveBpm = track->originalBpm + static_cast<float>(track->bpmOffset);
 		break;
 
 	case 3:
@@ -288,7 +286,7 @@ float TrackComponent::calculateEffectiveBpm()
 		if (hostBpm > 0.0 && track->originalBpm > 0.0)
 		{
 			float ratio = (float)hostBpm / track->originalBpm;
-			effectiveBpm = track->originalBpm * ratio + track->bpmOffset;
+			effectiveBpm = track->originalBpm * ratio + static_cast<float>(track->bpmOffset);
 		}
 	}
 	break;
@@ -504,7 +502,7 @@ void TrackComponent::setupUI()
 	addAndMakeVisible(infoLabel);
 	infoLabel.setText("Empty track - Generate your sample!", juce::dontSendNotification);
 	infoLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
-	infoLabel.setFont(juce::Font(12.0f));
+	infoLabel.setFont(juce::FontOptions(12.0f));
 
 	addAndMakeVisible(showWaveformButton);
 	showWaveformButton.setButtonText("Wave");
@@ -559,7 +557,7 @@ void TrackComponent::setupUI()
 
 	addAndMakeVisible(trackNumberLabel);
 	trackNumberLabel.setJustificationType(juce::Justification::centred);
-	trackNumberLabel.setFont(juce::Font(16.0f, juce::Font::bold));
+	trackNumberLabel.setFont(juce::FontOptions(16.0f, juce::Font::bold));
 	trackNumberLabel.setColour(juce::Label::textColourId, ColourPalette::textPrimary);
 
 	addAndMakeVisible(previewButton);
@@ -724,7 +722,7 @@ void TrackComponent::removeMidiMapping(const juce::String& param)
 	if (track && track->slotIndex != -1)
 	{
 		juce::String parameterName = "slot" + juce::String(track->slotIndex + 1) + param;
-		bool removed = audioProcessor.getMidiLearnManager().removeMappingForParameter(parameterName);
+		audioProcessor.getMidiLearnManager().removeMappingForParameter(parameterName);
 	}
 }
 
