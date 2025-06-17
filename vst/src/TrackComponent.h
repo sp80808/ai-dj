@@ -2,6 +2,7 @@
 #include "JuceHeader.h"
 #include "TrackManager.h"
 #include "MidiLearnableComponents.h"
+#include "ColourPalette.h"
 
 class WaveformDisplay;
 class SequencerComponent;
@@ -13,14 +14,11 @@ public:
 	void drawLabel(juce::Graphics& g, juce::Label& label) override
 	{
 		auto bounds = label.getLocalBounds().toFloat();
-
-		g.setColour(juce::Colours::black);
+		g.setColour(ColourPalette::backgroundDeep);
 		g.fillRoundedRectangle(bounds, 4.0f);
-
-		g.setColour(juce::Colour(0x6600aaff));
+		g.setColour(ColourPalette::textAccent.withAlpha(0.4f));
 		g.drawRoundedRectangle(bounds.reduced(0.5f), 4.0f, 1.0f);
-
-		g.setColour(juce::Colour(0xff44aaff));
+		g.setColour(ColourPalette::textAccent);
 		g.setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 10.0f, juce::Font::plain));
 		g.drawText(label.getText(), bounds.reduced(8, 2),
 			juce::Justification::centredLeft, false);
@@ -122,6 +120,4 @@ private:
 	void updateUIFromParameter(const juce::String& paramName,
 		const juce::String& slotPrefix,
 		float newValue);
-
-	juce::Colour getTrackColour(int trackIndex);
 };

@@ -1,6 +1,6 @@
 ﻿#include "SequencerComponent.h"
 #include "PluginProcessor.h"
-
+#include "ColourPalette.h"
 
 SequencerComponent::SequencerComponent(const juce::String& trackId, DjIaVstProcessor& processor)
 	: trackId(trackId), audioProcessor(processor)
@@ -54,8 +54,8 @@ void SequencerComponent::setupUI() {
 
 	addAndMakeVisible(currentPlayingMeasureLabel);
 	currentPlayingMeasureLabel.setText("M 1", juce::dontSendNotification);
-	currentPlayingMeasureLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
-	currentPlayingMeasureLabel.setColour(juce::Label::backgroundColourId, juce::Colour(0xff2a2a2a));
+	currentPlayingMeasureLabel.setColour(juce::Label::textColourId, ColourPalette::textSuccess);
+	currentPlayingMeasureLabel.setColour(juce::Label::backgroundColourId, ColourPalette::backgroundDark);
 	currentPlayingMeasureLabel.setJustificationType(juce::Justification::centred);
 	currentPlayingMeasureLabel.setFont(juce::Font(11.0f, juce::Font::bold));
 }
@@ -65,42 +65,32 @@ void SequencerComponent::paint(juce::Graphics& g)
 	auto bounds = getLocalBounds();
 
 	juce::ColourGradient gradient(
-		juce::Colour(0xff1a1a1a), 0, 0,
-		juce::Colour(0xff2d2d2d), 0, bounds.getHeight(),
+		ColourPalette::backgroundDeep, 0, 0,
+		ColourPalette::backgroundMid, 0, bounds.getHeight(),
 		false);
 	g.setGradientFill(gradient);
 	g.fillRoundedRectangle(bounds.toFloat(), 6.0f);
 
-
-	juce::Colour accentColour = juce::Colour(0xffff6600);
-	juce::Colour beatColour = juce::Colour(0xffccaa00);
-	juce::Colour subBeatColour = juce::Colour(0xff666666);
-
-
-	static const std::vector<juce::Colour> trackColours = {
-		juce::Colour(0xff5a7a9a), juce::Colour(0xff9a7a5a), juce::Colour(0xff6a8a6a),
-		juce::Colour(0xff8a5a6a), juce::Colour(0xff7a6a8a), juce::Colour(0xff5a8a8a),
-		juce::Colour(0xff7a8a6a), juce::Colour(0xff8a6a7a), juce::Colour(0xff8a6a5a),
-		juce::Colour(0xff6a7a8a)
-	};
-	juce::Colour trackColour = trackColours[0];
-
-	int stepsPerBeat = 4;
-	int totalSteps = beatsPerMeasure * stepsPerBeat;
+	juce::Colour accentColour = ColourPalette::sequencerAccent;
+	juce::Colour beatColour = ColourPalette::sequencerBeat;
+	juce::Colour subBeatColour = ColourPalette::sequencerSubBeat;
 
 	TrackData* track = audioProcessor.getTrack(trackId);
 	if (!track) {
-		g.setColour(juce::Colours::red);
+		g.setColour(ColourPalette::textDanger);
 		g.drawText("Track not found", getLocalBounds(), juce::Justification::centred);
 		return;
 	}
-	int playingMeasure = track ? track->sequencerData.currentMeasure : -1;
 
+	juce::Colour trackColour = ColourPalette::getTrackColour(track->slotIndex);
+
+	int stepsPerBeat = 4;
+	int totalSteps = beatsPerMeasure * stepsPerBeat;
+	int playingMeasure = track->sequencerData.currentMeasure;
 	int safeMeasure = juce::jlimit(0, MAX_MEASURES - 1, currentMeasure);
 
 	for (int i = 0; i < 16; ++i) {
 		auto stepBounds = getStepBounds(i);
-
 		bool isVisible = (i < totalSteps);
 		bool isStrongBeat = (i % stepsPerBeat == 0);
 		bool isBeat = (i % (stepsPerBeat / 2) == 0);
@@ -109,8 +99,8 @@ void SequencerComponent::paint(juce::Graphics& g)
 		juce::Colour borderColour;
 
 		if (!isVisible) {
-			stepColour = juce::Colour(0xff1a1a1a);
-			borderColour = juce::Colour(0xff333333);
+			stepColour = ColourPalette::backgroundDeep;
+			borderColour = ColourPalette::backgroundMid;
 		}
 		else if (track->sequencerData.steps[safeMeasure][i]) {
 			stepColour = trackColour;
@@ -133,8 +123,8 @@ void SequencerComponent::paint(juce::Graphics& g)
 
 		if (i == currentStep && isPlaying && isVisible && currentMeasure == playingMeasure) {
 			float pulseIntensity = 0.8f + 0.2f * std::sin(juce::Time::getMillisecondCounter() * 0.01f);
-			stepColour = juce::Colours::white.withAlpha(pulseIntensity);
-			borderColour = juce::Colours::white;
+			stepColour = ColourPalette::textPrimary.withAlpha(pulseIntensity);
+			borderColour = ColourPalette::textPrimary;
 		}
 
 		g.setColour(stepColour);
@@ -143,7 +133,7 @@ void SequencerComponent::paint(juce::Graphics& g)
 		g.drawRoundedRectangle(stepBounds.toFloat(), 3.0f, isVisible ? 1.0f : 0.5f);
 
 		if (isVisible) {
-			g.setColour(juce::Colours::white.withAlpha(isStrongBeat ? 0.9f : 0.6f));
+			g.setColour(ColourPalette::textPrimary.withAlpha(isStrongBeat ? 0.9f : 0.6f));
 			g.setFont(juce::Font(9.0f, isStrongBeat ? juce::Font::bold : juce::Font::plain));
 			g.drawText(juce::String(i + 1), stepBounds, juce::Justification::centred);
 		}
@@ -151,16 +141,16 @@ void SequencerComponent::paint(juce::Graphics& g)
 
 	if (isPlaying) {
 		auto ledBounds = juce::Rectangle<int>(bounds.getWidth() - 30, 12, 15, 15);
-
 		float pulseIntensity = 0.6f + 0.4f * std::sin(juce::Time::getMillisecondCounter() * 0.008f);
-		juce::Colour ledColour = juce::Colours::green.withAlpha(pulseIntensity);
+		juce::Colour ledColour = ColourPalette::playActive.withAlpha(pulseIntensity);
 
 		g.setColour(ledColour);
 		g.fillEllipse(ledBounds.toFloat());
-		g.setColour(juce::Colours::white.withAlpha(0.8f));
+		g.setColour(ColourPalette::textPrimary.withAlpha(0.8f));
 		g.drawEllipse(ledBounds.toFloat(), 1.0f);
 	}
 }
+
 
 juce::Rectangle<int> SequencerComponent::getStepBounds(int step)
 {
@@ -291,14 +281,15 @@ void SequencerComponent::updateFromTrackData()
 			int playingMeasure = track->sequencerData.currentMeasure + 1;
 			currentPlayingMeasureLabel.setText("M " + juce::String(playingMeasure),
 				juce::dontSendNotification);
-			currentPlayingMeasureLabel.setColour(juce::Label::textColourId, juce::Colours::green);
+			currentPlayingMeasureLabel.setColour(juce::Label::textColourId, ColourPalette::playActive);
 		}
 		else {
 			track->sequencerData.currentStep = 0;
 			track->sequencerData.currentMeasure = 0;
-			currentPlayingMeasureLabel.setText("M " + juce::String(track->sequencerData.currentMeasure + 1), juce::dontSendNotification);
+			currentPlayingMeasureLabel.setText("M " + juce::String(track->sequencerData.currentMeasure + 1),
+				juce::dontSendNotification);
 			measureSlider.setValue(track->sequencerData.numMeasures);
-			currentPlayingMeasureLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
+			currentPlayingMeasureLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 		}
 		repaint();
 	}
