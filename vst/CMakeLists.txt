@@ -1,5 +1,5 @@
 ﻿cmake_minimum_required(VERSION 3.16)
-project(OBSIDIAN-Neural VERSION 0.6.5)
+project(OBSIDIAN-Neural VERSION 0.6.6)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
