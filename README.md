@@ -363,7 +363,3 @@ MIT License - Feel free to modify, but please keep attribution to InnerMost47
 **OBSIDIAN-Neural** - Where artificial intelligence meets live music performance.
 
 _Developed by InnerMost47_
-
-```
-
-```
