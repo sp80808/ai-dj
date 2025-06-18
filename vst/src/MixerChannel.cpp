@@ -192,7 +192,6 @@ void MixerChannel::updateUIFromParameter(const juce::String& paramName,
 {
 	if (isDestroyed.load())
 		return;
-	DBG("📥 Raw parameter value: " << paramName << " = " << newValue);
 
 	if (paramName == slotPrefix + " Volume")
 	{
