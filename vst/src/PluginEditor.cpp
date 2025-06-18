@@ -198,7 +198,7 @@ void DjIaVstEditor::initUI()
 	setupUI();
 	serverUrlInput.setText(audioProcessor.getServerUrl(), juce::dontSendNotification);
 	apiKeyInput.setText(audioProcessor.getApiKey(), juce::dontSendNotification);
-	if (audioProcessor.getApiKey().isEmpty() || audioProcessor.getServerUrl().isEmpty())
+	if (audioProcessor.getServerUrl().isEmpty())
 	{
 		juce::Timer::callAfterDelay(500, [this]()
 			{ showFirstTimeSetup(); });
@@ -235,7 +235,8 @@ void DjIaVstEditor::showFirstTimeSetup()
 		"Welcome! Please configure your settings:",
 		juce::MessageBoxIconType::InfoIcon);
 
-	alertWindow->addTextEditor("serverUrl", audioProcessor.getServerUrl(), "Server URL:");
+	juce::String currentServerUrl = audioProcessor.getServerUrl() == "" ? "http://localhost:8000" : audioProcessor.getServerUrl();
+	alertWindow->addTextEditor("serverUrl", currentServerUrl, "Server URL:");
 
 	alertWindow->addTextEditor("apiKey", "", "API Key:");
 	if (auto* apiKeyEditor = alertWindow->getTextEditor("apiKey"))
@@ -916,6 +917,10 @@ void DjIaVstEditor::editCustomPromptDialog(const juce::String& selectedPrompt)
 						juce::String newPrompt = promptEditor->getText();
 						if (!newPrompt.isEmpty()) {
 							audioProcessor.editCustomPrompt(selectedPrompt, newPrompt);
+							int index = promptPresets.indexOf(selectedPrompt);
+							if (index >= 0) {
+								promptPresets.set(index, newPrompt);
+							}
 							loadPromptPresets();
 						}
 					}
@@ -1178,7 +1183,9 @@ void DjIaVstEditor::onGenerateButtonClicked()
 		statusLabel.setText("Error: Server URL is required", juce::dontSendNotification);
 		return;
 	}
-	if (apiKey.isEmpty())
+	bool isLocalServer = serverUrl.contains("localhost") ||
+		serverUrl.contains("127.0.0.1");
+	if (apiKey.isEmpty() && !isLocalServer)
 	{
 		statusLabel.setText("Error: API Key is required", juce::dontSendNotification);
 		return;
@@ -1297,16 +1304,17 @@ void DjIaVstEditor::onSavePreset()
 	if (currentPrompt.isNotEmpty())
 	{
 		audioProcessor.addCustomPrompt(currentPrompt);
-		if (!promptPresets.contains(currentPrompt))
-		{
-			promptPresets.insert(promptPresets.size(), currentPrompt);
-		}
 		loadPromptPresets();
-		int newPresetIndex = promptPresets.indexOf(currentPrompt);
-		if (newPresetIndex >= 0)
+		int totalItems = promptPresetSelector.getNumItems();
+		for (int i = 0; i < totalItems; ++i)
 		{
-			promptPresetSelector.setSelectedId(newPresetIndex + 1, juce::dontSendNotification);
+			if (promptPresetSelector.getItemText(i) == currentPrompt)
+			{
+				promptPresetSelector.setSelectedId(i + 1, juce::dontSendNotification);
+				break;
+			}
 		}
+
 		statusLabel.setText("Preset saved: " + currentPrompt, juce::dontSendNotification);
 	}
 	else

@@ -231,7 +231,7 @@ private:
 	std::atomic<int> timeSignatureNumerator{ 4 };
 	std::atomic<int> timeSignatureDenominator{ 4 };
 
-	juce::String globalPrompt = "Generate a techno drum loop";
+	juce::String globalPrompt = "";
 	float globalBpm = 127.0f;
 	juce::String globalKey = "C Aeolian";
 	int globalDuration = 6;
@@ -250,10 +250,10 @@ private:
 	juce::MidiBuffer sequencerMidiBuffer;
 
 	juce::AudioProcessorValueTreeState parameters;
-	juce::String serverUrl = "http://localhost:8000";
+	juce::String serverUrl = "";
 	juce::String apiKey;
 	juce::String lastPrompt = "";
-	juce::String lastKey = "C minor";
+	juce::String lastKey = "C Aeolian";
 	juce::String trackIdWaitingForLoad;
 	juce::String pendingTrackId;
 	juce::String lastGeneratedTrackId;
