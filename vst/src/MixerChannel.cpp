@@ -143,14 +143,10 @@ void MixerChannel::removeListener(juce::String name)
 
 void MixerChannel::addListener(juce::String name)
 {
-	DBG("🔍 addListener called for: " << name);
-	DBG("🔍 track exists: " << (track ? "YES" : "NO"));
 	if (!track || track->slotIndex == -1)
 	{
-		DBG("❌ Early return - no track or slotIndex = -1");
 		return;
 	}
-	DBG("🔍 slotIndex: " << track->slotIndex);
 	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
 	auto* param = audioProcessor.getParameterTreeState().getParameter(paramName);
 	if (param)
@@ -298,7 +294,6 @@ void MixerChannel::setButtonParameter(juce::String name, juce::Button& button)
 		return;
 	if (this == nullptr)
 		return;
-	updateButtonColors();
 	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
 	try
 	{
@@ -307,6 +302,7 @@ void MixerChannel::setButtonParameter(juce::String name, juce::Button& button)
 		{
 			bool state = button.getToggleState();
 			param->setValueNotifyingHost(state ? 1.0f : 0.0f);
+			updateButtonColors();
 		}
 	}
 	catch (...)
@@ -776,6 +772,7 @@ void MixerChannel::updateButtonColors()
 	{
 		return;
 	}
+
 	bool isArmed = track->isArmed.load();
 	bool isPlaying = track->isCurrentlyPlaying.load();
 	bool isMuted = track->isMuted.load();
@@ -800,7 +797,7 @@ void MixerChannel::updateButtonColors()
 	}
 
 	muteButton.setToggleState(isMuted, juce::dontSendNotification);
-	muteButton.setColour(juce::TextButton::buttonOnColourId, ColourPalette::muteActive);
+	muteButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::red);
 	muteButton.setColour(juce::TextButton::textColourOnId, ColourPalette::textPrimary);
 	muteButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonInactive);
 	muteButton.setColour(juce::TextButton::textColourOffId, ColourPalette::textPrimary);
