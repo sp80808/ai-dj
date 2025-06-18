@@ -198,7 +198,7 @@ void DjIaVstEditor::initUI()
 	setupUI();
 	serverUrlInput.setText(audioProcessor.getServerUrl(), juce::dontSendNotification);
 	apiKeyInput.setText(audioProcessor.getApiKey(), juce::dontSendNotification);
-	if (audioProcessor.getApiKey().isEmpty() || audioProcessor.getServerUrl().isEmpty())
+	if (audioProcessor.getServerUrl().isEmpty())
 	{
 		juce::Timer::callAfterDelay(500, [this]()
 			{ showFirstTimeSetup(); });
@@ -235,7 +235,8 @@ void DjIaVstEditor::showFirstTimeSetup()
 		"Welcome! Please configure your settings:",
 		juce::MessageBoxIconType::InfoIcon);
 
-	alertWindow->addTextEditor("serverUrl", audioProcessor.getServerUrl(), "Server URL:");
+	juce::String currentServerUrl = audioProcessor.getServerUrl() == "" ? "http://localhost:8000" : audioProcessor.getServerUrl();
+	alertWindow->addTextEditor("serverUrl", currentServerUrl, "Server URL:");
 
 	alertWindow->addTextEditor("apiKey", "", "API Key:");
 	if (auto* apiKeyEditor = alertWindow->getTextEditor("apiKey"))
