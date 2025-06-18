@@ -917,6 +917,10 @@ void DjIaVstEditor::editCustomPromptDialog(const juce::String& selectedPrompt)
 						juce::String newPrompt = promptEditor->getText();
 						if (!newPrompt.isEmpty()) {
 							audioProcessor.editCustomPrompt(selectedPrompt, newPrompt);
+							int index = promptPresets.indexOf(selectedPrompt);
+							if (index >= 0) {
+								promptPresets.set(index, newPrompt);
+							}
 							loadPromptPresets();
 						}
 					}
@@ -1179,7 +1183,9 @@ void DjIaVstEditor::onGenerateButtonClicked()
 		statusLabel.setText("Error: Server URL is required", juce::dontSendNotification);
 		return;
 	}
-	if (apiKey.isEmpty())
+	bool isLocalServer = serverUrl.contains("localhost") ||
+		serverUrl.contains("127.0.0.1");
+	if (apiKey.isEmpty() && !isLocalServer)
 	{
 		statusLabel.setText("Error: API Key is required", juce::dontSendNotification);
 		return;
