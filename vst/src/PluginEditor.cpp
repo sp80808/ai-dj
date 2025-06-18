@@ -1304,16 +1304,17 @@ void DjIaVstEditor::onSavePreset()
 	if (currentPrompt.isNotEmpty())
 	{
 		audioProcessor.addCustomPrompt(currentPrompt);
-		if (!promptPresets.contains(currentPrompt))
-		{
-			promptPresets.insert(promptPresets.size(), currentPrompt);
-		}
 		loadPromptPresets();
-		int newPresetIndex = promptPresets.indexOf(currentPrompt);
-		if (newPresetIndex >= 0)
+		int totalItems = promptPresetSelector.getNumItems();
+		for (int i = 0; i < totalItems; ++i)
 		{
-			promptPresetSelector.setSelectedId(newPresetIndex + 1, juce::dontSendNotification);
+			if (promptPresetSelector.getItemText(i) == currentPrompt)
+			{
+				promptPresetSelector.setSelectedId(i + 1, juce::dontSendNotification);
+				break;
+			}
 		}
+
 		statusLabel.setText("Preset saved: " + currentPrompt, juce::dontSendNotification);
 	}
 	else
