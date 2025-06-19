@@ -487,6 +487,7 @@ private:
 			{
 				float totalBpmAdjust = static_cast<float>(track.bpmOffset) + track.fineOffset;
 				float adjustedBpm = track.originalBpm + totalBpmAdjust;
+				adjustedBpm = juce::jlimit(1.0f, 1000.0f, adjustedBpm);
 				playbackRatio = adjustedBpm / track.originalBpm;
 			}
 			break;
@@ -503,6 +504,7 @@ private:
 			{
 				float totalManualAdjust = static_cast<float>(track.bpmOffset) + track.fineOffset;
 				float effectiveHostBpm = static_cast<float>(hostBpm) + totalManualAdjust;
+				effectiveHostBpm = juce::jlimit(1.0f, 1000.0f, effectiveHostBpm);
 				playbackRatio = effectiveHostBpm / track.originalBpm;
 			}
 			break;
