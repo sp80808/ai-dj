@@ -741,8 +741,8 @@ void DjIaVstProcessor::handleSampleParams(int slot, TrackData* track)
 {
 	float paramVolume = slotVolumeParams[slot]->load();
 	float paramPan = slotPanParams[slot]->load();
-	float paramPitch = slotPitchParams[slot]->load();
-	float paramFine = slotFineParams[slot]->load();
+	float paramPitch = slotPitchParams[slot]->load() * 8;
+	float paramFine = slotFineParams[slot]->load() * 2;
 	float paramSolo = slotSoloParams[slot]->load();
 	float paramMute = slotMuteParams[slot]->load();
 
