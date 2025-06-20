@@ -33,7 +33,9 @@ private:
 	void initUserConversation(const juce::String& userId);
 	juce::String buildPrompt(const juce::String& userPrompt, float bpm, const juce::String& key);
 	juce::String generateResponse(const juce::String& userId);
-	nlohmann::json parseDecisionResponse(const juce::String& response, const juce::String& defaultKey);
+	nlohmann::json parseDecisionResponse(const juce::String& response,
+		const juce::String& defaultKey, const juce::String& userPrompt,
+		float bpm);
 	juce::String getSystemPrompt();
 	void cleanupConversation(const juce::String& userId);
 };

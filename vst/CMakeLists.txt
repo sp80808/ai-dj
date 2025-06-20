@@ -9,6 +9,30 @@ add_subdirectory(soundtouch)
 
 set(LLAMA_AVAILABLE FALSE)
 
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/deps/llama.cpp/CMakeLists.txt")
+    message(STATUS "Downloading llama.cpp...")
+    
+    FetchContent_Declare(
+        llama_cpp
+        GIT_REPOSITORY https://github.com/ggml-org/llama.cpp.git
+        GIT_TAG master
+        GIT_SHALLOW TRUE
+        SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/llama.cpp
+    )
+    
+    FetchContent_MakeAvailable(llama_cpp)
+    set(LLAMA_AVAILABLE TRUE)
+else()
+    message(STATUS "Using existing llama.cpp...")
+    set(LLAMA_AVAILABLE TRUE)
+endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_CONFIGURATION_TYPES)
+    set(LLAMA_BUILD_TYPE "Debug")
+else()
+    set(LLAMA_BUILD_TYPE "Release")
+endif()
+
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/deps/llama.cpp/CMakeLists.txt")
     message(STATUS "Setting up llama.cpp manually...")
     
@@ -19,7 +43,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/deps/llama.cpp/CMakeLists.txt")
         SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/llama.cpp
         BINARY_DIR ${CMAKE_BINARY_DIR}/llama_cpp_build
         CMAKE_ARGS 
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=${LLAMA_BUILD_TYPE} 
             -DBUILD_SHARED_LIBS=OFF
             -DLLAMA_BUILD_EXAMPLES=OFF
             -DLLAMA_BUILD_TESTS=OFF
@@ -36,9 +60,19 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/deps/llama.cpp/CMakeLists.txt")
     set(GGML_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/llama.cpp/ggml/include)
     
     if(WIN32)
-        file(GLOB LLAMA_LIBS_LLAMA "${LLAMA_LIB_DIR}/src/Release/*.lib")
-        file(GLOB LLAMA_LIBS_GGML "${LLAMA_LIB_DIR}/ggml/src/Release/*.lib") 
-        file(GLOB LLAMA_LIBS_COMMON "${LLAMA_LIB_DIR}/common/Release/*.lib")
+        if(EXISTS "${LLAMA_LIB_DIR}/src/Debug")
+            set(LLAMA_CONFIG "Debug")
+            message(STATUS "Found Debug libs, using Debug config")
+        elseif(EXISTS "${LLAMA_LIB_DIR}/src/Release")
+            set(LLAMA_CONFIG "Release") 
+            message(STATUS "Found Release libs, using Release config")
+        else()
+            message(FATAL_ERROR "Neither Debug nor Release libs found!")
+        endif()
+
+        file(GLOB LLAMA_LIBS_LLAMA "${LLAMA_LIB_DIR}/src/${LLAMA_CONFIG}/*.lib")
+        file(GLOB LLAMA_LIBS_GGML "${LLAMA_LIB_DIR}/ggml/src/${LLAMA_CONFIG}/*.lib") 
+        file(GLOB LLAMA_LIBS_COMMON "${LLAMA_LIB_DIR}/common/${LLAMA_CONFIG}/*.lib")
     
         set(LLAMA_LIBRARIES 
             ${LLAMA_LIBS_LLAMA}
@@ -58,6 +92,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/deps/llama.cpp/CMakeLists.txt")
     message(STATUS "llama.cpp configured manually")
 else()
     message(WARNING "llama.cpp not found in deps/llama.cpp")
+    set(LLAMA_AVAILABLE FALSE)
 endif()
 
 find_package(nlohmann_json QUIET)

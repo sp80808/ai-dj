@@ -135,25 +135,10 @@ StableAudioEngine::GenerationResult StableAudioEngine::generateSample(const Gene
 		}
 
 		auto endTime = juce::Time::getMillisecondCounterHiRes();
-
-		result.leftChannel.clear();
-		result.rightChannel.clear();
-		result.audioData.clear();
-
-		result.leftChannel.reserve(audioData.size() / 2);
-		result.rightChannel.reserve(audioData.size() / 2);
-		result.audioData.reserve(audioData.size() / 2);
-
-		for (size_t i = 0; i < audioData.size(); i += 2) {
-			float left = audioData[i];
-			float right = (i + 1 < audioData.size()) ? audioData[i + 1] : 0.0f;
-
-			result.leftChannel.push_back(left);
-			result.rightChannel.push_back(right);
-			result.audioData.push_back((left + right) * 0.5f);
-		}
-
-		result.actualDuration = static_cast<float>(result.audioData.size()) / params.sampleRate;
+		result.audioData = audioData;
+		result.leftChannel = audioData;
+		result.rightChannel = audioData;
+		result.actualDuration = static_cast<float>(audioData.size()) / params.sampleRate;
 		result.success = true;
 		result.performanceInfo = "Generated in " + juce::String(endTime - startTime, 0) + "ms";
 
@@ -198,15 +183,20 @@ std::vector<float> StableAudioEngine::loadWavFile(const juce::File& wavFile) {
 		juce::AudioBuffer<float> buffer(numChannels, numSamples);
 		reader->read(&buffer, 0, numSamples, 0, true, true);
 
-		audioData.reserve(numSamples * numChannels);
+		audioData.reserve(numSamples);
 
 		for (int sample = 0; sample < numSamples; ++sample) {
-			for (int channel = 0; channel < numChannels; ++channel) {
-				audioData.push_back(buffer.getSample(channel, sample));
+			if (numChannels == 1) {
+				audioData.push_back(buffer.getSample(0, sample));
+			}
+			else {
+				float left = buffer.getSample(0, sample);
+				float right = buffer.getSample(1, sample);
+				audioData.push_back((left + right) * 0.5f);
 			}
 		}
 
-		DBG("Loaded WAV: " << numSamples << " samples, " << numChannels << " channels");
+		DBG("Loaded WAV: " << numSamples << " samples, " << numChannels << " channels -> " << audioData.size() << " mono samples");
 
 	}
 	catch (const std::exception& e) {

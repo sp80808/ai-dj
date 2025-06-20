@@ -122,7 +122,7 @@ nlohmann::json LlamaEngine::getNextDecision(const juce::String& userPrompt,
 
 	juce::String response = generateResponse(userId);
 
-	auto decision = parseDecisionResponse(response, key);
+	auto decision = parseDecisionResponse(response, key, userPrompt, bpm);
 
 	conversations[userId].push_back({
 		"assistant",
@@ -160,7 +160,8 @@ key.toRawUTF8()
 }
 
 nlohmann::json LlamaEngine::parseDecisionResponse(const juce::String& response,
-	const juce::String& defaultKey) {
+	const juce::String& defaultKey, const juce::String& userPrompt,
+	float bpm) {
 	try {
 		std::regex jsonRegex(R"(\{.*\})", std::regex_constants::ECMAScript);
 		std::smatch match;
@@ -179,7 +180,7 @@ nlohmann::json LlamaEngine::parseDecisionResponse(const juce::String& response,
 		{"action_type", "generate_sample"},
 		{"parameters", {
 			{"sample_details", {
-				{"musicgen_prompt", "electronic music sample"},
+				{"musicgen_prompt", (userPrompt + " " + juce::String(bpm) + "bpm " + defaultKey).toStdString()},
 				{"key", defaultKey.toStdString()}
 			}}
 		}},

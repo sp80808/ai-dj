@@ -44,7 +44,7 @@ public:
 	bool initialize()
 	{
 		appDataDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-						 .getChildFile("OBSIDIAN-Neural");
+			.getChildFile("OBSIDIAN-Neural");
 
 		auto llamaDir = appDataDir.getChildFile("llama");
 		auto stableAudioDir = appDataDir.getChildFile("stable-audio");
@@ -69,18 +69,18 @@ public:
 		return true;
 	}
 
-	void generateLoopAsync(const LoopRequest &request, GenerationCallback callback)
+	void generateLoopAsync(const LoopRequest& request, GenerationCallback callback)
 	{
 		juce::Thread::launch([this, request, callback]()
-							 {
-			auto response = generateLoop(request);
-			juce::MessageManager::callAsync([callback, response]() {
-				callback(response);
-				}); });
+			{
+				auto response = generateLoop(request);
+				juce::MessageManager::callAsync([callback, response]() {
+					callback(response);
+					}); });
 	}
 
 private:
-	LoopResponse generateLoop(const LoopRequest &request)
+	LoopResponse generateLoop(const LoopRequest& request)
 	{
 		LoopResponse response;
 		try
@@ -92,7 +92,7 @@ private:
 				request.bpm,
 				request.key);
 
-			juce::String optimizedPrompt = "electronic music sample";
+			juce::String optimizedPrompt = (request.prompt + " " + juce::String(request.bpm) + "bpm " + request.key).toStdString();
 			juce::String reasoning = "LLM processing";
 
 			if (llmDecision.contains("parameters") &&
@@ -138,7 +138,7 @@ private:
 				response.errorMessage = "Audio generation failed: " + audioResult.errorMessage;
 			}
 		}
-		catch (const std::exception &e)
+		catch (const std::exception& e)
 		{
 			response.success = false;
 			response.errorMessage = juce::String("Generation exception: ") + e.what();
