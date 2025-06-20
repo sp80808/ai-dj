@@ -2,18 +2,69 @@
 
 🎵 **Real-time AI music generation VST3 plugin for live performance**
 
-OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM prompts and Stable Audio Open to create contextually aware loops directly in your DAW.
-
 **📖 [Read the full story](https://medium.com/@innermost47/obsidian-neural-when-ai-becomes-your-jam-partner-5203726a3840) - Why I built an AI that jams with you in real-time**
 
 ---
 
-**🚨 FRUSTRATED WITH INSTALLATION? 🚨**  
-**Skip the complexity! Get a free API key instead.**  
-**No Python, no compilation, no debugging - just music creation.**  
-**⚠️ Limited to 10 testers + queue system during peak hours**  
-**⚠️ 50 generations per API key + Server available 9 AM - 12 AM (French time)**  
-**Contact me at: b03caa1n5@mozmail.com**
+## 🚀 **MAJOR UPDATE: Local Models Coming Soon!**
+
+**🎉 The current release run completely offline with local TensorFlow Lite models!**
+
+**⚠️ IMPORTANT: The current release is built from the `localModels` branch, NOT this main branch.**
+
+Special thanks to [@fcaspe](https://github.com/fcaspe) for introducing me to audiogen and putting me on this path! This completely solves OBSIDIAN-Neural's main pain point: server dependencies and resource requirements.
+
+### 📦 **Current Release 0.7.0-alpha (localModels branch)**
+
+**No more servers, Python, or GPU requirements!**
+
+#### What You'll Need:
+
+1. **Get Stability AI access**: [Request access](https://huggingface.co/stabilityai/stable-audio-open-small) to Stable Audio Open on Hugging Face
+2. **Download models**: Get all files from [innermost47/stable-audio-open-small-tflite](https://huggingface.co/innermost47/stable-audio-open-small-tflite)
+3. **Simple setup**: Copy models to `%APPDATA%\OBSIDIAN-Neural\stable-audio\`
+4. **Launch**: Choose "Local Model" option
+
+**✅ Benefits:** Completely offline, no GPU server, no Python installation, instant generation  
+**⚠️ Requirements:** 16GB+ RAM recommended, Windows only initially
+
+---
+
+## 🎯 What OBSIDIAN-Neural Actually Does
+
+**Think of it as having an AI jam partner directly in your DAW.**
+
+- **Type simple keywords** → AI generates musical loops instantly
+- **Real-time generation** → No stopping your creative flow
+- **8-track sampler** → Layer AI-generated elements like drums, bass, pads
+- **MIDI triggering** → Play AI samples from your keyboard (C3-B3)
+- **Perfect DAW sync** → Everything locks to your project tempo
+
+**Example workflow:**
+
+1. Type "dark techno kick" → AI generates a techno kick loop
+2. Type "acid bassline" → AI adds a 303-style bass
+3. Trigger both with MIDI keys while jamming on hardware synths
+
+**It's like having a TB-303, but instead of tweaking knobs, you describe what you want in plain English.**
+
+---
+
+## 🎯 **Current Options (main branch)**
+
+### 🚀 **Option 1: Beta Testing (RECOMMENDED)**
+
+**Get FREE API access - No setup required!**
+
+- Contact me for a free API key (**only 10 slots available**)
+- Download VST3 from [Releases](https://github.com/innermost47/ai-dj/releases)
+- **Contact:** b03caa1n5@mozmail.com
+
+### 🔧 **Option 2: Self-Hosting**
+
+- Download the installer from [Releases](https://github.com/innermost47/ai-dj/releases)
+- Requires NVIDIA GPU with 8GB+ VRAM
+- Complex setup with Python, CUDA, etc.
 
 ---
 
@@ -21,208 +72,7 @@ OBSIDIAN-Neural transforms AI into a live music instrument using intelligent LLM
 
 [![OBSIDIAN Live Stream](https://img.youtube.com/vi/O5j6xa_9_0s/maxresdefault.jpg)](https://www.youtube.com/watch?v=O5j6xa_9_0s)
 
-_Live YouTube session: Real-time AI music generation with all the unpredictability that comes with it! 57 minutes of pure improvisation - the good, the weird, and the moments where you just adapt and roll with whatever the AI throws at you. Welcome to live AI music!_
-
----
-
-## ⚠️ PRE-RELEASE PROJECT
-
-**OBSIDIAN-Neural is currently in active development.** This is NOT an official v1.0 release. While functional, you may encounter bugs and instabilities. I'm working on this continuously and push updates regularly (sometimes multiple times per day).
-
-**I may have been too enthusiastic** about the installation complexity initially. I'm aware it can be frustrating, and I'm actively working to improve the user experience.
-
----
-
-## 🎯 QUICK START (Choose Your Path)
-
-### 🚀 **Option 1: Beta Testing (RECOMMENDED for most users)**
-
-**Get FREE API access - No setup required!**
-
-- Contact me for a free API key (**only 10 slots available**, unfortunately I can't provide more from my side)
-- **If you have a GPU server and want to share**: the server works with API keys - you can host your own instance!
-- Download VST3 from [Releases](https://github.com/innermost47/ai-dj/releases)
-- **That's it!** No GPU, no Python, no compilation needed
-
-### 🔧 **Option 2: Windows Installer**
-
-- Download the [.exe installer](https://github.com/innermost47/ai-dj/releases)
-- One-click setup (still requires GPU setup)
-- Can be combined with manual VST3 copy (uncheck "Build VST3" in installer)
-
-### 👨‍💻 **Option 3: For Developers Only**
-
-- Full source compilation (complex!)
-- Only recommended if you're comfortable with Python, CMake, and GPU toolchains
-
----
-
-## 🤔 Why Server Architecture?
-
-**TL;DR: AI models are MASSIVE and need serious hardware**
-
-### The Reality of Modern AI:
-
-- **Stable Audio Open**: ~4.8GB model size
-- **VRAM needed**: 6+ GB minimum
-- **Loading time**: 30-60 seconds
-- **A normal VST**: 50MB, loads instantly
-
-### This is NOT a limitation - it's MODERN AI
-
-Every AI music tool faces this:
-
-- **Suno**: Server-based
-- **Udio**: Server-based
-- **Google MusicLM**: Server-based
-- **Adobe AI Audio**: Server-based
-
-### Benefits of This Approach:
-
-✅ **Lighter VST** - Fast loading, stable performance  
-✅ **Shared resources** - Multiple users, one GPU  
-✅ **Better hardware** - Dedicated inference machines  
-✅ **Future-proof** - Easy model updates
-
----
-
-## 🌍 Community-Powered Vision
-
-### 🖥️ **The GPU Problem**
-
-I'm aware that requiring expensive GPUs creates barriers. Many musicians can't afford RTX 4090s just to try AI music generation. The subscription model everywhere is getting ridiculous.
-
-### 🤝 **Seeking Contributors**
-
-I'm researching a **distributed GPU network** where we can:
-
-- Pool our computing resources
-- Share GPU power across the community
-- Provide **completely free access** to all users
-- Redistribute donations to GPU contributors
-- Build something truly community-owned
-
-**Got a powerful GPU and want to help?** The server works with API keys - you can host your own instance and share access with the community!
-
-### 💭 **Community Input Welcome!**
-
-Know a better way to handle massive AI models? Have ideas? **Please share!**  
-I'm open to alternatives, but client/server is currently the most practical solution for real-time AI music generation.
-
----
-
-## 🚀 Beta Testing Program
-
-**Testing Period:** Daily 10:00 - 00:00 (French Time)
-
-### 🎯 What I'm Offering
-
-**Only 10 free API keys available** for motivated testers - no GPU required! Generate up to **50 AI samples** using my hosted Stable Audio Open Small model.
-
-### 🤝 What I'm Looking For
-
-- **Bug reports** via GitHub Issues
-- **Edge case testing** and unusual workflows
-- **User experience feedback**
-- **Clear documentation** of any problems
-
-### 📞 How to Apply
-
-**Contact me at: b03caa1n5@mozmail.com**
-
-Include:
-
-- Brief intro about your music/testing background
-- What you'd like to explore with OBSIDIAN-Neural
-- Commitment to provide constructive feedback
-
----
-
-## 📥 Installation Notes
-
-### 🔄 Always Use Latest Release
-
-- Check [Releases](https://github.com/innermost47/ai-dj/releases) regularly
-- **Always download the highest version number**
-- I fix bugs as soon as I find them and push updates frequently
-- Some releases may be unstable, but newer = more fixes
-
-### 💾 Manual VST3 Installation
-
-If using the installer + manual VST3:
-
-1. Download both installer and VST3 from Releases
-2. Run installer, **uncheck "Build VST3"**
-3. Manually copy VST3 to `C:\Program Files\Common Files\VST3\`
-
----
-
-## 🛠️ Building Standalone Executables
-
-### Prerequisites
-
-Install PyInstaller:
-
-```bash
-pip install pyinstaller
-```
-
-### Building the Installer
-
-```bash
-pyinstaller --onefile --windowed --add-data "logo.png;." installer.py
-```
-
-### Building the Server Interface
-
-```bash
-pyinstaller --onefile --windowed --add-data "logo.png;." .\server_interface.py
-```
-
-### Build Output
-
-Executables will be created in `dist/` folder:
-
-- `dist/installer.exe` - One-click installation tool
-- `dist/server_interface.exe` - Standalone AI server interface
-
----
-
-## ⚠️ IMPORTANT: Antivirus False Positive Issue
-
-**Our installer.exe is flagged by 5/70 antivirus engines as malicious - THIS IS A FALSE POSITIVE**
-
-**Current detections:**
-
-- Bkav Pro: W64.AIDetectMalware
-- Gridinsoft: Trojan.Win64.Agent.oa!s1
-- Microsoft: Trojan:Win32/Wacatac.B!ml
-- Jiangmin: Trojan.PSW.Python.ll
-- SecureAge: Malicious
-
-**Why this happens:**
-
-- Python-to-exe converters are commonly used by malware authors
-- Creates suspicious binary signatures that antivirus engines flag
-- Industry-wide problem affecting thousands of legitimate Python projects
-- **65/70 engines report the file as CLEAN**
-
-**The file is 100% safe:**
-
-- ✅ Full source code available in [installer.py](./installer.py)
-- ✅ No obfuscation, readable Python code
-- ✅ Does exactly what the Python script does
-- ✅ [VirusTotal scan](https://www.virustotal.com/gui/file/1cd741f75675381dbdb998f0c5ace2b360e6a6ac0c6b24106ed15821bc03fe76) - majority of engines report clean
-
-## 🚀 RECOMMENDED SOLUTION: Skip the .exe
-
-**Use Python directly - much safer and easier:**
-
-```bash
-git clone https://github.com/innermost47/ai-dj.git
-cd ai-dj
-python installer.py
-```
+_57 minutes of real-time AI music generation!_
 
 ---
 
@@ -230,114 +80,29 @@ python installer.py
 
 ---
 
-![OBSIDIAN-Neural Interface](./screenshot.png)
-
----
-
 ## 🔮 Key Features
 
-### 🤖 Intelligent AI Generation
-
-- **LLM Brain**: Analyzes sessions and generates smart prompts
-- **Stable Audio Open**: High-quality electronic music generation
-- **Real-time**: Everything happens live for performance use
-- **Auto tempo sync**: Matches your DAW automatically
-
-### 🎹 Multi-Track Sampler
-
-- **8 independent tracks** with MIDI triggering (C3-B3)
-- **Advanced waveform editor** with zoom and precise loop points
-- **Smart time-stretching** with DAW tempo sync
-- **Individual outputs** for separate mixing
-
-### 🥁 Built-in Step Sequencer
-
-- **16-step programmable sequencer** per track
-- **Perfect DAW sync** - locked to host tempo and transport
-- **Real-time pattern editing** while playing
-- **Seamless live performance** with measure-boundary start/stop
-
-### 🎛️ Live Performance Ready
-
-- **MIDI Learn system** for hardware controllers
-- **Session save/load** functionality
-- **Background processing** - works with VST window closed
-- **Global custom prompts** shared across projects
-
----
-
-## ⚙️ Technical Requirements (For Self-Hosting)
-
-**If you choose the full installation:**
-
-### Hardware:
-
-- **NVIDIA GPU** with CUDA support (RTX 3060+ recommended)
-- **8GB+ VRAM** minimum
-- **16GB+ system RAM** recommended
-
-### Software:
-
-- **Python 3.10** specifically (other versions may fail)
-- **NVIDIA CUDA Toolkit**
-- **CMake** (3.16+)
-- **Git**
-- **Visual Studio Build Tools** (Windows) or **GCC/G++** (Linux)
-
-### Stable Audio Open Access:
-
-1. **[Request access](https://huggingface.co/stabilityai/stable-audio-open-1.0)** on Hugging Face
-2. **Install HF CLI**: `pip install huggingface_hub`
-3. **Login**: `huggingface-cli login`
-4. **Enter your token** when prompted
-
-**License**: Free for personal use and commercial use under $1M revenue/year
-
----
-
-## 🎯 Usage Workflow
-
-1. **Setup**: Start AI server, load OBSIDIAN-Neural in DAW
-2. **Generate**: Add tracks, enter creative prompts, generate AI audio
-3. **Perform**: Trigger tracks with MIDI, auto-sync to DAW tempo
-4. **Control**: Map hardware controllers with MIDI Learn
-
-**Example LLM-generated prompt:**
-_"Deep techno kick with sidechain compression, 126 BPM, dark atmosphere, minimal hi-hats, rolling bassline"_
+- **🤖 Intelligent AI Generation**: LLM brain analyzes sessions and generates smart prompts
+- **🎹 8-Track Sampler**: MIDI triggering (C3-B3) with advanced waveform editor
+- **🥁 Built-in Step Sequencer**: 16-step programmable sequencer per track
+- **🎛️ Live Performance Ready**: MIDI Learn, session save/load, DAW sync
 
 ---
 
 ## 🐛 Bug Reports & Feedback
 
-**Found issues?** You're helping improve OBSIDIAN-Neural for everyone!
+**Found issues?** [Create GitHub Issue](https://github.com/innermost47/ai-dj/issues/new)
 
-### How to Report:
-
-1. **[Create GitHub Issue](https://github.com/innermost47/ai-dj/issues/new)**
-2. **Include:**
-   - DAW name/version
-   - Operating system
-   - Steps to reproduce
-   - Expected vs actual behavior
-   - Screenshots if UI-related
-
-### Priority Issues:
-
-- Crashes or data loss
-- Timing/sync problems
-- AI generation failures
-- MIDI mapping issues
+Include: DAW name/version, OS, steps to reproduce, expected vs actual behavior
 
 ---
 
 ## 📈 Project Status
 
-✅ **VST3 Plugin**: Fully functional for live performance
-⚠️ **Pre-release**: Active development, frequent updates
-🔄 **Installation**: Working on simplification
-🌍 **Community**: Building distributed GPU network
-
-**Star count since June 6th: 60** ⭐ - Thank you for the support!
+🚀 **Next Release**: Local models from `localModels` branch - game changer!  
+✅ **Current**: Functional but requires server setup  
+⚠️ **Pre-release**: Active development, frequent updates  
+🌟 **Star count**: 60+ - Thank you for the support!
 
 ---
 
