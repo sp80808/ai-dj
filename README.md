@@ -6,7 +6,7 @@
 
 ---
 
-## 🚀 **MAJOR UPDATE: Local Models Coming Soon!**
+## 🚀 **MAJOR UPDATE: Local Models Now Available!**
 
 **🎉 The current release run completely offline with local TensorFlow Lite models!**
 
