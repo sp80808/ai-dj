@@ -49,7 +49,10 @@ public:
 
 private:
 	bool checkRequiredFiles();
-	std::vector<float> loadWavFile(const juce::File& wavFile);
+	std::vector<float> loadAndResampleWavFile(const juce::File& wavFile, double targetSampleRate);
+	juce::AudioBuffer<float> resampleBuffer(const juce::AudioBuffer<float>& inputBuffer,
+		double inputSampleRate,
+		double outputSampleRate);
 	void cleanupTempFiles();
 	juce::String sanitizePrompt(const juce::String& prompt);
 	int generateRandomSeed();

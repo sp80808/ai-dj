@@ -74,6 +74,8 @@ private:
 	void toggleSEQButtonOnTrack();
 	void startGenerationButtonAnimation();
 	void stopGenerationButtonAnimation();
+	void refreshUIForMode();
+	void checkLocalModelsAndNotify();
 
 	juce::File getSessionsDirectory();
 	std::unique_ptr<MixerPanel> mixerPanel;

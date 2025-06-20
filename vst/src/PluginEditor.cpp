@@ -196,6 +196,7 @@ void DjIaVstEditor::refreshTracks()
 void DjIaVstEditor::initUI()
 {
 	setupUI();
+	refreshUIForMode();
 	serverUrlInput.setText(audioProcessor.getServerUrl(), juce::dontSendNotification);
 	apiKeyInput.setText(audioProcessor.getApiKey(), juce::dontSendNotification);
 	if (audioProcessor.getServerUrl().isEmpty())
@@ -232,27 +233,28 @@ void DjIaVstEditor::showFirstTimeSetup()
 {
 	auto alertWindow = std::make_unique<juce::AlertWindow>(
 		"OBSIDIAN-Neural Configuration",
-		"Welcome! Please configure your settings:",
+		"Choose your generation method:",
 		juce::MessageBoxIconType::InfoIcon);
 
-	juce::String currentServerUrl = audioProcessor.getServerUrl() == "" ? "http://localhost:8000" : audioProcessor.getServerUrl();
-	alertWindow->addTextEditor("serverUrl", currentServerUrl, "Server URL:");
+	juce::StringArray modes;
+	modes.add("Server/API (Full features + stems separation)");
+	modes.add("Local Model (Basic - requires manual setup)");
+	alertWindow->addComboBox("generationMode", modes, "Generation Mode:");
+	if (auto* modeCombo = alertWindow->getComboBoxComponent("generationMode"))
+	{
+		modeCombo->setSelectedItemIndex(audioProcessor.getUseLocalModel() ? 1 : 0);
+	}
 
+	alertWindow->addTextEditor("serverUrl",
+		audioProcessor.getServerUrl().isEmpty() ? "http://localhost:8000" : audioProcessor.getServerUrl(),
+		"Server URL:");
 	alertWindow->addTextEditor("apiKey", "", "API Key:");
 	if (auto* apiKeyEditor = alertWindow->getTextEditor("apiKey"))
 	{
 		apiKeyEditor->setPasswordCharacter('*');
 	}
 
-	juce::StringArray timeouts;
-	timeouts.add("1 minute");
-	timeouts.add("2 minutes");
-	timeouts.add("5 minutes");
-	timeouts.add("10 minutes");
-	timeouts.add("15 minutes");
-	timeouts.add("20 minutes");
-	timeouts.add("30 minutes");
-	timeouts.add("45 minutes");
+	juce::StringArray timeouts = { "1 minute", "2 minutes", "5 minutes", "10 minutes", "15 minutes", "20 minutes", "30 minutes", "45 minutes" };
 	alertWindow->addComboBox("requestTimeout", timeouts, "Request Timeout:");
 	if (auto* timeoutCombo = alertWindow->getComboBoxComponent("requestTimeout"))
 	{
@@ -266,55 +268,81 @@ void DjIaVstEditor::showFirstTimeSetup()
 	alertWindow.release()->enterModalState(true, juce::ModalCallbackFunction::create([this, windowPtr](int result)
 		{
 			if (result == 1) {
+				auto* modeCombo = windowPtr->getComboBoxComponent("generationMode");
 				auto* urlEditor = windowPtr->getTextEditor("serverUrl");
 				auto* keyEditor = windowPtr->getTextEditor("apiKey");
 				auto* timeoutCombo = windowPtr->getComboBoxComponent("requestTimeout");
 
-				if (urlEditor && keyEditor && timeoutCombo) {
-					audioProcessor.setServerUrl(urlEditor->getText());
-					audioProcessor.setApiKey(keyEditor->getText());
+				if (modeCombo && urlEditor && keyEditor && timeoutCombo) {
+					bool useLocal = (modeCombo->getSelectedItemIndex() == 1);
+					audioProcessor.setUseLocalModel(useLocal);
+
+					if (useLocal) {
+						checkLocalModelsAndNotify();
+					}
+					else {
+						audioProcessor.setServerUrl(urlEditor->getText());
+						audioProcessor.setApiKey(keyEditor->getText());
+					}
 
 					juce::Array<int> timeoutMinutes = { 1, 2, 5, 10, 15, 20, 30, 45 };
 					int selectedTimeoutMs = timeoutMinutes[timeoutCombo->getSelectedItemIndex()] * 60 * 1000;
 					audioProcessor.setRequestTimeout(selectedTimeoutMs);
 					audioProcessor.saveGlobalConfig();
-					statusLabel.setText("Configuration saved!", juce::dontSendNotification);
-					juce::Component::SafePointer<DjIaVstEditor> safeThis(this);
-					juce::Timer::callAfterDelay(2000, [safeThis]() {
-						if (safeThis.getComponent() != nullptr) {
-							safeThis->statusLabel.setText("Ready", juce::dontSendNotification);
-						}
-						});
+
+					if (!useLocal) {
+						statusLabel.setText("Configuration saved!", juce::dontSendNotification);
+					}
+					refreshUIForMode();
 				}
 			}
 			windowPtr->exitModalState(result);
-			delete windowPtr; }));
+			delete windowPtr;
+		}));
+}
+
+void DjIaVstEditor::refreshUIForMode()
+{
+	bool isLocalMode = audioProcessor.getUseLocalModel();
+
+	stemsLabel.setVisible(!isLocalMode);
+	drumsButton.setVisible(!isLocalMode);
+	bassButton.setVisible(!isLocalMode);
+	otherButton.setVisible(!isLocalMode);
+	vocalsButton.setVisible(!isLocalMode);
+	guitarButton.setVisible(!isLocalMode);
+	pianoButton.setVisible(!isLocalMode);
+
+	durationSlider.setVisible(!isLocalMode);
+	durationLabel.setVisible(!isLocalMode);
+
+	resized();
 }
 
 void DjIaVstEditor::showConfigDialog()
 {
 	auto alertWindow = std::make_unique<juce::AlertWindow>(
 		"Update Configuration",
-		"Update your API settings:",
+		"Update your settings:",
 		juce::MessageBoxIconType::QuestionIcon);
 
-	alertWindow->addTextEditor("serverUrl", audioProcessor.getServerUrl(), "Server URL:");
+	juce::StringArray modes;
+	modes.add("Server/API (Full features + stems separation)");
+	modes.add("Local Model (Basic - requires manual setup)");
+	alertWindow->addComboBox("generationMode", modes, "Generation Mode:");
+	if (auto* modeCombo = alertWindow->getComboBoxComponent("generationMode"))
+	{
+		modeCombo->setSelectedItemIndex(audioProcessor.getUseLocalModel() ? 1 : 0);
+	}
 
+	alertWindow->addTextEditor("serverUrl", audioProcessor.getServerUrl(), "Server URL:");
 	alertWindow->addTextEditor("apiKey", "", "API Key (leave blank to keep current):");
 	if (auto* apiKeyEditor = alertWindow->getTextEditor("apiKey"))
 	{
 		apiKeyEditor->setPasswordCharacter('*');
 	}
 
-	juce::StringArray timeouts;
-	timeouts.add("1 minute");
-	timeouts.add("2 minutes");
-	timeouts.add("5 minutes");
-	timeouts.add("10 minutes");
-	timeouts.add("15 minutes");
-	timeouts.add("20 minutes");
-	timeouts.add("30 minutes");
-	timeouts.add("45 minutes");
+	juce::StringArray timeouts = { "1 minute", "2 minutes", "5 minutes", "10 minutes", "15 minutes", "20 minutes", "30 minutes", "45 minutes" };
 	alertWindow->addComboBox("requestTimeout", timeouts, "Request Timeout:");
 	if (auto* timeoutCombo = alertWindow->getComboBoxComponent("requestTimeout"))
 	{
@@ -340,35 +368,90 @@ void DjIaVstEditor::showConfigDialog()
 	alertWindow.release()->enterModalState(true, juce::ModalCallbackFunction::create([this, windowPtr](int result)
 		{
 			if (result == 1) {
+				auto* modeCombo = windowPtr->getComboBoxComponent("generationMode");
 				auto* urlEditor = windowPtr->getTextEditor("serverUrl");
 				auto* keyEditor = windowPtr->getTextEditor("apiKey");
 				auto* timeoutCombo = windowPtr->getComboBoxComponent("requestTimeout");
 
-				if (urlEditor && keyEditor && timeoutCombo) {
-					juce::String newKey = keyEditor->getText();
-					if (newKey.isEmpty()) {
-						newKey = audioProcessor.getApiKey();
-					}
+				if (modeCombo && urlEditor && keyEditor && timeoutCombo) {
+					bool useLocal = (modeCombo->getSelectedItemIndex() == 1);
+					bool modeChanged = (useLocal != audioProcessor.getUseLocalModel());
 
-					audioProcessor.setServerUrl(urlEditor->getText());
-					audioProcessor.setApiKey(newKey);
+					audioProcessor.setUseLocalModel(useLocal);
+
+					if (useLocal) {
+						checkLocalModelsAndNotify();
+					}
+					else {
+						audioProcessor.setServerUrl(urlEditor->getText());
+						juce::String newKey = keyEditor->getText();
+						if (newKey.isNotEmpty()) {
+							audioProcessor.setApiKey(newKey);
+						}
+					}
 
 					juce::Array<int> timeoutMinutes = { 1, 2, 5, 10, 15, 20, 30, 45 };
 					int selectedTimeoutMs = timeoutMinutes[timeoutCombo->getSelectedItemIndex()] * 60 * 1000;
 					audioProcessor.setRequestTimeout(selectedTimeoutMs);
 
 					audioProcessor.saveGlobalConfig();
-					statusLabel.setText("Configuration updated!", juce::dontSendNotification);
-					juce::Component::SafePointer<DjIaVstEditor> safeThis(this);
-					juce::Timer::callAfterDelay(2000, [safeThis]() {
-						if (safeThis.getComponent() != nullptr) {
-							safeThis->statusLabel.setText("Ready", juce::dontSendNotification);
-						}
+
+					if (modeChanged) {
+						refreshUIForMode();
+						statusLabel.setText("Mode changed! Configuration updated.", juce::dontSendNotification);
+					}
+					else {
+						statusLabel.setText("Configuration updated!", juce::dontSendNotification);
+					}
+
+					statusLabel.setColour(juce::Label::textColourId, ColourPalette::textSuccess);
+
+					juce::Timer::callAfterDelay(3000, [this]() {
+						statusLabel.setText("Ready", juce::dontSendNotification);
+						statusLabel.setColour(juce::Label::textColourId, ColourPalette::textSuccess);
 						});
 				}
 			}
+
 			windowPtr->exitModalState(result);
-			delete windowPtr; }));
+			delete windowPtr;
+		}));
+}
+
+void DjIaVstEditor::checkLocalModelsAndNotify()
+{
+	auto appDataDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+		.getChildFile("OBSIDIAN-Neural");
+	auto stableAudioDir = appDataDir.getChildFile("stable-audio");
+
+	StableAudioEngine tempEngine;
+	bool modelsPresent = tempEngine.initialize(stableAudioDir.getFullPathName());
+
+	if (modelsPresent) {
+		statusLabel.setText("Local models found! Configuration saved.", juce::dontSendNotification);
+		statusLabel.setColour(juce::Label::textColourId, ColourPalette::textSuccess);
+	}
+	else {
+		juce::AlertWindow::showAsync(
+			juce::MessageBoxOptions()
+			.withIconType(juce::MessageBoxIconType::InfoIcon)
+			.withTitle("Local Models Required")
+			.withMessage("Local models not found!\n\n"
+				"You need to download and setup the required model files.\n"
+				"Please follow the setup instructions on GitHub.\n\n"
+				"Expected location: " + stableAudioDir.getFullPathName())
+			.withButton("Open GitHub Instructions")
+			.withButton("OK"),
+			[this](int result) {
+				if (result == 1) {
+					juce::URL githubUrl("https://github.com/innermost47/ai-dj/blob/main/README.md");
+					githubUrl.launchInDefaultBrowser();
+				}
+			});
+
+		statusLabel.setText("Local mode selected - Models setup required", juce::dontSendNotification);
+		statusLabel.setColour(juce::Label::textColourId, ColourPalette::textDanger);
+	}
 }
 
 void DjIaVstEditor::timerCallback()

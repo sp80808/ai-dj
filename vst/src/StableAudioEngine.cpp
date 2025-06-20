@@ -77,7 +77,6 @@ StableAudioEngine::GenerationResult StableAudioEngine::generateSample(const Gene
 
 		auto sanitizedPrompt = sanitizePrompt(params.prompt);
 		auto seed = (params.seed == -1) ? generateRandomSeed() : params.seed;
-		auto duration = juce::jlimit(0.1f, 10.0f, params.duration);
 
 		juce::StringArray command;
 		command.add(audiogenExecutable.getFullPathName());
@@ -128,9 +127,9 @@ StableAudioEngine::GenerationResult StableAudioEngine::generateSample(const Gene
 			return result;
 		}
 
-		auto audioData = loadWavFile(outputFile);
+		auto audioData = loadAndResampleWavFile(outputFile, params.sampleRate);
 		if (audioData.empty()) {
-			result.errorMessage = "Failed to load generated audio file";
+			result.errorMessage = "Failed to load and resample generated audio file";
 			return result;
 		}
 
@@ -156,13 +155,7 @@ StableAudioEngine::GenerationResult StableAudioEngine::generateSample(const Gene
 	}
 }
 
-std::vector<float> StableAudioEngine::generateAudio(const juce::String& prompt, float duration) {
-	GenerationParams params(prompt, duration);
-	auto result = generateSample(params);
-	return result.isValid() ? result.audioData : std::vector<float>();
-}
-
-std::vector<float> StableAudioEngine::loadWavFile(const juce::File& wavFile) {
+std::vector<float> StableAudioEngine::loadAndResampleWavFile(const juce::File& wavFile, double targetSampleRate) {
 	std::vector<float> audioData;
 
 	try {
@@ -179,32 +172,75 @@ std::vector<float> StableAudioEngine::loadWavFile(const juce::File& wavFile) {
 
 		auto numSamples = static_cast<int>(reader->lengthInSamples);
 		auto numChannels = static_cast<int>(reader->numChannels);
+		double originalSampleRate = reader->sampleRate;
 
 		juce::AudioBuffer<float> buffer(numChannels, numSamples);
 		reader->read(&buffer, 0, numSamples, 0, true, true);
 
-		audioData.reserve(numSamples);
-
-		for (int sample = 0; sample < numSamples; ++sample) {
-			if (numChannels == 1) {
-				audioData.push_back(buffer.getSample(0, sample));
-			}
-			else {
+		juce::AudioBuffer<float> monoBuffer(1, numSamples);
+		if (numChannels == 1) {
+			monoBuffer.copyFrom(0, 0, buffer, 0, 0, numSamples);
+		}
+		else {
+			for (int sample = 0; sample < numSamples; ++sample) {
 				float left = buffer.getSample(0, sample);
 				float right = buffer.getSample(1, sample);
-				audioData.push_back((left + right) * 0.5f);
+				monoBuffer.setSample(0, sample, (left + right) * 0.5f);
 			}
 		}
 
-		DBG("Loaded WAV: " << numSamples << " samples, " << numChannels << " channels -> " << audioData.size() << " mono samples");
+		DBG("Original: " << numSamples << " samples at " << originalSampleRate << "Hz");
+		if (std::abs(originalSampleRate - targetSampleRate) > 1.0) {
+			DBG("Resampling from " << originalSampleRate << "Hz to " << targetSampleRate << "Hz");
+
+			juce::AudioBuffer<float> resampledBuffer = resampleBuffer(monoBuffer, originalSampleRate, targetSampleRate);
+
+			audioData.reserve(resampledBuffer.getNumSamples());
+			for (int sample = 0; sample < resampledBuffer.getNumSamples(); ++sample) {
+				audioData.push_back(resampledBuffer.getSample(0, sample));
+			}
+
+			DBG("Resampled to: " << audioData.size() << " samples at " << targetSampleRate << "Hz");
+		}
+		else {
+			audioData.reserve(numSamples);
+			for (int sample = 0; sample < numSamples; ++sample) {
+				audioData.push_back(monoBuffer.getSample(0, sample));
+			}
+			DBG("No resampling needed: " << audioData.size() << " samples");
+		}
 
 	}
 	catch (const std::exception& e) {
-		DBG("Exception loading WAV file: " << e.what());
+		DBG("Exception loading/resampling WAV file: " << e.what());
 		audioData.clear();
 	}
 
 	return audioData;
+}
+
+juce::AudioBuffer<float> StableAudioEngine::resampleBuffer(const juce::AudioBuffer<float>& inputBuffer,
+	double inputSampleRate,
+	double outputSampleRate) {
+	double ratio = outputSampleRate / inputSampleRate;
+	int outputNumSamples = static_cast<int>(inputBuffer.getNumSamples() * ratio);
+
+	juce::AudioBuffer<float> outputBuffer(1, outputNumSamples);
+	juce::LagrangeInterpolator interpolator;
+	interpolator.reset();
+
+	const float* inputData = inputBuffer.getReadPointer(0);
+	float* outputData = outputBuffer.getWritePointer(0);
+
+	interpolator.process(1.0 / ratio, inputData, outputData, outputNumSamples, inputBuffer.getNumSamples(), 0);
+
+	return outputBuffer;
+}
+
+std::vector<float> StableAudioEngine::generateAudio(const juce::String& prompt, float duration) {
+	GenerationParams params(prompt, duration);
+	auto result = generateSample(params);
+	return result.isValid() ? result.audioData : std::vector<float>();
 }
 
 juce::String StableAudioEngine::sanitizePrompt(const juce::String& prompt) {

@@ -195,12 +195,28 @@ public:
 		return std::find(globalStems.begin(), globalStems.end(), stem) != globalStems.end();
 	}
 
+	bool getUseLocalModel() const { return useLocalModel; }
+	void setUseLocalModel(bool useLocal) { useLocalModel = useLocal; }
+
+	juce::String getLocalModelsPath() const { return localModelsPath; }
+	void setLocalModelsPath(const juce::String& path) { localModelsPath = path; }
+
+	static juce::String getModelsDirectory() {
+		return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+			.getChildFile("OBSIDIAN-Neural")
+			.getChildFile("stable-audio")
+			.getFullPathName();
+	}
+
 private:
 	DjIaVstEditor* currentEditor = nullptr;
 	SimpleEQ masterEQ;
 	MidiLearnManager midiLearnManager;
 	DjIaClient apiClient;
 	GenerationListener* generationListener = nullptr;
+
+	bool useLocalModel = false;
+	juce::String localModelsPath = "";
 
 	juce::Synthesiser synth;
 
@@ -371,6 +387,8 @@ private:
 	void notifyGenerationComplete(const juce::String& trackId, const juce::String& message);
 	void generateLoopFromMidi(const juce::String& trackId);
 	void updateMidiIndicatorWithActiveNotes(double hostBpm, const juce::Array<int>& triggeredNotes);
+	void generateLoopAPI(const DjIaClient::LoopRequest& request, const juce::String& trackId);
+	void generateLoopLocal(const DjIaClient::LoopRequest& request, const juce::String& trackId);
 
 	TrackComponent* findTrackComponentByName(const juce::String& trackName, DjIaVstEditor* editor);
 

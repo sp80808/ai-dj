@@ -1,6 +1,5 @@
 ﻿#pragma once
 #include <JuceHeader.h>
-#include "LlamaEngine.h"
 #include "StableAudioEngine.h"
 #include <nlohmann/json.hpp>
 
@@ -26,7 +25,6 @@ public:
 		float actualDuration = 0.0f;
 		float bpm = 120.0f;
 		float duration = 0.0f;
-		juce::String llmReasoning;
 		juce::String optimizedPrompt;
 		std::vector<juce::String> stemsUsed;
 	};
@@ -34,7 +32,6 @@ public:
 	typedef std::function<void(LoopResponse)> GenerationCallback;
 
 private:
-	std::unique_ptr<LlamaEngine> llamaEngine;
 	std::unique_ptr<StableAudioEngine> stableAudioEngine;
 
 	juce::File appDataDir;
@@ -45,18 +42,8 @@ public:
 	{
 		appDataDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
 			.getChildFile("OBSIDIAN-Neural");
-
-		auto llamaDir = appDataDir.getChildFile("llama");
 		auto stableAudioDir = appDataDir.getChildFile("stable-audio");
 
-		llamaEngine = std::make_unique<LlamaEngine>();
-		auto llamaModelFile = llamaDir.getChildFile("gemma-3-4b-it-Q4_K_M.gguf");
-
-		if (!llamaEngine->initialize(llamaModelFile.getFullPathName()))
-		{
-			DBG("Failed to initialize LLama engine");
-			return false;
-		}
 
 		stableAudioEngine = std::make_unique<StableAudioEngine>();
 		if (!stableAudioEngine->initialize(stableAudioDir.getFullPathName()))
@@ -85,30 +72,9 @@ private:
 		LoopResponse response;
 		try
 		{
-			DBG("Phase 1: LLM processing prompt...");
-			auto llmDecision = llamaEngine->getNextDecision(
-				request.prompt,
-				currentUserId,
-				request.bpm,
-				request.key);
 
 			juce::String optimizedPrompt = (request.prompt + " " + juce::String(request.bpm) + "bpm " + request.key).toStdString();
-			juce::String reasoning = "LLM processing";
 
-			if (llmDecision.contains("parameters") &&
-				llmDecision["parameters"].contains("sample_details") &&
-				llmDecision["parameters"]["sample_details"].contains("musicgen_prompt"))
-			{
-				optimizedPrompt = juce::String(llmDecision["parameters"]["sample_details"]["musicgen_prompt"].get<std::string>());
-			}
-			if (llmDecision.contains("reasoning"))
-			{
-				reasoning = juce::String(llmDecision["reasoning"].get<std::string>());
-			}
-
-			DBG("LLM optimized prompt: " << optimizedPrompt);
-			DBG("LLM reasoning: " << reasoning);
-			DBG("Phase 2: Generating audio...");
 
 			StableAudioEngine::GenerationParams audioParams;
 			audioParams.prompt = optimizedPrompt;
@@ -127,7 +93,6 @@ private:
 				response.actualDuration = audioResult.actualDuration;
 				response.duration = audioResult.actualDuration;
 				response.bpm = request.bpm;
-				response.llmReasoning = reasoning;
 				response.optimizedPrompt = optimizedPrompt;
 				response.stemsUsed = request.preferredStems;
 				DBG("Generation successful! Duration: " << response.actualDuration << "s");

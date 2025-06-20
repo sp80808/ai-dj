@@ -7,94 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_subdirectory(JUCE)
 add_subdirectory(soundtouch)
 
-set(LLAMA_AVAILABLE FALSE)
-
-if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/deps/llama.cpp/CMakeLists.txt")
-    message(STATUS "Downloading llama.cpp...")
-    
-    FetchContent_Declare(
-        llama_cpp
-        GIT_REPOSITORY https://github.com/ggml-org/llama.cpp.git
-        GIT_TAG master
-        GIT_SHALLOW TRUE
-        SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/llama.cpp
-    )
-    
-    FetchContent_MakeAvailable(llama_cpp)
-    set(LLAMA_AVAILABLE TRUE)
-else()
-    message(STATUS "Using existing llama.cpp...")
-    set(LLAMA_AVAILABLE TRUE)
-endif()
-
-if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_CONFIGURATION_TYPES)
-    set(LLAMA_BUILD_TYPE "Debug")
-else()
-    set(LLAMA_BUILD_TYPE "Release")
-endif()
-
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/deps/llama.cpp/CMakeLists.txt")
-    message(STATUS "Setting up llama.cpp manually...")
-    
-    include(ExternalProject)
-    
-    ExternalProject_Add(
-        llama_cpp_project
-        SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/llama.cpp
-        BINARY_DIR ${CMAKE_BINARY_DIR}/llama_cpp_build
-        CMAKE_ARGS 
-            -DCMAKE_BUILD_TYPE=${LLAMA_BUILD_TYPE} 
-            -DBUILD_SHARED_LIBS=OFF
-            -DLLAMA_BUILD_EXAMPLES=OFF
-            -DLLAMA_BUILD_TESTS=OFF
-            -DLLAMA_BUILD_SERVER=OFF
-            -DLLAMA_CURL=OFF
-            -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/llama_install
-        INSTALL_COMMAND ""
-        BUILD_ALWAYS FALSE
-    )
-    
-    set(LLAMA_LIB_DIR ${CMAKE_BINARY_DIR}/llama_cpp_build)
-    set(LLAMA_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/llama.cpp/include)
-    set(LLAMA_COMMON_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/llama.cpp/common)
-    set(GGML_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/llama.cpp/ggml/include)
-    
-    if(WIN32)
-        if(EXISTS "${LLAMA_LIB_DIR}/src/Debug")
-            set(LLAMA_CONFIG "Debug")
-            message(STATUS "Found Debug libs, using Debug config")
-        elseif(EXISTS "${LLAMA_LIB_DIR}/src/Release")
-            set(LLAMA_CONFIG "Release") 
-            message(STATUS "Found Release libs, using Release config")
-        else()
-            message(FATAL_ERROR "Neither Debug nor Release libs found!")
-        endif()
-
-        file(GLOB LLAMA_LIBS_LLAMA "${LLAMA_LIB_DIR}/src/${LLAMA_CONFIG}/*.lib")
-        file(GLOB LLAMA_LIBS_GGML "${LLAMA_LIB_DIR}/ggml/src/${LLAMA_CONFIG}/*.lib") 
-        file(GLOB LLAMA_LIBS_COMMON "${LLAMA_LIB_DIR}/common/${LLAMA_CONFIG}/*.lib")
-    
-        set(LLAMA_LIBRARIES 
-            ${LLAMA_LIBS_LLAMA}
-            ${LLAMA_LIBS_GGML} 
-            ${LLAMA_LIBS_COMMON}
-        )
-    
-        message(STATUS "Auto-detected llama libraries: ${LLAMA_LIBRARIES}")
-    else()
-        set(LLAMA_LIBRARIES 
-            ${LLAMA_LIB_DIR}/src/libllama.a
-            ${LLAMA_LIB_DIR}/ggml/src/libggml.a
-        )
-    endif()
-    
-    set(LLAMA_AVAILABLE TRUE)
-    message(STATUS "llama.cpp configured manually")
-else()
-    message(WARNING "llama.cpp not found in deps/llama.cpp")
-    set(LLAMA_AVAILABLE FALSE)
-endif()
-
 find_package(nlohmann_json QUIET)
 if(NOT nlohmann_json_FOUND)
     include(FetchContent)
@@ -140,7 +52,6 @@ target_sources(ObsidianNeuralVST PRIVATE
     src/SequencerComponent.cpp
     src/ColourPalette.cpp
     src/MixerPanel.cpp
-    src/LlamaEngine.cpp
     src/StableAudioEngine.cpp
 )
 
@@ -150,14 +61,6 @@ target_include_directories(ObsidianNeuralVST PRIVATE
     soundtouch/include
 )
 
-if(LLAMA_AVAILABLE)
-    target_include_directories(ObsidianNeuralVST PRIVATE
-        ${LLAMA_INCLUDE_DIR}
-        ${LLAMA_COMMON_INCLUDE_DIR} 
-        ${GGML_INCLUDE_DIR}
-    )
-endif()
-
 target_compile_definitions(ObsidianNeuralVST PRIVATE
     JucePlugin_IsSynth=1
     JucePlugin_WantsMidiInput=1
@@ -165,7 +68,6 @@ target_compile_definitions(ObsidianNeuralVST PRIVATE
     JucePlugin_IsMidiEffect=0
     JucePlugin_VSTNumMidiInputs=16
     OBSIDIAN_HAS_STABLE_AUDIO=1
-    $<$<BOOL:${LLAMA_AVAILABLE}>:OBSIDIAN_HAS_LLAMA=1>
     
     PUBLIC
         JUCE_WEB_BROWSER=0
@@ -185,14 +87,6 @@ target_link_libraries(ObsidianNeuralVST PRIVATE
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
 )
-
-if(LLAMA_AVAILABLE)
-    add_dependencies(ObsidianNeuralVST llama_cpp_project)
-
-    target_link_libraries(ObsidianNeuralVST PRIVATE ${LLAMA_LIBRARIES})
-    
-    message(STATUS "Will link against: ${LLAMA_LIBRARIES}")
-endif()
 
 if(WIN32)
     target_link_libraries(ObsidianNeuralVST PRIVATE ws2_32 winmm)
