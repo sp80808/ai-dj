@@ -1,8 +1,9 @@
-#pragma once
+﻿#pragma once
 #include "JuceHeader.h"
 #include "TrackManager.h"
 #include "DjIaClient.h"
 #include "MidiLearnManager.h"
+#include "ObsidianEngine.h"
 #include "SimpleEQ.h"
 #include <memory>
 #include <unordered_map>
@@ -242,6 +243,17 @@ private:
 
 	void handleAsyncUpdate() override;
 
+	std::unique_ptr<ObsidianEngine> obsidianEngine;
+
+	struct PendingRequest {
+		int trackId;
+		ObsidianEngine::LoopRequest request;
+		juce::Time requestTime;
+	};
+
+	std::queue<PendingRequest> pendingRequests;
+	std::mutex requestsMutex;
+
 	juce::CriticalSection apiLock;
 	juce::CriticalSection sequencerMidiLock;
 
@@ -367,6 +379,12 @@ private:
 	juce::Slider* findBpmOffsetSliderInTrack(TrackComponent* trackComponent);
 
 	juce::File getTrackAudioFile(const juce::String& trackId);
+
+	void handleGenerationComplete(const juce::String& trackId,
+		const DjIaClient::LoopRequest& originalRequest,
+		const ObsidianEngine::LoopResponse& response);
+
+	juce::File createTempAudioFile(const std::vector<float>& audioData, float duration);
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor);
 };
