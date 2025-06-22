@@ -8,13 +8,13 @@
 
 ## 🚀 **MAJOR UPDATE: Local Models Now Available!**
 
-**🎉 The current release run completely offline with local TensorFlow Lite models!**
+**🎉 The current release runs completely offline with local TensorFlow Lite models!**
 
 **⚠️ IMPORTANT: The current release is built from the `localModels` branch, NOT this main branch.**
 
 Special thanks to [@fcaspe](https://github.com/fcaspe) for introducing me to audiogen and putting me on this path! This completely solves OBSIDIAN-Neural's main pain point: server dependencies and resource requirements.
 
-### 📦 **Current Release 0.7.0-alpha (localModels branch)**
+### 📦 **Current Release v0.7.0-alpha (localModels branch)**
 
 **No more servers, Python, or GPU requirements!**
 
@@ -27,6 +27,16 @@ Special thanks to [@fcaspe](https://github.com/fcaspe) for introducing me to aud
 
 **✅ Benefits:** Completely offline, no GPU server, no Python installation, instant generation  
 **⚠️ Requirements:** 16GB+ RAM recommended, Windows only initially
+
+### ⚠️ **Current Limitations (v0.7.0-alpha)**
+
+**The TensorFlow Lite models have some quality trade-offs:**
+
+- **Timing issues**: Generated rhythms may not be perfectly quantized
+- **Quality reduction**: TFLite quantization affects audio precision
+- **High RAM usage**: Expect significant memory consumption during generation
+
+**For live performance and production use, the server-based approach still provides better quality and timing precision.**
 
 ---
 
