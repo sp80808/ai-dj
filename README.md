@@ -206,15 +206,6 @@ _57 minutes of real-time AI music generation with all the unpredictability!_
 
 ---
 
-## 🔮 Key Features
-
-- **🤖 Intelligent AI Generation**: LLM brain analyzes sessions and generates smart prompts
-- **🎹 8-Track Sampler**: MIDI triggering (C3-B3) with advanced waveform editor
-- **🥁 Built-in Step Sequencer**: 16-step programmable sequencer per track
-- **🎛️ Live Performance Ready**: MIDI Learn, session save/load, DAW sync
-
----
-
 ## 🐛 Bug Reports & Feedback
 
 **Found issues?** [Create GitHub Issue](https://github.com/innermost47/ai-dj/issues/new)
