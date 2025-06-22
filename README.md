@@ -10,11 +10,9 @@
 
 **🎉 The current release runs completely offline with local TensorFlow Lite models!**
 
-**⚠️ IMPORTANT: The current release is built from the `localModels` branch, NOT this main branch.**
-
 Special thanks to [@fcaspe](https://github.com/fcaspe) for introducing me to audiogen and putting me on this path! This completely solves OBSIDIAN-Neural's main pain point: server dependencies and resource requirements.
 
-### 📦 **Current Release v0.7.0-alpha (localModels branch)**
+### 📦 **Current Release**
 
 **No more servers, Python, or GPU requirements!**
 
@@ -28,15 +26,145 @@ Special thanks to [@fcaspe](https://github.com/fcaspe) for introducing me to aud
 **✅ Benefits:** Completely offline, no GPU server, no Python installation, instant generation  
 **⚠️ Requirements:** 16GB+ RAM recommended, Windows only initially
 
-### ⚠️ **Current Limitations (v0.7.0-alpha)**
+### ⚠️ **Current Limitations**
 
 **The TensorFlow Lite models have some quality trade-offs:**
 
 - **Timing issues**: Generated rhythms may not be perfectly quantized
 - **Quality reduction**: TFLite quantization affects audio precision
 - **High RAM usage**: Expect significant memory consumption during generation
+- **Fixed duration**: Audio generation locked to 10 seconds (audiogen/TFLite limitation)
+- **No STEMS separation**: DEMUCS stem separation not available in local mode
 
-**For live performance and production use, the server-based approach still provides better quality and timing precision.**
+**For live performance and production use, the server-based approach still provides better quality, timing precision, variable duration, and STEMS separation.**
+
+---
+
+## 🎯 **Alternative Options (if local doesn't work for you):**
+
+### 🚀 **Option 1: Beta Testing**
+
+**Get FREE API access - No setup required!**
+
+- Contact me for a free API key (**only 10 slots available**)
+- Download VST3 from [Releases](https://github.com/innermost47/ai-dj/releases)
+- **Contact:** b03caa1n5@mozmail.com
+
+### 🔧 **Option 2: Windows Installer (Self-Hosting)**
+
+**Complete setup with local server - addresses installation complexity!**
+
+#### **Prerequisites:**
+
+1. **Get Stability AI access**: [Request access](https://huggingface.co/stabilityai/stable-audio-open-1.0) to Stable Audio Open on Hugging Face
+2. **Wait for approval**: Usually takes a few minutes to a few hours
+3. **Run as Administrator**: The installer requires admin rights for system-wide installations
+
+#### **Installation:**
+
+- Download the [.exe installer](https://github.com/innermost47/ai-dj/releases)
+- **Optional**: Download VST3 separately from [Releases](https://github.com/innermost47/ai-dj/releases)
+- **Space requirements**: ~20GB total installation
+
+**What the installer automatically installs:**
+
+- **Python 3.10** (if not detected)
+- **Git** (for source code management)
+- **CMake** (build system for VST compilation)
+- **Visual Studio Build Tools** (Windows compiler)
+- **CUDA Toolkit** (if NVIDIA GPU detected)
+- **PyTorch** (with CUDA/ROCm support based on your GPU)
+- **All Python dependencies** (FastAPI, Stable Audio Tools, etc.)
+
+**Installation process (automatic):**
+
+1. **System Detection**: Analyzes your hardware (CPU, RAM, GPU)
+2. **Prerequisites Check**: Installs missing components (Python, CMake, Git, etc.)
+3. **Source Download**: Clones OBSIDIAN-Neural from GitHub
+4. **Python Environment**: Creates isolated virtual environment
+5. **AI Model Download**: Downloads Gemma-3-4B model (2.49 GB)
+6. **VST Compilation**: Builds VST3 plugin from source (or skip with manual option)
+7. **Desktop Shortcuts**: Creates server launcher shortcuts
+8. **Performance Benchmark**: Tests your system capabilities (optional)
+
+**VST3 Installation Options:**
+
+- **Automatic**: Let installer build and install VST3
+- **Manual**: Download VST3 separately, uncheck "Build VST3" in installer, manually copy to `C:\Program Files\Common Files\VST3\`
+
+**Installation locations:**
+
+- **Main files**: `C:\ProgramData\OBSIDIAN-Neural\`
+- **AI models**: `%USERPROFILE%\.huggingface\hub\`
+- **VST3 plugin**: `C:\Program Files\Common Files\VST3\`
+- **Configuration database**: `%USERPROFILE%\.obsidian_neural\config.db`
+
+**Complete uninstall:**
+
+1. Delete `C:\ProgramData\OBSIDIAN-Neural\`
+2. Delete `%USERPROFILE%\.huggingface\hub\`
+3. Delete `C:\Program Files\Common Files\VST3\OBSIDIAN-Neural.vst3`
+4. Delete `%USERPROFILE%\.obsidian_neural\config.db` (encrypted database)
+5. Manually remove Python/CUDA/CMake if no longer needed
+
+**Step-by-step workflow after installation:**
+
+#### 1. **Server Interface Overview**
+
+The desktop shortcut launches a complete control panel with:
+
+**Server Interface Features:**
+
+- **System Tray Support**: Minimize to tray with green triangle icon, control server from tray menu
+- **🚀 Server Control Tab**: Real-time status, start/stop/restart buttons, copy-paste server URL
+- **⚙️ Configuration Tab**:
+  - API Keys management with credit system (🔓 UNLIMITED, ✅ 50/50 credits, ❌ NO CREDITS)
+  - Secure Hugging Face token storage with built-in verification
+  - Model settings and server configuration
+- **📝 Logs Tab**: Real-time server output with color-coded messages
+- **First-Time Setup Wizard**: Guided configuration for new installations
+- **Auto-save**: All settings saved automatically, encrypted local database
+
+#### 2. **Configure the Server**
+
+- Launch "OBSIDIAN Server" from desktop shortcut
+- **First launch**: Setup wizard will guide you through configuration
+- **Hugging Face Token**: Enter your approved token (built-in verification available)
+- **API Keys**: Generate keys with credit limits or unlimited access
+
+#### 3. **Then: Launch the Server**
+
+- Start the AI server from the GUI interface
+- **API Keys prompt will appear**:
+  - **"Use stored API keys for authentication?"**
+  - **Yes**: Use API authentication (for production/network access)
+  - **No**: Development bypass - no auth needed (for localhost/closed network)
+- **Server URL**: Will be displayed in the interface (usually `http://localhost:8000`)
+- **Copy-paste friendly**: You can select and copy the server URL directly from the GUI
+
+#### 4. **Finally: Configure the VST**
+
+- Load OBSIDIAN-Neural VST3 in your DAW
+- **Server URL**: Paste the URL from server GUI (e.g., `http://localhost:8000`)
+- **API Key**: Copy from server interface if you chose "Yes" to API authentication
+- Choose "Server Mode" in plugin settings
+
+**Troubleshooting:**
+
+- **No admin rights?** Installer must run as Administrator for system installations
+- **No Hugging Face access?** You must be approved for Stable Audio Open first
+- **VST3 not found?** Check if it was built or copy manually to Common Files
+- **CUDA not detected?** Installer automatically detects NVIDIA GPU for CUDA installation
+- **API Keys confusion?** Choose "No" for simple localhost setup, "Yes" if opening server to network
+- **"Development bypass"**: Perfect for local testing, no authentication needed
+- **Can't find server?** Check the desktop shortcut was created during installation
+- **URL not working?** Make sure server is running before configuring VST
+
+### 👨‍💻 **Option 3: Manual Installation (Developers)**
+
+- Full source compilation
+- Requires Python, CMake, GPU toolchains
+- Most flexible but complex setup
 
 ---
 
@@ -60,29 +188,11 @@ Special thanks to [@fcaspe](https://github.com/fcaspe) for introducing me to aud
 
 ---
 
-## 🎯 **Current Options (main branch)**
-
-### 🚀 **Option 1: Beta Testing (RECOMMENDED)**
-
-**Get FREE API access - No setup required!**
-
-- Contact me for a free API key (**only 10 slots available**)
-- Download VST3 from [Releases](https://github.com/innermost47/ai-dj/releases)
-- **Contact:** b03caa1n5@mozmail.com
-
-### 🔧 **Option 2: Self-Hosting**
-
-- Download the installer from [Releases](https://github.com/innermost47/ai-dj/releases)
-- Requires NVIDIA GPU with 8GB+ VRAM
-- Complex setup with Python, CUDA, etc.
-
----
-
 ### 🔴 Latest Live Stream
 
 [![OBSIDIAN Live Stream](https://img.youtube.com/vi/O5j6xa_9_0s/maxresdefault.jpg)](https://www.youtube.com/watch?v=O5j6xa_9_0s)
 
-_57 minutes of real-time AI music generation!_
+_57 minutes of real-time AI music generation with all the unpredictability!_
 
 ---
 
@@ -90,12 +200,7 @@ _57 minutes of real-time AI music generation!_
 
 ---
 
-## 🔮 Key Features
-
-- **🤖 Intelligent AI Generation**: LLM brain analyzes sessions and generates smart prompts
-- **🎹 8-Track Sampler**: MIDI triggering (C3-B3) with advanced waveform editor
-- **🥁 Built-in Step Sequencer**: 16-step programmable sequencer per track
-- **🎛️ Live Performance Ready**: MIDI Learn, session save/load, DAW sync
+![OBSIDIAN-Neural Interface](./screenshot.png)
 
 ---
 
@@ -109,10 +214,10 @@ Include: DAW name/version, OS, steps to reproduce, expected vs actual behavior
 
 ## 📈 Project Status
 
-🚀 **Next Release**: Local models from `localModels` branch - game changer!  
-✅ **Current**: Functional but requires server setup  
+🚀 **Local models**: Available now (with some limitations)  
+✅ **Server option**: Still the best for live performance  
 ⚠️ **Pre-release**: Active development, frequent updates  
-🌟 **Star count**: 60+ - Thank you for the support!
+🌟 **Star count**: 65+ - Thank you for the support!
 
 ---
 

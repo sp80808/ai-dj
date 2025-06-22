@@ -1,10 +1,21 @@
 ﻿cmake_minimum_required(VERSION 3.16)
-project(OBSIDIAN-Neural VERSION 0.6.9)
+project(OBSIDIAN-Neural VERSION 0.7.0)
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_subdirectory(JUCE)
 add_subdirectory(soundtouch)
+
+find_package(nlohmann_json QUIET)
+if(NOT nlohmann_json_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(nlohmann_json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.11.2
+    )
+    FetchContent_MakeAvailable(nlohmann_json)
+endif()
 
 string(TIMESTAMP BUILD_NUMBER "%Y%m%d_%H%M") 
 configure_file(
@@ -25,56 +36,69 @@ juce_add_plugin(ObsidianNeuralVST
     WANTS_MIDI_INPUT TRUE
     PRODUCES_MIDI_OUTPUT TRUE
     IS_MIDI_EFFECT FALSE
-    NEEDS_CURL TRUE)
+    NEEDS_CURL TRUE
+)
 
-target_sources(ObsidianNeuralVST
-    PRIVATE
-        src/PluginProcessor.cpp
-        src/PluginEditor.cpp
-        src/BinaryData.cpp  
-        src/PluginEntry.cpp
-        src/MidiLearnManager.cpp
-        src/MixerChannel.cpp
-        src/TrackComponent.cpp
-        src/MasterChannel.cpp
-        src/WaveformDisplay.cpp
-        src/SequencerComponent.cpp
-        src/ColourPalette.cpp
-        src/MixerPanel.cpp
-        )
+target_sources(ObsidianNeuralVST PRIVATE
+    src/PluginProcessor.cpp
+    src/PluginEditor.cpp
+    src/BinaryData.cpp  
+    src/PluginEntry.cpp
+    src/MidiLearnManager.cpp
+    src/MixerChannel.cpp
+    src/TrackComponent.cpp
+    src/MasterChannel.cpp
+    src/WaveformDisplay.cpp
+    src/SequencerComponent.cpp
+    src/ColourPalette.cpp
+    src/MixerPanel.cpp
+    src/StableAudioEngine.cpp
+)
 
-target_include_directories(ObsidianNeuralVST
-    PRIVATE
-        ${CMAKE_CURRENT_BINARY_DIR}       
-        ${CMAKE_SOURCE_DIR}/src
-        ${CMAKE_SOURCE_DIR}/soundtouch/include)
+target_include_directories(ObsidianNeuralVST PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}
+    src
+    soundtouch/include
+)
 
-target_compile_definitions(ObsidianNeuralVST
-    PRIVATE
-        JucePlugin_IsSynth=1
-        JucePlugin_WantsMidiInput=1
-        JucePlugin_ProducesMidiOutput=1
-        JucePlugin_IsMidiEffect=0
-        JucePlugin_VSTNumMidiInputs=16
+target_compile_definitions(ObsidianNeuralVST PRIVATE
+    JucePlugin_IsSynth=1
+    JucePlugin_WantsMidiInput=1
+    JucePlugin_ProducesMidiOutput=1
+    JucePlugin_IsMidiEffect=0
+    JucePlugin_VSTNumMidiInputs=16
+    OBSIDIAN_HAS_STABLE_AUDIO=1
+    
     PUBLIC
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=1
-        JUCE_VST3_CAN_REPLACE_VST2=0)
+        JUCE_VST3_CAN_REPLACE_VST2=0
+)
 
-target_link_libraries(ObsidianNeuralVST 
-    PRIVATE
-        juce::juce_audio_utils
-        juce::juce_audio_processors
-        juce::juce_gui_extra
-        SoundTouch 
+target_link_libraries(ObsidianNeuralVST PRIVATE
+    juce::juce_audio_utils
+    juce::juce_audio_processors
+    juce::juce_gui_extra
+    SoundTouch
+    nlohmann_json::nlohmann_json
+    
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
-        juce::juce_recommended_warning_flags)
+        juce::juce_recommended_warning_flags
+)
 
-find_program(CLANG_TIDY_EXE NAMES clang-tidy)
-if(CLANG_TIDY_EXE)
-    set_target_properties(ObsidianNeuralVST PROPERTIES
-        CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-checks=-*,readability-*,performance-*,bugprone-*,clang-analyzer-*"
-    )
+if(WIN32)
+    target_link_libraries(ObsidianNeuralVST PRIVATE ws2_32 winmm)
+elseif(APPLE)
+    find_library(ACCELERATE_FRAMEWORK Accelerate)
+    if(ACCELERATE_FRAMEWORK)
+        target_link_libraries(ObsidianNeuralVST PRIVATE ${ACCELERATE_FRAMEWORK})
+    endif()
+elseif(UNIX)
+    target_link_libraries(ObsidianNeuralVST PRIVATE pthread dl)
 endif()
+
+message(STATUS "OBSIDIAN Neural Build Configuration:")
+message(STATUS "    LLama.cpp: ${LLAMA_AVAILABLE}")
+message(STATUS "    Build Number: ${BUILD_NUMBER}")

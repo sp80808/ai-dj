@@ -9,10 +9,10 @@ class SequencerComponent;
 class DjIaVstEditor : public juce::AudioProcessorEditor, public juce::MenuBarModel, public juce::Timer, public DjIaVstProcessor::GenerationListener
 {
 public:
-	explicit DjIaVstEditor(DjIaVstProcessor&);
+	explicit DjIaVstEditor(DjIaVstProcessor &);
 	~DjIaVstEditor() override;
 
-	void paint(juce::Graphics&) override;
+	void paint(juce::Graphics &) override;
 	void layoutPromptSection(juce::Rectangle<int> area, int spacing);
 	void layoutConfigSection(juce::Rectangle<int> area, int reducing);
 	void resized() override;
@@ -20,29 +20,29 @@ public:
 	void refreshTrackComponents();
 	void updateUIFromProcessor();
 	void refreshTracks();
-	void onGenerationComplete(const juce::String& trackId, const juce::String& message) override;
+	void onGenerationComplete(const juce::String &trackId, const juce::String &message) override;
 
 	void initUI();
 
 	juce::Label statusLabel;
 
 	juce::StringArray getMenuBarNames() override;
-	juce::PopupMenu getMenuForIndex(int topLevelMenuIndex, const juce::String& menuName) override;
+	juce::PopupMenu getMenuForIndex(int topLevelMenuIndex, const juce::String &menuName) override;
 	void menuItemSelected(int menuItemID, int topLevelMenuIndex) override;
 
-	std::vector<std::unique_ptr<TrackComponent>>& getTrackComponents()
+	std::vector<std::unique_ptr<TrackComponent>> &getTrackComponents()
 	{
 		return trackComponents;
 	}
-	MixerPanel* getMixerPanel() { return mixerPanel.get(); }
+	MixerPanel *getMixerPanel() { return mixerPanel.get(); }
 	void toggleWaveFormButtonOnTrack();
-	void setStatusWithTimeout(const juce::String& message, int timeoutMs = 2000);
-	void* getSequencerForTrack(const juce::String& trackId);
-	void stopGenerationUI(const juce::String& trackId, bool success = true, const juce::String& errorMessage = "");
-	void startGenerationUI(const juce::String& trackId);
+	void setStatusWithTimeout(const juce::String &message, int timeoutMs = 2000);
+	void *getSequencerForTrack(const juce::String &trackId);
+	void stopGenerationUI(const juce::String &trackId, bool success = true, const juce::String &errorMessage = "");
+	void startGenerationUI(const juce::String &trackId);
 
 private:
-	DjIaVstProcessor& audioProcessor;
+	DjIaVstProcessor &audioProcessor;
 	juce::Image logoImage;
 	juce::Image bannerImage;
 	juce::Rectangle<int> bannerArea;
@@ -57,31 +57,33 @@ private:
 	void onAutoLoadToggled();
 	void onLoadSampleClicked();
 	void updateLoadButtonState();
-	void updateMidiIndicator(const juce::String& noteInfo);
+	void updateMidiIndicator(const juce::String &noteInfo);
 	void onAddTrack();
 	void updateSelectedTrack();
 	void onSaveSession();
 	void onLoadSession();
 	void loadSessionList();
-	void saveCurrentSession(const juce::String& sessionName);
-	void loadSession(const juce::String& sessionName);
+	void saveCurrentSession(const juce::String &sessionName);
+	void loadSession(const juce::String &sessionName);
 	void updateUIComponents();
 	void setAllGenerateButtonsEnabled(bool enabled);
 	void showFirstTimeSetup();
 	void showConfigDialog();
-	void mouseDown(const juce::MouseEvent& event) override;
-	void editCustomPromptDialog(const juce::String& selectedPrompt);
+	void mouseDown(const juce::MouseEvent &event) override;
+	void editCustomPromptDialog(const juce::String &selectedPrompt);
 	void toggleSEQButtonOnTrack();
 	void startGenerationButtonAnimation();
 	void stopGenerationButtonAnimation();
+	void refreshUIForMode();
+	void checkLocalModelsAndNotify();
 
 	juce::File getSessionsDirectory();
 	std::unique_ptr<MixerPanel> mixerPanel;
 	juce::TextButton showMixerButton;
 	bool mixerVisible = false;
-	std::atomic<bool> isGenerating{ false };
-	std::atomic<bool> wasGenerating{ false };
-	std::atomic<bool> isInitialized{ false };
+	std::atomic<bool> isGenerating{false};
+	std::atomic<bool> wasGenerating{false};
+	std::atomic<bool> isInitialized{false};
 
 	bool isButtonBlinking = false;
 	juce::String generatingTrackId;
@@ -100,10 +102,11 @@ private:
 		"Industrial noise texture",
 		"Glitchy percussion loop",
 		"Vintage analog lead",
-		"Distorted noise chops" };
+		"Distorted noise chops"};
 
 	juce::Label pluginNameLabel;
 	juce::Label developerLabel;
+	juce::Label stabilityLabel;
 	juce::Typeface::Ptr customFont;
 	MidiLearnableComboBox promptPresetSelector;
 	juce::TextButton savePresetButton;
