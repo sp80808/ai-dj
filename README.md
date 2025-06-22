@@ -29,6 +29,16 @@ Special thanks to [@fcaspe](https://github.com/fcaspe) for introducing me to aud
 **✅ Benefits:** No GPU server, no Python, no network dependency  
 **⚠️ Requirements:** 16GB+ RAM recommended, Windows only for now
 
+### ⚠️ **Current Limitations (v0.7.0-alpha)**
+
+**The TensorFlow Lite models have some quality trade-offs:**
+
+- **Timing issues**: Generated rhythms may not be perfectly quantized
+- **Quality reduction**: TFLite quantization affects audio precision
+- **High RAM usage**: Expect significant memory consumption during generation
+
+**For live performance and production use, the server-based approach still provides better quality and timing precision.**
+
 ---
 
 **📖 [Read the full story](https://medium.com/@innermost47/obsidian-neural-when-ai-becomes-your-jam-partner-5203726a3840) - Why I built an AI that jams with you in real-time**
