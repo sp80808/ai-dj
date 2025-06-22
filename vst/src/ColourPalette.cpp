@@ -31,6 +31,7 @@ constexpr auto COLOR_TRACK8 = 0xff8a6a7a;
 constexpr auto COLOR_SEQUENCER_ACCENT = 0xff6a7a6a;
 constexpr auto COLOR_SEQUENCER_BEAT = 0xff6a6a7a;
 constexpr auto COLOR_SEQUENCER_SUBBEAT = 0xff5a5a5a;
+constexpr auto COLOR_CREDITS = 0xff888888;
 
 const juce::Colour ColourPalette::track1(COLOR_TRACK1);
 const juce::Colour ColourPalette::track2(COLOR_TRACK2);
@@ -83,25 +84,26 @@ const juce::Colour ColourPalette::sequencerAccent(COLOR_SEQUENCER_ACCENT);
 const juce::Colour ColourPalette::sequencerBeat(COLOR_SEQUENCER_BEAT);
 const juce::Colour ColourPalette::sequencerSubBeat(COLOR_SEQUENCER_SUBBEAT);
 
+const juce::Colour ColourPalette::credits(COLOR_CREDITS);
+
 juce::Colour ColourPalette::getTrackColour(int trackIndex)
 {
 	static const std::vector<juce::Colour> trackColours = {
-		track1, track2, track3, track4, track5, track6, track7, track8
-	};
+		track1, track2, track3, track4, track5, track6, track7, track8};
 	return trackColours[trackIndex % trackColours.size()];
 }
 
-juce::Colour ColourPalette::withAlpha(const juce::Colour& colour, float alpha)
+juce::Colour ColourPalette::withAlpha(const juce::Colour &colour, float alpha)
 {
 	return colour.withAlpha(alpha);
 }
 
-juce::Colour ColourPalette::darken(const juce::Colour& colour, float amount)
+juce::Colour ColourPalette::darken(const juce::Colour &colour, float amount)
 {
 	return colour.darker(amount);
 }
 
-juce::Colour ColourPalette::lighten(const juce::Colour& colour, float amount)
+juce::Colour ColourPalette::lighten(const juce::Colour &colour, float amount)
 {
 	return colour.brighter(amount);
 }

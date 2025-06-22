@@ -24,3 +24,4 @@ dist
 testfiles/*
 !testfiles/.gitkeep
 launch.bat
+vst/deps

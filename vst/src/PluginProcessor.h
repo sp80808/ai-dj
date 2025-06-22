@@ -1,8 +1,9 @@
-#pragma once
+﻿#pragma once
 #include "JuceHeader.h"
 #include "TrackManager.h"
 #include "DjIaClient.h"
 #include "MidiLearnManager.h"
+#include "ObsidianEngine.h"
 #include "SimpleEQ.h"
 #include <memory>
 #include <unordered_map>
@@ -194,12 +195,28 @@ public:
 		return std::find(globalStems.begin(), globalStems.end(), stem) != globalStems.end();
 	}
 
+	bool getUseLocalModel() const { return useLocalModel; }
+	void setUseLocalModel(bool useLocal) { useLocalModel = useLocal; }
+
+	juce::String getLocalModelsPath() const { return localModelsPath; }
+	void setLocalModelsPath(const juce::String& path) { localModelsPath = path; }
+
+	static juce::String getModelsDirectory() {
+		return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+			.getChildFile("OBSIDIAN-Neural")
+			.getChildFile("stable-audio")
+			.getFullPathName();
+	}
+
 private:
 	DjIaVstEditor* currentEditor = nullptr;
 	SimpleEQ masterEQ;
 	MidiLearnManager midiLearnManager;
 	DjIaClient apiClient;
 	GenerationListener* generationListener = nullptr;
+
+	bool useLocalModel = false;
+	juce::String localModelsPath = "";
 
 	juce::Synthesiser synth;
 
@@ -241,6 +258,17 @@ private:
 	bool hasPendingNotification = false;
 
 	void handleAsyncUpdate() override;
+
+	std::unique_ptr<ObsidianEngine> obsidianEngine;
+
+	struct PendingRequest {
+		int trackId;
+		ObsidianEngine::LoopRequest request;
+		juce::Time requestTime;
+	};
+
+	std::queue<PendingRequest> pendingRequests;
+	std::mutex requestsMutex;
 
 	juce::CriticalSection apiLock;
 	juce::CriticalSection sequencerMidiLock;
@@ -359,6 +387,8 @@ private:
 	void notifyGenerationComplete(const juce::String& trackId, const juce::String& message);
 	void generateLoopFromMidi(const juce::String& trackId);
 	void updateMidiIndicatorWithActiveNotes(double hostBpm, const juce::Array<int>& triggeredNotes);
+	void generateLoopAPI(const DjIaClient::LoopRequest& request, const juce::String& trackId);
+	void generateLoopLocal(const DjIaClient::LoopRequest& request, const juce::String& trackId);
 
 	TrackComponent* findTrackComponentByName(const juce::String& trackName, DjIaVstEditor* editor);
 
@@ -367,6 +397,12 @@ private:
 	juce::Slider* findBpmOffsetSliderInTrack(TrackComponent* trackComponent);
 
 	juce::File getTrackAudioFile(const juce::String& trackId);
+
+	void handleGenerationComplete(const juce::String& trackId,
+		const DjIaClient::LoopRequest& originalRequest,
+		const ObsidianEngine::LoopResponse& response);
+
+	juce::File createTempAudioFile(const std::vector<float>& audioData, float duration);
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor);
 };
