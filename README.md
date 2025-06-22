@@ -99,6 +99,7 @@ Special thanks to [@fcaspe](https://github.com/fcaspe) for introducing me to aud
 - **Main files**: `C:\ProgramData\OBSIDIAN-Neural\`
 - **AI models**: `%USERPROFILE%\.huggingface\hub\`
 - **VST3 plugin**: `C:\Program Files\Common Files\VST3\`
+- **Configuration database**: `%USERPROFILE%\.obsidian_neural\config.db`
 
 **Complete uninstall:**
 
