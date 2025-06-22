@@ -40,6 +40,7 @@ public:
 	void *getSequencerForTrack(const juce::String &trackId);
 	void stopGenerationUI(const juce::String &trackId, bool success = true, const juce::String &errorMessage = "");
 	void startGenerationUI(const juce::String &trackId);
+	juce::StringArray getBuiltInPrompts() const { return promptPresets; }
 
 private:
 	DjIaVstProcessor &audioProcessor;
@@ -76,6 +77,10 @@ private:
 	void stopGenerationButtonAnimation();
 	void refreshUIForMode();
 	void checkLocalModelsAndNotify();
+	void notifyTracksPromptUpdate();
+	void generateFromTrackComponent(const juce::String &trackId);
+
+	juce::StringArray getAllPrompts() const;
 
 	juce::File getSessionsDirectory();
 	std::unique_ptr<MixerPanel> mixerPanel;

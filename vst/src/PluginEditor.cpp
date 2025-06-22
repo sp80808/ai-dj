@@ -943,6 +943,25 @@ void DjIaVstEditor::addEventListeners()
 															});
 }
 
+void DjIaVstEditor::notifyTracksPromptUpdate()
+{
+	juce::StringArray allPrompts = promptPresets;
+	auto customPrompts = audioProcessor.getCustomPrompts();
+
+	for (const auto &customPrompt : customPrompts)
+	{
+		if (!allPrompts.contains(customPrompt))
+		{
+			allPrompts.add(customPrompt);
+		}
+	}
+
+	for (auto &trackComp : trackComponents)
+	{
+		trackComp->updatePromptPresets(allPrompts);
+	}
+}
+
 void DjIaVstEditor::mouseDown(const juce::MouseEvent &event)
 {
 	if (event.eventComponent == &promptPresetSelector && event.mods.isPopupMenu())
@@ -979,6 +998,7 @@ void DjIaVstEditor::mouseDown(const juce::MouseEvent &event)
 											promptPresets.removeString(selectedPrompt);
 											audioProcessor.setLastPresetIndex(audioProcessor.getLastPresetIndex() - 1);
 											loadPromptPresets();
+											notifyTracksPromptUpdate();
 										}
 									});
 							});
@@ -1304,7 +1324,7 @@ void DjIaVstEditor::onGenerateButtonClicked()
 	track->generationBpm = (float)bpmSlider.getValue();
 	track->generationKey = keySelector.getText();
 	track->generationDuration = (int)durationSlider.getValue();
-
+	track->selectedPrompt.clear();
 	track->preferredStems.clear();
 	if (drumsButton.getToggleState())
 		track->preferredStems.push_back("drums");
@@ -1399,6 +1419,7 @@ void DjIaVstEditor::onSavePreset()
 	{
 		audioProcessor.addCustomPrompt(currentPrompt);
 		loadPromptPresets();
+		notifyTracksPromptUpdate();
 		int totalItems = promptPresetSelector.getNumItems();
 		for (int i = 0; i < totalItems; ++i)
 		{
@@ -1521,6 +1542,7 @@ void DjIaVstEditor::refreshTrackComponents()
 			for (int i = 0; i < trackComponents.size() && i < trackIds.size(); ++i)
 			{
 				trackComponents[i]->setTrackData(audioProcessor.getTrack(trackIds[i]));
+				trackComponents[i]->updatePromptPresets(getAllPrompts());
 				trackComponents[i]->updateFromTrackData();
 				if (auto *sequencer = trackComponents[i]->getSequencer())
 				{
@@ -1547,7 +1569,7 @@ void DjIaVstEditor::refreshTrackComponents()
 
 		auto trackComp = std::make_unique<TrackComponent>(trackId, audioProcessor);
 		trackComp->setTrackData(trackData);
-
+		trackComp->updatePromptPresets(getAllPrompts());
 		trackComp->onSelectTrack = [this](const juce::String &id)
 		{
 			audioProcessor.selectTrack(id);
@@ -1575,7 +1597,7 @@ void DjIaVstEditor::refreshTrackComponents()
 		trackComp->onGenerateForTrack = [this](const juce::String &id)
 		{
 			audioProcessor.selectTrack(id);
-			onGenerateButtonClicked();
+			generateFromTrackComponent(id);
 		};
 
 		trackComp->onReorderTrack = [this](const juce::String &fromId, const juce::String &toId)
@@ -1588,6 +1610,12 @@ void DjIaVstEditor::refreshTrackComponents()
 		trackComp->onPreviewTrack = [this](const juce::String &trackId)
 		{
 			audioProcessor.previewTrack(trackId);
+		};
+
+		trackComp->onTrackPromptChanged = [this](const juce::String /*&trackId*/, const juce::String &prompt)
+		{
+			statusLabel.setText("Track prompt updated: " + prompt.substring(0, 20) + "...",
+								juce::dontSendNotification);
 		};
 
 		int fullWidth = tracksContainer.getWidth() - 4;
@@ -1615,6 +1643,88 @@ void DjIaVstEditor::refreshTrackComponents()
 			resized();
 			repaint(); });
 	tracksContainer.repaint();
+}
+
+void DjIaVstEditor::generateFromTrackComponent(const juce::String &trackId)
+{
+	audioProcessor.setIsGenerating(true);
+
+	TrackData *track = audioProcessor.getTrack(trackId);
+	if (!track)
+	{
+		statusLabel.setText("Error: Track not found", juce::dontSendNotification);
+		return;
+	}
+
+	if (track->selectedPrompt.isEmpty())
+	{
+		statusLabel.setText("Error: No prompt selected for this track", juce::dontSendNotification);
+		audioProcessor.setIsGenerating(false);
+		return;
+	}
+
+	juce::String currentGeneratingTrackId = trackId;
+	audioProcessor.setGeneratingTrackId(currentGeneratingTrackId);
+	if (track->generationBpm <= 0)
+	{
+		track->generationBpm = audioProcessor.getGlobalBpm();
+	}
+	if (track->generationKey.isEmpty())
+	{
+		track->generationKey = audioProcessor.getGlobalKey();
+	}
+	if (track->generationDuration <= 0)
+	{
+		track->generationDuration = audioProcessor.getGlobalDuration();
+	}
+	if (track->preferredStems.empty())
+	{
+		track->preferredStems.clear();
+		if (audioProcessor.isGlobalStemEnabled("drums"))
+			track->preferredStems.push_back("drums");
+		if (audioProcessor.isGlobalStemEnabled("bass"))
+			track->preferredStems.push_back("bass");
+		if (audioProcessor.isGlobalStemEnabled("other"))
+			track->preferredStems.push_back("other");
+		if (audioProcessor.isGlobalStemEnabled("vocals"))
+			track->preferredStems.push_back("vocals");
+		if (audioProcessor.isGlobalStemEnabled("guitar"))
+			track->preferredStems.push_back("guitar");
+		if (audioProcessor.isGlobalStemEnabled("piano"))
+			track->preferredStems.push_back("piano");
+	}
+
+	startGenerationUI(currentGeneratingTrackId);
+
+	juce::Thread::launch([this, currentGeneratingTrackId, track]()
+						 {
+        try {
+            auto request = track->createLoopRequest();
+            audioProcessor.generateLoop(request, currentGeneratingTrackId);
+        }
+        catch (const std::exception& e) {
+            juce::MessageManager::callAsync([this, currentGeneratingTrackId, error = juce::String(e.what())]() {
+                stopGenerationUI(currentGeneratingTrackId, false, error);
+                audioProcessor.setIsGenerating(false);
+                audioProcessor.setGeneratingTrackId("");
+            });
+        } });
+}
+
+juce::StringArray DjIaVstEditor::getAllPrompts() const
+{
+	juce::StringArray allPrompts = promptPresets;
+	auto customPrompts = audioProcessor.getCustomPrompts();
+
+	for (const auto &customPrompt : customPrompts)
+	{
+		if (!allPrompts.contains(customPrompt))
+		{
+			allPrompts.add(customPrompt);
+		}
+	}
+
+	return allPrompts;
 }
 
 void DjIaVstEditor::toggleWaveFormButtonOnTrack()
