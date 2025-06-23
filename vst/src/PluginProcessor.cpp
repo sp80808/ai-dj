@@ -128,7 +128,7 @@ void DjIaVstProcessor::initDummySynth()
 
 void DjIaVstProcessor::initTracks()
 {
-	selectedTrackId = trackManager.createTrack("Track 1");
+	selectedTrackId = trackManager.createTrack();
 	individualOutputBuffers.resize(MAX_TRACKS);
 	for (auto &buffer : individualOutputBuffers)
 	{
