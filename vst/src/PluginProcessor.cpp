@@ -2132,9 +2132,27 @@ void DjIaVstProcessor::updateSequencers(bool hostIsPlaying)
 
 			if (shouldAdvanceStep)
 			{
-				int stepsPerMeasure = track->sequencerData.beatsPerMeasure * getTimeSignatureNumerator();
+				int numerator = getTimeSignatureNumerator();
+				int denominator = getTimeSignatureDenominator();
+
+				int stepsPerBeat;
+				if (denominator == 8) {
+					stepsPerBeat = 2;
+				}
+				else if (denominator == 4) {
+					stepsPerBeat = 4;
+				}
+				else if (denominator == 2) {
+					stepsPerBeat = 8;
+				}
+				else {
+					stepsPerBeat = 4;
+				}
+
+				int stepsPerMeasure = numerator * stepsPerBeat;
 				int newStep = track->customStepCounter % stepsPerMeasure;
 				int newMeasure = (track->customStepCounter / stepsPerMeasure) % track->sequencerData.numMeasures;
+
 
 				int safeMeasure = juce::jlimit(0, track->sequencerData.numMeasures - 1, newMeasure);
 				int safeStep = juce::jlimit(0, stepsPerMeasure - 1, newStep);

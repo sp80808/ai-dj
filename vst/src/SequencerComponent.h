@@ -51,6 +51,8 @@ private:
 	void toggleStep(int step);
 	void setupUI();
 
+	int getTotalStepsForCurrentSignature() const;
+
 	double samplesPerStep;
 	double stepAccumulator;
 };

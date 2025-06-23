@@ -87,18 +87,53 @@ void SequencerComponent::paint(juce::Graphics& g)
 		return;
 	}
 
+	int numerator = audioProcessor.getTimeSignatureNumerator();
+	int denominator = audioProcessor.getTimeSignatureDenominator();
 	juce::Colour trackColour = ColourPalette::getTrackColour(track->slotIndex);
 
-	int stepsPerBeat = 4;
-	int totalSteps = beatsPerMeasure * stepsPerBeat;
+	int stepsPerBeat;
+	if (denominator == 8) {
+		stepsPerBeat = 4; 
+	}
+	else if (denominator == 4) {
+		stepsPerBeat = 4;
+	}
+	else if (denominator == 2) {
+		stepsPerBeat = 8;
+	}
+	else {
+		stepsPerBeat = 4;
+	}
+	int totalSteps = getTotalStepsForCurrentSignature();
 	int playingMeasure = track->sequencerData.currentMeasure;
 	int safeMeasure = juce::jlimit(0, MAX_MEASURES - 1, currentMeasure);
 
-	for (int i = 0; i < 16; ++i) {
+	for (int i = 0; i < totalSteps; ++i) {
 		auto stepBounds = getStepBounds(i);
 		bool isVisible = (i < totalSteps);
-		bool isStrongBeat = (i % stepsPerBeat == 0);
-		bool isBeat = (i % (stepsPerBeat / 2) == 0);
+		bool isStrongBeat = false;
+		bool isBeat = false;
+
+		if (isVisible) {
+			if (denominator == 8) {
+				if (numerator == 6) { 
+					isStrongBeat = (i % 12 == 0); 
+					isBeat = (i % 6 == 0);       
+				}
+				else if (numerator == 9) { 
+					isStrongBeat = (i % 12 == 0);
+					isBeat = (i % 4 == 0);       
+				}
+				else {
+					isStrongBeat = (i % (stepsPerBeat * 2) == 0);
+					isBeat = (i % stepsPerBeat == 0);          
+				}
+			}
+			else {
+				isStrongBeat = (i % stepsPerBeat == 0);
+				isBeat = (i % (stepsPerBeat / 2) == 0);
+			}
+		}
 
 		juce::Colour stepColour;
 		juce::Colour borderColour;
@@ -156,15 +191,28 @@ void SequencerComponent::paint(juce::Graphics& g)
 	}
 }
 
-
 juce::Rectangle<int> SequencerComponent::getStepBounds(int step)
 {
-	int stepWidth = 37;
-	int stepHeight = 37;
-	int margin = 4;
-	int startY = 50;
+	int totalSteps = getTotalStepsForCurrentSignature();
 
-	int x = 13 + step * (stepWidth + margin);
+	float stepsAreaWidthPercent = 0.98f;  
+	float marginPercent = 0.005f;         
+
+	int componentWidth = getWidth();
+
+	int availableWidth = static_cast<int>(componentWidth * stepsAreaWidthPercent);
+
+	int totalMargins = static_cast<int>((totalSteps - 1) * marginPercent * componentWidth);
+	int stepWidth = (availableWidth - totalMargins) / totalSteps;
+	int marginPixels = static_cast<int>(marginPercent * componentWidth);
+
+	int stepHeight = juce::jmin(stepWidth, 40);
+
+	int totalUsedWidth = totalSteps * stepWidth + (totalSteps - 1) * marginPixels;
+	int startX = (componentWidth - totalUsedWidth) / 2;
+	int startY = 50; 
+
+	int x = startX + step * (stepWidth + marginPixels);
 	int y = startY;
 
 	return juce::Rectangle<int>(x, y, stepWidth, stepHeight);
@@ -172,10 +220,9 @@ juce::Rectangle<int> SequencerComponent::getStepBounds(int step)
 
 void SequencerComponent::mouseDown(const juce::MouseEvent& event)
 {
-	int numerator = audioProcessor.getTimeSignatureNumerator();
-	int stepsToShow = numerator * 4;
+	int totalSteps = getTotalStepsForCurrentSignature(); 
 
-	for (int i = 0; i < stepsToShow; ++i) {
+	for (int i = 0; i < totalSteps; ++i) {
 		if (getStepBounds(i).contains(event.getPosition())) {
 			isEditing = true;
 			toggleStep(i);
@@ -183,10 +230,31 @@ void SequencerComponent::mouseDown(const juce::MouseEvent& event)
 			juce::Timer::callAfterDelay(50, [this]() {
 				isEditing = false;
 				});
-
 			return;
 		}
 	}
+}
+
+int SequencerComponent::getTotalStepsForCurrentSignature() const
+{
+	int numerator = audioProcessor.getTimeSignatureNumerator();
+	int denominator = audioProcessor.getTimeSignatureDenominator();
+
+	int stepsPerBeat;
+	if (denominator == 8) {
+		stepsPerBeat = 2; // ← 2 subdivisions par croche (pas 4)
+	}
+	else if (denominator == 4) {
+		stepsPerBeat = 4; // 4 subdivisions par noire (16th notes)
+	}
+	else if (denominator == 2) {
+		stepsPerBeat = 8; // 8 subdivisions par blanche
+	}
+	else {
+		stepsPerBeat = 4; // Default
+	}
+
+	return numerator * stepsPerBeat;
 }
 
 void SequencerComponent::toggleStep(int step)
@@ -207,33 +275,36 @@ void SequencerComponent::toggleStep(int step)
 
 void SequencerComponent::setCurrentStep(int step)
 {
-	int numerator = audioProcessor.getTimeSignatureNumerator();
-	currentStep = step % (numerator * 4);
+	int totalSteps = getTotalStepsForCurrentSignature();
+	currentStep = step % totalSteps;
 	repaint();
 }
 
 
 void SequencerComponent::resized()
 {
-	auto bounds = getLocalBounds();
+	int controlsWidth = 250;
 
+	auto bounds = getLocalBounds();
 	bounds.removeFromTop(10);
 	bounds.removeFromLeft(13);
 
 	auto topArea = bounds.removeFromTop(30);
-	topArea.removeFromRight(5);
+	auto controlArea = topArea.removeFromLeft(juce::jmin(controlsWidth, bounds.getWidth() / 2));
 
-	auto controlArea = topArea.removeFromLeft(230);
 	auto pageArea = controlArea.removeFromLeft(120);
 	prevMeasureButton.setBounds(pageArea.removeFromLeft(25));
 	measureLabel.setBounds(pageArea.removeFromLeft(40));
 	nextMeasureButton.setBounds(pageArea.removeFromLeft(25));
-	currentPlayingMeasureLabel.setBounds(topArea.removeFromLeft(50));
 
-	controlArea.removeFromLeft(5);
+	if (topArea.getWidth() > 50) {
+		currentPlayingMeasureLabel.setBounds(topArea.removeFromLeft(50));
+	}
 
-	auto measureArea = controlArea.removeFromLeft(80);
-	measureSlider.setBounds(measureArea);
+	if (controlArea.getWidth() > 80) {
+		controlArea.removeFromLeft(5);
+		measureSlider.setBounds(controlArea.removeFromLeft(80));
+	}
 }
 
 void SequencerComponent::setCurrentMeasure(int measure)
@@ -259,8 +330,9 @@ void SequencerComponent::setNumMeasures(int measures)
 		track->sequencerData.numMeasures = numMeasures;
 
 		if (numMeasures < oldNumMeasures) {
+			int maxSteps = getTotalStepsForCurrentSignature(); 
 			for (int m = numMeasures; m < oldNumMeasures; ++m) {
-				for (int s = 0; s < 16; ++s) {
+				for (int s = 0; s < maxSteps; ++s) { 
 					track->sequencerData.steps[m][s] = false;
 					track->sequencerData.velocities[m][s] = 0.8f;
 				}
@@ -278,7 +350,8 @@ void SequencerComponent::updateFromTrackData()
 	if (isEditing) return;
 	TrackData* track = audioProcessor.getTrack(trackId);
 	if (track) {
-		currentStep = juce::jlimit(0, 15, track->sequencerData.currentStep);
+		int totalSteps = getTotalStepsForCurrentSignature();
+		currentStep = juce::jlimit(0, totalSteps - 1, track->sequencerData.currentStep);
 		isPlaying = track->isCurrentlyPlaying;
 		numMeasures = track->sequencerData.numMeasures;
 		measureSlider.setValue(track->sequencerData.numMeasures);
