@@ -121,15 +121,6 @@ void DjIaVstEditor::updateUIComponents()
 		}
 	}
 
-	if (hostBpmButton.getToggleState())
-	{
-		double currentHostBpm = audioProcessor.getHostBpm();
-		if (currentHostBpm > 0.0 && std::abs(currentHostBpm - bpmSlider.getValue()) > 0.1)
-		{
-			bpmSlider.setValue(currentHostBpm, juce::dontSendNotification);
-		}
-	}
-
 	if (!autoLoadButton.getToggleState())
 	{
 		updateLoadButtonState();
@@ -218,16 +209,6 @@ void DjIaVstEditor::initUI()
 					juce::MessageManager::callAsync([this]()
 						{ updateUIComponents(); });
 				};
-			audioProcessor.onHostBpmChanged = [weakThis](double newBpm)
-				{
-					juce::MessageManager::callAsync([weakThis, newBpm]()
-						{
-							if (weakThis != nullptr) {
-								if (weakThis->audioProcessor.getHostBpmEnabled()) {
-									weakThis->bpmSlider.setValue(newBpm, juce::dontSendNotification);
-								}
-							} });
-				};
 }
 
 void DjIaVstEditor::showFirstTimeSetup()
@@ -305,16 +286,15 @@ void DjIaVstEditor::refreshUIForMode()
 {
 	bool isLocalMode = audioProcessor.getUseLocalModel();
 
-	stemsLabel.setVisible(!isLocalMode);
-	drumsButton.setVisible(!isLocalMode);
-	bassButton.setVisible(!isLocalMode);
-	otherButton.setVisible(!isLocalMode);
-	vocalsButton.setVisible(!isLocalMode);
-	guitarButton.setVisible(!isLocalMode);
-	pianoButton.setVisible(!isLocalMode);
-
-	durationSlider.setVisible(!isLocalMode);
-	durationLabel.setVisible(!isLocalMode);
+	stemsLabel.setEnabled(!isLocalMode);
+	drumsButton.setEnabled(!isLocalMode);
+	bassButton.setEnabled(!isLocalMode);
+	otherButton.setEnabled(!isLocalMode);
+	vocalsButton.setEnabled(!isLocalMode);
+	guitarButton.setEnabled(!isLocalMode);
+	pianoButton.setEnabled(!isLocalMode);
+	durationSlider.setEnabled(!isLocalMode);
+	durationLabel.setEnabled(!isLocalMode);
 
 	resized();
 }
@@ -584,7 +564,7 @@ void DjIaVstEditor::setupUI()
 	addAndMakeVisible(promptPresetSelector);
 
 	addAndMakeVisible(savePresetButton);
-	savePresetButton.setButtonText("Save");
+	savePresetButton.setButtonText(juce::String::fromUTF8("\xE2\x9C\x93"));
 
 	addAndMakeVisible(promptInput);
 	promptInput.setMultiLine(false);
@@ -595,22 +575,6 @@ void DjIaVstEditor::setupUI()
 	resetUIButton.setButtonText("Reset UI");
 	resetUIButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonWarning);
 	resetUIButton.setTooltip("Reset UI state if stuck in generation mode");
-
-	addAndMakeVisible(bpmSlider);
-	bpmSlider.setRange(60.0, 200.0, 1.0);
-	bpmSlider.setValue(audioProcessor.getGlobalBpm(), juce::dontSendNotification);
-	bpmSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 20);
-
-	addAndMakeVisible(bpmLabel);
-	bpmLabel.setText("BPM", juce::dontSendNotification);
-	bpmLabel.attachToComponent(&bpmSlider, true);
-
-	addAndMakeVisible(hostBpmButton);
-	hostBpmButton.setButtonText("Sync Host");
-	hostBpmButton.setClickingTogglesState(true);
-	hostBpmButton.setToggleState(audioProcessor.getHostBpmEnabled(), juce::dontSendNotification);
-
-	bpmSlider.setEnabled(!audioProcessor.getHostBpmEnabled());
 
 	addAndMakeVisible(keySelector);
 	keySelector.addItem("C Ionian", 1);
@@ -702,8 +666,12 @@ void DjIaVstEditor::setupUI()
 	addAndMakeVisible(durationSlider);
 	durationSlider.setRange(4.0, 30.0, 1.0);
 	durationSlider.setValue(audioProcessor.getGlobalDuration(), juce::dontSendNotification);
+	durationSlider.setColour(juce::Slider::backgroundColourId, juce::Colours::black);
+	durationSlider.setColour(juce::Slider::thumbColourId, ColourPalette::sliderThumb);
+	durationSlider.setColour(juce::Slider::trackColourId, ColourPalette::sliderTrack);
 	durationSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
 	durationSlider.setTextValueSuffix(" s");
+	durationSlider.setDoubleClickReturnValue(true, 6.0);
 
 	addAndMakeVisible(durationLabel);
 	durationLabel.setText("Duration", juce::dontSendNotification);
@@ -712,7 +680,7 @@ void DjIaVstEditor::setupUI()
 	generateButton.setButtonText("Generate Loop");
 
 	addAndMakeVisible(configButton);
-	configButton.setButtonText("Settings");
+	configButton.setButtonText(juce::String::fromUTF8("\xE2\x98\xB0"));
 	configButton.setTooltip("Configure settings globally");
 	configButton.onClick = [this]()
 		{ showConfigDialog(); };
@@ -816,8 +784,6 @@ void DjIaVstEditor::addEventListeners()
 		{ onAutoLoadToggled(); };
 	loadSampleButton.onClick = [this]
 		{ onLoadSampleClicked(); };
-	hostBpmButton.onClick = [this]
-		{ updateBpmFromHost(); };
 	generateButton.onClick = [this]
 		{ onGenerateButtonClicked(); };
 	savePresetButton.onClick = [this]
@@ -836,12 +802,6 @@ void DjIaVstEditor::addEventListeners()
 		{
 			audioProcessor.setLastKeyIndex(keySelector.getSelectedId());
 			audioProcessor.setGlobalKey(keySelector.getText());
-		};
-
-	bpmSlider.onValueChange = [this]()
-		{
-			audioProcessor.setLastBpm(bpmSlider.getValue());
-			audioProcessor.setGlobalBpm((float)bpmSlider.getValue());
 		};
 
 	durationSlider.onValueChange = [this]()
@@ -884,12 +844,6 @@ void DjIaVstEditor::addEventListeners()
 		{
 			onPresetSelected();
 			audioProcessor.setLastPresetIndex(promptPresetSelector.getSelectedId() - 1);
-		};
-
-	hostBpmButton.onClick = [this]()
-		{
-			updateBpmFromHost();
-			audioProcessor.setHostBpmEnabled(hostBpmButton.getToggleState());
 		};
 
 	resetUIButton.onClick = [this]()
@@ -1048,7 +1002,6 @@ void DjIaVstEditor::updateUIFromProcessor()
 	apiKeyInput.setText(audioProcessor.getApiKey(), juce::dontSendNotification);
 
 	promptInput.setText(audioProcessor.getGlobalPrompt(), juce::dontSendNotification);
-	bpmSlider.setValue(audioProcessor.getGlobalBpm(), juce::dontSendNotification);
 	durationSlider.setValue(audioProcessor.getGlobalDuration(), juce::dontSendNotification);
 
 	keySelector.setText(audioProcessor.getGlobalKey(), juce::dontSendNotification);
@@ -1071,12 +1024,6 @@ void DjIaVstEditor::updateUIFromProcessor()
 	else
 	{
 		promptPresetSelector.setSelectedId(promptPresets.size(), juce::dontSendNotification);
-	}
-
-	hostBpmButton.setToggleState(audioProcessor.getHostBpmEnabled(), juce::dontSendNotification);
-	if (audioProcessor.getHostBpmEnabled())
-	{
-		bpmSlider.setEnabled(false);
 	}
 
 	refreshTrackComponents();
@@ -1132,15 +1079,14 @@ void DjIaVstEditor::layoutPromptSection(juce::Rectangle<int> area, int spacing)
 	promptInput.setBounds(row2.removeFromLeft(area.getWidth()));
 }
 
+
 void DjIaVstEditor::layoutConfigSection(juce::Rectangle<int> area, int reducing)
 {
 	auto controlRow = area.removeFromTop(35);
-	auto controlWidth = controlRow.getWidth() / 5;
+	auto controlWidth = controlRow.getWidth() / 2;
 
 	keySelector.setBounds(controlRow.removeFromLeft(controlWidth).reduced(reducing));
 	durationSlider.setBounds(controlRow.removeFromLeft(controlWidth).reduced(reducing));
-	hostBpmButton.setBounds(controlRow.removeFromLeft(controlWidth).reduced(reducing));
-	bpmSlider.setBounds(controlRow.reduced(reducing));
 
 	auto stemsRow = area.removeFromTop(30);
 	auto stemsSection = stemsRow.removeFromLeft(600);
@@ -1190,7 +1136,7 @@ void DjIaVstEditor::resized()
 	developerLabel.setBounds(devArea);
 	stabilityLabel.setBounds(partnerArea);
 
-	auto configButtonArea = configArea.removeFromRight(150);
+	auto configButtonArea = configArea.removeFromRight(100);
 	configButton.setBounds(configButtonArea.reduced(16));
 
 	area = area.reduced(padding);
@@ -1322,7 +1268,7 @@ void DjIaVstEditor::onGenerateButtonClicked()
 	}
 
 	track->generationPrompt = promptInput.getText();
-	track->generationBpm = (float)bpmSlider.getValue();
+	track->generationBpm = (float)audioProcessor.getHostBpm();
 	track->generationKey = keySelector.getText();
 	track->generationDuration = (int)durationSlider.getValue();
 	track->selectedPrompt.clear();
@@ -1436,31 +1382,6 @@ void DjIaVstEditor::onSavePreset()
 	else
 	{
 		statusLabel.setText("Enter a prompt first!", juce::dontSendNotification);
-	}
-}
-
-void DjIaVstEditor::updateBpmFromHost()
-{
-	if (hostBpmButton.getToggleState())
-	{
-		double hostBpm = audioProcessor.getHostBpm();
-		if (hostBpm > 0.0)
-		{
-			bpmSlider.setValue(hostBpm, juce::dontSendNotification);
-			bpmSlider.setEnabled(false);
-			audioProcessor.setGlobalBpm((float)hostBpm);
-			statusLabel.setText("BPM synced with host: " + juce::String(hostBpm, 1), juce::dontSendNotification);
-		}
-		else
-		{
-			statusLabel.setText("Host BPM not available", juce::dontSendNotification);
-			hostBpmButton.setToggleState(false, juce::dontSendNotification);
-		}
-	}
-	else
-	{
-		bpmSlider.setEnabled(true);
-		statusLabel.setText("Using manual BPM", juce::dontSendNotification);
 	}
 }
 

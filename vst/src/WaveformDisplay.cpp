@@ -718,19 +718,33 @@ void WaveformDisplay::drawBeatMarkers(juce::Graphics& g)
 	if (hostBpm <= 0.0f) return;
 
 	int numerator = audioProcessor.getTimeSignatureNumerator();
+	int denominator = audioProcessor.getTimeSignatureDenominator();
 
 	double totalDuration = getTotalDuration();
 	double viewDuration = totalDuration / zoomFactor;
 	double viewEndTime = juce::jlimit(viewStartTime, totalDuration, viewStartTime + viewDuration);
 
-	float beatDuration = 60.0f / hostBpm * stretchRatio;
-	float barDuration = beatDuration * numerator;
+	float baseBeatDuration = 60.0f / hostBpm;
+	float actualBeatDuration;
+	float barDuration;
+
+	if (denominator == 8)
+	{
+		actualBeatDuration = baseBeatDuration * 0.5f * stretchRatio;
+		barDuration = actualBeatDuration * numerator;
+	}
+	else 
+	{
+		actualBeatDuration = baseBeatDuration * stretchRatio;
+		barDuration = actualBeatDuration * numerator; 
+	}
+
 
 	double measureAtLoopStart = floor(loopStart / barDuration);
 	double gridOffset = loopStart - (measureAtLoopStart * barDuration);
 
-	double extendedStart = viewStartTime - (beatDuration * 50);
-	double extendedEnd = viewEndTime + (beatDuration * 50);
+	double extendedStart = viewStartTime - (actualBeatDuration * 50);
+	double extendedEnd = viewEndTime + (actualBeatDuration * 50);
 
 	extendedStart -= gridOffset;
 	extendedEnd -= gridOffset;
@@ -744,8 +758,8 @@ void WaveformDisplay::drawBeatMarkers(juce::Graphics& g)
 	}
 
 	g.setColour(juce::Colours::white.withAlpha(0.6f));
-	double firstBeatTime = floor(extendedStart / beatDuration) * beatDuration;
-	for (double time = firstBeatTime; time <= extendedEnd; time += beatDuration)
+	double firstBeatTime = floor(extendedStart / actualBeatDuration) * actualBeatDuration;
+	for (double time = firstBeatTime; time <= extendedEnd; time += actualBeatDuration)
 	{
 		double shiftedTime = time + gridOffset;
 		if (fmod(shiftedTime, barDuration) > 0.01)
@@ -755,12 +769,12 @@ void WaveformDisplay::drawBeatMarkers(juce::Graphics& g)
 	}
 
 	g.setColour(juce::Colours::white.withAlpha(0.3f));
-	double subdivisionDuration = beatDuration * 0.5f;
+	double subdivisionDuration = actualBeatDuration * 0.5f;
 	double firstSubTime = floor(extendedStart / subdivisionDuration) * subdivisionDuration;
 	for (double time = firstSubTime; time <= extendedEnd; time += subdivisionDuration)
 	{
 		double shiftedTime = time + gridOffset;
-		bool isOnBeat = (fmod(shiftedTime, beatDuration) < 0.01);
+		bool isOnBeat = (fmod(shiftedTime, actualBeatDuration) < 0.01);
 		bool isOnBar = (fmod(shiftedTime, barDuration) < 0.01);
 		if (!isOnBeat && !isOnBar)
 		{
@@ -769,13 +783,13 @@ void WaveformDisplay::drawBeatMarkers(juce::Graphics& g)
 	}
 
 	g.setColour(juce::Colours::white.withAlpha(0.2f));
-	subdivisionDuration = beatDuration * 0.25f;
+	subdivisionDuration = actualBeatDuration * 0.25f;
 	firstSubTime = floor(extendedStart / subdivisionDuration) * subdivisionDuration;
 	for (double time = firstSubTime; time <= extendedEnd; time += subdivisionDuration)
 	{
 		double shiftedTime = time + gridOffset;
-		bool isOnBeat = (fmod(shiftedTime, beatDuration) < 0.01);
-		bool isOnHalfBeat = (fmod(shiftedTime, beatDuration * 0.5f) < 0.01);
+		bool isOnBeat = (fmod(shiftedTime, actualBeatDuration) < 0.01);
+		bool isOnHalfBeat = (fmod(shiftedTime, actualBeatDuration * 0.5f) < 0.01);
 		bool isOnBar = (fmod(shiftedTime, barDuration) < 0.01);
 		if (!isOnBeat && !isOnHalfBeat && !isOnBar)
 		{

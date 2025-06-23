@@ -1,5 +1,5 @@
 ﻿cmake_minimum_required(VERSION 3.16)
-project(OBSIDIAN-Neural VERSION 0.7.0)
+project(OBSIDIAN-Neural VERSION 0.7.4)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -100,5 +100,4 @@ elseif(UNIX)
 endif()
 
 message(STATUS "OBSIDIAN Neural Build Configuration:")
-message(STATUS "    LLama.cpp: ${LLAMA_AVAILABLE}")
 message(STATUS "    Build Number: ${BUILD_NUMBER}")

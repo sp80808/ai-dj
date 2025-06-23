@@ -54,7 +54,6 @@ private:
 	void loadPromptPresets();
 	void onPresetSelected();
 	void onSavePreset();
-	void updateBpmFromHost();
 	void onAutoLoadToggled();
 	void onLoadSampleClicked();
 	void updateLoadButtonState();
@@ -117,7 +116,6 @@ private:
 	juce::TextButton savePresetButton;
 	juce::TextEditor promptInput;
 	juce::ComboBox styleSelector;
-	juce::Slider bpmSlider;
 	juce::Label bpmLabel;
 	juce::ComboBox keySelector;
 	juce::TextButton generateButton;
@@ -135,7 +133,6 @@ private:
 	juce::ToggleButton guitarButton;
 	juce::ToggleButton pianoButton;
 	juce::TextButton playButton;
-	juce::ToggleButton hostBpmButton;
 	juce::Slider durationSlider;
 	juce::Label durationLabel;
 	juce::ToggleButton autoLoadButton;

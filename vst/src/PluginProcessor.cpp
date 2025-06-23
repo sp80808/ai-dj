@@ -128,7 +128,7 @@ void DjIaVstProcessor::initDummySynth()
 
 void DjIaVstProcessor::initTracks()
 {
-	selectedTrackId = trackManager.createTrack("Track 1");
+	selectedTrackId = trackManager.createTrack();
 	individualOutputBuffers.resize(MAX_TRACKS);
 	for (auto &buffer : individualOutputBuffers)
 	{
@@ -2118,8 +2118,9 @@ void DjIaVstProcessor::updateSequencers(bool hostIsPlaying)
 			bool shouldAdvanceStep = false;
 			if (track->lastPpqPosition < 0)
 			{
-				track->lastPpqPosition = currentPpq;
-				track->customStepCounter = 0;
+				double totalStepsFromStart = currentPpq / stepInPpq;
+				track->customStepCounter = static_cast<int>(totalStepsFromStart);
+				track->lastPpqPosition = track->customStepCounter * stepInPpq;
 				shouldAdvanceStep = true;
 			}
 			else if (currentPpq >= expectedPpqForNextStep)
@@ -2131,9 +2132,27 @@ void DjIaVstProcessor::updateSequencers(bool hostIsPlaying)
 
 			if (shouldAdvanceStep)
 			{
-				int stepsPerMeasure = track->sequencerData.beatsPerMeasure * getTimeSignatureNumerator();
+				int numerator = getTimeSignatureNumerator();
+				int denominator = getTimeSignatureDenominator();
+
+				int stepsPerBeat;
+				if (denominator == 8) {
+					stepsPerBeat = 2;
+				}
+				else if (denominator == 4) {
+					stepsPerBeat = 4;
+				}
+				else if (denominator == 2) {
+					stepsPerBeat = 8;
+				}
+				else {
+					stepsPerBeat = 4;
+				}
+
+				int stepsPerMeasure = numerator * stepsPerBeat;
 				int newStep = track->customStepCounter % stepsPerMeasure;
 				int newMeasure = (track->customStepCounter / stepsPerMeasure) % track->sequencerData.numMeasures;
+
 
 				int safeMeasure = juce::jlimit(0, track->sequencerData.numMeasures - 1, newMeasure);
 				int safeStep = juce::jlimit(0, stepsPerMeasure - 1, newStep);

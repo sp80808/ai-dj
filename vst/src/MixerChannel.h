@@ -75,6 +75,6 @@ private:
 		float newValue);
 	void removeMidiMapping(const juce::String& param);
 
-	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MixerChannel)
-		JUCE_DECLARE_WEAK_REFERENCEABLE(MixerChannel)
+	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MixerChannel);
+	JUCE_DECLARE_WEAK_REFERENCEABLE(MixerChannel);
 };
