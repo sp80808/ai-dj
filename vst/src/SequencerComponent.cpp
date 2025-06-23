@@ -15,6 +15,10 @@ void SequencerComponent::setupUI() {
 	measureSlider.setRange(1, 4, 1);
 	measureSlider.setValue(1);
 	measureSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 30, 20);
+	measureSlider.setDoubleClickReturnValue(true, 1);
+	measureSlider.setColour(juce::Slider::thumbColourId, ColourPalette::sliderThumb);
+	measureSlider.setColour(juce::Slider::trackColourId, ColourPalette::sliderTrack);
+	measureSlider.setColour(juce::Slider::backgroundColourId, juce::Colours::black);
 	measureSlider.onValueChange = [this]() {
 		isEditing = true;
 		setNumMeasures((int)measureSlider.getValue());
