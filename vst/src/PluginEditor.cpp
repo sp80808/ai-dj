@@ -286,16 +286,15 @@ void DjIaVstEditor::refreshUIForMode()
 {
 	bool isLocalMode = audioProcessor.getUseLocalModel();
 
-	stemsLabel.setVisible(!isLocalMode);
-	drumsButton.setVisible(!isLocalMode);
-	bassButton.setVisible(!isLocalMode);
-	otherButton.setVisible(!isLocalMode);
-	vocalsButton.setVisible(!isLocalMode);
-	guitarButton.setVisible(!isLocalMode);
-	pianoButton.setVisible(!isLocalMode);
-
-	durationSlider.setVisible(!isLocalMode);
-	durationLabel.setVisible(!isLocalMode);
+	stemsLabel.setEnabled(!isLocalMode);
+	drumsButton.setEnabled(!isLocalMode);
+	bassButton.setEnabled(!isLocalMode);
+	otherButton.setEnabled(!isLocalMode);
+	vocalsButton.setEnabled(!isLocalMode);
+	guitarButton.setEnabled(!isLocalMode);
+	pianoButton.setEnabled(!isLocalMode);
+	durationSlider.setEnabled(!isLocalMode);
+	durationLabel.setEnabled(!isLocalMode);
 
 	resized();
 }
@@ -565,7 +564,7 @@ void DjIaVstEditor::setupUI()
 	addAndMakeVisible(promptPresetSelector);
 
 	addAndMakeVisible(savePresetButton);
-	savePresetButton.setButtonText("Save");
+	savePresetButton.setButtonText(juce::String::fromUTF8("\xE2\x9C\x93"));
 
 	addAndMakeVisible(promptInput);
 	promptInput.setMultiLine(false);
@@ -667,8 +666,12 @@ void DjIaVstEditor::setupUI()
 	addAndMakeVisible(durationSlider);
 	durationSlider.setRange(4.0, 30.0, 1.0);
 	durationSlider.setValue(audioProcessor.getGlobalDuration(), juce::dontSendNotification);
+	durationSlider.setColour(juce::Slider::backgroundColourId, juce::Colours::black);
+	durationSlider.setColour(juce::Slider::thumbColourId, ColourPalette::sliderThumb);
+	durationSlider.setColour(juce::Slider::trackColourId, ColourPalette::sliderTrack);
 	durationSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
 	durationSlider.setTextValueSuffix(" s");
+	durationSlider.setDoubleClickReturnValue(true, 6.0);
 
 	addAndMakeVisible(durationLabel);
 	durationLabel.setText("Duration", juce::dontSendNotification);
@@ -677,7 +680,7 @@ void DjIaVstEditor::setupUI()
 	generateButton.setButtonText("Generate Loop");
 
 	addAndMakeVisible(configButton);
-	configButton.setButtonText("Settings");
+	configButton.setButtonText(juce::String::fromUTF8("\xE2\x98\xB0"));
 	configButton.setTooltip("Configure settings globally");
 	configButton.onClick = [this]()
 		{ showConfigDialog(); };
@@ -1076,10 +1079,11 @@ void DjIaVstEditor::layoutPromptSection(juce::Rectangle<int> area, int spacing)
 	promptInput.setBounds(row2.removeFromLeft(area.getWidth()));
 }
 
+
 void DjIaVstEditor::layoutConfigSection(juce::Rectangle<int> area, int reducing)
 {
 	auto controlRow = area.removeFromTop(35);
-	auto controlWidth = controlRow.getWidth() / 5;
+	auto controlWidth = controlRow.getWidth() / 2;
 
 	keySelector.setBounds(controlRow.removeFromLeft(controlWidth).reduced(reducing));
 	durationSlider.setBounds(controlRow.removeFromLeft(controlWidth).reduced(reducing));
@@ -1132,7 +1136,7 @@ void DjIaVstEditor::resized()
 	developerLabel.setBounds(devArea);
 	stabilityLabel.setBounds(partnerArea);
 
-	auto configButtonArea = configArea.removeFromRight(150);
+	auto configButtonArea = configArea.removeFromRight(100);
 	configButton.setBounds(configButtonArea.reduced(16));
 
 	area = area.reduced(padding);
