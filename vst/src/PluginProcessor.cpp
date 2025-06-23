@@ -2118,8 +2118,9 @@ void DjIaVstProcessor::updateSequencers(bool hostIsPlaying)
 			bool shouldAdvanceStep = false;
 			if (track->lastPpqPosition < 0)
 			{
-				track->lastPpqPosition = currentPpq;
-				track->customStepCounter = 0;
+				double totalStepsFromStart = currentPpq / stepInPpq;
+				track->customStepCounter = static_cast<int>(totalStepsFromStart);
+				track->lastPpqPosition = track->customStepCounter * stepInPpq;
 				shouldAdvanceStep = true;
 			}
 			else if (currentPpq >= expectedPpqForNextStep)

@@ -299,6 +299,9 @@ public:
 			track->loopPointsLocked = trackState.getProperty("loopPointsLocked", false);
 			track->selectedPrompt = trackState.getProperty("selectedPrompt", "");
 			juce::String stemsString = trackState.getProperty("preferredStems", "drums,bass");
+			track->lastPpqPosition = -1.0;
+			track->customStepCounter = 0;
+			track->sequencerData.stepAccumulator = 0.0;
 			track->preferredStems.clear();
 			if (stemsString.isNotEmpty())
 			{
@@ -312,8 +315,8 @@ public:
 			if (sequencerState.isValid())
 			{
 				track->sequencerData.isPlaying = sequencerState.getProperty("isPlaying", false);
-				track->sequencerData.currentStep = sequencerState.getProperty("currentStep", 0);
-				track->sequencerData.currentMeasure = sequencerState.getProperty("currentMeasure", 0);
+				track->sequencerData.currentStep = 0;
+				track->sequencerData.currentMeasure = 0;
 				track->sequencerData.numMeasures = sequencerState.getProperty("numMeasures", 1);
 				track->sequencerData.beatsPerMeasure = sequencerState.getProperty("beatsPerMeasure", 4);
 				for (int m = 0; m < 4; ++m)
