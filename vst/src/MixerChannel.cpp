@@ -121,8 +121,23 @@ void MixerChannel::setTrackData(TrackData* trackData)
 					juce::MessageManager::callAsync([weakThis]()
 						{
 							if (weakThis != nullptr) {
-								weakThis->isBlinking = true;
-								weakThis->startTimer(300);
+								bool allStepsAreFalse = true;
+								for (const auto& measure : weakThis->track->sequencerData.steps) {
+									for (bool step : measure) {
+										if (step) {
+											allStepsAreFalse = false;
+											break;
+										}
+									}
+									if (!allStepsAreFalse) break;
+								}
+								if (allStepsAreFalse) {
+									weakThis->stopTrackImmediatly();
+								}
+								else {
+									weakThis->isBlinking = true;
+									weakThis->startTimer(300);
+								}
 							} });
 				}
 			};
@@ -239,6 +254,20 @@ void MixerChannel::updateUIFromParameter(const juce::String& paramName,
 		}
 		else if (newValue > 0.5 && !track->isCurrentlyPlaying.load())
 		{
+			bool allStepsAreFalse = true;
+			for (const auto& measure : track->sequencerData.steps) {
+				for (bool step : measure) {
+					if (step) {
+						allStepsAreFalse = false;
+						break;
+					}
+				}
+				if (!allStepsAreFalse) break;
+			}
+			if (allStepsAreFalse) {
+				track->isArmedToStop = false;
+				track->pendingAction = TrackData::PendingAction::None;
+			}
 			playButton.setToggleState(true, juce::dontSendNotification);
 			playButton.setButtonText(juce::String::fromUTF8("\xE2\x96\xB6"));
 			playButton.setColour(juce::TextButton::buttonOnColourId, ColourPalette::playArmed);
@@ -438,6 +467,7 @@ void MixerChannel::addEventListeners()
 }
 
 void MixerChannel::stopTrackImmediatly() {
+	track->pendingAction = TrackData::PendingAction::None;
 	track->isArmed = false;
 	track->isArmedToStop = false;
 	track->isPlaying = false;
