@@ -74,6 +74,7 @@ private:
 		const juce::String& slotPrefix,
 		float newValue);
 	void removeMidiMapping(const juce::String& param);
+	void stopTrackImmediatly();
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MixerChannel);
 	JUCE_DECLARE_WEAK_REFERENCEABLE(MixerChannel);

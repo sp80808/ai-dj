@@ -335,6 +335,16 @@ void MixerChannel::addEventListeners()
 		{
 			if (track && track->numSamples > 0)
 			{
+				bool allStepsAreFalse = true;
+				for (const auto& measure : track->sequencerData.steps) {
+					for (bool step : measure) {
+						if (step) {
+							allStepsAreFalse = false;
+							break;
+						}
+					}
+					if (!allStepsAreFalse) break;
+				}
 				if (!track->isCurrentlyPlaying.load())
 				{
 					bool shouldArm = playButton.getToggleState();
@@ -348,7 +358,7 @@ void MixerChannel::addEventListeners()
 						track->isArmed = false;
 					}
 				}
-				else if (track->isCurrentlyPlaying.load())
+				else if (track->isCurrentlyPlaying.load() && !allStepsAreFalse)
 				{
 					track->pendingAction = TrackData::PendingAction::StopOnNextMeasure;
 					track->isArmed = false;
@@ -356,6 +366,10 @@ void MixerChannel::addEventListeners()
 					playButton.setToggleState(false, juce::dontSendNotification);
 					isBlinking = true;
 					startTimer(300);
+				}
+				else if (allStepsAreFalse) {
+					stopTrackImmediatly();
+					return;
 				}
 				setButtonParameter("Play", playButton);
 			}
@@ -365,7 +379,17 @@ void MixerChannel::addEventListeners()
 		{
 			if (track && track->numSamples > 0)
 			{
-				if (track->isCurrentlyPlaying.load() && !track->isArmedToStop.load())
+				bool allStepsAreFalse = true;
+				for (const auto& measure : track->sequencerData.steps) {
+					for (bool step : measure) {
+						if (step) {
+							allStepsAreFalse = false;
+							break;
+						}
+					}
+					if (!allStepsAreFalse) break;
+				}
+				if (track->isCurrentlyPlaying.load() && !track->isArmedToStop.load() && !allStepsAreFalse)
 				{
 					track->pendingAction = TrackData::PendingAction::StopOnNextMeasure;
 					track->isArmed = false;
@@ -374,14 +398,9 @@ void MixerChannel::addEventListeners()
 					isBlinking = true;
 					startTimer(300);
 				}
-				else if (!track->isCurrentlyPlaying.load()) {
-					track->isArmed = false;
-					track->isArmedToStop = false;
-					track->isPlaying = false;
-					playButton.setToggleState(false, juce::dontSendNotification);
-					playButton.setButtonText(juce::String::fromUTF8("\xE2\x96\xB6"));
-					playButton.setColour(juce::TextButton::buttonOnColourId, ColourPalette::buttonInactive);
-					stopButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonInactive);
+				else if (!track->isCurrentlyPlaying.load() || allStepsAreFalse) {
+					stopTrackImmediatly();
+					return;
 				}
 				setButtonParameter("Stop", stopButton);
 			}
@@ -416,6 +435,17 @@ void MixerChannel::addEventListeners()
 	addListener("Pitch");
 	addListener("Fine");
 	addListener("Pan");
+}
+
+void MixerChannel::stopTrackImmediatly() {
+	track->isArmed = false;
+	track->isArmedToStop = false;
+	track->isPlaying = false;
+	track->isCurrentlyPlaying = false;
+	playButton.setToggleState(false, juce::dontSendNotification);
+	playButton.setButtonText(juce::String::fromUTF8("\xE2\x96\xB6"));
+	playButton.setColour(juce::TextButton::buttonOnColourId, ColourPalette::buttonInactive);
+	stopButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonInactive);
 }
 
 void MixerChannel::timerCallback()
