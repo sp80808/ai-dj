@@ -2,6 +2,28 @@
 
 🎵 **Real-time AI music generation VST3 plugin for live performance**
 
+### 🔥 **Latest Jam Session**
+
+[![Jungle/DnB Session](https://img.youtube.com/vi/cFmRJIFUOCU/maxresdefault.jpg)](https://youtu.be/cFmRJIFUOCU)
+
+_AI + analog gear jungle improvisation - when OBSIDIAN throws you curveballs and you roll with it!_
+
+**🎯 Want to see YOUR jam sessions featured here?**
+
+I'm the only one posting live OBSIDIAN jams so far, and honestly... **I'm dying to see how YOU use it!**
+
+Every AI-generated rhythm is different, sometimes weird, sometimes genius. That's the beauty - it forces you out of your comfort zone and into unexplored territory.
+
+**Share your OBSIDIAN videos:**
+📧 Email me: b03caa1n5@mozmail.com  
+💬 Or create a [Discussion](https://github.com/innermost47/ai-dj/discussions) with your YouTube link!
+
+**📺 Check out all community jams → [YOUTUBE.md](YOUTUBE.md)**
+
+Let's build a community of AI-human musical chaos! 🤖🎵
+
+---
+
 **📖 [Read the full story](https://medium.com/@innermost47/obsidian-neural-when-ai-becomes-your-jam-partner-5203726a3840) - Why I built an AI that jams with you in real-time**
 
 ---
@@ -188,14 +210,6 @@ The desktop shortcut launches a complete control panel with:
 
 ---
 
-### 🔴 Latest Live Stream
-
-[![OBSIDIAN Live Stream](https://img.youtube.com/vi/O5j6xa_9_0s/maxresdefault.jpg)](https://www.youtube.com/watch?v=O5j6xa_9_0s)
-
-_57 minutes of real-time AI music generation with all the unpredictability!_
-
----
-
 ## 📰 **Press coverage moved to [PRESS.md](PRESS.md)**
 
 ---
@@ -217,7 +231,7 @@ Include: DAW name/version, OS, steps to reproduce, expected vs actual behavior
 🚀 **Local models**: Available now (with some limitations)  
 ✅ **Server option**: Still the best for live performance  
 ⚠️ **Pre-release**: Active development, frequent updates  
-🌟 **Star count**: 65+ - Thank you for the support!
+🌟 **Star count**: 70+ - Thank you for the support!
 
 ---
 
