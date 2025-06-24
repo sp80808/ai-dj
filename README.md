@@ -14,7 +14,7 @@ I'm the only one posting live OBSIDIAN jams so far, and honestly... **I'm dying 
 
 Every AI-generated rhythm is different, sometimes weird, sometimes genius. That's the beauty - it forces you out of your comfort zone and into unexplored territory.
 
-**Share your OBSIDIAN videos:**
+**Share your OBSIDIAN videos:**  
 📧 Email me: b03caa1n5@mozmail.com  
 💬 Or create a [Discussion](https://github.com/innermost47/ai-dj/discussions) with your YouTube link!
 
