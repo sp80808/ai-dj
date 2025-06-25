@@ -79,10 +79,6 @@ target_include_directories(ObsidianNeuralVST PRIVATE
 )
 
 target_compile_definitions(ObsidianNeuralVST PRIVATE
-    JucePlugin_IsSynth=1
-    JucePlugin_WantsMidiInput=1
-    JucePlugin_ProducesMidiOutput=1
-    JucePlugin_IsMidiEffect=0
     JucePlugin_VSTNumMidiInputs=16
     OBSIDIAN_HAS_STABLE_AUDIO=1
     
@@ -125,6 +121,11 @@ elseif(APPLE)
         OSX_ARCHITECTURES "x86_64;arm64"
     )
 elseif(UNIX AND NOT APPLE)
+    target_compile_options(ObsidianNeuralVST PRIVATE -fPIC)
+    target_compile_options(ObsidianNeuralVST PRIVATE 
+        -Wno-macro-redefined
+        -Wno-builtin-macro-redefined
+    )
     target_link_libraries(ObsidianNeuralVST PRIVATE 
         pthread 
         dl 
