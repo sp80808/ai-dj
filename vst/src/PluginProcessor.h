@@ -254,8 +254,8 @@ private:
 	std::atomic<int> timeSignatureNumerator{ 4 };
 	std::atomic<int> timeSignatureDenominator{ 4 };
 
-	juce::String globalPrompt;
-	float globalBpm;
+	juce::String globalPrompt = "Techno kick rhythm";
+	float globalBpm = 110.0f;
 	juce::String globalKey = "C Aeolian";
 	int globalDuration = 6;
 	std::vector<juce::String> globalStems = {};

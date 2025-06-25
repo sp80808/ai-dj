@@ -70,10 +70,15 @@ public:
 		try
 		{
 			juce::var jsonRequest(new juce::DynamicObject());
+			float bpm = request.bpm;
+			if (bpm < 0.0f) {
+				bpm = 110.0f;
+			}
 			jsonRequest.getDynamicObject()->setProperty("prompt", request.prompt);
-			jsonRequest.getDynamicObject()->setProperty("bpm", request.bpm);
+			jsonRequest.getDynamicObject()->setProperty("bpm", bpm);
 			jsonRequest.getDynamicObject()->setProperty("key", request.key);
 			jsonRequest.getDynamicObject()->setProperty("sample_rate", sampleRate);
+			jsonRequest.getDynamicObject()->setProperty("generation_duration", request.generationDuration);
 
 			if (!request.preferredStems.empty())
 			{
@@ -172,7 +177,7 @@ public:
 				throw std::runtime_error("Cannot create temporary file for audio data.");
 			}
 			result.duration = request.generationDuration;
-			result.bpm = request.bpm;
+			result.bpm = bpm;
 			result.key = request.key;
 			result.stemsUsed = request.preferredStems;
 			juce::String creditsRemaining = responseHeaders["X-Credits-Remaining"];

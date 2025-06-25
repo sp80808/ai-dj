@@ -722,7 +722,7 @@ void DjIaVstProcessor::generateLoopFromMidi(const juce::String& trackId)
 
 						if (!track->selectedPrompt.isEmpty()) {
 							request.prompt = track->selectedPrompt;
-							request.bpm = getGlobalBpm();
+							request.bpm = static_cast<float>(getHostBpm());
 							request.key = getGlobalKey();
 							request.generationDuration = static_cast<float>(getGlobalDuration());
 
@@ -1713,11 +1713,14 @@ double DjIaVstProcessor::getHostBpm() const
 			if (positionInfo->getBpm().hasValue())
 			{
 				double bpm = *positionInfo->getBpm();
-				return bpm;
+				if (bpm > 0.0)
+				{
+					return bpm;
+				}
 			}
 		}
 	}
-	return 0.0;
+	return 110.0;
 }
 
 juce::AudioProcessorEditor* DjIaVstProcessor::createEditor()

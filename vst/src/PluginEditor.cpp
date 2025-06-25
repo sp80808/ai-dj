@@ -664,7 +664,7 @@ void DjIaVstEditor::setupUI()
 	keySelector.setText(audioProcessor.getGlobalKey(), juce::dontSendNotification);
 
 	addAndMakeVisible(durationSlider);
-	durationSlider.setRange(4.0, 30.0, 1.0);
+	durationSlider.setRange(2.0, 10.0, 1.0);
 	durationSlider.setValue(audioProcessor.getGlobalDuration(), juce::dontSendNotification);
 	durationSlider.setColour(juce::Slider::backgroundColourId, juce::Colours::black);
 	durationSlider.setColour(juce::Slider::thumbColourId, ColourPalette::sliderThumb);
@@ -1288,7 +1288,8 @@ void DjIaVstEditor::onGenerateButtonClicked()
 
 	startGenerationUI(generatingTrackId);
 	juce::String selectedTrackId = generatingTrackId;
-	juce::Thread::launch([this, selectedTrackId, track]()
+	auto request = track->createLoopRequest();
+	juce::Thread::launch([this, selectedTrackId, request]()
 		{
 			try
 			{
@@ -1300,7 +1301,6 @@ void DjIaVstEditor::onGenerateButtonClicked()
 				audioProcessor.setServerUrl(audioProcessor.getServerUrl());
 				audioProcessor.setApiKey(audioProcessor.getApiKey());
 				juce::Thread::sleep(100);
-				auto request = track->createLoopRequest();
 				audioProcessor.generateLoop(request, generatingTrackId);
 			}
 			catch (const std::exception& e)
@@ -1601,34 +1601,24 @@ void DjIaVstEditor::generateFromTrackComponent(const juce::String& trackId)
 
 	juce::String currentGeneratingTrackId = trackId;
 	audioProcessor.setGeneratingTrackId(currentGeneratingTrackId);
-	if (track->generationBpm <= 0)
-	{
-		track->generationBpm = audioProcessor.getGlobalBpm();
-	}
-	if (track->generationKey.isEmpty())
-	{
-		track->generationKey = audioProcessor.getGlobalKey();
-	}
-	if (track->generationDuration <= 0)
-	{
-		track->generationDuration = audioProcessor.getGlobalDuration();
-	}
-	if (track->preferredStems.empty())
-	{
-		track->preferredStems.clear();
-		if (audioProcessor.isGlobalStemEnabled("drums"))
-			track->preferredStems.push_back("drums");
-		if (audioProcessor.isGlobalStemEnabled("bass"))
-			track->preferredStems.push_back("bass");
-		if (audioProcessor.isGlobalStemEnabled("other"))
-			track->preferredStems.push_back("other");
-		if (audioProcessor.isGlobalStemEnabled("vocals"))
-			track->preferredStems.push_back("vocals");
-		if (audioProcessor.isGlobalStemEnabled("guitar"))
-			track->preferredStems.push_back("guitar");
-		if (audioProcessor.isGlobalStemEnabled("piano"))
-			track->preferredStems.push_back("piano");
-	}
+	track->generationBpm = audioProcessor.getGlobalBpm();
+	track->generationKey = audioProcessor.getGlobalKey();
+	track->generationDuration = audioProcessor.getGlobalDuration();
+
+	track->preferredStems.clear();
+	if (audioProcessor.isGlobalStemEnabled("drums"))
+		track->preferredStems.push_back("drums");
+	if (audioProcessor.isGlobalStemEnabled("bass"))
+		track->preferredStems.push_back("bass");
+	if (audioProcessor.isGlobalStemEnabled("other"))
+		track->preferredStems.push_back("other");
+	if (audioProcessor.isGlobalStemEnabled("vocals"))
+		track->preferredStems.push_back("vocals");
+	if (audioProcessor.isGlobalStemEnabled("guitar"))
+		track->preferredStems.push_back("guitar");
+	if (audioProcessor.isGlobalStemEnabled("piano"))
+		track->preferredStems.push_back("piano");
+
 
 	startGenerationUI(currentGeneratingTrackId);
 
