@@ -4,8 +4,25 @@ project(OBSIDIAN-Neural VERSION 1.0.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_subdirectory(JUCE)
-add_subdirectory(soundtouch)
+find_package(JUCE QUIET)
+if(NOT JUCE_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(JUCE
+        GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
+        GIT_TAG 7.0.12  
+    )
+    FetchContent_MakeAvailable(JUCE)
+endif()
+
+find_package(SoundTouch QUIET)
+if(NOT SoundTouch_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(soundtouch
+        GIT_REPOSITORY https://codeberg.org/soundtouch/soundtouch.git
+        GIT_TAG 2.3.2
+    )
+    FetchContent_MakeAvailable(soundtouch)
+endif()
 
 find_package(nlohmann_json QUIET)
 if(NOT nlohmann_json_FOUND)
