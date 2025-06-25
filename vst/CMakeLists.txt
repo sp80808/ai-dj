@@ -9,7 +9,7 @@ if(NOT JUCE_FOUND)
     include(FetchContent)
     FetchContent_Declare(JUCE
         GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-        GIT_TAG 7.0.12  
+        GIT_TAG master  
     )
     FetchContent_MakeAvailable(JUCE)
 endif()
@@ -19,7 +19,7 @@ if(NOT SoundTouch_FOUND)
     include(FetchContent)
     FetchContent_Declare(soundtouch
         GIT_REPOSITORY https://codeberg.org/soundtouch/soundtouch.git
-        GIT_TAG 2.3.2
+        GIT_TAG master
     )
     FetchContent_MakeAvailable(soundtouch)
 endif()
