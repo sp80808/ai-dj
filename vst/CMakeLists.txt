@@ -9,7 +9,7 @@ if(NOT JUCE_FOUND)
     include(FetchContent)
     FetchContent_Declare(JUCE
         GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-        GIT_TAG master  
+        GIT_TAG 8.0.8  
     )
     FetchContent_MakeAvailable(JUCE)
 endif()
@@ -19,7 +19,7 @@ if(NOT SoundTouch_FOUND)
     include(FetchContent)
     FetchContent_Declare(soundtouch
         GIT_REPOSITORY https://codeberg.org/soundtouch/soundtouch.git
-        GIT_TAG master
+        GIT_TAG 2.4.0
     )
     FetchContent_MakeAvailable(soundtouch)
 endif()
@@ -29,7 +29,7 @@ if(NOT nlohmann_json_FOUND)
     include(FetchContent)
     FetchContent_Declare(nlohmann_json
         GIT_REPOSITORY https://github.com/nlohmann/json.git
-        GIT_TAG v3.11.2
+        GIT_TAG v3.12.0
     )
     FetchContent_MakeAvailable(nlohmann_json)
 endif()
@@ -75,7 +75,7 @@ target_sources(ObsidianNeuralVST PRIVATE
 target_include_directories(ObsidianNeuralVST PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
     src
-    soundtouch/include
+    ${soundtouch_SOURCE_DIR}/include 
 )
 
 target_compile_definitions(ObsidianNeuralVST PRIVATE
