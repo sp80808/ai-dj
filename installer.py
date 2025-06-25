@@ -1019,16 +1019,37 @@ class ObsidianNeuralInstaller:
 
     def create_server_executable_and_shortcut(self, install_dir):
         self.log("Creating desktop shortcut...")
-        exe_path = install_dir / "bin" / "OBSIDIAN-Neural-Server.exe"
+
+        if platform.system() == "Windows":
+            exe_name = "OBSIDIAN-Neural-Server.exe"
+        elif platform.system() == "Darwin":
+            exe_name = "OBSIDIAN-Neural-Server-macos"
+        else:
+            exe_name = "OBSIDIAN-Neural-Server-linux"
+
+        exe_path = install_dir / "bin" / exe_name
 
         if not exe_path.exists():
-            self.log("Pre-built executable not found in bin/", "WARNING")
+            self.log(f"Pre-built executable not found: {exe_path}", "WARNING")
             self.log("You can manually compile later if needed")
             return
 
+        if platform.system() != "Windows":
+            exe_path.chmod(0o755)
+
         desktop = Path.home() / "Desktop"
+
+        if platform.system() == "Windows":
+            self.create_windows_shortcut(exe_path, desktop, install_dir)
+        elif platform.system() == "Darwin":
+            self.create_macos_shortcut(exe_path, desktop, install_dir)
+        else:
+            self.create_linux_shortcut(exe_path, desktop, install_dir)
+
+        self.log("Server setup completed!", "SUCCESS")
+
+    def create_windows_shortcut(self, exe_path, desktop, install_dir):
         shortcut_path = desktop / "OBSIDIAN-Neural Server.lnk"
-        logo_path = install_dir / "logo.png"
         ico_path = install_dir / "logo.ico"
 
         icon_line = (
@@ -1036,24 +1057,62 @@ class ObsidianNeuralInstaller:
         )
 
         ps_script = f"""
-    $WshShell = New-Object -comObject WScript.Shell
-    $Shortcut = $WshShell.CreateShortcut("{shortcut_path}")
-    $Shortcut.TargetPath = "{exe_path}"
-    $Shortcut.WorkingDirectory = "{install_dir}"
-    $Shortcut.Description = "OBSIDIAN-Neural AI Music Generation Server"
-    {icon_line}
-    $Shortcut.Save()
-    """
+        $WshShell = New-Object -comObject WScript.Shell
+        $Shortcut = $WshShell.CreateShortcut("{shortcut_path}")
+        $Shortcut.TargetPath = "{exe_path}"
+        $Shortcut.WorkingDirectory = "{install_dir}"
+        $Shortcut.Description = "OBSIDIAN-Neural AI Music Generation Server"
+        {icon_line}
+        $Shortcut.Save()
+        """
 
         cmd = ["powershell", "-Command", ps_script]
         result = self.safe_subprocess_run(cmd, capture_output=True, text=True)
 
         if result.returncode == 0:
-            self.log("✅ Desktop shortcut created")
+            self.log("✅ Windows desktop shortcut created")
         else:
-            self.log(f"Could not create shortcut: {result.stderr}", "WARNING")
+            self.log(f"Could not create Windows shortcut: {result.stderr}", "WARNING")
 
-        self.log("Server setup completed!", "SUCCESS")
+    def create_macos_shortcut(self, exe_path, desktop, install_dir):
+        shortcut_path = desktop / "OBSIDIAN-Neural Server.command"
+
+        script_content = f"""#!/bin/bash
+    cd "{install_dir}"
+    exec "{exe_path}"
+    """
+
+        try:
+            shortcut_path.write_text(script_content)
+            shortcut_path.chmod(0o755)
+            self.log("✅ macOS desktop shortcut created")
+        except Exception as e:
+            self.log(f"Could not create macOS shortcut: {e}", "WARNING")
+
+    def create_linux_shortcut(self, exe_path, desktop, install_dir):
+        shortcut_path = desktop / "obsidian-neural-server.desktop"
+        logo_path = install_dir / "logo.png"
+
+        icon_line = f"Icon={logo_path}" if logo_path.exists() else ""
+
+        desktop_content = f"""[Desktop Entry]
+    Version=1.0
+    Name=OBSIDIAN-Neural Server
+    Comment=AI Music Generation Server
+    Exec={exe_path}
+    Path={install_dir}
+    {icon_line}
+    Terminal=false
+    Type=Application
+    Categories=AudioVideo;Audio;
+    """
+
+        try:
+            shortcut_path.write_text(desktop_content)
+            shortcut_path.chmod(0o755)
+            self.log("✅ Linux desktop shortcut created")
+        except Exception as e:
+            self.log(f"Could not create Linux shortcut: {e}", "WARNING")
 
     def skip_vst_manual(self, install_dir):
         self.log("VST build skipped - manual download required")
