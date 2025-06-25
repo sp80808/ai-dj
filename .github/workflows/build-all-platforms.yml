@@ -11,7 +11,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -29,7 +29,7 @@ jobs:
           cmake --build build --config Release
 
       - name: Upload Windows VST
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ObsidianNeural-Windows-VST3
           path: vst/build/ObsidianNeuralVST_artefacts/Release/VST3/
@@ -38,7 +38,7 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -57,7 +57,7 @@ jobs:
           cmake --build build --config Release
 
       - name: Upload macOS VST
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ObsidianNeural-macOS-VST3
           path: vst/build/ObsidianNeuralVST_artefacts/Release/VST3/
@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -94,7 +94,7 @@ jobs:
           cmake --build build --config Release
 
       - name: Upload Linux VST
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ObsidianNeural-Linux-VST3
           path: vst/build/ObsidianNeuralVST_artefacts/Release/VST3/
