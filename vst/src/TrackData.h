@@ -48,12 +48,12 @@ struct TrackData
 	std::atomic<double> readPosition{ 0.0 };
 	bool showWaveform = false;
 	bool showSequencer = false;
-	juce::String generationPrompt = "";
-	float generationBpm = 127.0f;
-	juce::String generationKey = "";
-	int generationDuration = 6;
+	juce::String generationPrompt;
+	float generationBpm;
+	juce::String generationKey;
+	int generationDuration;
 	std::vector<juce::String> preferredStems = {};
-	juce::String selectedPrompt = "";
+	juce::String selectedPrompt;
 
 	enum class PendingAction
 	{

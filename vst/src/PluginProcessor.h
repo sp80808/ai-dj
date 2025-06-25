@@ -155,7 +155,10 @@ public:
 
 	void setGlobalBpm(float bpm) { globalBpm = bpm; }
 	void setCanLoad(bool load) { canLoad = load; }
-	float getGlobalBpm() const { return globalBpm; }
+	float getGlobalBpm() const {
+		float hostBpm = static_cast<float>(getHostBpm());
+		return hostBpm > 0 ? hostBpm : globalBpm;
+	}
 
 	void setGlobalKey(const juce::String& key) { globalKey = key; }
 	juce::String getGlobalKey() const { return globalKey; }
@@ -251,8 +254,8 @@ private:
 	std::atomic<int> timeSignatureNumerator{ 4 };
 	std::atomic<int> timeSignatureDenominator{ 4 };
 
-	juce::String globalPrompt = "";
-	float globalBpm = 127.0f;
+	juce::String globalPrompt;
+	float globalBpm;
 	juce::String globalKey = "C Aeolian";
 	int globalDuration = 6;
 	std::vector<juce::String> globalStems = {};
