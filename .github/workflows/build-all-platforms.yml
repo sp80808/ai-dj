@@ -99,3 +99,69 @@ jobs:
         with:
           name: ObsidianNeural-Linux-VST3
           path: vst/build/ObsidianNeuralVST_artefacts/Release/VST3/
+
+  build-python-executables:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+          - os: windows-latest
+            name: windows
+          - os: macos-latest
+            name: macos
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller pillow
+
+      - name: Convert logo to platform icons
+        shell: bash
+        run: |
+          python -c "
+          from PIL import Image
+          import sys
+
+          img = Image.open('logo.png').convert('RGBA')
+          img = img.resize((512, 512), Image.Resampling.LANCZOS)
+
+          if sys.platform == 'win32':
+              img.save('logo.ico', format='ICO', sizes=[(16,16), (32,32), (48,48), (64,64), (128,128), (256,256)])
+          elif sys.platform == 'darwin':
+              img.save('logo_temp.png')
+          else:
+              pass
+          "
+
+      - name: Create ICNS for macOS
+        if: matrix.name == 'macos'
+        run: |
+          sips -s format icns logo_temp.png --out logo.icns
+
+      - name: Build executables with icons
+        shell: bash
+        run: |
+          ICON_FLAG=""
+          if [[ "${{ matrix.name }}" == "windows" ]]; then
+            ICON_FLAG="--icon=logo.ico"
+          elif [[ "${{ matrix.name }}" == "macos" ]]; then
+            ICON_FLAG="--icon=logo.icns"
+          fi
+
+          pyinstaller --onefile $ICON_FLAG --name obsidian-server-${{ matrix.name }} server_interface.py
+          pyinstaller --onefile $ICON_FLAG --name obsidian-installer-${{ matrix.name }} installer.py
+
+      - name: Upload Python executables
+        uses: actions/upload-artifact@v4
+        with:
+          name: ObsidianNeural-Python-${{ matrix.name }}
+          path: dist/
