@@ -18,6 +18,17 @@ jobs:
       - name: Setup MSVC
         uses: microsoft/setup-msbuild@v1
 
+      - name: Download dependencies
+        working-directory: vst
+        shell: bash
+        run: |
+          if [ ! -d "JUCE" ]; then
+            git clone --depth 1 https://github.com/juce-framework/JUCE.git JUCE
+          fi
+          if [ ! -d "soundtouch" ]; then
+            git clone --depth 1 https://github.com/soundtouch/soundtouch.git soundtouch
+          fi
+
       - name: Configure CMake
         working-directory: vst
         run: |
@@ -45,6 +56,16 @@ jobs:
       - name: Install dependencies
         run: |
           brew install cmake ninja
+
+      - name: Download dependencies
+        working-directory: vst
+        run: |
+          if [ ! -d "JUCE" ]; then
+            git clone --depth 1 https://github.com/juce-framework/JUCE.git JUCE
+          fi
+          if [ ! -d "soundtouch" ]; then
+            git clone --depth 1 https://github.com/soundtouch/soundtouch.git soundtouch
+          fi
 
       - name: Configure CMake
         working-directory: vst
@@ -81,7 +102,17 @@ jobs:
             libfreetype6-dev \
             libfontconfig1-dev \
             libgtk-3-dev \
-            libwebkit2gtk-4.0-dev
+            libwebkit2gtk-4.1-dev
+
+      - name: Download dependencies
+        working-directory: vst
+        run: |
+          if [ ! -d "JUCE" ]; then
+            git clone --depth 1 https://github.com/juce-framework/JUCE.git JUCE
+          fi
+          if [ ! -d "soundtouch" ]; then
+            git clone --depth 1 https://github.com/soundtouch/soundtouch.git soundtouch
+          fi
 
       - name: Configure CMake
         working-directory: vst
