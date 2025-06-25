@@ -80,7 +80,7 @@ _Highlighted as a collaborative, open-source, and generative AI instrument desig
 
 ### 📺 Amner Hunter (YouTube)
 
-## **[Video: "17 Best New FREE Effect Plugins, Virtual Instruments & Audio Plugin Deals - JUNE 2025 Week 1"](https://www.youtube.com/watch?v=40pkX_MkXjE)**
+**[Video: "17 Best New FREE Effect Plugins, Virtual Instruments & Audio Plugin Deals - JUNE 2025 Week 1"](https://www.youtube.com/watch?v=40pkX_MkXjE)**
 
 ### 🎛️ FreeVSTs.com
 
