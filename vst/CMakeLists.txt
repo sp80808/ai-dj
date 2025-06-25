@@ -92,11 +92,31 @@ if(WIN32)
     target_link_libraries(ObsidianNeuralVST PRIVATE ws2_32 winmm)
 elseif(APPLE)
     find_library(ACCELERATE_FRAMEWORK Accelerate)
+    find_library(COREAUDIO_FRAMEWORK CoreAudio)
+    find_library(COREMIDI_FRAMEWORK CoreMIDI)
+    
     if(ACCELERATE_FRAMEWORK)
         target_link_libraries(ObsidianNeuralVST PRIVATE ${ACCELERATE_FRAMEWORK})
     endif()
-elseif(UNIX)
-    target_link_libraries(ObsidianNeuralVST PRIVATE pthread dl)
+    if(COREAUDIO_FRAMEWORK)
+        target_link_libraries(ObsidianNeuralVST PRIVATE ${COREAUDIO_FRAMEWORK})
+    endif()
+    if(COREMIDI_FRAMEWORK)
+        target_link_libraries(ObsidianNeuralVST PRIVATE ${COREMIDI_FRAMEWORK})
+    endif()
+    set_target_properties(ObsidianNeuralVST PROPERTIES
+        OSX_ARCHITECTURES "x86_64;arm64"
+    )
+elseif(UNIX AND NOT APPLE)
+    target_link_libraries(ObsidianNeuralVST PRIVATE 
+        pthread 
+        dl 
+        asound  
+    )
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
+    target_link_libraries(ObsidianNeuralVST PRIVATE ${GTK3_LIBRARIES})
+    target_include_directories(ObsidianNeuralVST PRIVATE ${GTK3_INCLUDE_DIRS})
 endif()
 
 message(STATUS "OBSIDIAN Neural Build Configuration:")
