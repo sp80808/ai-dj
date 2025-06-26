@@ -2,9 +2,9 @@ name: Build VST - All Platforms
 
 on:
   push:
-    branches: [main, build]
+    branches: [main]
   pull_request:
-    branches: [main, build]
+    branches: [main]
 
 permissions:
   contents: write
@@ -234,7 +234,6 @@ jobs:
 
       - name: Create release assets
         run: |
-          # Créer les archives VST par plateforme
           if [ -d "ObsidianNeural-Windows-VST3" ]; then
             cd ObsidianNeural-Windows-VST3
             zip -r ../OBSIDIAN-Neural-Windows-VST3.zip .
@@ -253,7 +252,6 @@ jobs:
             cd ..
           fi
 
-          # Renommer les installers
           if [ -d "ObsidianNeural-Python-windows" ]; then
             cp ObsidianNeural-Python-windows/obsidian-installer-windows.exe ./OBSIDIAN-Neural-Installer-Windows.exe
           fi
