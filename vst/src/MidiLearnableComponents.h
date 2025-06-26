@@ -1,3 +1,10 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (C) 2025 Anthony Charretier
+ */
+
 #pragma once
 #include <JuceHeader.h>
 
@@ -8,7 +15,7 @@ public:
 	std::function<void()> onMidiLearn;
 	std::function<void()> onMidiRemove;
 
-	void mouseDown(const juce::MouseEvent& e) override
+	void mouseDown(const juce::MouseEvent &e) override
 	{
 		if (e.mods.isRightButtonDown() && !e.mods.isCtrlDown())
 		{
@@ -17,7 +24,7 @@ public:
 			menu.addItem(2, "Remove MIDI", onMidiRemove != nullptr);
 
 			menu.showMenuAsync(juce::PopupMenu::Options(), [this](int result)
-				{
+							   {
 					if (result == 1 && onMidiLearn)
 						onMidiLearn();
 					else if (result == 2 && onMidiRemove)

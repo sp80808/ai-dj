@@ -1,3 +1,10 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (C) 2025 Anthony Charretier
+ */
+
 #pragma once
 #include "JuceHeader.h"
 
@@ -6,11 +13,11 @@ class DjIaVstProcessor;
 class SequencerComponent : public juce::Component
 {
 public:
-	SequencerComponent(const juce::String& trackId, DjIaVstProcessor& processor);
+	SequencerComponent(const juce::String &trackId, DjIaVstProcessor &processor);
 
-	void paint(juce::Graphics& g) override;
+	void paint(juce::Graphics &g) override;
 	void resized() override;
-	void mouseDown(const juce::MouseEvent& event) override;
+	void mouseDown(const juce::MouseEvent &event) override;
 
 	void setCurrentStep(int step);
 	void setPlaying(bool playing);
@@ -23,7 +30,7 @@ public:
 
 private:
 	juce::String trackId;
-	DjIaVstProcessor& audioProcessor;
+	DjIaVstProcessor &audioProcessor;
 
 	static const int MAX_STEPS_PER_MEASURE = 16;
 	static const int MAX_MEASURES = 4;
@@ -39,7 +46,7 @@ private:
 	juce::Slider measureSlider;
 	juce::Slider timeSignatureSlider;
 
-	juce::Timer* editingTimer = nullptr;
+	juce::Timer *editingTimer = nullptr;
 
 	juce::TextButton prevMeasureButton, nextMeasureButton;
 
