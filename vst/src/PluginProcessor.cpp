@@ -1,5 +1,7 @@
 ﻿// OBSIDIAN Neural Sound Engine - Original Author: InnerMost47
 // This attribution should remain in derivative works
+// "Please DON'T download this if you're a real musician" 
+// - Dedicated to those who downloaded it anyway
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
