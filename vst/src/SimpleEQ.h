@@ -1,3 +1,10 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (C) 2025 Anthony Charretier
+ */
+
 #pragma once
 #include "JuceHeader.h"
 
@@ -20,7 +27,7 @@ public:
 		}
 	}
 
-	void processBlock(juce::AudioBuffer<float>& buffer)
+	void processBlock(juce::AudioBuffer<float> &buffer)
 	{
 		if (bypass)
 			return;
@@ -30,7 +37,7 @@ public:
 
 		for (int ch = 0; ch < numChannels; ++ch)
 		{
-			auto* channelData = buffer.getWritePointer(ch);
+			auto *channelData = buffer.getWritePointer(ch);
 			lowFilters[ch].processSamples(channelData, numSamples);
 			midFilters[ch].processSamples(channelData, numSamples);
 			highFilters[ch].processSamples(channelData, numSamples);

@@ -1,4 +1,11 @@
-﻿#pragma once
+﻿/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (C) 2025 Anthony Charretier
+ */
+
+#pragma once
 #include <JuceHeader.h>
 #include "StableAudioEngine.h"
 #include <nlohmann/json.hpp>
@@ -41,9 +48,8 @@ public:
 	bool initialize()
 	{
 		appDataDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-			.getChildFile("OBSIDIAN-Neural");
+						 .getChildFile("OBSIDIAN-Neural");
 		auto stableAudioDir = appDataDir.getChildFile("stable-audio");
-
 
 		stableAudioEngine = std::make_unique<StableAudioEngine>();
 		if (!stableAudioEngine->initialize(stableAudioDir.getFullPathName()))
@@ -56,10 +62,10 @@ public:
 		return true;
 	}
 
-	void generateLoopAsync(const LoopRequest& request, GenerationCallback callback)
+	void generateLoopAsync(const LoopRequest &request, GenerationCallback callback)
 	{
 		juce::Thread::launch([this, request, callback]()
-			{
+							 {
 				auto response = generateLoop(request);
 				juce::MessageManager::callAsync([callback, response]() {
 					callback(response);
@@ -67,14 +73,13 @@ public:
 	}
 
 private:
-	LoopResponse generateLoop(const LoopRequest& request)
+	LoopResponse generateLoop(const LoopRequest &request)
 	{
 		LoopResponse response;
 		try
 		{
 
 			juce::String optimizedPrompt = (request.prompt + " " + juce::String(request.bpm) + "bpm " + request.key).toStdString();
-
 
 			StableAudioEngine::GenerationParams audioParams;
 			audioParams.prompt = optimizedPrompt;
@@ -103,7 +108,7 @@ private:
 				response.errorMessage = "Audio generation failed: " + audioResult.errorMessage;
 			}
 		}
-		catch (const std::exception& e)
+		catch (const std::exception &e)
 		{
 			response.success = false;
 			response.errorMessage = juce::String("Generation exception: ") + e.what();

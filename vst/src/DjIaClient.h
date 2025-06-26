@@ -1,4 +1,11 @@
-﻿#pragma once
+﻿/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (C) 2025 Anthony Charretier
+ */
+
+#pragma once
 #include "./JuceHeader.h"
 
 class DjIaClient
@@ -14,10 +21,10 @@ public:
 
 		LoopRequest()
 			: prompt(""),
-			generationDuration(6.0f),
-			bpm(120.0f),
-			key(""),
-			preferredStems()
+			  generationDuration(6.0f),
+			  bpm(120.0f),
+			  key(""),
+			  preferredStems()
 		{
 		}
 	};
@@ -41,18 +48,18 @@ public:
 		}
 	};
 
-	DjIaClient(const juce::String& apiKey = "", const juce::String& baseUrl = "http://localhost:8000")
+	DjIaClient(const juce::String &apiKey = "", const juce::String &baseUrl = "http://localhost:8000")
 		: apiKey(apiKey), baseUrl(baseUrl + "/api/v1")
 	{
 	}
 
-	void setApiKey(const juce::String& newApiKey)
+	void setApiKey(const juce::String &newApiKey)
 	{
 		apiKey = newApiKey;
 		DBG("DjIaClient: API key updated");
 	}
 
-	void setBaseUrl(const juce::String& newBaseUrl)
+	void setBaseUrl(const juce::String &newBaseUrl)
 	{
 		if (newBaseUrl.endsWith("/"))
 		{
@@ -65,13 +72,14 @@ public:
 		DBG("DjIaClient: Base URL updated to: " + baseUrl);
 	}
 
-	LoopResponse generateLoop(const LoopRequest& request, double sampleRate, int requestTimeoutMS)
+	LoopResponse generateLoop(const LoopRequest &request, double sampleRate, int requestTimeoutMS)
 	{
 		try
 		{
 			juce::var jsonRequest(new juce::DynamicObject());
 			float bpm = request.bpm;
-			if (bpm < 0.0f) {
+			if (bpm < 0.0f)
+			{
 				bpm = 110.0f;
 			}
 			jsonRequest.getDynamicObject()->setProperty("prompt", request.prompt);
@@ -83,7 +91,7 @@ public:
 			if (!request.preferredStems.empty())
 			{
 				juce::Array<juce::var> stems;
-				for (const auto& stem : request.preferredStems)
+				for (const auto &stem : request.preferredStems)
 					stems.add(stem);
 				jsonRequest.getDynamicObject()->setProperty("preferred_stems", stems);
 			}
@@ -109,20 +117,20 @@ public:
 			int statusCode = 0;
 			juce::StringPairArray responseHeaders;
 			auto url = juce::URL(baseUrl + "/generate")
-				.withPOSTData(jsonString);
+						   .withPOSTData(jsonString);
 			auto options = juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inPostData)
-				.withStatusCode(&statusCode)
-				.withResponseHeaders(&responseHeaders)
-				.withExtraHeaders(headerString)
-				.withConnectionTimeoutMs(requestTimeoutMS);
+							   .withStatusCode(&statusCode)
+							   .withResponseHeaders(&responseHeaders)
+							   .withExtraHeaders(headerString)
+							   .withConnectionTimeoutMs(requestTimeoutMS);
 
 			auto response = url.createInputStream(options);
 			if (!response)
 			{
 				DBG("ERROR: Failed to connect to server");
 				throw std::runtime_error(("Cannot connect to server at " + baseUrl +
-					". Please check: Server is running, URL is correct, Network connection")
-					.toStdString());
+										  ". Please check: Server is running, URL is correct, Network connection")
+											 .toStdString());
 			}
 
 			DBG("HTTP Status Code: " + juce::String(statusCode));
@@ -201,7 +209,7 @@ public:
 
 			return result;
 		}
-		catch (const std::exception& e)
+		catch (const std::exception &e)
 		{
 			DBG("API Error: " + juce::String(e.what()));
 			LoopResponse emptyResponse;

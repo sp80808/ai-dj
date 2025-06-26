@@ -1,3 +1,10 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (C) 2025 Anthony Charretier
+ */
+
 #pragma once
 #include "JuceHeader.h"
 #include "SoundTouch.h"
@@ -6,7 +13,7 @@
 class AudioAnalyzer
 {
 public:
-	static float detectBPM(const juce::AudioBuffer<float>& buffer, double sampleRate)
+	static float detectBPM(const juce::AudioBuffer<float> &buffer, double sampleRate)
 	{
 		if (buffer.getNumSamples() == 0)
 			return 0.0f;
@@ -20,20 +27,21 @@ public:
 
 			bool retFlag;
 			float retVal = normalizeAudio(buffer, monoData, retFlag);
-			if (retFlag) return retVal;
+			if (retFlag)
+				return retVal;
 
 			chunkAnalysis(monoData, bpmDetect);
 
 			float detectedBPM = bpmDetect.getBpm();
 			return returnDetectedBPMorFallback(detectedBPM, buffer, sampleRate);
 		}
-		catch (const std::exception& /*e*/)
+		catch (const std::exception & /*e*/)
 		{
 			return 0.0f;
 		}
 	}
 
-	static float returnDetectedBPMorFallback(float detectedBPM, const juce::AudioSampleBuffer& buffer, double sampleRate)
+	static float returnDetectedBPMorFallback(float detectedBPM, const juce::AudioSampleBuffer &buffer, double sampleRate)
 	{
 		if (detectedBPM >= 30.0f && detectedBPM <= 300.0f)
 		{
@@ -51,7 +59,7 @@ public:
 		}
 	}
 
-	static void chunkAnalysis(std::vector<float>& monoData, soundtouch::BPMDetect& bpmDetect)
+	static void chunkAnalysis(std::vector<float> &monoData, soundtouch::BPMDetect &bpmDetect)
 	{
 		const int chunkSize = 4096;
 
@@ -62,7 +70,7 @@ public:
 		}
 	}
 
-	static float normalizeAudio(const juce::AudioSampleBuffer& buffer, std::vector<float>& monoData, bool& retFlag)
+	static float normalizeAudio(const juce::AudioSampleBuffer &buffer, std::vector<float> &monoData, bool &retFlag)
 	{
 		retFlag = true;
 		float maxLevel = 0.0f;
@@ -82,7 +90,7 @@ public:
 			return 0.0f;
 		}
 		float normalizeGain = 0.5f / maxLevel;
-		for (auto& sample : monoData)
+		for (auto &sample : monoData)
 		{
 			sample *= normalizeGain;
 		}
@@ -90,7 +98,7 @@ public:
 		return {};
 	}
 
-	static float detectBPMByOnsets(const juce::AudioBuffer<float>& buffer, double sampleRate)
+	static float detectBPMByOnsets(const juce::AudioBuffer<float> &buffer, double sampleRate)
 	{
 		if (buffer.getNumSamples() < sampleRate)
 			return 0.0f;
@@ -157,14 +165,14 @@ public:
 
 			return 0.0f;
 		}
-		catch (const std::exception& /*e*/)
+		catch (const std::exception & /*e*/)
 		{
 			return 0.0f;
 		}
 	}
 
-	static void timeStretchBuffer(juce::AudioBuffer<float>& buffer,
-		double ratio, double sampleRate)
+	static void timeStretchBuffer(juce::AudioBuffer<float> &buffer,
+								  double ratio, double sampleRate)
 	{
 		if (ratio == 1.0 || buffer.getNumSamples() == 0)
 			return;
@@ -218,7 +226,7 @@ public:
 				}
 			}
 		}
-		catch (const std::exception& e)
+		catch (const std::exception &e)
 		{
 			std::cout << "Error: " << e.what() << std::endl;
 		}

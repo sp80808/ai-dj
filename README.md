@@ -266,7 +266,26 @@ Include: DAW name/version, OS, steps to reproduce, expected vs actual behavior
 
 ## 📝 License
 
-MIT License - Feel free to modify, but please keep attribution to InnerMost47
+**OBSIDIAN-Neural** is dual-licensed to provide maximum flexibility for different use cases:
+
+### 🆓 **Open Source License**
+
+Mozilla Public License 2.0 (MPL-2.0) - Free for open source projects and commercial use. If you modify OBSIDIAN-Neural files, those modifications must remain MPL-2.0, but you can combine them with proprietary code in separate files.
+
+### 💼 **Commercial License**
+
+For organizations preferring proprietary licensing terms or requiring additional rights beyond MPL-2.0, commercial licenses are available.
+
+**Contact for commercial licensing:** b03caa1n5@mozmail.com
+
+### 🤝 **Why Dual Licensing?**
+
+- **Open Source Community**: Full access to innovation with file-level copyleft protection
+- **Commercial Users**: Flexibility for proprietary integration while protecting core innovations
+- **Project Sustainability**: Commercial licenses fund continued development
+- **License Compatibility**: MPL-2.0 is compatible with GPL, LGPL, and AGPL projects
+
+**Attribution**: Please keep attribution to InnerMost47 in all cases.
 
 ---
 

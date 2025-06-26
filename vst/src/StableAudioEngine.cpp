@@ -1,3 +1,10 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (C) 2025 Anthony Charretier
+ */
+
 #include "StableAudioEngine.h"
 
 #ifdef _WIN32
@@ -10,34 +17,39 @@
 #define CHDIR chdir
 #endif
 
-bool StableAudioEngine::initialize(const juce::String& modelsDir) {
-	try {
+bool StableAudioEngine::initialize(const juce::String &modelsDir)
+{
+	try
+	{
 		DBG("Initializing Stable Audio Engine (subprocess mode)...");
 		modelsDirectory = modelsDir;
 
 		auto baseDir = juce::File(modelsDir);
 		audiogenExecutable = baseDir.getChildFile("audiogen.exe");
 
-		if (!audiogenExecutable.exists()) {
+		if (!audiogenExecutable.exists())
+		{
 			audiogenExecutable = baseDir.getChildFile("audiogen");
 		}
 
-		if (!checkRequiredFiles()) {
+		if (!checkRequiredFiles())
+		{
 			return false;
 		}
 
 		isInitialized = true;
 		DBG("Stable Audio Engine ready! Using executable: " << audiogenExecutable.getFullPathName());
 		return true;
-
 	}
-	catch (const std::exception& e) {
+	catch (const std::exception &e)
+	{
 		DBG("Exception during initialization: " << e.what());
 		return false;
 	}
 }
 
-bool StableAudioEngine::checkRequiredFiles() {
+bool StableAudioEngine::checkRequiredFiles()
+{
 	auto baseDir = juce::File(modelsDirectory);
 
 	juce::StringArray missingFiles;
@@ -53,7 +65,8 @@ bool StableAudioEngine::checkRequiredFiles() {
 	if (!baseDir.getChildFile("spiece.model").exists())
 		missingFiles.add("spiece.model");
 
-	if (!missingFiles.isEmpty()) {
+	if (!missingFiles.isEmpty())
+	{
 		DBG("Missing required files: " << missingFiles.joinIntoString(", "));
 		return false;
 	}
@@ -61,15 +74,18 @@ bool StableAudioEngine::checkRequiredFiles() {
 	return true;
 }
 
-StableAudioEngine::GenerationResult StableAudioEngine::generateSample(const GenerationParams& params) {
+StableAudioEngine::GenerationResult StableAudioEngine::generateSample(const GenerationParams &params)
+{
 	GenerationResult result;
 
-	if (!isInitialized) {
+	if (!isInitialized)
+	{
 		result.errorMessage = "Engine not initialized";
 		return result;
 	}
 
-	try {
+	try
+	{
 		DBG("Generating audio: '" << params.prompt << "' (" << params.duration << "s)");
 
 		auto startTime = juce::Time::getMillisecondCounterHiRes();
@@ -93,20 +109,23 @@ StableAudioEngine::GenerationResult StableAudioEngine::generateSample(const Gene
 		auto workingDir = juce::File(modelsDirectory);
 		DBG("Changing working directory to: " << workingDir.getFullPathName());
 
-		if (CHDIR(workingDir.getFullPathName().toRawUTF8()) != 0) {
+		if (CHDIR(workingDir.getFullPathName().toRawUTF8()) != 0)
+		{
 			result.errorMessage = "Failed to change working directory";
 			return result;
 		}
 
 		juce::ChildProcess childProcess;
 
-		if (!childProcess.start(command)) {
+		if (!childProcess.start(command))
+		{
 			CHDIR(originalDir);
 			result.errorMessage = "Failed to start audiogen process";
 			return result;
 		}
 
-		if (!childProcess.waitForProcessToFinish(60000)) {
+		if (!childProcess.waitForProcessToFinish(60000))
+		{
 			childProcess.kill();
 			CHDIR(originalDir);
 			result.errorMessage = "Process timeout (60s)";
@@ -116,19 +135,22 @@ StableAudioEngine::GenerationResult StableAudioEngine::generateSample(const Gene
 		CHDIR(originalDir);
 
 		auto exitCode = childProcess.getExitCode();
-		if (exitCode != 0) {
+		if (exitCode != 0)
+		{
 			result.errorMessage = "Process failed with exit code: " + juce::String(exitCode);
 			return result;
 		}
 
 		auto outputFile = juce::File(modelsDirectory).getChildFile("output.wav");
-		if (!outputFile.exists()) {
+		if (!outputFile.exists())
+		{
 			result.errorMessage = "Output file not found: " + outputFile.getFullPathName();
 			return result;
 		}
 
 		auto audioData = loadAndResampleWavFile(outputFile, params.sampleRate);
-		if (audioData.empty()) {
+		if (audioData.empty())
+		{
 			result.errorMessage = "Failed to load and resample generated audio file";
 			return result;
 		}
@@ -142,28 +164,31 @@ StableAudioEngine::GenerationResult StableAudioEngine::generateSample(const Gene
 		result.performanceInfo = "Generated in " + juce::String(endTime - startTime, 0) + "ms";
 
 		DBG("Generation successful: " << result.audioData.size() << " samples in "
-			<< (endTime - startTime) << "ms");
+									  << (endTime - startTime) << "ms");
 		outputFile.deleteFile();
 
 		return result;
-
 	}
-	catch (const std::exception& e) {
+	catch (const std::exception &e)
+	{
 		result.errorMessage = juce::String("Generation failed: ") + e.what();
 		DBG("Generation exception: " << e.what());
 		return result;
 	}
 }
 
-std::vector<float> StableAudioEngine::loadAndResampleWavFile(const juce::File& wavFile, double targetSampleRate) {
+std::vector<float> StableAudioEngine::loadAndResampleWavFile(const juce::File &wavFile, double targetSampleRate)
+{
 	std::vector<float> audioData;
 
-	try {
+	try
+	{
 		juce::AudioFormatManager formatManager;
 		formatManager.registerBasicFormats();
 
-		auto* reader = formatManager.createReaderFor(wavFile);
-		if (reader == nullptr) {
+		auto *reader = formatManager.createReaderFor(wavFile);
+		if (reader == nullptr)
+		{
 			DBG("Failed to create audio reader for: " << wavFile.getFullPathName());
 			return audioData;
 		}
@@ -178,11 +203,14 @@ std::vector<float> StableAudioEngine::loadAndResampleWavFile(const juce::File& w
 		reader->read(&buffer, 0, numSamples, 0, true, true);
 
 		juce::AudioBuffer<float> monoBuffer(1, numSamples);
-		if (numChannels == 1) {
+		if (numChannels == 1)
+		{
 			monoBuffer.copyFrom(0, 0, buffer, 0, 0, numSamples);
 		}
-		else {
-			for (int sample = 0; sample < numSamples; ++sample) {
+		else
+		{
+			for (int sample = 0; sample < numSamples; ++sample)
+			{
 				float left = buffer.getSample(0, sample);
 				float right = buffer.getSample(1, sample);
 				monoBuffer.setSample(0, sample, (left + right) * 0.5f);
@@ -190,28 +218,32 @@ std::vector<float> StableAudioEngine::loadAndResampleWavFile(const juce::File& w
 		}
 
 		DBG("Original: " << numSamples << " samples at " << originalSampleRate << "Hz");
-		if (std::abs(originalSampleRate - targetSampleRate) > 1.0) {
+		if (std::abs(originalSampleRate - targetSampleRate) > 1.0)
+		{
 			DBG("Resampling from " << originalSampleRate << "Hz to " << targetSampleRate << "Hz");
 
 			juce::AudioBuffer<float> resampledBuffer = resampleBuffer(monoBuffer, originalSampleRate, targetSampleRate);
 
 			audioData.reserve(resampledBuffer.getNumSamples());
-			for (int sample = 0; sample < resampledBuffer.getNumSamples(); ++sample) {
+			for (int sample = 0; sample < resampledBuffer.getNumSamples(); ++sample)
+			{
 				audioData.push_back(resampledBuffer.getSample(0, sample));
 			}
 
 			DBG("Resampled to: " << audioData.size() << " samples at " << targetSampleRate << "Hz");
 		}
-		else {
+		else
+		{
 			audioData.reserve(numSamples);
-			for (int sample = 0; sample < numSamples; ++sample) {
+			for (int sample = 0; sample < numSamples; ++sample)
+			{
 				audioData.push_back(monoBuffer.getSample(0, sample));
 			}
 			DBG("No resampling needed: " << audioData.size() << " samples");
 		}
-
 	}
-	catch (const std::exception& e) {
+	catch (const std::exception &e)
+	{
 		DBG("Exception loading/resampling WAV file: " << e.what());
 		audioData.clear();
 	}
@@ -219,9 +251,10 @@ std::vector<float> StableAudioEngine::loadAndResampleWavFile(const juce::File& w
 	return audioData;
 }
 
-juce::AudioBuffer<float> StableAudioEngine::resampleBuffer(const juce::AudioBuffer<float>& inputBuffer,
-	double inputSampleRate,
-	double outputSampleRate) {
+juce::AudioBuffer<float> StableAudioEngine::resampleBuffer(const juce::AudioBuffer<float> &inputBuffer,
+														   double inputSampleRate,
+														   double outputSampleRate)
+{
 	double ratio = outputSampleRate / inputSampleRate;
 	int outputNumSamples = static_cast<int>(inputBuffer.getNumSamples() * ratio);
 
@@ -229,40 +262,46 @@ juce::AudioBuffer<float> StableAudioEngine::resampleBuffer(const juce::AudioBuff
 	juce::LagrangeInterpolator interpolator;
 	interpolator.reset();
 
-	const float* inputData = inputBuffer.getReadPointer(0);
-	float* outputData = outputBuffer.getWritePointer(0);
+	const float *inputData = inputBuffer.getReadPointer(0);
+	float *outputData = outputBuffer.getWritePointer(0);
 
 	interpolator.process(1.0 / ratio, inputData, outputData, outputNumSamples, inputBuffer.getNumSamples(), 0);
 
 	return outputBuffer;
 }
 
-std::vector<float> StableAudioEngine::generateAudio(const juce::String& prompt, float duration) {
+std::vector<float> StableAudioEngine::generateAudio(const juce::String &prompt, float duration)
+{
 	GenerationParams params(prompt, duration);
 	auto result = generateSample(params);
 	return result.isValid() ? result.audioData : std::vector<float>();
 }
 
-juce::String StableAudioEngine::sanitizePrompt(const juce::String& prompt) {
+juce::String StableAudioEngine::sanitizePrompt(const juce::String &prompt)
+{
 	auto sanitized = prompt.replace("\"", "\\\"")
-		.replace("'", "\\'")
-		.replace("|", "")
-		.replace("&", "and")
-		.replace(";", "");
-	if (sanitized.length() > 200) {
+						 .replace("'", "\\'")
+						 .replace("|", "")
+						 .replace("&", "and")
+						 .replace(";", "");
+	if (sanitized.length() > 200)
+	{
 		sanitized = sanitized.substring(0, 200);
 	}
 
 	return sanitized;
 }
 
-int StableAudioEngine::generateRandomSeed() {
+int StableAudioEngine::generateRandomSeed()
+{
 	return random.nextInt(1000000);
 }
 
-void StableAudioEngine::cleanupTempFiles() {
+void StableAudioEngine::cleanupTempFiles()
+{
 	auto outputFile = juce::File(modelsDirectory).getChildFile("output.wav");
-	if (outputFile.exists()) {
+	if (outputFile.exists())
+	{
 		outputFile.deleteFile();
 	}
 }
