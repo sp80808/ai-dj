@@ -2,6 +2,35 @@
 
 🎵 **Real-time AI music generation VST3 plugin for live performance**
 
+## 🔒 Security & Antivirus Information
+
+**Note for Windows users:** Some antivirus software may flag the executables as false positives due to PyInstaller packaging. This is a well-documented issue with Python applications compiled using PyInstaller.
+
+### Why this happens:
+
+- PyInstaller bundles the Python interpreter with compressed bytecode
+- Runtime unpacking behavior can trigger heuristic detection
+- Unsigned executables are often flagged as potentially unwanted applications
+
+### Verification:
+
+- ✅ All source code is open and available for inspection
+- ✅ Both executables have been submitted to Microsoft for official security analysis
+- ✅ You can run the Python scripts directly without compilation
+- ✅ Build the executables yourself using the provided build scripts
+
+### If your antivirus flags the software:
+
+1. You can safely whitelist the application
+2. Or run the Python scripts directly: `python main.py`
+3. The executables are provided for convenience only
+
+### Microsoft Security Submission Status:
+
+![Microsoft Security Submission Status](https://obsidian.anthony-charretier.fr/RdfretGvsfhTfs.png)
+
+---
+
 ### 🔥 **Latest Jam Session**
 
 [![Jungle/DnB Session](https://img.youtube.com/vi/cFmRJIFUOCU/maxresdefault.jpg)](https://youtu.be/cFmRJIFUOCU)
