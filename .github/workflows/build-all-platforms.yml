@@ -130,43 +130,43 @@ jobs:
         run: |
           pip install pillow
           if [[ "${{ matrix.name }}" == "windows" ]]; then
+            echo "Installing MinGW..."
             choco install mingw
+            
+            echo "Adding MinGW to PATH..."
+            export PATH="/c/tools/mingw64/bin:$PATH"
+            
+            echo "Checking GCC installation..."
+            if ! command -v gcc &> /dev/null; then
+              echo "ERROR: GCC not found after MinGW installation!"
+              echo "Available tools in /c/tools/mingw64/bin:"
+              ls -la /c/tools/mingw64/bin/ || echo "MinGW directory not found"
+              echo "Current PATH: $PATH"
+              exit 1
+            fi
+            
+            echo "GCC found! Version:"
+            gcc --version
           fi
+
+          echo "Cloning PyInstaller..."
           git clone https://github.com/pyinstaller/pyinstaller.git
           cd pyinstaller
+
           if [[ "${{ matrix.name }}" == "windows" ]]; then
             export PATH="/c/tools/mingw64/bin:$PATH"
+            echo "Compiling bootloader with GCC..."
             cd bootloader && python ./waf distclean all --gcc && cd ..
           else
+            echo "Compiling bootloader (non-Windows)..."
             cd bootloader && python ./waf distclean all && cd ..
           fi
+
+          echo "Installing PyInstaller..."
           pip install .
           cd ..
 
-      - name: Convert logo to platform icons
-        shell: bash
-        run: |
-          python -c "
-          from PIL import Image
-          import sys
-
-          img = Image.open('logo.png').convert('RGBA')
-          img = img.resize((512, 512), Image.Resampling.LANCZOS)
-
-          if sys.platform == 'win32':
-              img.save('logo.ico', format='ICO', sizes=[(16,16), (32,32), (48,48), (64,64), (128,128), (256,256)])
-          elif sys.platform == 'darwin':
-              img.save('logo_temp.png')
-          else:
-              pass
-          "
-
-      - name: Create ICNS for macOS
-        if: matrix.name == 'macos'
-        run: |
-          sips -s format icns logo_temp.png --out logo.icns
-
-      - name: Build executables with icons
+      - name: Build executables icons
         shell: bash
         run: |
           pyinstaller --onefile --name obsidian-server-${{ matrix.name }} server_interface.py
