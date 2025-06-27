@@ -2,9 +2,9 @@ name: Build VST - All Platforms
 
 on:
   push:
-    branches: [main, test-gcc-pyinstaller]
+    branches: [main]
   pull_request:
-    branches: [main, test-gcc-pyinstaller]
+    branches: [main]
 
 permissions:
   contents: write
