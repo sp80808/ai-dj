@@ -152,7 +152,7 @@ jobs:
           echo "Cloning PyInstaller..."
           git clone https://github.com/pyinstaller/pyinstaller.git
           cd pyinstaller
-
+          git checkout v6.14.1
           if [[ "${{ matrix.name }}" == "windows" ]]; then
             export PATH="/c/tools/mingw64/bin:$PATH"
             echo "Compiling bootloader with GCC..."
