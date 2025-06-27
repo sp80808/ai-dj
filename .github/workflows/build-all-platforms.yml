@@ -112,8 +112,7 @@ jobs:
         include:
           - os: ubuntu-latest
             name: linux
-          - os: windows-latest
-            name: windows
+
           - os: macos-latest
             name: macos
 
@@ -128,45 +127,9 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: |
-          pip install pillow
-          if [[ "${{ matrix.name }}" == "windows" ]]; then
-            echo "Installing MinGW..."
-            choco install mingw --version 13.2.0 -y
-            
-            echo "Adding MinGW to PATH..."
-            export PATH="/c/tools/mingw64/bin:$PATH"
-            
-            echo "Checking GCC installation..."
-            if ! command -v gcc &> /dev/null; then
-              echo "ERROR: GCC not found after MinGW installation!"
-              echo "Available tools in /c/tools/mingw64/bin:"
-              ls -la /c/tools/mingw64/bin/ || echo "MinGW directory not found"
-              echo "Current PATH: $PATH"
-              exit 1
-            fi
-            
-            echo "GCC found! Version:"
-            gcc --version
-          fi
+          pip install pillow pyinstaller
 
-          echo "Cloning PyInstaller..."
-          git clone https://github.com/pyinstaller/pyinstaller.git
-          cd pyinstaller
-
-          if [[ "${{ matrix.name }}" == "windows" ]]; then
-            export PATH="/c/tools/mingw64/bin:$PATH"
-            echo "Compiling bootloader with GCC..."
-            cd bootloader && python ./waf distclean all --gcc && cd ..
-          else
-            echo "Compiling bootloader (non-Windows)..."
-            cd bootloader && python ./waf distclean all && cd ..
-          fi
-
-          echo "Installing PyInstaller..."
-          pip install .
-          cd ..
-
-      - name: Build executables icons
+      - name: Build executables
         shell: bash
         run: |
           pyinstaller --onefile --name obsidian-server-${{ matrix.name }} server_interface.py
@@ -189,7 +152,7 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           fetch-depth: 0
 
-      - name: Download all Python artifacts
+      - name: Download Python artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: ObsidianNeural-Python-*
@@ -199,10 +162,14 @@ jobs:
         run: |
           mkdir -p bin
 
-          if [ -d "ObsidianNeural-Python-windows" ]; then
-            cp ObsidianNeural-Python-windows/obsidian-server-windows.exe bin/OBSIDIAN-Neural-Server.exe
+          # Windows executables pris depuis le repo (buildés en local)
+          if [ -f "bin/obsidian-server-windows.exe" ]; then
+            cp bin/obsidian-server-windows.exe bin/OBSIDIAN-Neural-Server.exe
+          else
+            echo "Warning: Windows executable not found in repo"
           fi
 
+          # macOS et Linux depuis GitHub Actions
           if [ -d "ObsidianNeural-Python-macos" ]; then
             cp ObsidianNeural-Python-macos/obsidian-server-macos bin/OBSIDIAN-Neural-Server-macos
           fi
@@ -241,6 +208,7 @@ jobs:
 
       - name: Create release assets
         run: |
+          # VST3 plugins
           if [ -d "ObsidianNeural-Windows-VST3" ]; then
             cd ObsidianNeural-Windows-VST3
             zip -r ../OBSIDIAN-Neural-Windows-VST3.zip .
@@ -259,10 +227,13 @@ jobs:
             cd ..
           fi
 
-          if [ -d "ObsidianNeural-Python-windows" ]; then
-            cp ObsidianNeural-Python-windows/obsidian-installer-windows.exe ./OBSIDIAN-Neural-Installer-Windows.exe
+          # Python executables
+          # Windows: depuis le repo (buildé en local)
+          if [ -f "bin/obsidian-installer-windows.exe" ]; then
+            cp bin/obsidian-installer-windows.exe ./OBSIDIAN-Neural-Installer-Windows.exe
           fi
 
+          # macOS et Linux: depuis GitHub Actions
           if [ -d "ObsidianNeural-Python-macos" ]; then
             cp ObsidianNeural-Python-macos/obsidian-installer-macos ./OBSIDIAN-Neural-Installer-macOS
           fi
@@ -290,40 +261,10 @@ jobs:
             - **macOS**: `OBSIDIAN-Neural-macOS-VST3.zip`
             - **Linux**: `OBSIDIAN-Neural-Linux-VST3.tar.gz`
 
-            ---
-
-            ## 🍎 macOS Installation
-
-            **Important:** This plugin is not yet Apple-signed as it's an independent open source project in development.
-
-            ### For VST3 Plugin:
-            1. **Download** `OBSIDIAN-Neural-macOS-VST3.zip` and extract it
-            2. **Open Terminal** (search "Terminal" in Spotlight)
-            3. **Run this command** (copy-paste and press Enter):
-               ```bash
-               xattr -c ~/Downloads/OBSIDIAN-Neural.vst3
-               ```
-               *(Adjust path if file is elsewhere)*
-            4. **Install plugin:** Drag `OBSIDIAN-Neural.vst3` to:
-               ```
-               /Library/Audio/Plug-Ins/VST3/
-               ```
-               💡 **Tip:** In Finder, press `Cmd+Shift+G` and paste this path
-            5. **If your DAW won't load the plugin:**
-               - **System Settings** → **Privacy & Security**
-               - **Scroll down** to see OBSIDIAN-Neural message
-               - **Click "Open Anyway"** and confirm
-            6. **Restart your DAW** - plugin will appear in VST3 instruments
-
-            ### Why these steps?
-            Apple requires developers to pay $99/year for code signing. As an independent open source project, we prioritize free development for now. Official signing may come based on project evolution.
-
-            **⚠️ Having issues?** Please mention your macOS version when reporting problems.
-            ---
-
             ### 🔄 Changes
             - Built from commit ${{ github.sha }}
-            - Auto-generated from GitHub Actions
+            - Windows executables: Built locally for optimal antivirus compatibility
+            - macOS/Linux executables: Built via GitHub Actions
           files: |
             OBSIDIAN-Neural-Installer-*.exe
             OBSIDIAN-Neural-Installer-macOS
