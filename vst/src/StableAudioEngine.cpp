@@ -124,11 +124,11 @@ StableAudioEngine::GenerationResult StableAudioEngine::generateSample(const Gene
 			return result;
 		}
 
-		if (!childProcess.waitForProcessToFinish(60000))
+		if (!childProcess.waitForProcessToFinish(600000))
 		{
 			childProcess.kill();
 			CHDIR(originalDir);
-			result.errorMessage = "Process timeout (60s)";
+			result.errorMessage = "Process timeout (10min)";
 			return result;
 		}
 
