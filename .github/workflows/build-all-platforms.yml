@@ -112,8 +112,7 @@ jobs:
         include:
           - os: ubuntu-latest
             name: linux
-          - os: windows-latest
-            name: windows
+
           - os: macos-latest
             name: macos
 
@@ -126,44 +125,15 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: |
-          pip install pyinstaller pillow
-
-      - name: Convert logo to platform icons
         shell: bash
         run: |
-          python -c "
-          from PIL import Image
-          import sys
+          pip install pillow pyinstaller
 
-          img = Image.open('logo.png').convert('RGBA')
-          img = img.resize((512, 512), Image.Resampling.LANCZOS)
-
-          if sys.platform == 'win32':
-              img.save('logo.ico', format='ICO', sizes=[(16,16), (32,32), (48,48), (64,64), (128,128), (256,256)])
-          elif sys.platform == 'darwin':
-              img.save('logo_temp.png')
-          else:
-              pass
-          "
-
-      - name: Create ICNS for macOS
-        if: matrix.name == 'macos'
-        run: |
-          sips -s format icns logo_temp.png --out logo.icns
-
-      - name: Build executables with icons
+      - name: Build executables
         shell: bash
         run: |
-          ICON_FLAG=""
-          if [[ "${{ matrix.name }}" == "windows" ]]; then
-            ICON_FLAG="--icon=logo.ico"
-          elif [[ "${{ matrix.name }}" == "macos" ]]; then
-            ICON_FLAG="--icon=logo.icns"
-          fi
-
-          pyinstaller --onefile $ICON_FLAG --name obsidian-server-${{ matrix.name }} server_interface.py
-          pyinstaller --onefile $ICON_FLAG --name obsidian-installer-${{ matrix.name }} installer.py
+          pyinstaller --onefile --name obsidian-server-${{ matrix.name }} server_interface.py
+          pyinstaller --onefile --name obsidian-installer-${{ matrix.name }} installer.py
 
       - name: Upload Python executables
         uses: actions/upload-artifact@v4
@@ -182,7 +152,7 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           fetch-depth: 0
 
-      - name: Download all Python artifacts
+      - name: Download Python artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: ObsidianNeural-Python-*
@@ -192,8 +162,10 @@ jobs:
         run: |
           mkdir -p bin
 
-          if [ -d "ObsidianNeural-Python-windows" ]; then
-            cp ObsidianNeural-Python-windows/obsidian-server-windows.exe bin/OBSIDIAN-Neural-Server.exe
+          if [ -f "bin/obsidian-server-windows.exe" ]; then
+            cp bin/obsidian-server-windows.exe bin/OBSIDIAN-Neural-Server.exe
+          else
+            echo "Warning: Windows executable not found in repo"
           fi
 
           if [ -d "ObsidianNeural-Python-macos" ]; then
@@ -234,6 +206,7 @@ jobs:
 
       - name: Create release assets
         run: |
+          # VST3 plugins
           if [ -d "ObsidianNeural-Windows-VST3" ]; then
             cd ObsidianNeural-Windows-VST3
             zip -r ../OBSIDIAN-Neural-Windows-VST3.zip .
@@ -252,8 +225,8 @@ jobs:
             cd ..
           fi
 
-          if [ -d "ObsidianNeural-Python-windows" ]; then
-            cp ObsidianNeural-Python-windows/obsidian-installer-windows.exe ./OBSIDIAN-Neural-Installer-Windows.exe
+          if [ -f "bin/obsidian-installer-windows.exe" ]; then
+            cp bin/obsidian-installer-windows.exe ./OBSIDIAN-Neural-Installer-Windows.exe
           fi
 
           if [ -d "ObsidianNeural-Python-macos" ]; then
@@ -283,40 +256,10 @@ jobs:
             - **macOS**: `OBSIDIAN-Neural-macOS-VST3.zip`
             - **Linux**: `OBSIDIAN-Neural-Linux-VST3.tar.gz`
 
-            ---
-
-            ## 🍎 macOS Installation
-
-            **Important:** This plugin is not yet Apple-signed as it's an independent open source project in development.
-
-            ### For VST3 Plugin:
-            1. **Download** `OBSIDIAN-Neural-macOS-VST3.zip` and extract it
-            2. **Open Terminal** (search "Terminal" in Spotlight)
-            3. **Run this command** (copy-paste and press Enter):
-               ```bash
-               xattr -c ~/Downloads/OBSIDIAN-Neural.vst3
-               ```
-               *(Adjust path if file is elsewhere)*
-            4. **Install plugin:** Drag `OBSIDIAN-Neural.vst3` to:
-               ```
-               /Library/Audio/Plug-Ins/VST3/
-               ```
-               💡 **Tip:** In Finder, press `Cmd+Shift+G` and paste this path
-            5. **If your DAW won't load the plugin:**
-               - **System Settings** → **Privacy & Security**
-               - **Scroll down** to see OBSIDIAN-Neural message
-               - **Click "Open Anyway"** and confirm
-            6. **Restart your DAW** - plugin will appear in VST3 instruments
-
-            ### Why these steps?
-            Apple requires developers to pay $99/year for code signing. As an independent open source project, we prioritize free development for now. Official signing may come based on project evolution.
-
-            **⚠️ Having issues?** Please mention your macOS version when reporting problems.
-            ---
-
             ### 🔄 Changes
             - Built from commit ${{ github.sha }}
-            - Auto-generated from GitHub Actions
+            - Windows executables: Built locally for optimal antivirus compatibility
+            - macOS/Linux executables: Built via GitHub Actions
           files: |
             OBSIDIAN-Neural-Installer-*.exe
             OBSIDIAN-Neural-Installer-macOS
