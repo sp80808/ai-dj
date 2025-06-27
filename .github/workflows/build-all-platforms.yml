@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, test-gcc-pyinstaller]
   pull_request:
-    branches: [main, test-gcc-pyinstallerg]
+    branches: [main, test-gcc-pyinstaller]
 
 permissions:
   contents: write
@@ -126,6 +126,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
+        shell: bash
         run: |
           pip install pillow
           if [[ "${{ matrix.name }}" == "windows" ]]; then
