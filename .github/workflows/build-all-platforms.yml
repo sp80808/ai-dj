@@ -162,14 +162,12 @@ jobs:
         run: |
           mkdir -p bin
 
-          # Windows executables pris depuis le repo (buildés en local)
           if [ -f "bin/obsidian-server-windows.exe" ]; then
             cp bin/obsidian-server-windows.exe bin/OBSIDIAN-Neural-Server.exe
           else
             echo "Warning: Windows executable not found in repo"
           fi
 
-          # macOS et Linux depuis GitHub Actions
           if [ -d "ObsidianNeural-Python-macos" ]; then
             cp ObsidianNeural-Python-macos/obsidian-server-macos bin/OBSIDIAN-Neural-Server-macos
           fi
@@ -227,13 +225,10 @@ jobs:
             cd ..
           fi
 
-          # Python executables
-          # Windows: depuis le repo (buildé en local)
           if [ -f "bin/obsidian-installer-windows.exe" ]; then
             cp bin/obsidian-installer-windows.exe ./OBSIDIAN-Neural-Installer-Windows.exe
           fi
 
-          # macOS et Linux: depuis GitHub Actions
           if [ -d "ObsidianNeural-Python-macos" ]; then
             cp ObsidianNeural-Python-macos/obsidian-installer-macos ./OBSIDIAN-Neural-Installer-macOS
           fi
