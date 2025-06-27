@@ -2,9 +2,9 @@ name: Build VST - All Platforms
 
 on:
   push:
-    branches: [main]
+    branches: [main, test-gcc-pyinstaller]
   pull_request:
-    branches: [main]
+    branches: [main, test-gcc-pyinstallerg]
 
 permissions:
   contents: write
@@ -127,7 +127,20 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pyinstaller pillow
+          pip install pillow
+          if [[ "${{ matrix.name }}" == "windows" ]]; then
+            choco install mingw
+          fi
+          git clone https://github.com/pyinstaller/pyinstaller.git
+          cd pyinstaller
+          if [[ "${{ matrix.name }}" == "windows" ]]; then
+            export PATH="/c/tools/mingw64/bin:$PATH"
+            cd bootloader && python ./waf distclean all --gcc && cd ..
+          else
+            cd bootloader && python ./waf distclean all && cd ..
+          fi
+          pip install .
+          cd ..
 
       - name: Convert logo to platform icons
         shell: bash
@@ -155,15 +168,8 @@ jobs:
       - name: Build executables with icons
         shell: bash
         run: |
-          ICON_FLAG=""
-          if [[ "${{ matrix.name }}" == "windows" ]]; then
-            ICON_FLAG="--icon=logo.ico"
-          elif [[ "${{ matrix.name }}" == "macos" ]]; then
-            ICON_FLAG="--icon=logo.icns"
-          fi
-
-          pyinstaller --onefile $ICON_FLAG --name obsidian-server-${{ matrix.name }} server_interface.py
-          pyinstaller --onefile $ICON_FLAG --name obsidian-installer-${{ matrix.name }} installer.py
+          pyinstaller --onefile --name obsidian-server-${{ matrix.name }} server_interface.py
+          pyinstaller --onefile --name obsidian-installer-${{ matrix.name }} installer.py
 
       - name: Upload Python executables
         uses: actions/upload-artifact@v4
