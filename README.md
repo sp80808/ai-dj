@@ -6,16 +6,25 @@
 
 **Note for Windows users:** Some antivirus software may flag the executables as false positives due to PyInstaller packaging. This is a well-documented issue with Python applications compiled using PyInstaller.
 
+**Update:** Thanks to community feedback, I've become much more aware of how these false positives affect user experience. What seemed like a minor technical detail is actually a significant barrier for many users. Lesson learned!
+
 ### Why this happens:
 
 - PyInstaller bundles the Python interpreter with compressed bytecode
 - Runtime unpacking behavior can trigger heuristic detection
 - Unsigned executables are often flagged as potentially unwanted applications
 
+### Known Issues:
+
+- **Malwarebytes Browser Guard:** May block GitHub repository due to "risky pattern" heuristics
+- **Windows Defender:** May quarantine executables on first run
+- **Various AV software:** Common false positives with PyInstaller applications
+
 ### Verification:
 
 - ✅ All source code is open and available for inspection
 - ✅ Both executables have been submitted to Microsoft for official security analysis
+- ✅ False positive reported to Malwarebytes for review
 - ✅ You can run the Python scripts directly without compilation
 - ✅ Build the executables yourself using the provided build scripts
 
