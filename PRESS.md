@@ -84,14 +84,4 @@ _Highlighted as a collaborative, open-source, and generative AI instrument desig
 
 ---
 
-### 🎛️ FreeVSTs.com
-
-**[Featured Plugin: "Obsidian – Neural"](https://freevsts.com/obsidian-neural/)**
-
-> "OBSIDIAN is the first VST plugin to integrate real-time AI music generation directly into live performance workflows."
-
-_Comprehensive feature overview highlighting the plugin's revolutionary approach to AI-powered music creation and live performance integration._
-
----
-
 _OBSIDIAN-Neural: Where artificial intelligence meets live music performance._
