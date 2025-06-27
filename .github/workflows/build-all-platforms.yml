@@ -131,7 +131,7 @@ jobs:
           pip install pillow
           if [[ "${{ matrix.name }}" == "windows" ]]; then
             echo "Installing MinGW..."
-            choco install mingw
+            choco install mingw --version 13.2.0 -y
             
             echo "Adding MinGW to PATH..."
             export PATH="/c/tools/mingw64/bin:$PATH"
