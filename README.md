@@ -4,7 +4,7 @@
 
 ### 🎓 **Base Tutorial**
 
-[![OBSIDIAN-Neural Tutorial](https://img.youtube.com/vi/-qdFo_PcKoY/maxresdefault.jpg)](https://youtu.be/-qdFo_PcKoY)
+[![OBSIDIAN-Neural Tutorial](./assets/tuto.png)](https://youtu.be/-qdFo_PcKoY)
 
 _Base OBSIDIAN-Neural workflow tutorial (French with English subtitles available) - from DAW setup to live performance with hardware synths!_
 
@@ -224,7 +224,7 @@ The desktop shortcut launches a complete control panel with:
 
 ---
 
-![OBSIDIAN-Neural Interface](./screenshot.png)
+![OBSIDIAN-Neural Interface](./assets/screenshot.png)
 
 ---
 
