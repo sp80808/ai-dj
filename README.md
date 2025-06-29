@@ -2,11 +2,15 @@
 
 🎵 **Real-time AI music generation VST3 plugin for live performance**
 
-### 🔥 **Latest Jam Session**
+### 🎓 **Base Tutorial**
 
-[![Jungle/DnB Session](https://img.youtube.com/vi/cFmRJIFUOCU/maxresdefault.jpg)](https://youtu.be/cFmRJIFUOCU)
+[![OBSIDIAN-Neural Tutorial](https://img.youtube.com/vi/-qdFo_PcKoY/maxresdefault.jpg)](https://youtu.be/-qdFo_PcKoY)
 
-_AI + analog gear jungle improvisation - when OBSIDIAN throws you curveballs and you roll with it!_
+_Base OBSIDIAN-Neural workflow tutorial (French with English subtitles available) - from DAW setup to live performance with hardware synths!_
+
+**💡 Enable English subtitles or English audio dubbing on YouTube for international viewers**
+
+---
 
 **🎯 Want to see YOUR jam sessions featured here?**
 
@@ -17,6 +21,12 @@ Every AI-generated rhythm is different, sometimes weird, sometimes genius. That'
 **Share your OBSIDIAN videos:**  
 📧 Email me: b03caa1n5@mozmail.com  
 💬 Or create a [Discussion](https://github.com/innermost47/ai-dj/discussions) with your YouTube link!
+
+### 🔥 **Community Jam Sessions**
+
+[![Jungle/DnB Session](https://img.youtube.com/vi/cFmRJIFUOCU/maxresdefault.jpg)](https://youtu.be/cFmRJIFUOCU)
+
+_AI + analog gear jungle improvisation - when OBSIDIAN throws you curveballs and you roll with it!_
 
 **📺 Check out all community jams → [YOUTUBE.md](YOUTUBE.md)**
 
