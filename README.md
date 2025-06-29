@@ -8,6 +8,8 @@
 
 _Base OBSIDIAN-Neural workflow tutorial (French with English subtitles available) - from DAW setup to live performance with hardware synths!_
 
+**Video created by [Chart Photography](https://chart-photography.fr/)**
+
 **💡 Enable English subtitles or English audio dubbing on YouTube for international viewers**
 
 ---
