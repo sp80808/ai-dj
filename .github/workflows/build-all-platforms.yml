@@ -2,9 +2,9 @@ name: Build VST - All Platforms
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   pull_request:
-    branches: [main, dev]
+    branches: [main]
 
 permissions:
   contents: write
@@ -122,7 +122,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Install dependencies
         shell: bash
@@ -160,7 +160,7 @@ jobs:
       - name: Create DMG with installer
         run: |
           mkdir -p dmg-staging
-
+          
           # Copy installer
           cp python-tools/obsidian-installer-macos dmg-staging/OBSIDIAN-Neural-Installer
           chmod +x dmg-staging/OBSIDIAN-Neural-Installer
@@ -256,7 +256,12 @@ jobs:
             cd ..
           fi
 
-          # Linux VST3
+          if [ -d "ObsidianNeural-macOS-VST3" ]; then
+            cd ObsidianNeural-macOS-VST3
+            zip -r ../OBSIDIAN-Neural-macOS-VST3.zip .
+            cd ..
+          fi
+
           if [ -d "ObsidianNeural-Linux-VST3" ]; then
             cd ObsidianNeural-Linux-VST3
             tar -czf ../OBSIDIAN-Neural-Linux-VST3.tar.gz .
@@ -278,6 +283,8 @@ jobs:
             cp ObsidianNeural-Python-linux/obsidian-installer-linux ./OBSIDIAN-Neural-Installer-Linux
           fi
 
+          # Note: macOS installer is now provided as DMG only
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -292,8 +299,9 @@ jobs:
             - **Windows**: `OBSIDIAN-Neural-Installer-Windows.exe` (run as admin)
             - **Linux**: `OBSIDIAN-Neural-Installer-Linux`
 
-            ### 🎛️ VST3 Plugins Only (for manual installation)
+            ### 🎛️ VST3 Plugins (for DAWs)
             - **Windows**: `OBSIDIAN-Neural-Windows-VST3.zip`
+            - **macOS**: `OBSIDIAN-Neural-macOS-VST3.zip`
             - **Linux**: `OBSIDIAN-Neural-Linux-VST3.tar.gz`
 
             ---
@@ -311,7 +319,7 @@ jobs:
 
           files: |
             OBSIDIAN-Neural-Installer-macOS.dmg
-            OBSIDIAN-Neural-Installer-*.exe
+            OBSIDIAN-Neural-Installer-Windows.exe
             OBSIDIAN-Neural-Installer-Linux
             OBSIDIAN-Neural-*-VST3.*
           draft: false
