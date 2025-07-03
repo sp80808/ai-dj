@@ -127,13 +127,13 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: |
-          pip install pillow pyinstaller
+          pip install pillow pyinstaller psutil pystray GPUtil
 
       - name: Build executables
         shell: bash
         run: |
-          pyinstaller --onefile --name obsidian-server-${{ matrix.name }} server_interface.py
-          pyinstaller --onefile --name obsidian-installer-${{ matrix.name }} installer.py
+          pyinstaller --onefile --hidden-import=psutil --hidden-import=pystray --hidden-import=GPUtil --name obsidian-server-${{ matrix.name }} server_interface.py
+          pyinstaller --onefile --hidden-import=psutil --hidden-import=pystray --hidden-import=GPUtil --name obsidian-installer-${{ matrix.name }} installer.py
 
       - name: Upload Python executables
         uses: actions/upload-artifact@v4
@@ -160,7 +160,7 @@ jobs:
       - name: Create DMG with installer
         run: |
           mkdir -p dmg-staging
-          
+
           # Copy installer
           cp python-tools/obsidian-installer-macos dmg-staging/OBSIDIAN-Neural-Installer
           chmod +x dmg-staging/OBSIDIAN-Neural-Installer
