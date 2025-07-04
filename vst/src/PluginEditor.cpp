@@ -778,6 +778,14 @@ void DjIaVstEditor::setupUI()
 	loadSampleButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonSecondary);
 	statusLabel.setColour(juce::Label::backgroundColourId, ColourPalette::backgroundDeep);
 	statusLabel.setColour(juce::Label::textColourId, ColourPalette::textSuccess);
+
+	addAndMakeVisible(bypassSequencerButton);
+	bypassSequencerButton.setButtonText("Bypass Sequencer");
+	bypassSequencerButton.setClickingTogglesState(true);
+	bypassSequencerButton.setToggleState(audioProcessor.getBypassSequencer(), juce::dontSendNotification);
+	bypassSequencerButton.setTooltip("Global bypass - direct MIDI playback for composition mode");
+	bypassSequencerButton.setColour(juce::ToggleButton::textColourId, ColourPalette::textPrimary);
+
 	promptPresetSelector.setTooltip("Select a preset prompt (Right-click for MIDI learn, Ctrl+Right-click to edit custom prompts)");
 	promptInput.setTooltip("Enter your custom prompt for audio generation");
 	savePresetButton.setTooltip("Save current prompt as custom preset");
@@ -923,6 +931,18 @@ void DjIaVstEditor::addEventListeners()
 						promptPresetSelector.setSelectedItemIndex(selectedIndex, juce::sendNotification);
 					} });
 		});
+
+	bypassSequencerButton.onClick = [this]() {
+		bool isBypassed = bypassSequencerButton.getToggleState();
+		audioProcessor.setBypassSequencer(isBypassed);
+
+		if (isBypassed) {
+			statusLabel.setText("Composition mode - Direct MIDI playback", juce::dontSendNotification);
+		}
+		else {
+			statusLabel.setText("Sequencer mode - Armed playback", juce::dontSendNotification);
+		}
+		};
 }
 
 void DjIaVstEditor::notifyTracksPromptUpdate()
@@ -1042,6 +1062,8 @@ void DjIaVstEditor::updateUIFromProcessor()
 
 	autoLoadButton.setToggleState(audioProcessor.getAutoLoadEnabled(), juce::dontSendNotification);
 	loadSampleButton.setEnabled(!audioProcessor.getAutoLoadEnabled());
+
+	bypassSequencerButton.setToggleState(audioProcessor.getBypassSequencer(), juce::dontSendNotification);
 
 	int presetIndex = audioProcessor.getLastPresetIndex();
 	if (presetIndex >= 0 && presetIndex < promptPresets.size())
@@ -1189,12 +1211,12 @@ void DjIaVstEditor::resized()
 	}
 
 	auto buttonsRow = area.removeFromTop(35);
-	auto buttonWidth = buttonsRow.getWidth() / 5;
-	auto tracksHeaderArea = area.removeFromTop(30);
+	auto buttonWidth = buttonsRow.getWidth() / 6;
 	autoLoadButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
 	addTrackButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
 	generateButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
 	loadSampleButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
+	bypassSequencerButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
 	resetUIButton.setBounds(buttonsRow.reduced(5));
 
 	bottomArea.removeFromTop(spacing);

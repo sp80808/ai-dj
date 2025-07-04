@@ -156,6 +156,7 @@ private:
 	juce::TextButton saveSessionButton;
 	juce::TextButton loadSessionButton;
 	juce::ComboBox sessionSelector;
+	juce::ToggleButton bypassSequencerButton;
 	std::unique_ptr<juce::MenuBarComponent> menuBar;
 
 	enum MenuIDs
