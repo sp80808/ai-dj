@@ -219,6 +219,7 @@ public:
 			trackState.setProperty("selectedPrompt", track->selectedPrompt, nullptr);
 			trackState.setProperty("useOriginalFile", track->useOriginalFile.load(), nullptr);
 			trackState.setProperty("hasOriginalVersion", track->hasOriginalVersion.load(), nullptr);
+			trackState.setProperty("nextHasOriginalVersion", track->nextHasOriginalVersion.load(), nullptr);
 			juce::String stemsString;
 			for (int i = 0; i < track->preferredStems.size(); ++i)
 			{
@@ -309,6 +310,7 @@ public:
 			track->selectedPrompt = trackState.getProperty("selectedPrompt", "");
 			track->useOriginalFile = trackState.getProperty("useOriginalFile", false);
 			track->hasOriginalVersion = trackState.getProperty("hasOriginalVersion", false);
+			track->nextHasOriginalVersion = trackState.getProperty("nextHasOriginalVersion", false);
 			juce::String stemsString = trackState.getProperty("preferredStems", "drums,bass");
 			track->lastPpqPosition = -1.0;
 			track->customStepCounter = 0;

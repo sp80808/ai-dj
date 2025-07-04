@@ -1455,21 +1455,34 @@ void DjIaVstProcessor::performAtomicSwap(TrackData* track, const juce::String& t
 	track->numSamples = track->stagingNumSamples.load();
 	track->sampleRate = track->stagingSampleRate.load();
 	track->originalBpm = track->stagingOriginalBpm;
+	track->hasOriginalVersion.store(track->nextHasOriginalVersion.load());
 
-	double sampleDuration = track->numSamples / track->sampleRate;
+	if (track->isVersionSwitch) {
+		track->loopStart = track->preservedLoopStart;
+		track->loopEnd = track->preservedLoopEnd;
+		track->loopPointsLocked = track->preservedLoopLocked;
+		double maxDuration = track->numSamples / track->sampleRate;
+		track->loopEnd = std::min(track->loopEnd, maxDuration);
+		track->loopStart = std::min(track->loopStart, track->loopEnd);
+		track->isVersionSwitch = false;
+	}
+	else {
+		track->useOriginalFile = false;
+		double sampleDuration = track->numSamples / track->sampleRate;
+		if (sampleDuration <= 8.0)
+		{
+			track->loopStart = 0.0;
+			track->loopEnd = sampleDuration;
+		}
+		else
+		{
+			double beatDuration = 60.0 / track->originalBpm;
+			double fourBars = beatDuration * 16.0;
+			track->loopStart = 0.0;
+			track->loopEnd = std::min(fourBars, sampleDuration);
+		}
+	}
 
-	if (sampleDuration <= 8.0)
-	{
-		track->loopStart = 0.0;
-		track->loopEnd = sampleDuration;
-	}
-	else
-	{
-		double beatDuration = 60.0 / track->originalBpm;
-		double fourBars = beatDuration * 16.0;
-		track->loopStart = 0.0;
-		track->loopEnd = std::min(fourBars, sampleDuration);
-	}
 
 	track->readPosition = 0.0;
 	track->hasStagingData = false;
@@ -1525,7 +1538,7 @@ void DjIaVstProcessor::loadAudioFileAsync(const juce::String& trackId, const juc
 		permanentFile.getParentDirectory().createDirectory();
 
 		DBG("Saving buffer(s) with " << track->stagingBuffer.getNumSamples() << " samples");
-		if (track->hasOriginalVersion.load())
+		if (track->nextHasOriginalVersion.load())
 		{
 			saveOriginalAndStretchedBuffers(track->originalStagingBuffer, track->stagingBuffer, trackId, track->stagingSampleRate);
 			DBG("Both files saved for track: " << trackId);
@@ -1585,6 +1598,9 @@ void DjIaVstProcessor::loadAudioFileForSwitch(const juce::String& trackId, const
 {
 	TrackData* track = trackManager.getTrack(trackId);
 	if (!track) return;
+	double preservedLoopStart = track->loopStart;
+	double preservedLoopEnd = track->loopEnd;
+	bool preservedLocked = track->loopPointsLocked.load();
 
 	try
 	{
@@ -1596,6 +1612,10 @@ void DjIaVstProcessor::loadAudioFileForSwitch(const juce::String& trackId, const
 
 		if (!reader) return;
 		loadAudioToStagingBuffer(reader, track);
+		track->isVersionSwitch = true;
+		track->preservedLoopStart = preservedLoopStart;
+		track->preservedLoopEnd = preservedLoopEnd;
+		track->preservedLoopLocked = preservedLocked;
 		track->hasStagingData = true;
 		track->swapRequested = true;
 
@@ -1606,7 +1626,9 @@ void DjIaVstProcessor::loadAudioFileForSwitch(const juce::String& trackId, const
 	}
 	catch (const std::exception&)
 	{
-
+		track->loopStart = preservedLoopStart;
+		track->loopEnd = preservedLoopEnd;
+		track->loopPointsLocked = preservedLocked;
 	}
 }
 
@@ -1673,6 +1695,7 @@ juce::File DjIaVstProcessor::getTrackAudioFile(const juce::String& trackId)
 
 void DjIaVstProcessor::processAudioBPMAndSync(TrackData* track)
 {
+	track->nextHasOriginalVersion.store(false);
 	float detectedBPM = AudioAnalyzer::detectBPM(track->stagingBuffer, track->stagingSampleRate);
 
 	double hostBpm = cachedHostBpm.load();
@@ -1723,11 +1746,12 @@ void DjIaVstProcessor::processAudioBPMAndSync(TrackData* track)
 		AudioAnalyzer::timeStretchBuffer(track->stagingBuffer, stretchRatio, track->stagingSampleRate);
 		track->stagingNumSamples.store(track->stagingBuffer.getNumSamples());
 		track->stagingOriginalBpm = static_cast<float>(hostBpm);
-		track->hasOriginalVersion = true;
+		track->nextHasOriginalVersion.store(true);
 	}
 	else
 	{
 		track->stagingNumSamples.store(track->stagingBuffer.getNumSamples());
+		track->nextHasOriginalVersion.store(false);
 	}
 }
 
