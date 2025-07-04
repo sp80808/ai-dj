@@ -28,7 +28,7 @@ public:
 	void updateUIFromProcessor();
 	void refreshTracks();
 	void onGenerationComplete(const juce::String& trackId, const juce::String& message) override;
-
+	void refreshMixerChannels();
 	void initUI();
 
 	juce::Label statusLabel;

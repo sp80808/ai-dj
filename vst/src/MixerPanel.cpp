@@ -11,7 +11,7 @@
 #include "MasterChannel.h"
 #include "PluginProcessor.h"
 
-MixerPanel::MixerPanel(DjIaVstProcessor &processor) : audioProcessor(processor)
+MixerPanel::MixerPanel(DjIaVstProcessor& processor) : audioProcessor(processor)
 {
 	masterChannel = std::make_unique<MasterChannel>(audioProcessor);
 	addAndMakeVisible(*masterChannel);
@@ -27,9 +27,9 @@ MixerPanel::~MixerPanel()
 {
 }
 
-void MixerPanel::updateTrackName(const juce::String &trackId, const juce::String &newName)
+void MixerPanel::updateTrackName(const juce::String& trackId, const juce::String& newName)
 {
-	for (auto &channel : mixerChannels)
+	for (auto& channel : mixerChannels)
 	{
 		if (channel->getTrackId() == trackId)
 		{
@@ -41,7 +41,7 @@ void MixerPanel::updateTrackName(const juce::String &trackId, const juce::String
 
 void MixerPanel::updateAllMixerComponents()
 {
-	for (auto &channel : mixerChannels)
+	for (auto& channel : mixerChannels)
 	{
 		channel->updateVUMeters();
 	}
@@ -65,7 +65,7 @@ void MixerPanel::calculateMasterLevel()
 	float maxLevel = 0.0f;
 	int activeChannels = 0;
 
-	for (auto &channel : mixerChannels)
+	for (auto& channel : mixerChannels)
 	{
 		float channelLevel = channel->getCurrentAudioLevel();
 		if (channelLevel > 0.01f)
@@ -91,7 +91,7 @@ void MixerPanel::calculateMasterLevel()
 
 void MixerPanel::refreshMixerChannels()
 {
-	for (auto &mixerChannel : mixerChannels)
+	for (auto& mixerChannel : mixerChannels)
 	{
 		if (mixerChannel)
 			mixerChannel->cleanup();
@@ -101,27 +101,27 @@ void MixerPanel::refreshMixerChannels()
 
 	auto trackIds = audioProcessor.getAllTrackIds();
 	std::sort(trackIds.begin(), trackIds.end(),
-			  [this](const juce::String &a, const juce::String &b)
-			  {
-				  TrackData *trackA = audioProcessor.getTrack(a);
-				  TrackData *trackB = audioProcessor.getTrack(b);
-				  if (!trackA || !trackB)
-					  return false;
-				  return trackA->slotIndex < trackB->slotIndex;
-			  });
+		[this](const juce::String& a, const juce::String& b)
+		{
+			TrackData* trackA = audioProcessor.getTrack(a);
+			TrackData* trackB = audioProcessor.getTrack(b);
+			if (!trackA || !trackB)
+				return false;
+			return trackA->slotIndex < trackB->slotIndex;
+		});
 
 	int xPos = 5;
 	const int channelWidth = 90;
 	const int channelSpacing = 5;
 
-	for (const auto &trackId : trackIds)
+	for (const auto& trackId : trackIds)
 	{
-		TrackData *trackData = audioProcessor.getTrack(trackId);
+		TrackData* trackData = audioProcessor.getTrack(trackId);
 		if (!trackData)
 			continue;
 
 		auto mixerChannel = std::make_unique<MixerChannel>(trackId, audioProcessor,
-														   static_cast<TrackData *>(trackData));
+			static_cast<TrackData*>(trackData));
 		positionMixer(mixerChannel, xPos, channelWidth, channelSpacing);
 	}
 	displayChannelsContainer(xPos);
@@ -135,8 +135,8 @@ void MixerPanel::displayChannelsContainer(int xPos)
 	channelsContainer.repaint();
 }
 
-void MixerPanel::positionMixer(std::unique_ptr<MixerChannel> &mixerChannel, int &xPos,
-							   const int channelWidth, const int channelSpacing)
+void MixerPanel::positionMixer(std::unique_ptr<MixerChannel>& mixerChannel, int& xPos,
+	const int channelWidth, const int channelSpacing)
 {
 	int containerHeight = std::max(400, channelsContainer.getHeight());
 	mixerChannel->setBounds(xPos, 0, channelWidth, containerHeight);
@@ -147,7 +147,7 @@ void MixerPanel::positionMixer(std::unique_ptr<MixerChannel> &mixerChannel, int 
 	xPos += channelWidth + channelSpacing;
 }
 
-void MixerPanel::paint(juce::Graphics &g)
+void MixerPanel::paint(juce::Graphics& g)
 {
 	auto bounds = getLocalBounds();
 	float height = static_cast<float>(getHeight());
@@ -188,28 +188,41 @@ void MixerPanel::resized()
 	const int channelWidth = 90;
 	const int channelSpacing = 5;
 
-	for (auto &channel : mixerChannels)
+	for (auto& channel : mixerChannels)
 	{
 		channel->setBounds(xPos, 0, channelWidth, containerHeight);
 		xPos += channelWidth + channelSpacing;
 	}
 }
 
-void MixerPanel::trackAdded(const juce::String & /*trackId*/)
+void MixerPanel::trackAdded(const juce::String& /*trackId*/)
 {
 	refreshMixerChannels();
 	resized();
 }
 
-void MixerPanel::trackRemoved(const juce::String & /*trackId*/)
+void MixerPanel::trackRemoved(const juce::String& /*trackId*/)
 {
 	refreshMixerChannels();
 	resized();
 }
 
-void MixerPanel::trackSelected(const juce::String &trackId)
+void MixerPanel::refreshAllChannels()
 {
-	for (auto &channel : mixerChannels)
+	for (auto& mixerChannel : mixerChannels)
+	{
+		if (mixerChannel && mixerChannel->track)
+		{
+			mixerChannel->cleanup();
+			mixerChannel->addEventListeners();
+			mixerChannel->updateFromTrackData();
+		}
+	}
+}
+
+void MixerPanel::trackSelected(const juce::String& trackId)
+{
+	for (auto& channel : mixerChannels)
 	{
 		bool isThisTrackSelected = (channel->getTrackId() == trackId);
 		channel->setSelected(isThisTrackSelected);

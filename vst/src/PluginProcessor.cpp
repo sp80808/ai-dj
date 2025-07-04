@@ -1016,24 +1016,84 @@ void DjIaVstProcessor::reassignTrackOutputsAndMidi()
 {
 	auto trackIds = trackManager.getAllTrackIds();
 
+	std::map<int, std::vector<MidiMapping>> savedMappings;
+
+	for (int i = 0; i < trackIds.size(); ++i)
+	{
+		TrackData* track = trackManager.getTrack(trackIds[i]);
+		if (track && track->slotIndex != i)
+		{
+			int oldSlotNumber = track->slotIndex + 1;
+			int newSlotNumber = i + 1;
+
+			auto& manager = getMidiLearnManager();
+			auto allMappings = manager.getAllMappings();
+
+			for (const auto& mapping : allMappings)
+			{
+				if (mapping.parameterName.startsWith("slot" + juce::String(oldSlotNumber)))
+				{
+					MidiMapping newMapping = mapping;
+
+					juce::String suffix = mapping.parameterName.substring(4);
+					newMapping.parameterName = "slot" + juce::String(newSlotNumber) + suffix.substring(1);
+
+					newMapping.description = newMapping.description.replace(
+						"Slot " + juce::String(oldSlotNumber),
+						"Slot " + juce::String(newSlotNumber)
+					);
+
+					savedMappings[newSlotNumber].push_back(newMapping);
+				}
+			}
+
+			DBG("Track moving from slot " << oldSlotNumber << " to slot " << newSlotNumber);
+		}
+	}
+
+	for (const auto& pair : savedMappings)
+	{
+		(void)pair;
+		int oldSlotNumber = 0;
+		for (int i = 0; i < trackIds.size(); ++i)
+		{
+			TrackData* track = trackManager.getTrack(trackIds[i]);
+			if (track && track->slotIndex + 1 != i + 1)
+			{
+				oldSlotNumber = track->slotIndex + 1;
+				getMidiLearnManager().removeMappingsForSlot(oldSlotNumber);
+				break;
+			}
+		}
+	}
+
 	for (int i = 0; i < trackIds.size(); ++i)
 	{
 		TrackData* track = trackManager.getTrack(trackIds[i]);
 		if (track)
 		{
-			int oldSlotIndex = track->slotIndex;
-			int newSlotIndex = i;
-
-			if (oldSlotIndex != newSlotIndex && oldSlotIndex != -1)
-			{
-				getMidiLearnManager().moveMappingsFromSlotToSlot(oldSlotIndex + 1, newSlotIndex + 1);
-			}
-
-			track->slotIndex = newSlotIndex;
+			track->slotIndex = i;
 			track->midiNote = 60 + i;
-			trackManager.usedSlots[newSlotIndex] = true;
+			trackManager.usedSlots[i] = true;
 		}
 	}
+
+	for (const auto& pair : savedMappings)
+	{
+		for (const auto& mapping : pair.second)
+		{
+			getMidiLearnManager().addMapping(mapping);
+			DBG("Restored mapping: " << mapping.parameterName);
+		}
+	}
+
+	juce::MessageManager::callAsync([this]()
+		{
+			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
+			{
+				editor->refreshMixerChannels();
+			}
+		});
 }
 
 void DjIaVstProcessor::selectTrack(const juce::String& trackId)

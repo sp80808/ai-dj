@@ -2063,3 +2063,11 @@ void* DjIaVstEditor::getSequencerForTrack(const juce::String& trackId)
 	}
 	return nullptr;
 }
+
+void DjIaVstEditor::refreshMixerChannels()
+{
+	if (mixerPanel)
+	{
+		mixerPanel->refreshAllChannels();
+	}
+}
