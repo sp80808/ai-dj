@@ -130,23 +130,22 @@ public:
 
 		juce::ScopedLock lock(tracksLock);
 
-		int trackIndex = 0;
 		for (const auto& pair : tracks)
 		{
-			if (trackIndex >= individualOutputs.size())
-				break;
-
 			auto* track = pair.second.get();
 
-			if (track->isEnabled.load() && track->numSamples > 0)
+			if (track->isEnabled.load() && track->numSamples > 0 &&
+				track->slotIndex >= 0 && track->slotIndex < individualOutputs.size())
 			{
+				int bufferIndex = track->slotIndex;
+
 				juce::AudioBuffer<float> tempMixBuffer(outputBuffer.getNumChannels(), numSamples);
 				juce::AudioBuffer<float> tempIndividualBuffer(2, numSamples);
 				tempMixBuffer.clear();
 				tempIndividualBuffer.clear();
 
 				renderSingleTrack(*track, tempMixBuffer, tempIndividualBuffer,
-					numSamples, trackIndex, hostBpm);
+					numSamples, bufferIndex, hostBpm);
 
 				bool shouldHearTrack = !track->isMuted.load() &&
 					(!anyTrackSolo || track->isSolo.load());
@@ -159,18 +158,16 @@ public:
 					}
 				}
 
-				for (int ch = 0; ch < std::min(2, individualOutputs[trackIndex].getNumChannels()); ++ch)
+				for (int ch = 0; ch < std::min(2, individualOutputs[bufferIndex].getNumChannels()); ++ch)
 				{
-					individualOutputs[trackIndex].copyFrom(ch, 0, tempIndividualBuffer, ch, 0, numSamples);
+					individualOutputs[bufferIndex].copyFrom(ch, 0, tempIndividualBuffer, ch, 0, numSamples);
 
 					if (!shouldHearTrack)
 					{
-						individualOutputs[trackIndex].applyGain(ch, 0, numSamples, 0.0f);
+						individualOutputs[bufferIndex].applyGain(ch, 0, numSamples, 0.0f);
 					}
 				}
 			}
-
-			trackIndex++;
 		}
 	}
 
@@ -219,6 +216,7 @@ public:
 			trackState.setProperty("selectedPrompt", track->selectedPrompt, nullptr);
 			trackState.setProperty("useOriginalFile", track->useOriginalFile.load(), nullptr);
 			trackState.setProperty("hasOriginalVersion", track->hasOriginalVersion.load(), nullptr);
+			trackState.setProperty("nextHasOriginalVersion", track->nextHasOriginalVersion.load(), nullptr);
 			juce::String stemsString;
 			for (int i = 0; i < track->preferredStems.size(); ++i)
 			{
@@ -309,6 +307,7 @@ public:
 			track->selectedPrompt = trackState.getProperty("selectedPrompt", "");
 			track->useOriginalFile = trackState.getProperty("useOriginalFile", false);
 			track->hasOriginalVersion = trackState.getProperty("hasOriginalVersion", false);
+			track->nextHasOriginalVersion = trackState.getProperty("nextHasOriginalVersion", false);
 			juce::String stemsString = trackState.getProperty("preferredStems", "drums,bass");
 			track->lastPpqPosition = -1.0;
 			track->customStepCounter = 0;

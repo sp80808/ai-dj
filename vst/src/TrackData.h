@@ -63,7 +63,12 @@ struct TrackData
 	juce::String selectedPrompt;
 	std::atomic<bool> useOriginalFile{ false };
 	std::atomic<bool> hasOriginalVersion{ false };
+	std::atomic<bool> nextHasOriginalVersion{ false };
 	juce::AudioBuffer<float> originalStagingBuffer;
+	bool isVersionSwitch = false;
+	double preservedLoopStart = 0.0;
+	double preservedLoopEnd = 4.0;
+	bool preservedLoopLocked = false;
 
 	enum class PendingAction
 	{
@@ -138,6 +143,10 @@ struct TrackData
 		useOriginalFile = false;
 		hasOriginalVersion = false;
 		originalStagingBuffer.setSize(0, 0);
+		isVersionSwitch = false;
+		preservedLoopStart = 0.0;
+		preservedLoopEnd = 4.0;
+		preservedLoopLocked = false;
 	}
 
 	void setPlaying(bool playing)

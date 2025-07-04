@@ -22,7 +22,7 @@ public:
 		int sampleRate = 44100;
 
 		GenerationParams() = default;
-		GenerationParams(const juce::String &p, float dur = 10.0f)
+		GenerationParams(const juce::String& p, float dur = 10.0f)
 			: prompt(p), duration(dur)
 		{
 		}
@@ -43,6 +43,13 @@ public:
 			return success && !audioData.empty() && actualDuration > 0.0f;
 		}
 	};
+	StableAudioEngine() {}
+
+	bool initialize(const juce::String& modelsDir);
+	bool isReady() const { return isInitialized; }
+
+	GenerationResult generateSample(const GenerationParams& params);
+	std::vector<float> generateAudio(const juce::String& prompt, float duration = 10.0f);
 
 private:
 	bool isInitialized = false;
@@ -50,23 +57,13 @@ private:
 	juce::File audiogenExecutable;
 	juce::Random random;
 
-public:
-	StableAudioEngine() {}
-
-	bool initialize(const juce::String &modelsDir);
-	bool isReady() const { return isInitialized; }
-
-	GenerationResult generateSample(const GenerationParams &params);
-	std::vector<float> generateAudio(const juce::String &prompt, float duration = 10.0f);
-
-private:
 	bool checkRequiredFiles();
-	std::vector<float> loadAndResampleWavFile(const juce::File &wavFile, double targetSampleRate);
-	juce::AudioBuffer<float> resampleBuffer(const juce::AudioBuffer<float> &inputBuffer,
-											double inputSampleRate,
-											double outputSampleRate);
+	std::vector<float> loadAndResampleWavFile(const juce::File& wavFile, double targetSampleRate);
+	juce::AudioBuffer<float> resampleBuffer(const juce::AudioBuffer<float>& inputBuffer,
+		double inputSampleRate,
+		double outputSampleRate);
 	void cleanupTempFiles();
-	juce::String sanitizePrompt(const juce::String &prompt);
+	juce::String sanitizePrompt(const juce::String& prompt);
 	int generateRandomSeed();
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(StableAudioEngine)

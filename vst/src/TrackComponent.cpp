@@ -239,12 +239,21 @@ void TrackComponent::updateFromTrackData()
 
 	showWaveformButton.setToggleState(track->showWaveform, juce::dontSendNotification);
 	sequencerToggleButton.setToggleState(track->showSequencer, juce::dontSendNotification);
-	originalSyncButton.setToggleState(track->useOriginalFile.load(), juce::dontSendNotification);
-	originalSyncButton.setEnabled(track->hasOriginalVersion.load());
-	bool useOriginal = track->useOriginalFile.load();
-	originalSyncButton.setButtonText(useOriginal ?
-		juce::String::fromUTF8("\xE2\x97\x8F") :
-		juce::String::fromUTF8("\xE2\x97\x8B"));
+
+	if (track->hasOriginalVersion.load()) {
+		bool useOriginal = track->useOriginalFile.load();
+		originalSyncButton.setToggleState(useOriginal, juce::dontSendNotification);
+		originalSyncButton.setButtonText(useOriginal ?
+			juce::String::fromUTF8("\xE2\x97\x8F") :
+			juce::String::fromUTF8("\xE2\x97\x8B"));
+		originalSyncButton.setEnabled(true);
+	}
+	else {
+		track->useOriginalFile = false;
+		originalSyncButton.setToggleState(false, juce::dontSendNotification);
+		originalSyncButton.setButtonText(juce::String::fromUTF8("\xE2\x97\x8B"));
+		originalSyncButton.setEnabled(false);
+	}
 
 	trackNameLabel.setText(track->trackName, juce::dontSendNotification);
 	juce::String noteName = juce::MidiMessage::getMidiNoteName(track->midiNote, true, true, 3);

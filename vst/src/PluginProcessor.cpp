@@ -1016,24 +1016,84 @@ void DjIaVstProcessor::reassignTrackOutputsAndMidi()
 {
 	auto trackIds = trackManager.getAllTrackIds();
 
+	std::map<int, std::vector<MidiMapping>> savedMappings;
+
+	for (int i = 0; i < trackIds.size(); ++i)
+	{
+		TrackData* track = trackManager.getTrack(trackIds[i]);
+		if (track && track->slotIndex != i)
+		{
+			int oldSlotNumber = track->slotIndex + 1;
+			int newSlotNumber = i + 1;
+
+			auto& manager = getMidiLearnManager();
+			auto allMappings = manager.getAllMappings();
+
+			for (const auto& mapping : allMappings)
+			{
+				if (mapping.parameterName.startsWith("slot" + juce::String(oldSlotNumber)))
+				{
+					MidiMapping newMapping = mapping;
+
+					juce::String suffix = mapping.parameterName.substring(4);
+					newMapping.parameterName = "slot" + juce::String(newSlotNumber) + suffix.substring(1);
+
+					newMapping.description = newMapping.description.replace(
+						"Slot " + juce::String(oldSlotNumber),
+						"Slot " + juce::String(newSlotNumber)
+					);
+
+					savedMappings[newSlotNumber].push_back(newMapping);
+				}
+			}
+
+			DBG("Track moving from slot " << oldSlotNumber << " to slot " << newSlotNumber);
+		}
+	}
+
+	for (const auto& pair : savedMappings)
+	{
+		(void)pair;
+		int oldSlotNumber = 0;
+		for (int i = 0; i < trackIds.size(); ++i)
+		{
+			TrackData* track = trackManager.getTrack(trackIds[i]);
+			if (track && track->slotIndex + 1 != i + 1)
+			{
+				oldSlotNumber = track->slotIndex + 1;
+				getMidiLearnManager().removeMappingsForSlot(oldSlotNumber);
+				break;
+			}
+		}
+	}
+
 	for (int i = 0; i < trackIds.size(); ++i)
 	{
 		TrackData* track = trackManager.getTrack(trackIds[i]);
 		if (track)
 		{
-			int oldSlotIndex = track->slotIndex;
-			int newSlotIndex = i;
-
-			if (oldSlotIndex != newSlotIndex && oldSlotIndex != -1)
-			{
-				getMidiLearnManager().moveMappingsFromSlotToSlot(oldSlotIndex + 1, newSlotIndex + 1);
-			}
-
-			track->slotIndex = newSlotIndex;
+			track->slotIndex = i;
 			track->midiNote = 60 + i;
-			trackManager.usedSlots[newSlotIndex] = true;
+			trackManager.usedSlots[i] = true;
 		}
 	}
+
+	for (const auto& pair : savedMappings)
+	{
+		for (const auto& mapping : pair.second)
+		{
+			getMidiLearnManager().addMapping(mapping);
+			DBG("Restored mapping: " << mapping.parameterName);
+		}
+	}
+
+	juce::MessageManager::callAsync([this]()
+		{
+			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
+			{
+				editor->refreshMixerChannels();
+			}
+		});
 }
 
 void DjIaVstProcessor::selectTrack(const juce::String& trackId)
@@ -1455,21 +1515,34 @@ void DjIaVstProcessor::performAtomicSwap(TrackData* track, const juce::String& t
 	track->numSamples = track->stagingNumSamples.load();
 	track->sampleRate = track->stagingSampleRate.load();
 	track->originalBpm = track->stagingOriginalBpm;
+	track->hasOriginalVersion.store(track->nextHasOriginalVersion.load());
 
-	double sampleDuration = track->numSamples / track->sampleRate;
+	if (track->isVersionSwitch) {
+		track->loopStart = track->preservedLoopStart;
+		track->loopEnd = track->preservedLoopEnd;
+		track->loopPointsLocked = track->preservedLoopLocked;
+		double maxDuration = track->numSamples / track->sampleRate;
+		track->loopEnd = std::min(track->loopEnd, maxDuration);
+		track->loopStart = std::min(track->loopStart, track->loopEnd);
+		track->isVersionSwitch = false;
+	}
+	else {
+		track->useOriginalFile = false;
+		double sampleDuration = track->numSamples / track->sampleRate;
+		if (sampleDuration <= 8.0)
+		{
+			track->loopStart = 0.0;
+			track->loopEnd = sampleDuration;
+		}
+		else
+		{
+			double beatDuration = 60.0 / track->originalBpm;
+			double fourBars = beatDuration * 16.0;
+			track->loopStart = 0.0;
+			track->loopEnd = std::min(fourBars, sampleDuration);
+		}
+	}
 
-	if (sampleDuration <= 8.0)
-	{
-		track->loopStart = 0.0;
-		track->loopEnd = sampleDuration;
-	}
-	else
-	{
-		double beatDuration = 60.0 / track->originalBpm;
-		double fourBars = beatDuration * 16.0;
-		track->loopStart = 0.0;
-		track->loopEnd = std::min(fourBars, sampleDuration);
-	}
 
 	track->readPosition = 0.0;
 	track->hasStagingData = false;
@@ -1525,7 +1598,7 @@ void DjIaVstProcessor::loadAudioFileAsync(const juce::String& trackId, const juc
 		permanentFile.getParentDirectory().createDirectory();
 
 		DBG("Saving buffer(s) with " << track->stagingBuffer.getNumSamples() << " samples");
-		if (track->hasOriginalVersion.load())
+		if (track->nextHasOriginalVersion.load())
 		{
 			saveOriginalAndStretchedBuffers(track->originalStagingBuffer, track->stagingBuffer, trackId, track->stagingSampleRate);
 			DBG("Both files saved for track: " << trackId);
@@ -1585,6 +1658,9 @@ void DjIaVstProcessor::loadAudioFileForSwitch(const juce::String& trackId, const
 {
 	TrackData* track = trackManager.getTrack(trackId);
 	if (!track) return;
+	double preservedLoopStart = track->loopStart;
+	double preservedLoopEnd = track->loopEnd;
+	bool preservedLocked = track->loopPointsLocked.load();
 
 	try
 	{
@@ -1596,6 +1672,10 @@ void DjIaVstProcessor::loadAudioFileForSwitch(const juce::String& trackId, const
 
 		if (!reader) return;
 		loadAudioToStagingBuffer(reader, track);
+		track->isVersionSwitch = true;
+		track->preservedLoopStart = preservedLoopStart;
+		track->preservedLoopEnd = preservedLoopEnd;
+		track->preservedLoopLocked = preservedLocked;
 		track->hasStagingData = true;
 		track->swapRequested = true;
 
@@ -1606,7 +1686,9 @@ void DjIaVstProcessor::loadAudioFileForSwitch(const juce::String& trackId, const
 	}
 	catch (const std::exception&)
 	{
-
+		track->loopStart = preservedLoopStart;
+		track->loopEnd = preservedLoopEnd;
+		track->loopPointsLocked = preservedLocked;
 	}
 }
 
@@ -1673,6 +1755,7 @@ juce::File DjIaVstProcessor::getTrackAudioFile(const juce::String& trackId)
 
 void DjIaVstProcessor::processAudioBPMAndSync(TrackData* track)
 {
+	track->nextHasOriginalVersion.store(false);
 	float detectedBPM = AudioAnalyzer::detectBPM(track->stagingBuffer, track->stagingSampleRate);
 
 	double hostBpm = cachedHostBpm.load();
@@ -1723,11 +1806,12 @@ void DjIaVstProcessor::processAudioBPMAndSync(TrackData* track)
 		AudioAnalyzer::timeStretchBuffer(track->stagingBuffer, stretchRatio, track->stagingSampleRate);
 		track->stagingNumSamples.store(track->stagingBuffer.getNumSamples());
 		track->stagingOriginalBpm = static_cast<float>(hostBpm);
-		track->hasOriginalVersion = true;
+		track->nextHasOriginalVersion.store(true);
 	}
 	else
 	{
 		track->stagingNumSamples.store(track->stagingBuffer.getNumSamples());
+		track->nextHasOriginalVersion.store(false);
 	}
 }
 

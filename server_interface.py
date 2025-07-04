@@ -2112,22 +2112,21 @@ class ObsidianNeuralLauncher:
                 self.log("Development mode: no API keys configured, bypass enabled")
 
             self.log(f"Command: {' '.join(cmd)}")
-            creation_flags = 0
-            if platform.system() == "Windows":
-                creation_flags = subprocess.CREATE_NO_WINDOW
-            self.server_process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                universal_newlines=True,
-                bufsize=1,
-                cwd=str(install_dir),
-                env=env,
-                encoding="utf-8",
-                errors="replace",
-                creationflags=creation_flags,
-            )
+            popen_kwargs = {
+                "stdout": subprocess.PIPE,
+                "stderr": subprocess.STDOUT,
+                "universal_newlines": True,
+                "bufsize": 1,
+                "cwd": str(install_dir),
+                "env": env,
+                "encoding": "utf-8",
+                "errors": "replace",
+            }
 
+            if platform.system() == "Windows":
+                popen_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+            self.server_process = subprocess.Popen(cmd, **popen_kwargs)
             self.is_server_running = True
             self.update_ui_state()
 
