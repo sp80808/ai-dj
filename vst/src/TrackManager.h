@@ -588,7 +588,11 @@ private:
 					break;
 				}
 
-				float sample = track.audioBuffer.getSample(ch, sampleIndex);
+				float sample = interpolateLinear(
+					track.audioBuffer.getReadPointer(ch),
+					absolutePosition,
+					track.audioBuffer.getNumSamples()
+				);
 				sample *= volume;
 				if (ch == 0)
 				{
@@ -614,7 +618,7 @@ private:
 		track.readPosition = currentPosition;
 	}
 
-	float interpolateLinear(const float* buffer, double position, int bufferSize)
+	float interpolateLinear(const float* buffer, double position, int bufferSize) const
 	{
 		int index = static_cast<int>(position);
 		if (index >= bufferSize - 1)
