@@ -82,10 +82,9 @@ class ObsidianNeuralInstaller:
         self.log_system_info()
 
     def safe_subprocess_run(self, cmd, **kwargs):
-        if is_frozen():
+        if is_frozen() and sys.platform == "win32":
             kwargs.setdefault("creationflags", subprocess.CREATE_NO_WINDOW)
             kwargs.setdefault("close_fds", True)
-
         return subprocess.run(cmd, **kwargs)
 
     def check_admin(self):
@@ -1411,10 +1410,13 @@ class ObsidianNeuralInstaller:
             ]
 
             creation_flags = 0
-            if getattr(sys, "frozen", False):
+            if getattr(sys, "frozen", False) and sys.platform == "win32":
                 creation_flags = subprocess.CREATE_NO_WINDOW
 
-            result = subprocess.run(cmd, creationflags=creation_flags)
+            if sys.platform == "win32":
+                result = subprocess.run(cmd, creationflags=creation_flags)
+            else:
+                result = subprocess.run(cmd)
 
             if result.returncode != 0:
                 self.log(
