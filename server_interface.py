@@ -8,6 +8,7 @@ import platform
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
 import subprocess
+import shutil
 import threading
 import os
 import sys
@@ -74,13 +75,44 @@ class ObsidianNeuralLauncher:
         self.monitor_server()
 
     def create_tray_image(self):
-        width = 64
-        height = 64
-        image = Image.new("RGB", (width, height), color="black")
+        if platform.system() == "Darwin":
+            width, height = 32, 32
+        elif platform.system() == "Linux":
+            width, height = 48, 48
+        else:
+            width, height = 64, 64
+
+        image = Image.new("RGBA", (width, height), color=(0, 0, 0, 0))
         draw = ImageDraw.Draw(image)
 
-        draw.ellipse([10, 10, 54, 54], outline="white", width=6)
-        draw.text((22, 20), "AI", fill="white", anchor="ms")
+        if platform.system() == "Darwin":
+            green_main = (0, 200, 80, 255)
+            green_dark = (0, 150, 60, 255)
+        else:
+            green_main = (0, 255, 100, 255)
+            green_dark = (0, 180, 70, 255)
+
+        padding = max(4, width // 16)
+        triangle_points = [
+            (width // 2, padding),
+            (padding, height - padding),
+            (width - padding, height - padding),
+        ]
+
+        shadow_points = [(p[0] + 1, p[1] + 1) for p in triangle_points]
+        draw.polygon(shadow_points, fill=(0, 0, 0, 100))
+
+        draw.polygon(triangle_points, fill=green_main, outline=green_dark, width=2)
+
+        inner_padding = padding + width // 8
+        inner_points = [
+            (width // 2, inner_padding),
+            (inner_padding, height - inner_padding),
+            (width - inner_padding, height - inner_padding),
+        ]
+        draw.polygon(
+            inner_points, fill=(255, 255, 255, 180), outline=green_dark, width=1
+        )
 
         return image
 
@@ -267,12 +299,38 @@ class ObsidianNeuralLauncher:
 
     def handle_admin_install(self):
         install_dir = self.detect_installation_dir()
+        is_system_install = False
 
-        if str(install_dir).startswith("C:\\ProgramData"):
-            self.log("Admin installation detected - using local config copy")
+        if platform.system() == "Windows":
+            system_paths = [
+                "C:\\ProgramData",
+                "C:\\Program Files",
+                "C:\\Program Files (x86)",
+            ]
+            is_system_install = any(
+                str(install_dir).startswith(path) for path in system_paths
+            )
+            local_config_name = ".env"
+
+        elif platform.system() == "Darwin":
+            system_paths = ["/Applications", "/usr/local", "/opt"]
+            is_system_install = any(
+                str(install_dir).startswith(path) for path in system_paths
+            )
+            local_config_name = ".env"
+
+        else:
+            system_paths = ["/usr", "/opt", "/usr/local"]
+            is_system_install = any(
+                str(install_dir).startswith(path) for path in system_paths
+            )
+            local_config_name = ".env"
+
+        if is_system_install:
+            self.log(f"System installation detected at {install_dir}")
 
             admin_env = install_dir / ".env"
-            local_env = Path(".env")
+            local_env = Path(local_config_name)
 
             if admin_env.exists() and not local_env.exists():
                 try:
@@ -283,15 +341,14 @@ class ObsidianNeuralLauncher:
                 except Exception as e:
                     self.log(f"Could not copy config: {e}", "WARNING")
 
-            info_msg = f"""Installation Mode: Administrator
+            info_msg = f"""Installation Mode: System-wide
     Install Location: {install_dir}
     Config Location: {local_env.absolute()}
 
     Note: Configuration is stored locally for security.
     Changes will apply to the local server instance."""
 
-            messagebox.showinfo("Admin Installation Detected", info_msg)
-
+            messagebox.showinfo("System Installation Detected", info_msg)
             return local_env
         else:
             return install_dir / ".env"
@@ -302,12 +359,35 @@ class ObsidianNeuralLauncher:
     def detect_installation_dir(self):
         current_dir = Path.cwd()
 
-        possible_paths = [
-            Path("C:/ProgramData/OBSIDIAN-Neural"),
-            Path.home() / "OBSIDIAN-Neural",
-            current_dir,
-            current_dir.parent,
-        ]
+        if platform.system() == "Windows":
+            possible_paths = [
+                Path("C:/ProgramData/OBSIDIAN-Neural"),
+                Path.home() / "OBSIDIAN-Neural",
+                Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local"))
+                / "OBSIDIAN-Neural",
+                current_dir,
+                current_dir.parent,
+            ]
+        elif platform.system() == "Darwin":
+            possible_paths = [
+                Path("/Applications/OBSIDIAN-Neural"),
+                Path.home() / "Applications/OBSIDIAN-Neural",
+                Path.home() / "OBSIDIAN-Neural",
+                Path.home() / "Documents/OBSIDIAN-Neural",
+                current_dir,
+                current_dir.parent,
+            ]
+        else:
+            possible_paths = [
+                Path("/opt/OBSIDIAN-Neural"),
+                Path("/usr/local/share/OBSIDIAN-Neural"),
+                Path.home() / "OBSIDIAN-Neural",
+                Path.home() / ".local/share/OBSIDIAN-Neural",
+                Path.home() / "Documents/OBSIDIAN-Neural",
+                current_dir,
+                current_dir.parent,
+            ]
+
         if current_dir.name == "bin":
             possible_paths.insert(0, current_dir.parent)
 
@@ -705,7 +785,7 @@ class ObsidianNeuralLauncher:
         list_scroll = ttk.Scrollbar(list_frame, orient="vertical")
         self.api_keys_listbox = tk.Listbox(
             list_frame,
-            height=4,
+            height=16,
             yscrollcommand=list_scroll.set,
             font=("Consolas", 9),
             selectmode=tk.EXTENDED,
@@ -981,8 +1061,21 @@ class ObsidianNeuralLauncher:
                 messagebox.showerror("Error", f"Could not clear data: {e}")
 
     def init_database(self):
-        self.db_path = Path.home() / ".obsidian_neural" / "config.db"
-        self.db_path.parent.mkdir(exist_ok=True)
+        if platform.system() == "Windows":
+            config_dir = (
+                Path(os.environ.get("APPDATA", Path.home() / "AppData/Roaming"))
+                / "OBSIDIAN-Neural"
+            )
+        elif platform.system() == "Darwin":
+            config_dir = Path.home() / "Library/Application Support/OBSIDIAN-Neural"
+        else:
+            xdg_config = os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")
+            config_dir = Path(xdg_config) / "obsidian-neural"
+
+        config_dir.mkdir(parents=True, exist_ok=True)
+        self.db_path = config_dir / "config.db"
+
+        self.log(f"Config database: {self.db_path}")
         self.secure_storage = SecureStorage(self.db_path)
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -2066,10 +2159,43 @@ class ObsidianNeuralLauncher:
                 messagebox.showerror("Error", f"main.py not found at {install_dir}")
                 return
 
-            python_exe = install_dir / "env" / "Scripts" / "python.exe"
-            if not python_exe.exists():
-                python_exe = sys.executable
-                self.log("Using system Python (venv not found)", "WARNING")
+            if platform.system() == "Windows":
+                possible_python_paths = [
+                    install_dir / "env" / "Scripts" / "python.exe",
+                    install_dir / "venv" / "Scripts" / "python.exe",
+                    Path(sys.executable),
+                ]
+            else:
+                possible_python_paths = [
+                    install_dir / "env" / "bin" / "python",
+                    install_dir / "venv" / "bin" / "python",
+                    install_dir / "env" / "bin" / "python3",
+                    install_dir / "venv" / "bin" / "python3",
+                    Path(sys.executable),
+                ]
+
+            python_exe = None
+            for py_path in possible_python_paths:
+                if py_path.exists():
+                    python_exe = py_path
+                    break
+
+            if not python_exe:
+                import shutil
+
+                for py_name in (
+                    ["python", "python3"]
+                    if platform.system() != "Windows"
+                    else ["python.exe", "python3.exe"]
+                ):
+                    py_path = shutil.which(py_name)
+                    if py_path:
+                        python_exe = Path(py_path)
+                        break
+
+            if not python_exe:
+                messagebox.showerror("Error", "No Python executable found")
+                return
 
             self.log(f"Using Python: {python_exe}")
             self.log(f"Starting server from: {install_dir}")
@@ -2125,6 +2251,8 @@ class ObsidianNeuralLauncher:
 
             if platform.system() == "Windows":
                 popen_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+            elif platform.system() == "Darwin":
+                popen_kwargs["start_new_session"] = True
 
             self.server_process = subprocess.Popen(cmd, **popen_kwargs)
             self.is_server_running = True
@@ -2718,39 +2846,118 @@ class ObsidianNeuralLauncher:
         wizard.focus_set()
 
     def open_project_folder(self):
-        import os
-        import platform
-
         try:
+            project_path = Path.cwd()
+
             if platform.system() == "Windows":
-                os.startfile(".")
+                os.startfile(str(project_path))
             elif platform.system() == "Darwin":
-                subprocess.run(["open", "."])
+                subprocess.run(["open", str(project_path)], check=True)
             else:
-                subprocess.run(["xdg-open", "."])
-            self.log("Project folder opened")
+                file_managers = ["xdg-open", "nautilus", "dolphin", "thunar", "pcmanfm"]
+
+                for fm in file_managers:
+                    if shutil.which(fm):
+                        subprocess.run([fm, str(project_path)], check=True)
+                        break
+                else:
+                    subprocess.run(["ls", "-la", str(project_path)], check=True)
+                    messagebox.showinfo("Folder", f"Project folder: {project_path}")
+
+            self.log(f"Project folder opened: {project_path}")
+
+        except subprocess.CalledProcessError as e:
+            self.log(f"Error opening folder (subprocess): {e}", "ERROR")
+            messagebox.showerror("Error", f"Could not open project folder:\n{e}")
         except Exception as e:
             self.log(f"Error opening folder: {e}", "ERROR")
+            messagebox.showerror("Error", f"Could not open project folder:\n{e}")
 
     def show_system_info(self):
         try:
-            import platform
-
             cpu_count = psutil.cpu_count(logical=False)
             cpu_threads = psutil.cpu_count(logical=True)
             memory = psutil.virtual_memory()
             disk = psutil.disk_usage(".")
+            os_specific = ""
+
+            if platform.system() == "Darwin":
+                try:
+                    mac_version = platform.mac_ver()[0]
+                    architecture = platform.machine()
+                    os_specific = (
+                        f"macOS Version: {mac_version}\nArchitecture: {architecture}\n"
+                    )
+
+                    if architecture in ["arm64", "aarch64"]:
+                        os_specific += "Apple Silicon: Yes (M1/M2/M3/M4)\n"
+                    else:
+                        os_specific += "Apple Silicon: No (Intel Mac)\n"
+
+                except:
+                    pass
+
+            elif platform.system() == "Linux":
+                try:
+                    with open("/etc/os-release", "r") as f:
+                        for line in f:
+                            if line.startswith("PRETTY_NAME="):
+                                distro = line.split("=")[1].strip().strip('"')
+                                os_specific = f"Distribution: {distro}\n"
+                                break
+                except:
+                    os_specific = f"Kernel: {platform.release()}\n"
+
+            elif platform.system() == "Windows":
+                try:
+                    import winreg
+
+                    with winreg.OpenKey(
+                        winreg.HKEY_LOCAL_MACHINE,
+                        r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
+                    ) as key:
+                        build = winreg.QueryValueEx(key, "CurrentBuild")[0]
+                        release = winreg.QueryValueEx(key, "ReleaseId")[0]
+                        os_specific = f"Windows Build: {build}\nRelease: {release}\n"
+                except:
+                    pass
+
+            gpu_info = "None detected"
+            try:
+                import GPUtil
+
+                gpus = GPUtil.getGPUs()
+                if gpus:
+                    gpu = gpus[0]
+                    gpu_info = f"{gpu.name} ({gpu.memoryTotal}MB)"
+            except:
+                pass
 
             info = f"""System Information:
-            
-OS: {platform.system()} {platform.release()}
-Python: {platform.python_version()}
-CPU Cores: {cpu_count} ({cpu_threads} threads)
-Memory: {memory.total // (1024**3)} GB total, {memory.available // (1024**3)} GB available
-Disk Space: {disk.free // (1024**3)} GB free / {disk.total // (1024**3)} GB total
 
-Project Directory: {Path.cwd()}
-"""
+    Operating System:
+    {platform.system()} {platform.release()}
+    {os_specific}
+
+    Hardware:
+    CPU: {platform.processor()}
+    Cores: {cpu_count} physical ({cpu_threads} logical)
+    Memory: {memory.total // (1024**3)} GB total, {memory.available // (1024**3)} GB available
+    GPU: {gpu_info}
+
+    Storage:
+    Free: {disk.free // (1024**3)} GB / {disk.total // (1024**3)} GB total
+    Usage: {((disk.total - disk.free) / disk.total * 100):.1f}%
+
+    Python Environment:
+    Version: {platform.python_version()}
+    Executable: {sys.executable}
+    Architecture: {platform.architecture()[0]}
+
+    Project:
+    Directory: {Path.cwd()}
+    Database: {self.db_path if hasattr(self, 'db_path') else 'Not initialized'}
+    """
             messagebox.showinfo("System Information", info)
 
         except Exception as e:

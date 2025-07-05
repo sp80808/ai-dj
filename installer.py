@@ -108,10 +108,24 @@ class ObsidianNeuralInstaller:
                     sys.exit(0)
                 except Exception as e_shell:
                     os._exit(1)
+        elif platform.system() == "Darwin":
+            if not self.is_admin:
+                script = f"""
+                do shell script "sudo {sys.executable} {' '.join(sys.argv)}" with administrator privileges
+                """
+                try:
+                    subprocess.run(["osascript", "-e", script])
+                    sys.exit(0)
+                except:
+                    self.log("Could not request admin privileges on macOS", "WARNING")
+        else:
+            if not self.is_admin:
+                try:
+                    os.execvp("sudo", ["sudo", sys.executable] + sys.argv)
+                except:
+                    self.log("Could not request admin privileges on Linux", "WARNING")
 
-    def _do_detect_vst_folder(
-        self,
-    ):
+    def _do_detect_vst_folder(self):
         print("Detecting VST3 folder (initial scan, output to console):")
         potential_paths = []
 
@@ -169,6 +183,11 @@ class ObsidianNeuralInstaller:
                 Path.home() / ".vst3",
                 Path("/usr/lib/vst3"),
                 Path("/usr/local/lib/vst3"),
+                Path("/usr/lib/x86_64-linux-gnu/vst3"),
+                Path("/usr/lib64/vst3"),
+                Path.home() / ".local/lib/vst3",
+                Path("/opt/vst3"),
+                Path("/usr/share/vst3"),
             ]
 
         unique_ordered_paths = []
@@ -340,26 +359,147 @@ class ObsidianNeuralInstaller:
 
         info["cuda_available"] = False
         info["rocm_available"] = False
+        info["mps_available"] = False
         info["gpu_type"] = "cpu"
         info["gpu_list"] = []
         info["recommended_install"] = "cpu"
 
-        try:
-            gpus = GPUtil.getGPUs()
-            if gpus:
-                gpu = gpus[0]
-                info["gpu"] = f"{gpu.name} ({gpu.memoryTotal}MB)"
-                info["cuda_available"] = True
-                info["gpu_type"] = "nvidia"
-                info["recommended_install"] = "cuda"
-                info["gpu_list"].append(
-                    {"name": gpu.name, "memory_mb": gpu.memoryTotal, "type": "nvidia"}
-                )
-        except Exception as e:
-            pass
+        if platform.system() == "Darwin":
+            try:
+                mac_version = platform.mac_ver()[0]
+                if mac_version:
+                    version_parts = mac_version.split(".")
+                    major = int(version_parts[0])
+                    minor = int(version_parts[1]) if len(version_parts) > 1 else 0
 
-        if not info["cuda_available"]:
+                    if major >= 13 or (major == 12 and minor >= 3):
+                        result = self.safe_subprocess_run(
+                            ["system_profiler", "SPDisplaysDataType"],
+                            capture_output=True,
+                            text=True,
+                            timeout=15,
+                        )
+
+                        if result.returncode == 0:
+                            gpu_info = result.stdout
+
+                            apple_chips = ["M1", "M2", "M3", "M4", "M5", "Apple"]
+                            for line in gpu_info.split("\n"):
+                                if "Chipset Model:" in line:
+                                    chipset = line.split(":")[1].strip()
+                                    if any(chip in chipset for chip in apple_chips):
+                                        info["gpu"] = chipset
+                                        info["gpu_type"] = "apple_metal"
+                                        info["mps_available"] = True
+                                        info["recommended_install"] = "mps"
+
+                                        unified_memory = int(
+                                            info["ram_gb"] * 1024 * 0.75
+                                        )
+                                        info["gpu_list"].append(
+                                            {
+                                                "name": chipset,
+                                                "memory_mb": unified_memory,
+                                                "type": "apple_metal",
+                                                "unified_memory": True,
+                                            }
+                                        )
+                                        break
+
+                            if not info["mps_available"]:
+                                for line in gpu_info.split("\n"):
+                                    if "Chipset Model:" in line:
+                                        chipset = line.split(":")[1].strip()
+                                        if any(
+                                            vendor in chipset.lower()
+                                            for vendor in [
+                                                "intel",
+                                                "amd",
+                                                "nvidia",
+                                                "radeon",
+                                            ]
+                                        ):
+                                            vram_mb = 0
+                                            for vram_line in gpu_info.split("\n"):
+                                                if (
+                                                    "VRAM" in vram_line
+                                                    and "Total" in vram_line
+                                                ):
+                                                    vram_match = re.search(
+                                                        r"(\d+)\s*(MB|GB)", vram_line
+                                                    )
+                                                    if vram_match:
+                                                        vram_value = int(
+                                                            vram_match.group(1)
+                                                        )
+                                                        if vram_match.group(2) == "GB":
+                                                            vram_value *= 1024
+                                                        vram_mb = vram_value
+                                                        break
+
+                                            info["gpu"] = (
+                                                f"{chipset} ({vram_mb}MB)"
+                                                if vram_mb > 0
+                                                else chipset
+                                            )
+                                            info["gpu_type"] = "intel_metal"
+                                            info["mps_available"] = True
+                                            info["recommended_install"] = "mps"
+
+                                            info["gpu_list"].append(
+                                                {
+                                                    "name": chipset,
+                                                    "memory_mb": vram_mb,
+                                                    "type": "intel_metal",
+                                                    "unified_memory": False,
+                                                }
+                                            )
+                                            break
+
+                    try:
+                        import torch
+
+                        if (
+                            hasattr(torch.backends, "mps")
+                            and torch.backends.mps.is_available()
+                        ):
+                            if not info["mps_available"]:
+                                info["mps_available"] = True
+                                info["recommended_install"] = "mps"
+                    except ImportError:
+                        pass
+
+                    else:
+                        self.log(
+                            f"macOS {mac_version} trop ancien pour MPS (nécessite 12.3+)",
+                            "INFO",
+                        )
+
+            except Exception as e:
+                self.log(f"Erreur détection macOS Metal: {e}", "WARNING")
+
+        if not info["mps_available"]:
+            try:
+                gpus = GPUtil.getGPUs()
+                if gpus:
+                    gpu = gpus[0]
+                    info["gpu"] = f"{gpu.name} ({gpu.memoryTotal}MB)"
+                    info["cuda_available"] = True
+                    info["gpu_type"] = "nvidia"
+                    info["recommended_install"] = "cuda"
+                    info["gpu_list"].append(
+                        {
+                            "name": gpu.name,
+                            "memory_mb": gpu.memoryTotal,
+                            "type": "nvidia",
+                        }
+                    )
+            except Exception:
+                pass
+
+        if not info["cuda_available"] and not info["mps_available"]:
             amd_gpus = []
+
             try:
                 result = self.safe_subprocess_run(
                     ["rocm-smi", "--showproductname"],
@@ -377,13 +517,12 @@ class ObsidianNeuralInstaller:
                                 amd_gpus.append(
                                     {
                                         "name": gpu_name,
-                                        "memory_mb": 0,  #
+                                        "memory_mb": 0,
                                         "type": "amd",
                                         "detected_via": "rocm-smi",
                                     }
                                 )
                                 break
-
             except (
                 subprocess.TimeoutExpired,
                 subprocess.CalledProcessError,
@@ -451,20 +590,26 @@ class ObsidianNeuralInstaller:
                                         )
                                         break
 
-                    else:
+                    elif platform.system() in ["Linux", "Darwin"]:
                         result = self.safe_subprocess_run(
-                            ["lspci"], capture_output=True, text=True, timeout=5
+                            ["lspci", "-nn"], capture_output=True, text=True, timeout=5
                         )
                         if result.returncode == 0:
                             for line in result.stdout.split("\n"):
                                 if re.search(
-                                    r"VGA.*AMD|VGA.*ATI|VGA.*Radeon",
+                                    r"VGA.*AMD|VGA.*ATI|VGA.*Radeon|Display.*AMD",
                                     line,
                                     re.IGNORECASE,
                                 ):
                                     match = re.search(r":\s*(.+)", line)
                                     if match:
                                         gpu_name = match.group(1).strip()
+                                        pci_match = re.search(
+                                            r"\[([0-9a-f]{4}:[0-9a-f]{4})\]", line
+                                        )
+                                        if pci_match:
+                                            gpu_name += f" [{pci_match.group(1)}]"
+
                                         amd_gpus.append(
                                             {
                                                 "name": gpu_name,
@@ -474,7 +619,6 @@ class ObsidianNeuralInstaller:
                                             }
                                         )
                                         break
-
                 except (
                     subprocess.TimeoutExpired,
                     subprocess.CalledProcessError,
@@ -485,14 +629,16 @@ class ObsidianNeuralInstaller:
             if amd_gpus:
                 info["gpu_type"] = "amd"
                 info["gpu_list"] = amd_gpus
-                info["gpu"] = f"{amd_gpus[0]['name']}"
+                info["gpu"] = amd_gpus[0]["name"]
                 if amd_gpus[0]["memory_mb"] > 0:
                     info["gpu"] += f" ({amd_gpus[0]['memory_mb']}MB)"
 
                 rocm_detected = False
+
                 rocm_paths = [
                     "/opt/rocm",
                     "/usr/lib/x86_64-linux-gnu/rocm",
+                    "/usr/lib64/rocm",
                     Path.home() / ".local/rocm",
                 ]
 
@@ -502,26 +648,30 @@ class ObsidianNeuralInstaller:
                         break
 
                 if not rocm_detected:
-                    try:
-                        result = self.safe_subprocess_run(
-                            ["rocm-smi", "--version"],
-                            capture_output=True,
-                            text=True,
-                            timeout=5,
-                        )
-                        if result.returncode == 0:
-                            rocm_detected = True
-                    except:
-                        pass
+                    for cmd in ["rocm-smi", "rocminfo", "hipcc"]:
+                        try:
+                            result = self.safe_subprocess_run(
+                                [cmd, "--version"],
+                                capture_output=True,
+                                text=True,
+                                timeout=5,
+                            )
+                            if result.returncode == 0:
+                                rocm_detected = True
+                                break
+                        except:
+                            continue
 
                 if not rocm_detected:
-                    rocm_env_vars = ["ROCM_PATH", "HIP_PATH", "ROCM_HOME"]
+                    rocm_env_vars = ["ROCM_PATH", "HIP_PATH", "ROCM_HOME", "ROCM_ROOT"]
                     for var in rocm_env_vars:
                         if os.environ.get(var):
                             rocm_detected = True
                             break
 
                 info["rocm_available"] = rocm_detected
+                if rocm_detected:
+                    info["recommended_install"] = "rocm"
 
         if info["gpu_type"] == "cpu":
             try:
@@ -535,11 +685,19 @@ class ObsidianNeuralInstaller:
 
                     if result.returncode == 0:
                         for line in result.stdout.split("\n"):
-                            if "intel" in line.lower() and "arc" in line.lower():
+                            line_lower = line.lower()
+                            if "intel" in line_lower and "arc" in line_lower:
                                 info["gpu"] = line.strip()
-                                info["gpu_type"] = "intel"
+                                info["gpu_type"] = "intel_arc"
                                 break
-                else:
+                            elif "intel" in line_lower and any(
+                                x in line_lower for x in ["xe", "iris", "uhd"]
+                            ):
+                                info["gpu"] = line.strip()
+                                info["gpu_type"] = "intel_integrated"
+                                break
+
+                elif platform.system() in ["Linux", "Darwin"]:
                     result = self.safe_subprocess_run(
                         ["lspci"], capture_output=True, text=True, timeout=5
                     )
@@ -549,32 +707,109 @@ class ObsidianNeuralInstaller:
                                 match = re.search(r":\s*(.+)", line)
                                 if match:
                                     info["gpu"] = match.group(1).strip()
-                                    info["gpu_type"] = "intel"
+                                    info["gpu_type"] = "intel_arc"
+                                    break
+                            elif re.search(
+                                r"VGA.*Intel.*(UHD|Iris|Xe)", line, re.IGNORECASE
+                            ):
+                                match = re.search(r":\s*(.+)", line)
+                                if match:
+                                    info["gpu"] = match.group(1).strip()
+                                    info["gpu_type"] = "intel_integrated"
                                     break
             except:
                 pass
+
         info["cuda_installed"] = (
             self.check_cuda_installed() if info["cuda_available"] else False
         )
+
+        if platform.system() == "Darwin" and info["mps_available"]:
+            try:
+                import torch
+
+                if hasattr(torch.backends, "mps"):
+                    info["mps_ready"] = torch.backends.mps.is_available()
+                else:
+                    info["mps_ready"] = False
+            except ImportError:
+                info["mps_ready"] = False
+
         return info
+
+    def verify_mps_installation(self, python_path):
+        test_script = """
+    import torch
+    import sys
+
+    try:
+        print(f"PyTorch version: {torch.__version__}")
+        print(f"MPS available: {torch.backends.mps.is_available()}")
+        
+        if torch.backends.mps.is_available():
+            # Test simple tensor MPS
+            device = torch.device("mps")
+            x = torch.randn(3, 3, device=device)
+            y = torch.randn(3, 3, device=device)
+            z = torch.mm(x, y)
+            print(f"MPS test successful: {z.shape}")
+            print("✅ Metal Performance Shaders ready!")
+        else:
+            print("❌ MPS not available")
+            sys.exit(1)
+            
+    except Exception as e:
+        print(f"❌ MPS test failed: {e}")
+        sys.exit(1)
+    """
+
+        try:
+            result = self.safe_subprocess_run(
+                [str(python_path), "-c", test_script],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            if result.returncode == 0:
+                self.log("✅ MPS verification successful!", "SUCCESS")
+                for line in result.stdout.strip().split("\n"):
+                    if line.strip():
+                        self.log(f"   {line}")
+            else:
+                self.log("⚠️ MPS verification failed", "WARNING")
+                self.log(f"Error: {result.stderr}", "WARNING")
+
+        except Exception as e:
+            self.log(f"Could not verify MPS: {e}", "WARNING")
 
     def log_system_info(self):
         self.log("🎵 OBSIDIAN-Neural Installer v1.0")
         self.log(f"🖥️ System: {self.system_info['os']}")
         self.log(f"💾 RAM: {self.system_info['ram_gb']} GB")
 
-        if self.system_info["cuda_available"]:
+        if self.system_info.get("cuda_available"):
             self.log(f"🟢 NVIDIA GPU: {self.system_info['gpu']}")
             self.log("🎯 Recommendation: CUDA Installation")
-        elif self.system_info["rocm_available"]:
+        elif self.system_info.get("mps_available"):
+            self.log(f"🍎 Apple GPU: {self.system_info['gpu']}")
+            self.log("🎯 Recommendation: Metal Performance Shaders (MPS)")
+            if self.system_info["gpu_type"] == "apple_metal":
+                self.log("💡 Unified Memory: GPU partage la RAM système")
+            else:
+                self.log("💡 Metal support disponible")
+        elif self.system_info.get("rocm_available"):
             self.log(f"🔴 AMD GPU: {self.system_info['gpu']}")
             self.log("🎯 Recommendation: ROCm Installation")
         elif self.system_info["gpu_type"] == "amd":
             self.log(f"🔴 AMD GPU detected: {self.system_info['gpu']}")
             self.log("⚠️ ROCm not installed")
-            self.log("💡 Install ROCm for better performance")
+            if platform.system() == "Darwin":
+                self.log("💡 ROCm not available on macOS - using CPU")
+            else:
+                self.log("💡 Install ROCm for better performance")
         else:
-            self.log("🎯Recommendation: CPU Installation")
+            self.log("🎯 Recommendation: CPU Installation")
 
     def setup_ui(self):
         style = ttk.Style()
@@ -622,9 +857,26 @@ class ObsidianNeuralInstaller:
             admin_frame = ttk.Frame(main_frame)
             admin_frame.pack(fill="x", pady=(0, 10))
 
+            if platform.system() == "Windows":
+                warning_text = "⚠️ Administrator privileges recommended for VST3 system installation"
+                detail_text = "(Required to install VST3 plugin to Program Files and system dependencies)"
+                button_text = "Restart as administrator"
+            elif platform.system() == "Darwin":
+                warning_text = "⚠️ Administrator privileges recommended for system VST3 installation"
+                detail_text = (
+                    "(Required to install VST3 plugin to /Library/Audio/Plug-Ins/VST3)"
+                )
+                button_text = "Request administrator privileges"
+            else:
+                warning_text = (
+                    "⚠️ Administrator privileges recommended for system installation"
+                )
+                detail_text = "(Required to install VST3 plugin to /usr/lib/vst3 and system dependencies)"
+                button_text = "Restart with sudo"
+
             ttk.Label(
                 admin_frame,
-                text="⚠️ Administrator privileges recommended for VST3 system installation",
+                text=warning_text,
                 foreground="red",
                 font=("Arial", 10, "bold"),
                 wraplength=400,
@@ -632,7 +884,7 @@ class ObsidianNeuralInstaller:
 
             ttk.Label(
                 admin_frame,
-                text="(Required to install VST3 plugin to Program Files and system dependencies)",
+                text=detail_text,
                 foreground="gray",
                 font=("Arial", 8),
                 wraplength=400,
@@ -640,7 +892,7 @@ class ObsidianNeuralInstaller:
 
             ttk.Button(
                 admin_frame,
-                text="Restart as administrator",
+                text=button_text,
                 command=self.request_admin,
             ).pack(pady=5)
 
@@ -1187,27 +1439,209 @@ class ObsidianNeuralInstaller:
         self.log("🎮 GPU testing in progress...")
         gpu_score = 0
         gpu_info = "No GPU detected"
+        gpu_test_details = {}
 
-        try:
-            gpus = GPUtil.getGPUs()
-            if gpus:
-                gpu = gpus[0]
-                gpu_memory_gb = gpu.memoryTotal / 1024
-                gpu_score = min(100, int(gpu_memory_gb * 12))
-                gpu_info = f"{gpu.name} ({gpu.memoryTotal}MB VRAM)"
-                try:
-                    gpu_usage = gpu.load * 100
-                    self.log(f"🎮 Current GPU usage: {gpu_usage:.1f}%")
-                except:
-                    pass
+        if self.system_info.get("mps_available"):
+            try:
+                self.log("🍎 Testing Apple Metal Performance Shaders...")
+                import torch
 
-            else:
+                if torch.backends.mps.is_available():
+                    device = torch.device("mps")
+                    start_time = time.time()
+
+                    matrix_size = 1024
+                    iterations = 20
+
+                    self.log(
+                        f"   Running {iterations} matrix operations ({matrix_size}x{matrix_size})..."
+                    )
+
+                    x = torch.randn(matrix_size, matrix_size, device=device)
+                    y = torch.randn(matrix_size, matrix_size, device=device)
+
+                    for i in range(iterations):
+                        z = torch.mm(x, y)
+                        if i % 5 == 0:
+                            z = torch.matmul(z, x.transpose(0, 1))
+
+                    torch.mps.synchronize()
+                    mps_time = time.time() - start_time
+
+                    if mps_time < 0.2:
+                        gpu_score = 95
+                    elif mps_time < 0.3:
+                        gpu_score = 85
+                    elif mps_time < 0.5:
+                        gpu_score = 75
+                    elif mps_time < 0.8:
+                        gpu_score = 65
+                    elif mps_time < 1.2:
+                        gpu_score = 50
+                    else:
+                        gpu_score = 35
+
+                    if self.system_info["gpu_type"] == "apple_metal":
+                        unified_gb = self.system_info["ram_gb"]
+                        gpu_info = (
+                            f"{self.system_info['gpu']} (Unified: {unified_gb}GB)"
+                        )
+                    else:
+                        gpu_info = f"{self.system_info['gpu']} (Metal)"
+
+                    gpu_test_details = {
+                        "type": "mps",
+                        "test_time": f"{mps_time:.3f}s",
+                        "operations": f"{iterations} matrix ops",
+                        "device": str(device),
+                    }
+
+                    self.log(f"🍎 MPS test completed: {mps_time:.2f}s")
+
+                else:
+                    self.log("⚠️ MPS not available despite detection", "WARNING")
+                    gpu_score = 20
+                    gpu_info = "MPS unavailable"
+
+            except Exception as e:
+                self.log(f"❌ MPS benchmark error: {e}", "WARNING")
+                gpu_score = 15
+                gpu_info = "MPS test failed"
+
+        elif self.system_info.get("cuda_available"):
+            try:
+                self.log("🟢 Testing NVIDIA CUDA GPU...")
+                gpus = GPUtil.getGPUs()
+                if gpus:
+                    gpu = gpus[0]
+                    gpu_memory_gb = gpu.memoryTotal / 1024
+
+                    if gpu_memory_gb >= 24:
+                        gpu_score = 100
+                    elif gpu_memory_gb >= 16:
+                        gpu_score = 90
+                    elif gpu_memory_gb >= 12:
+                        gpu_score = 80
+                    elif gpu_memory_gb >= 8:
+                        gpu_score = 70
+                    elif gpu_memory_gb >= 6:
+                        gpu_score = 60
+                    elif gpu_memory_gb >= 4:
+                        gpu_score = 45
+                    else:
+                        gpu_score = 30
+
+                    gpu_info = f"{gpu.name} ({gpu.memoryTotal}MB VRAM)"
+
+                    try:
+                        import torch
+
+                        if torch.cuda.is_available():
+                            device = torch.device("cuda")
+                            start_time = time.time()
+
+                            x = torch.randn(1000, 1000, device=device)
+                            y = torch.randn(1000, 1000, device=device)
+                            for _ in range(10):
+                                z = torch.mm(x, y)
+                            torch.cuda.synchronize()
+
+                            cuda_time = time.time() - start_time
+                            gpu_test_details = {
+                                "type": "cuda",
+                                "test_time": f"{cuda_time:.3f}s",
+                                "vram_gb": f"{gpu_memory_gb:.1f}",
+                                "utilization": (
+                                    f"{gpu.load * 100:.1f}%"
+                                    if hasattr(gpu, "load")
+                                    else "N/A"
+                                ),
+                            }
+
+                            self.log(f"🟢 CUDA test: {cuda_time:.2f}s")
+
+                    except ImportError:
+                        self.log("PyTorch not available for CUDA test")
+
+                    try:
+                        gpu_usage = gpu.load * 100
+                        self.log(f"🎮 Current GPU usage: {gpu_usage:.1f}%")
+                    except:
+                        pass
+                else:
+                    gpu_score = 0
+                    gpu_info = "NVIDIA GPU not accessible"
+
+            except Exception as e:
+                self.log(f"⚠️ NVIDIA GPU test error: {e}", "WARNING")
                 gpu_score = 0
-                gpu_info = "No GPU detected"
 
-        except Exception as e:
-            self.log(f"⚠️ GPU detection error: {e}", "WARNING")
+        elif self.system_info.get("rocm_available"):
+            try:
+                self.log("🔴 Testing AMD ROCm GPU...")
+
+                gpu_name = self.system_info.get("gpu", "").lower()
+
+                if any(model in gpu_name for model in ["7900", "6900", "6950"]):
+                    gpu_score = 85
+                elif any(model in gpu_name for model in ["7800", "6800", "6700"]):
+                    gpu_score = 75
+                elif any(model in gpu_name for model in ["7600", "6600", "5700"]):
+                    gpu_score = 65
+                elif any(model in gpu_name for model in ["6500", "5600", "5500"]):
+                    gpu_score = 50
+                else:
+                    gpu_score = 40
+
+                gpu_info = self.system_info["gpu"]
+
+                try:
+                    import torch
+
+                    if hasattr(torch.version, "hip") and torch.version.hip:
+                        self.log("🔴 ROCm PyTorch detected")
+                        try:
+                            device = torch.device("cuda")
+                            x = torch.randn(500, 500, device=device)
+                            y = torch.randn(500, 500, device=device)
+                            start_time = time.time()
+                            z = torch.mm(x, y)
+                            rocm_time = time.time() - start_time
+
+                            gpu_test_details = {
+                                "type": "rocm",
+                                "test_time": f"{rocm_time:.3f}s",
+                                "framework": "PyTorch ROCm",
+                            }
+
+                            self.log(f"🔴 ROCm test: {rocm_time:.2f}s")
+                        except:
+                            self.log("ROCm device not accessible via PyTorch")
+
+                except ImportError:
+                    self.log("PyTorch not available for ROCm test")
+
+            except Exception as e:
+                self.log(f"⚠️ ROCm test error: {e}", "WARNING")
+
+        elif self.system_info.get("gpu_type") == "amd":
+            self.log("🔴 AMD GPU detected without ROCm")
+            gpu_score = 25
+            gpu_info = f"{self.system_info['gpu']} (No ROCm)"
+
+        elif self.system_info.get("gpu_type") in ["intel_arc", "intel_integrated"]:
+            if self.system_info.get("gpu_type") == "intel_arc":
+                self.log("⚡ Intel Arc GPU detected")
+                gpu_score = 45
+                gpu_info = f"{self.system_info['gpu']} (Limited AI support)"
+            else:
+                self.log("💻 Intel integrated GPU detected")
+                gpu_score = 20
+                gpu_info = f"{self.system_info['gpu']} (Integrated)"
+
+        else:
             gpu_score = 0
+            gpu_info = "No GPU detected"
 
         self.log(f"🎮 GPU: {gpu_info}")
 
@@ -1266,23 +1700,50 @@ class ObsidianNeuralInstaller:
             )
 
         if gpu_score == 0:
-            recommendations.append(
-                "🎮 No dedicated GPU detected - RTX 3060+ highly recommended for reasonable generation times"
-            )
+            if platform.system() == "Darwin":
+                recommendations.append(
+                    "🍎 No GPU acceleration - Consider Mac with Apple Silicon (M1/M2/M3)"
+                )
+            else:
+                recommendations.append(
+                    "🎮 No dedicated GPU detected - RTX 3060+ or RX 6600+ highly recommended"
+                )
         elif gpu_score < 30:
             recommendations.append(
                 "🎮 Low-end GPU detected - Expect very long generation times (20+ minutes)"
             )
         elif gpu_score < 50:
-            recommendations.append(
-                "🎮 Entry-level GPU - Generation will be slow (5-15 minutes)"
-            )
+            if self.system_info.get("mps_available"):
+                recommendations.append(
+                    "🍎 Entry-level Mac GPU - Generation will be slow (5-15 minutes)"
+                )
+            else:
+                recommendations.append(
+                    "🎮 Entry-level GPU - Generation will be slow (5-15 minutes)"
+                )
         elif gpu_score < 70:
             recommendations.append(
                 "🎮 Good GPU - Decent generation times (1-5 minutes)"
             )
         else:
-            recommendations.append("🎮 Excellent GPU - Fast generation times")
+            if self.system_info.get("mps_available"):
+                recommendations.append(
+                    "🍎 Excellent Apple Silicon - Fast generation times"
+                )
+            else:
+                recommendations.append("🎮 Excellent GPU - Fast generation times")
+
+        if self.system_info.get("gpu_type") == "amd" and not self.system_info.get(
+            "rocm_available"
+        ):
+            recommendations.append(
+                "🔴 Install ROCm for AMD GPU acceleration (Linux recommended)"
+            )
+
+        if platform.system() == "Darwin" and not self.system_info.get("mps_available"):
+            recommendations.append(
+                "🍎 Consider upgrading to macOS 12.3+ for Metal Performance Shaders"
+            )
 
         if global_score < 70:
             recommendations.append(
@@ -1293,10 +1754,15 @@ class ObsidianNeuralInstaller:
                 "🎉 Good configuration for OBSIDIAN-Neural audio generation!"
             )
 
-        if not recommendations:
-            recommendations.append("🎉 Excellent setup for OBSIDIAN-Neural!")
-
-        if global_score >= 90:
+        if self.system_info.get("mps_available") and gpu_score >= 80:
+            perf_estimate = (
+                "Audio generation: 1-3 minutes for 10sec sample (Apple Silicon M2 Pro+)"
+            )
+        elif self.system_info.get("mps_available") and gpu_score >= 60:
+            perf_estimate = (
+                "Audio generation: 3-8 minutes for 10sec sample (Apple Silicon M1/M2)"
+            )
+        elif global_score >= 90:
             perf_estimate = (
                 "Audio generation: 30-60 seconds for 10sec sample (High-end RTX 4080+)"
             )
@@ -1338,6 +1804,7 @@ class ObsidianNeuralInstaller:
                 "cpu_time": f"{cpu_time:.2f}s",
                 "available_ram_gb": f"{available_gb:.1f}",
                 "gpu_info": gpu_info,
+                "gpu_test_details": gpu_test_details,
                 "free_storage_gb": (
                     f"{free_gb:.1f}" if "free_gb" in locals() else "Unknown"
                 ),
@@ -1351,7 +1818,7 @@ class ObsidianNeuralInstaller:
         self.log("=" * 50)
         self.log("📊 BENCHMARK RESULTS", "SUCCESS")
         self.log("=" * 50)
-        self.log(f"🔥CPU Score: {cpu_score}/100")
+        self.log(f"🔥 CPU Score: {cpu_score}/100")
         self.log(f"💾 Memory Score: {memory_score}/100")
         self.log(f"🎮 GPU Score: {gpu_score}/100")
         self.log(f"💿 Storage Score: {storage_score}/100")
@@ -1362,7 +1829,6 @@ class ObsidianNeuralInstaller:
         self.log("=" * 30)
 
         self.log("💡 RECOMMENDATIONS:")
-
         for i, rec in enumerate(recommendations, 1):
             self.log(f" {i}. {rec}")
 
@@ -1579,41 +2045,110 @@ class ObsidianNeuralInstaller:
                 "dist",
                 ".pytest_cache",
                 "screenshot.png",
+                ".DS_Store",
+                "Thumbs.db",
+                ".directory",
+                "*.pyc",
+                ".gitignore",
+                ".gitmodules",
             }
 
-            install_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                install_dir.mkdir(parents=True, exist_ok=True)
+                self.log(f"Created installation directory: {install_dir}")
+            except PermissionError as e:
+                self.log(f"Permission denied creating directory: {e}", "ERROR")
+                if platform.system() != "Windows":
+                    self.log(
+                        "Try running with sudo or check directory permissions",
+                        "WARNING",
+                    )
+                raise Exception(f"Cannot create installation directory: {e}")
 
-            if self.is_admin:
-                import subprocess
+            if platform.system() == "Windows" and self.is_admin:
+                try:
+                    result = self.safe_subprocess_run(
+                        [
+                            "icacls",
+                            str(install_dir),
+                            "/grant",
+                            "Authenticated Users:(OI)(CI)F",
+                        ],
+                        check=False,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+                    if result.returncode == 0:
+                        self.log("Windows permissions set successfully")
+                    else:
+                        self.log(f"icacls warning: {result.stderr}", "WARNING")
+                except Exception as e:
+                    self.log(f"Could not set Windows permissions: {e}", "WARNING")
 
-                self.safe_subprocess_run(
-                    [
-                        "icacls",
-                        str(install_dir),
-                        "/grant",
-                        "Authenticated Users:(OI)(CI)F",
-                    ],
-                    check=False,
-                    capture_output=True,
-                )
+            elif platform.system() in ["Darwin", "Linux"]:
+                try:
+                    os.chmod(install_dir, 0o755)
+                    self.log("Unix permissions set (755)")
+                except Exception as e:
+                    self.log(f"Could not set Unix permissions: {e}", "WARNING")
+
+            copied_files = 0
+            copied_dirs = 0
 
             for item in current_dir.iterdir():
                 if item.name not in exclude_items:
                     target = install_dir / item.name
+
                     try:
                         if item.is_file():
+                            if target.exists():
+                                if item.stat().st_mtime <= target.stat().st_mtime:
+                                    continue
+
                             shutil.copy2(item, target)
+                            copied_files += 1
+
+                            if platform.system() in ["Darwin", "Linux"]:
+                                if item.suffix in [".py", ".sh", ".bat"]:
+                                    os.chmod(target, 0o755)
+                                else:
+                                    os.chmod(target, 0o644)
+
                             self.log(f"Copied file: {item.name}")
+
                         elif item.is_dir():
+                            if target.exists():
+                                self.log(
+                                    f"Directory {item.name}/ already exists, updating..."
+                                )
+
                             shutil.copytree(item, target, dirs_exist_ok=True)
+                            copied_dirs += 1
+
+                            if platform.system() in ["Darwin", "Linux"]:
+                                self.set_directory_permissions_recursive(target)
+
                             self.log(f"Copied directory: {item.name}/")
+
+                    except PermissionError as e:
+                        self.log(f"Permission denied copying {item.name}: {e}", "ERROR")
+                        if platform.system() != "Windows":
+                            self.log(
+                                "Try running with appropriate permissions", "WARNING"
+                            )
+                        raise Exception(f"Cannot copy {item.name}: permission denied")
+
                     except Exception as e:
                         self.log(f"Warning copying {item.name}: {e}", "WARNING")
 
-            self.log("Source code copied from local folder")
+            self.log(
+                f"Local copy completed: {copied_files} files, {copied_dirs} directories"
+            )
 
         else:
             self.log("Cloning innermost47/ai-dj repository from GitHub...")
+
             if install_dir.exists():
                 main_py = install_dir / "main.py"
                 if main_py.exists():
@@ -1628,51 +2163,143 @@ class ObsidianNeuralInstaller:
                     import shutil
 
                     shutil.rmtree(install_dir)
-                    install_dir.mkdir(parents=True, exist_ok=True)
+                    self.log("Cleaned existing directory")
                 except Exception as e:
                     self.log(f"Could not clean directory: {e}", "WARNING")
-                    temp_dir = install_dir.parent / f"temp_clone_{int(time.time())}"
+                    temp_dir = install_dir.parent / f"obsidian_clone_{int(time.time())}"
+                    self.log(f"Using temporary directory: {temp_dir}")
                     install_dir = temp_dir
 
-            install_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                install_dir.mkdir(parents=True, exist_ok=True)
+            except PermissionError as e:
+                self.log(f"Permission denied creating directory: {e}", "ERROR")
+                raise Exception(f"Cannot create installation directory: {e}")
 
-            if self.is_admin:
-                import subprocess
+            if platform.system() == "Windows" and self.is_admin:
+                try:
+                    result = self.safe_subprocess_run(
+                        [
+                            "icacls",
+                            str(install_dir),
+                            "/grant",
+                            "Authenticated Users:(OI)(CI)F",
+                        ],
+                        check=False,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+                    if result.returncode == 0:
+                        self.log("Windows clone directory permissions set")
+                except Exception as e:
+                    self.log(f"Could not set Windows permissions: {e}", "WARNING")
 
-                self.safe_subprocess_run(
-                    [
-                        "icacls",
-                        str(install_dir),
-                        "/grant",
-                        "Authenticated Users:(OI)(CI)F",
-                    ],
-                    check=False,
-                    capture_output=True,
-                )
+            elif platform.system() in ["Darwin", "Linux"]:
+                try:
+                    os.chmod(install_dir, 0o755)
+                    self.log("Unix clone directory permissions set")
+                except Exception as e:
+                    self.log(f"Could not set Unix permissions: {e}", "WARNING")
 
             cmd = [
                 "git",
                 "clone",
+                "--depth",
+                "1",
+                "--single-branch",
+                "--branch",
+                "main",
                 "https://github.com/innermost47/ai-dj.git",
                 str(install_dir),
             ]
-            result = self.safe_subprocess_run(
-                cmd, capture_output=True, text=True, timeout=300
-            )
 
-            if result.returncode != 0:
-                raise Exception(f"Git clone error: {result.stderr}")
+            self.log("Starting Git clone (this may take a moment)...")
 
-            self.log("Repository cloned successfully")
+            try:
+                env = os.environ.copy()
+                if platform.system() == "Windows":
+                    env["GIT_CONFIG_NOSYSTEM"] = "1"
+                    env["LC_ALL"] = "C.UTF-8"
+
+                result = self.safe_subprocess_run(
+                    cmd, capture_output=True, text=True, timeout=300, env=env
+                )
+
+                if result.returncode != 0:
+                    self.log(f"Git clone failed (code {result.returncode})", "ERROR")
+                    self.log(f"Git error: {result.stderr}", "ERROR")
+
+                    self.log("Retrying with basic clone...")
+                    basic_cmd = [
+                        "git",
+                        "clone",
+                        "https://github.com/innermost47/ai-dj.git",
+                        str(install_dir),
+                    ]
+
+                    result = self.safe_subprocess_run(
+                        basic_cmd, capture_output=True, text=True, timeout=600, env=env
+                    )
+
+                    if result.returncode != 0:
+                        raise Exception(f"Git clone error: {result.stderr}")
+
+                self.log("Repository cloned successfully")
+
+                if platform.system() in ["Darwin", "Linux"]:
+                    self.set_directory_permissions_recursive(install_dir)
+
+            except subprocess.TimeoutExpired:
+                self.log("Git clone timed out", "ERROR")
+                raise Exception("Git clone operation timed out (network issue?)")
+
+            except FileNotFoundError:
+                self.log("Git command not found", "ERROR")
+                raise Exception("Git is not installed or not in PATH")
 
         essential_dirs = ["server", "core", "vst"]
+        missing_dirs = []
+
         for dir_name in essential_dirs:
             if (install_dir / dir_name).exists():
-                self.log(f"Directory {dir_name}/ found")
+                self.log(f"✅ Directory {dir_name}/ found")
             else:
-                self.log(f"Directory {dir_name}/ missing", "WARNING")
+                self.log(f"❌ Directory {dir_name}/ missing", "WARNING")
+                missing_dirs.append(dir_name)
+
+        critical_files = ["main.py"]
+        for file_name in critical_files:
+            if (install_dir / file_name).exists():
+                self.log(f"✅ File {file_name} found")
+            else:
+                self.log(f"⚠️ File {file_name} missing", "WARNING")
+
+        if missing_dirs:
+            self.log(
+                f"Warning: Missing essential directories: {missing_dirs}", "WARNING"
+            )
+            self.log("Installation may be incomplete", "WARNING")
 
         return install_dir
+
+    def set_directory_permissions_recursive(self, directory):
+        try:
+            for root, dirs, files in os.walk(directory):
+                os.chmod(root, 0o755)
+
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    try:
+                        if file.endswith((".py", ".sh", ".bat", ".exe")):
+                            os.chmod(file_path, 0o755)
+                        else:
+                            os.chmod(file_path, 0o644)
+                    except OSError:
+                        pass
+
+        except Exception as e:
+            self.log(f"Could not set recursive permissions: {e}", "WARNING")
 
     def create_venv(self, install_dir):
         venv_path = install_dir / "env"
@@ -1681,69 +2308,252 @@ class ObsidianNeuralInstaller:
         try:
             install_dir.mkdir(parents=True, exist_ok=True)
             models_dir.mkdir(exist_ok=True)
+            self.log(f"Directories created: {install_dir}")
 
-            if self.is_admin:
-                import subprocess
+            if platform.system() == "Windows" and self.is_admin:
+                try:
+                    result = self.safe_subprocess_run(
+                        [
+                            "icacls",
+                            str(install_dir),
+                            "/grant",
+                            "Authenticated Users:(OI)(CI)F",
+                        ],
+                        check=False,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+                    if result.returncode == 0:
+                        self.log("Windows permissions set for virtual environment")
+                    else:
+                        self.log(f"icacls warning: {result.stderr}", "WARNING")
+                except Exception as e:
+                    self.log(f"Could not set Windows permissions: {e}", "WARNING")
 
-                self.safe_subprocess_run(
-                    [
-                        "icacls",
-                        str(install_dir),
-                        "/grant",
-                        "Authenticated Users:(OI)(CI)F",
-                    ],
-                    check=False,
-                    capture_output=True,
-                )
+            elif platform.system() in ["Darwin", "Linux"]:
+                try:
+                    os.chmod(install_dir, 0o755)
+                    os.chmod(models_dir, 0o755)
+                    self.log("Unix permissions set for virtual environment")
+                except Exception as e:
+                    self.log(f"Could not set Unix permissions: {e}", "WARNING")
+
         except PermissionError as e:
-            self.log(f"Permission error: {e}", "ERROR")
+            self.log(f"Permission error creating directories: {e}", "ERROR")
+            if platform.system() != "Windows":
+                self.log(
+                    "Try running with sudo or check directory permissions", "WARNING"
+                )
             raise Exception(f"Cannot create installation directory: {e}")
 
         if venv_path.exists():
+            self.log(f"Virtual environment directory found: {venv_path}")
+
             if platform.system() == "Windows":
                 python_in_venv = venv_path / "Scripts" / "python.exe"
                 pip_in_venv = venv_path / "Scripts" / "pip.exe"
+                activate_script = venv_path / "Scripts" / "activate.bat"
             else:
                 python_in_venv = venv_path / "bin" / "python"
                 pip_in_venv = venv_path / "bin" / "pip"
+                activate_script = venv_path / "bin" / "activate"
 
-            if python_in_venv.exists():
-                self.log("Virtual environment already exists - reusing it")
-                self.log(f"Using existing environment: {venv_path}")
-                return install_dir
-            else:
-                self.log("Invalid virtual environment detected - recreating...")
+            if python_in_venv.exists() and activate_script.exists():
                 try:
-                    import shutil
-
-                    shutil.rmtree(venv_path)
-                    self.log("Old environment removed")
+                    test_result = self.safe_subprocess_run(
+                        [str(python_in_venv), "--version"],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    if test_result.returncode == 0:
+                        python_version = test_result.stdout.strip()
+                        self.log("Virtual environment already exists and is functional")
+                        self.log(f"Using existing environment: {venv_path}")
+                        self.log(f"Python version: {python_version}")
+                        return install_dir
+                    else:
+                        self.log(
+                            "Existing virtual environment appears corrupted", "WARNING"
+                        )
                 except Exception as e:
-                    self.log(f"Could not remove old environment: {e}", "WARNING")
+                    self.log(
+                        f"Cannot test existing virtual environment: {e}", "WARNING"
+                    )
+            else:
+                self.log(
+                    "Invalid virtual environment detected - missing executables",
+                    "WARNING",
+                )
+
+            self.log("Removing invalid virtual environment...")
+            try:
+                import shutil
+
+                if platform.system() == "Windows":
+                    try:
+                        import gc
+
+                        gc.collect()
+                        time.sleep(0.5)
+                    except:
+                        pass
+
+                shutil.rmtree(venv_path)
+                self.log("Old environment removed successfully")
+
+            except PermissionError as e:
+                self.log(f"Permission denied removing old environment: {e}", "ERROR")
+                if platform.system() == "Windows":
+                    self.log("Try closing any Python processes and retry", "WARNING")
+                else:
+                    self.log("Try running with appropriate permissions", "WARNING")
+                raise Exception(f"Cannot remove old virtual environment: {e}")
+
+            except Exception as e:
+                self.log(f"Could not remove old environment: {e}", "WARNING")
+                timestamp = int(time.time())
+                venv_path = install_dir / f"env_{timestamp}"
+                self.log(f"Using alternative environment path: {venv_path}")
 
         self.log("Creating Python virtual environment...")
-        self.log(f"Installation directory: {install_dir}")
+        self.log(f"Target directory: {venv_path}")
 
         python_exe = self.find_system_python()
+        self.log(f"Using Python: {python_exe}")
+
         cmd = [python_exe, "-m", "venv", str(venv_path)]
+
+        if platform.system() == "Windows":
+            cmd.append("--copies")
+        elif platform.system() == "Darwin":
+            cmd.extend(["--symlinks"])
 
         try:
             env = os.environ.copy()
-            if self.is_admin:
-                env.pop("PYTHONPATH", None)
-                env.pop("VIRTUAL_ENV", None)
-                env.pop("CONDA_DEFAULT_ENV", None)
+            env_vars_to_clean = [
+                "PYTHONPATH",
+                "VIRTUAL_ENV",
+                "CONDA_DEFAULT_ENV",
+                "CONDA_PREFIX",
+                "PIPENV_ACTIVE",
+                "POETRY_ACTIVE",
+            ]
+
+            for var in env_vars_to_clean:
+                env.pop(var, None)
+
+            if platform.system() == "Windows":
+                env["PYTHONIOENCODING"] = "utf-8"
+                env["PYTHONLEGACYWINDOWSSTDIO"] = "1"
+            elif platform.system() == "Darwin":
+                env["LC_ALL"] = "en_US.UTF-8"
+                env["LANG"] = "en_US.UTF-8"
+            else:
+                env["LC_ALL"] = "C.UTF-8"
+                env["LANG"] = "C.UTF-8"
+
+            self.log("Starting virtual environment creation...")
+            self.log(f"Command: {' '.join(cmd)}")
 
             result = self.safe_subprocess_run(
-                cmd, capture_output=True, text=True, check=True, env=env, timeout=120
+                cmd, capture_output=True, text=True, check=True, env=env, timeout=180
             )
+
             self.log("Virtual environment created successfully")
+            if platform.system() == "Windows":
+                python_in_new_venv = venv_path / "Scripts" / "python.exe"
+                pip_in_new_venv = venv_path / "Scripts" / "pip.exe"
+            else:
+                python_in_new_venv = venv_path / "bin" / "python"
+                pip_in_new_venv = venv_path / "bin" / "pip"
+
+            if not python_in_new_venv.exists():
+                raise Exception(
+                    f"Python executable not found in new virtual environment: {python_in_new_venv}"
+                )
+
+            try:
+                test_result = self.safe_subprocess_run(
+                    [str(python_in_new_venv), "--version"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if test_result.returncode == 0:
+                    python_version = test_result.stdout.strip()
+                    self.log(f"✅ Virtual environment verified: {python_version}")
+                else:
+                    self.log("⚠️ Warning: Cannot verify virtual environment", "WARNING")
+            except Exception as e:
+                self.log(f"Warning during verification: {e}", "WARNING")
+
+            if platform.system() in ["Darwin", "Linux"]:
+                try:
+                    os.chmod(venv_path, 0o755)
+
+                    if python_in_new_venv.exists():
+                        os.chmod(python_in_new_venv, 0o755)
+                    if pip_in_new_venv.exists():
+                        os.chmod(pip_in_new_venv, 0o755)
+
+                    activate_script = venv_path / "bin" / "activate"
+                    if activate_script.exists():
+                        os.chmod(activate_script, 0o755)
+
+                    self.log("Virtual environment permissions set")
+
+                except Exception as e:
+                    self.log(f"Could not set venv permissions: {e}", "WARNING")
+
             return install_dir
 
+        except subprocess.TimeoutExpired:
+            self.log("Virtual environment creation timed out", "ERROR")
+            self.log(
+                "This might indicate a problem with Python installation", "WARNING"
+            )
+            raise Exception("Virtual environment creation timed out")
+
         except subprocess.CalledProcessError as e:
-            self.log(f"Failed to create virtual environment", "ERROR")
-            self.log(f"Error output: {e.stderr}", "ERROR")
-            raise Exception(f"Virtual environment creation failed: {e.stderr}")
+            self.log(
+                f"Failed to create virtual environment (code {e.returncode})", "ERROR"
+            )
+
+            error_msg = e.stderr if e.stderr else "Unknown error"
+            self.log(f"Error output: {error_msg}", "ERROR")
+
+            if "ensurepip" in error_msg.lower():
+                self.log(
+                    "💡 Try installing/updating pip: python -m pip install --upgrade pip",
+                    "INFO",
+                )
+            elif "permission" in error_msg.lower():
+                if platform.system() != "Windows":
+                    self.log(
+                        "💡 Try running with sudo or check directory permissions",
+                        "INFO",
+                    )
+                else:
+                    self.log("💡 Try running as administrator", "INFO")
+            elif "ssl" in error_msg.lower() or "certificate" in error_msg.lower():
+                self.log(
+                    "💡 SSL/Certificate issue - check network/firewall settings", "INFO"
+                )
+
+            raise Exception(f"Virtual environment creation failed: {error_msg}")
+
+        except FileNotFoundError:
+            self.log(f"Python executable not found: {python_exe}", "ERROR")
+            self.log("Make sure Python is properly installed and in PATH", "WARNING")
+            raise Exception(f"Python executable not found: {python_exe}")
+
+        except Exception as e:
+            self.log(
+                f"Unexpected error during virtual environment creation: {e}", "ERROR"
+            )
+            raise Exception(f"Virtual environment creation failed: {e}")
 
     def install_vst(self, install_dir):
         vst_build_dir = install_dir / "vst" / "build"
@@ -1773,6 +2583,8 @@ class ObsidianNeuralInstaller:
             vst_build_dir / "Debug" / "VST3",
             vst_build_dir / "ObsidianNeural_artefacts" / "Release" / "VST3",
             vst_build_dir / "ObsidianNeural_artefacts" / "VST3",
+            vst_build_dir / "ObsidianNeuralVST_artefacts" / "Release" / "VST3",
+            vst_build_dir / "ObsidianNeuralVST_artefacts" / "VST3",
             vst_build_dir
             / "ObsidianNeuralVST_artefacts"
             / "Release"
@@ -1780,6 +2592,20 @@ class ObsidianNeuralInstaller:
             / "OBSIDIAN-Neural.vst3"
             / "Contents"
             / "x86_64-win",
+            vst_build_dir
+            / "ObsidianNeuralVST_artefacts"
+            / "Release"
+            / "VST3"
+            / "OBSIDIAN-Neural.vst3"
+            / "Contents"
+            / "MacOS",
+            vst_build_dir
+            / "ObsidianNeuralVST_artefacts"
+            / "Release"
+            / "VST3"
+            / "OBSIDIAN-Neural.vst3"
+            / "Contents"
+            / "x86_64-linux",
         ]
 
         vst_files_found = []
@@ -1787,22 +2613,53 @@ class ObsidianNeuralInstaller:
             if loc.exists() and loc.is_dir():
                 self.log(f"Searching for .vst3 in {loc}")
                 vst_files_found.extend(list(loc.glob("*.vst3")))
+                vst_files_found.extend(list(loc.glob("**/*.vst3")))
 
         vst_files = []
         seen_paths = set()
         for f_path in vst_files_found:
-            resolved_path = f_path.resolve()
-            if resolved_path not in seen_paths:
-                vst_files.append(f_path)
-                seen_paths.add(resolved_path)
-                self.log(f"Found potential VST3: {f_path} (Is Dir: {f_path.is_dir()})")
+            try:
+                resolved_path = f_path.resolve()
+                if resolved_path not in seen_paths:
+                    vst_files.append(f_path)
+                    seen_paths.add(resolved_path)
+                    self.log(
+                        f"Found potential VST3: {f_path} (Is Dir: {f_path.is_dir()})"
+                    )
+            except Exception as e:
+                self.log(f"Error resolving path {f_path}: {e}", "WARNING")
 
         if not vst_files:
             self.log(
                 f"No VST3 file/bundle found after compilation in standard build output locations under {vst_build_dir}.",
                 "ERROR",
             )
-            self.log(f"Checked locations: {possible_vst_locations}", "INFO")
+            self.log(
+                f"Checked locations: {[str(loc) for loc in possible_vst_locations]}",
+                "INFO",
+            )
+
+            if vst_build_dir.exists():
+                try:
+                    build_contents = list(vst_build_dir.rglob("*"))
+                    self.log(
+                        f"Build directory contains {len(build_contents)} items", "INFO"
+                    )
+
+                    vst_like_files = [
+                        f
+                        for f in build_contents
+                        if f.suffix in [".vst3", ".dll", ".so", ".dylib"]
+                    ]
+                    if vst_like_files:
+                        self.log(
+                            f"Found VST-like files: {[str(f) for f in vst_like_files[:5]]}",
+                            "INFO",
+                        )
+
+                except Exception as e:
+                    self.log(f"Could not analyze build directory: {e}", "WARNING")
+
             raise Exception(
                 "VST3 plugin compilation result not found. Check build logs."
             )
@@ -1836,9 +2693,9 @@ class ObsidianNeuralInstaller:
             vst_target_dir.mkdir(parents=True, exist_ok=True)
             self.log(f"VST3 parent directory '{vst_target_dir}' confirmed/created.")
 
-            if self.is_admin and platform.system() == "Windows":
+            if platform.system() == "Windows" and self.is_admin:
                 self.log(
-                    f"Attempting to set permissions for Users on {vst_target_dir} (Admin context)"
+                    f"Setting Windows permissions for VST3 directory (Admin context)"
                 )
                 acl_result = self.safe_subprocess_run(
                     [
@@ -1855,12 +2712,21 @@ class ObsidianNeuralInstaller:
                 )
                 if acl_result.returncode != 0:
                     self.log(
-                        f"icacls for {vst_target_dir} failed (code {acl_result.returncode}): {acl_result.stdout.strip()} {acl_result.stderr.strip()}",
+                        f"icacls for {vst_target_dir} failed (code {acl_result.returncode}): {acl_result.stderr.strip()}",
                         "WARNING",
                     )
                 else:
                     self.log(
-                        f"icacls for {vst_target_dir} grant Users:F succeeded.", "INFO"
+                        f"Windows VST3 directory permissions set successfully", "INFO"
+                    )
+
+            elif platform.system() in ["Darwin", "Linux"]:
+                try:
+                    os.chmod(vst_target_dir, 0o755)
+                    self.log("Unix VST3 directory permissions set (755)")
+                except Exception as e:
+                    self.log(
+                        f"Could not set Unix VST3 directory permissions: {e}", "WARNING"
                     )
 
             self.log(f"VST3 source for copy operation: {vst_file_to_copy}")
@@ -1879,13 +2745,32 @@ class ObsidianNeuralInstaller:
                 self.log(
                     f"Source {vst_file_to_copy.name} is a directory. Using shutil.copytree."
                 )
+
                 if target_plugin_path.exists():
                     self.log(
                         f"Target {target_plugin_path} already exists. Removing it first."
                     )
                     try:
+                        if platform.system() == "Windows":
+                            import gc
+
+                            gc.collect()
+                            time.sleep(0.5)
+
                         shutil.rmtree(target_plugin_path)
                         self.log(f"Successfully removed existing {target_plugin_path}.")
+                    except PermissionError as e_rm:
+                        self.log(
+                            f"Permission denied removing existing VST: {e_rm}", "ERROR"
+                        )
+                        if platform.system() == "Windows":
+                            self.log(
+                                "Try closing your DAW and any audio applications",
+                                "WARNING",
+                            )
+                        raise Exception(
+                            f"Cannot overwrite existing VST (in use?): {e_rm}"
+                        )
                     except Exception as e_rm:
                         self.log(
                             f"Failed to remove existing {target_plugin_path}: {e_rm}",
@@ -1894,15 +2779,20 @@ class ObsidianNeuralInstaller:
                         raise Exception(
                             f"Failed to overwrite existing VST at {target_plugin_path}: {e_rm}"
                         )
-                shutil.copytree(vst_file_to_copy, target_plugin_path)
+
+                shutil.copytree(
+                    vst_file_to_copy, target_plugin_path, dirs_exist_ok=False
+                )
                 self.log(
                     f"VST3 bundle copied from {vst_file_to_copy} to {target_plugin_path}"
                 )
+
             else:
                 self.log(
                     f"Source {vst_file_to_copy.name} is a file (unexpected for VST3). Using shutil.copy2.",
                     "WARNING",
                 )
+
                 if target_plugin_path.exists() and target_plugin_path.is_dir():
                     self.log(
                         f"Target {target_plugin_path} is a directory, but source is a file. Removing target directory.",
@@ -1913,22 +2803,22 @@ class ObsidianNeuralInstaller:
                     self.log(
                         f"Target file {target_plugin_path} exists. It will be overwritten."
                     )
+
                 shutil.copy2(vst_file_to_copy, target_plugin_path)
                 self.log(
                     f"VST3 file copied from {vst_file_to_copy} to {target_plugin_path}"
                 )
 
-            time.sleep(0.2)
+            time.sleep(0.3)
 
             if target_plugin_path.exists():
                 self.log(
                     f"VST plugin successfully installed to: {target_plugin_path}",
                     "SUCCESS",
                 )
-                if self.is_admin and platform.system() == "Windows":
-                    self.log(
-                        f"Attempting to set read permissions for Users on {target_plugin_path} (Admin context)"
-                    )
+
+                if platform.system() == "Windows" and self.is_admin:
+                    self.log(f"Setting Windows permissions for installed VST3")
                     acl_target_result = self.safe_subprocess_run(
                         [
                             "icacls",
@@ -1944,14 +2834,68 @@ class ObsidianNeuralInstaller:
                     )
                     if acl_target_result.returncode != 0:
                         self.log(
-                            f"icacls for {target_plugin_path} grant Users:R failed (code {acl_target_result.returncode}): {acl_target_result.stdout.strip()} {acl_target_result.stderr.strip()}",
+                            f"icacls for installed VST3 failed: {acl_target_result.stderr.strip()}",
                             "WARNING",
                         )
                     else:
+                        self.log(f"Windows VST3 permissions set successfully", "INFO")
+
+                elif platform.system() in ["Darwin", "Linux"]:
+                    try:
+                        if target_plugin_path.is_dir():
+                            self.set_vst_permissions_recursive(target_plugin_path)
+                            self.log("Unix VST3 bundle permissions set recursively")
+                        else:
+                            os.chmod(target_plugin_path, 0o755)
+                            self.log("Unix VST3 file permissions set (755)")
+                    except Exception as e:
                         self.log(
-                            f"icacls for {target_plugin_path} grant Users:R succeeded.",
-                            "INFO",
+                            f"Could not set Unix VST3 final permissions: {e}", "WARNING"
                         )
+                try:
+                    if target_plugin_path.is_dir():
+                        if platform.system() == "Darwin":
+                            binary_path = target_plugin_path / "Contents" / "MacOS"
+                            if binary_path.exists():
+                                self.log("✅ macOS VST3 bundle structure verified")
+                            else:
+                                self.log(
+                                    "⚠️ macOS VST3 bundle missing MacOS binary",
+                                    "WARNING",
+                                )
+                        elif platform.system() == "Linux":
+                            binary_path = (
+                                target_plugin_path / "Contents" / "x86_64-linux"
+                            )
+                            if binary_path.exists():
+                                self.log("✅ Linux VST3 bundle structure verified")
+                            else:
+                                self.log(
+                                    "⚠️ Linux VST3 bundle missing x86_64-linux binary",
+                                    "WARNING",
+                                )
+                        else:
+                            binary_path = target_plugin_path / "Contents" / "x86_64-win"
+                            if binary_path.exists():
+                                self.log("✅ Windows VST3 bundle structure verified")
+                            else:
+                                self.log(
+                                    "⚠️ Windows VST3 bundle missing x86_64-win binary",
+                                    "WARNING",
+                                )
+                    else:
+                        file_size = target_plugin_path.stat().st_size
+                        if file_size > 1024:
+                            self.log(f"✅ VST3 file verified ({file_size} bytes)")
+                        else:
+                            self.log(
+                                f"⚠️ VST3 file seems too small ({file_size} bytes)",
+                                "WARNING",
+                            )
+
+                except Exception as e:
+                    self.log(f"Could not verify VST3 integrity: {e}", "WARNING")
+
             else:
                 self.log(
                     f"CRITICAL: VST copy verification failed. Target {target_plugin_path} does not exist after copy attempt.",
@@ -1965,39 +2909,90 @@ class ObsidianNeuralInstaller:
                     f"Target VST3 parent folder: {vst_target_dir} (exists: {vst_target_dir.exists()})",
                     "INFO",
                 )
+
+                try:
+                    if vst_target_dir.exists():
+                        target_contents = list(vst_target_dir.iterdir())
+                        self.log(
+                            f"Target directory contents: {[f.name for f in target_contents]}",
+                            "INFO",
+                        )
+                except Exception:
+                    pass
+
                 raise Exception(
                     f"VST copy verification failed: {target_plugin_path} not found after copy."
                 )
 
         except PermissionError as e:
-            self.log(f"Permission denied during VST installation step: {e}", "ERROR")
+            self.log(f"Permission denied during VST installation: {e}", "ERROR")
             self.log(
                 f"Details: Source='{vst_file_to_copy}', Target='{target_plugin_path}', TargetParent='{vst_target_dir}'",
                 "INFO",
             )
-            self.log(
-                "This usually happens if the script is not run as administrator when targeting system VST folders (e.g., Program Files).",
-                "WARNING",
-            )
-            self.log(
-                "You might need to run the installer as an administrator or choose a user-writable VST3 path.",
-                "WARNING",
-            )
+
+            if platform.system() == "Windows":
+                self.log(
+                    "This usually happens when targeting system VST folders (Program Files).",
+                    "WARNING",
+                )
+                self.log("Solutions:", "INFO")
+                self.log("  1. Run installer as administrator", "INFO")
+                self.log("  2. Choose user VST3 folder: %APPDATA%/VST3", "INFO")
+                self.log("  3. Close your DAW and try again", "INFO")
+            elif platform.system() == "Darwin":
+                self.log("macOS permission issue. Solutions:", "WARNING")
+                self.log(
+                    "  1. Try user VST3 folder: ~/Library/Audio/Plug-Ins/VST3", "INFO"
+                )
+                self.log("  2. Run with sudo (not recommended)", "INFO")
+                self.log("  3. Check System Preferences > Security & Privacy", "INFO")
+            else:
+                self.log("Linux permission issue. Solutions:", "WARNING")
+                self.log("  1. Try user VST3 folder: ~/.vst3", "INFO")
+                self.log("  2. Run with sudo", "INFO")
+                self.log("  3. Check directory ownership", "INFO")
+
             self.log("Manual copy instructions:", "WARNING")
             self.log(f"   Copy FROM: {vst_file_to_copy}", "INFO")
             self.log(f"   Copy TO:   {target_plugin_path}", "INFO")
             raise
 
         except Exception as e:
+            self.log(f"Unexpected error during VST installation: {e}", "ERROR")
             self.log(
-                f"An unexpected error occurred during VST installation: {e}", "ERROR"
-            )
-            self.log(
-                f"Details: Source='{vst_file_to_copy if 'vst_file_to_copy' in locals() else 'N/A'}', Target='{target_plugin_path if 'target_plugin_path' in locals() else 'N/A'}', TargetParent='{vst_target_dir}'",
+                f"Details: Source='{vst_file_to_copy if 'vst_file_to_copy' in locals() else 'N/A'}', "
+                f"Target='{target_plugin_path if 'target_plugin_path' in locals() else 'N/A'}', "
+                f"TargetParent='{vst_target_dir}'",
                 "INFO",
             )
             self.log("Manual copy may be required (see paths above).", "WARNING")
             raise
+
+    def set_vst_permissions_recursive(self, vst_bundle_path):
+        try:
+            for root, dirs, files in os.walk(vst_bundle_path):
+                os.chmod(root, 0o755)
+
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    try:
+                        if any(
+                            arch in root
+                            for arch in ["MacOS", "x86_64-linux", "x86_64-win"]
+                        ):
+                            os.chmod(file_path, 0o755)
+                        elif file.endswith((".plist", ".xml", ".txt")):
+                            os.chmod(file_path, 0o644)
+                        else:
+                            os.chmod(file_path, 0o644)
+                    except OSError as e:
+                        self.log(
+                            f"Could not set permissions for {file_path}: {e}", "WARNING"
+                        )
+
+        except Exception as e:
+            self.log(f"Could not set VST3 recursive permissions: {e}", "WARNING")
 
     def find_system_python(self):
         if getattr(sys, "frozen", False):
@@ -2062,7 +3057,6 @@ class ObsidianNeuralInstaller:
 
     def install_python_deps(self, install_dir):
         self.log(f"Installing dependencies in: {install_dir}")
-
         if platform.system() == "Windows":
             pip_path = install_dir / "env" / "Scripts" / "pip.exe"
             python_path = install_dir / "env" / "Scripts" / "python.exe"
@@ -2109,13 +3103,25 @@ class ObsidianNeuralInstaller:
                     self.log(
                         f"Virtual environment contents: {[str(p) for p in venv_contents]}"
                     )
-                    if (venv_dir / "Scripts").exists():
+
+                    if (
+                        platform.system() == "Windows"
+                        and (venv_dir / "Scripts").exists()
+                    ):
                         scripts_contents = list((venv_dir / "Scripts").iterdir())
                         self.log(
                             f"Scripts directory contents: {[str(p) for p in scripts_contents]}"
                         )
-                except:
-                    self.log("Could not list virtual environment contents")
+                    elif (
+                        platform.system() in ["Darwin", "Linux"]
+                        and (venv_dir / "bin").exists()
+                    ):
+                        bin_contents = list((venv_dir / "bin").iterdir())
+                        self.log(
+                            f"Bin directory contents: {[str(p) for p in bin_contents]}"
+                        )
+                except Exception as e:
+                    self.log(f"Could not list virtual environment contents: {e}")
 
                 raise Exception(
                     f"No Python executable found in virtual environment: {venv_dir}"
@@ -2139,12 +3145,13 @@ class ObsidianNeuralInstaller:
                 "--index-url",
                 "https://download.pytorch.org/whl/cu118",
             ]
+
             try:
                 self.safe_subprocess_run(cmd, check=True, timeout=900)
                 self.log("PyTorch with CUDA installed successfully")
             except subprocess.TimeoutExpired:
-                self.log("PyTorch installation timed out", "ERROR")
-                raise Exception("PyTorch installation timed out")
+                self.log("PyTorch CUDA installation timed out", "ERROR")
+                raise Exception("PyTorch CUDA installation timed out")
             except subprocess.CalledProcessError as e:
                 self.log(f"PyTorch CUDA installation failed: {e.stderr}", "ERROR")
                 raise
@@ -2159,17 +3166,79 @@ class ObsidianNeuralInstaller:
                 "--prefer-binary",
                 "--extra-index-url=https://jllllll.github.io/llama-cpp-python-cuBLAS-wheels/AVX2/cu118",
             ]
+
             try:
                 self.safe_subprocess_run(cmd, check=True, timeout=900)
                 self.log("Llama CPP Python with CUDA installed successfully")
             except subprocess.TimeoutExpired:
-                self.log("Llama CPP Python installation timed out", "ERROR")
-                raise Exception("Llama CPP Python installation timed out")
+                self.log("Llama CPP Python CUDA installation timed out", "ERROR")
+                raise Exception("Llama CPP Python CUDA installation timed out")
             except subprocess.CalledProcessError as e:
-                self.log(f"Llama CPP Python installation failed: {e.stderr}", "ERROR")
+                self.log(
+                    f"Llama CPP Python CUDA installation failed: {e.stderr}", "ERROR"
+                )
                 raise
 
-        elif self.system_info.get("gpu_type") == "amd":
+        elif self.system_info.get("mps_available"):
+            self.log(
+                "Installing PyTorch with Metal Performance Shaders (MPS) support..."
+            )
+            cmd = [
+                str(python_path),
+                "-m",
+                "pip",
+                "install",
+                "torch",
+                "torchvision",
+                "torchaudio",
+            ]
+
+            try:
+                self.safe_subprocess_run(cmd, check=True, timeout=900)
+                self.log("PyTorch with MPS support installed successfully")
+
+                self.verify_mps_installation(python_path)
+
+            except subprocess.TimeoutExpired:
+                self.log("PyTorch MPS installation timed out", "ERROR")
+                raise Exception("PyTorch MPS installation timed out")
+            except subprocess.CalledProcessError as e:
+                self.log(f"PyTorch MPS installation failed: {e.stderr}", "ERROR")
+                raise
+
+            self.log("Installing Llama CPP Python with potential Metal support...")
+
+            try:
+                cmd = [
+                    str(python_path),
+                    "-m",
+                    "pip",
+                    "install",
+                    "llama-cpp-python==0.3.9",
+                    "--prefer-binary",
+                ]
+                self.safe_subprocess_run(cmd, check=True, timeout=600)
+                self.log(
+                    "Llama CPP Python installed successfully (Metal support if available)"
+                )
+
+            except subprocess.CalledProcessError as e:
+                self.log(f"Llama CPP Python installation error: {e.stderr}", "WARNING")
+                try:
+                    cmd = [
+                        str(python_path),
+                        "-m",
+                        "pip",
+                        "install",
+                        "llama-cpp-python==0.3.9",
+                    ]
+                    self.safe_subprocess_run(cmd, check=True, timeout=600)
+                    self.log("Llama CPP Python installed successfully (CPU fallback)")
+                except Exception as e2:
+                    self.log(f"Llama CPP Python fallback failed: {e2}", "ERROR")
+                    raise
+
+        elif self.system_info.get("rocm_available"):
             self.log("Installing PyTorch with ROCm support...")
             cmd = [
                 str(python_path),
@@ -2182,21 +3251,75 @@ class ObsidianNeuralInstaller:
                 "--index-url",
                 "https://download.pytorch.org/whl/rocm5.6",
             ]
+
             try:
                 self.safe_subprocess_run(cmd, check=True, timeout=900)
                 self.log("PyTorch with ROCm installed successfully")
             except subprocess.TimeoutExpired:
+                self.log("PyTorch ROCm installation timed out", "ERROR")
+                raise Exception("PyTorch ROCm installation timed out")
+            except subprocess.CalledProcessError as e:
+                self.log(f"PyTorch ROCm installation failed: {e.stderr}", "ERROR")
+                self.log("Falling back to CPU-only PyTorch...", "WARNING")
+                cmd = [
+                    str(python_path),
+                    "-m",
+                    "pip",
+                    "install",
+                    "torch",
+                    "torchvision",
+                    "torchaudio",
+                ]
+                try:
+                    self.safe_subprocess_run(cmd, check=True, timeout=900)
+                    self.log("PyTorch CPU fallback installed successfully")
+                except Exception as e2:
+                    self.log(f"PyTorch CPU fallback failed: {e2}", "ERROR")
+                    raise
+
+            self.log("Installing Llama CPP Python for ROCm...")
+            cmd = [str(python_path), "-m", "pip", "install", "llama-cpp-python==0.3.9"]
+
+            try:
+                self.safe_subprocess_run(cmd, check=True, timeout=600)
+                self.log("Llama CPP Python for ROCm installed successfully")
+            except subprocess.TimeoutExpired:
+                self.log("Llama CPP Python ROCm installation timed out", "ERROR")
+                raise Exception("Llama CPP Python ROCm installation timed out")
+            except subprocess.CalledProcessError as e:
+                self.log(
+                    f"Llama CPP Python ROCm installation failed: {e.stderr}", "ERROR"
+                )
+                raise
+
+        elif self.system_info.get("gpu_type") == "amd":
+            self.log("Installing PyTorch for CPU (AMD GPU without ROCm)...")
+            cmd = [
+                str(python_path),
+                "-m",
+                "pip",
+                "install",
+                "torch",
+                "torchvision",
+                "torchaudio",
+            ]
+
+            try:
+                self.safe_subprocess_run(cmd, check=True, timeout=900)
+                self.log("PyTorch for CPU installed successfully")
+            except subprocess.TimeoutExpired:
                 self.log("PyTorch installation timed out", "ERROR")
                 raise Exception("PyTorch installation timed out")
             except subprocess.CalledProcessError as e:
-                self.log(f"PyTorch ROCm installation failed: {e.stderr}", "ERROR")
+                self.log(f"PyTorch installation failed: {e.stderr}", "ERROR")
                 raise
 
-            self.log("Installing Llama CPP Python for CPU/ROCm...")
+            self.log("Installing Llama CPP Python for CPU...")
             cmd = [str(python_path), "-m", "pip", "install", "llama-cpp-python==0.3.9"]
+
             try:
                 self.safe_subprocess_run(cmd, check=True, timeout=600)
-                self.log("Llama CPP Python installed successfully")
+                self.log("Llama CPP Python for CPU installed successfully")
             except subprocess.TimeoutExpired:
                 self.log("Llama CPP Python installation timed out", "ERROR")
                 raise Exception("Llama CPP Python installation timed out")
@@ -2215,6 +3338,7 @@ class ObsidianNeuralInstaller:
                 "torchvision",
                 "torchaudio",
             ]
+
             try:
                 self.safe_subprocess_run(cmd, check=True, timeout=900)
                 self.log("PyTorch for CPU installed successfully")
@@ -2227,6 +3351,7 @@ class ObsidianNeuralInstaller:
 
             self.log("Installing Llama CPP Python for CPU...")
             cmd = [str(python_path), "-m", "pip", "install", "llama-cpp-python==0.3.9"]
+
             try:
                 self.safe_subprocess_run(cmd, check=True, timeout=600)
                 self.log("Llama CPP Python for CPU installed successfully")
@@ -2238,6 +3363,7 @@ class ObsidianNeuralInstaller:
                 raise
 
         self.log("Installing additional libraries...")
+
         packages = [
             "stable-audio-tools",
             "librosa",
@@ -2253,32 +3379,212 @@ class ObsidianNeuralInstaller:
             "pystray",
         ]
 
+        if platform.system() == "Darwin":
+            packages.extend(
+                [
+                    "psutil",
+                    "Pillow",
+                ]
+            )
+        elif platform.system() == "Linux":
+            packages.extend(
+                [
+                    "psutil",
+                    "Pillow",
+                    "PyQt5",
+                ]
+            )
+        elif platform.system() == "Windows":
+            packages.extend(
+                [
+                    "psutil",
+                    "Pillow",
+                    "pywin32",
+                ]
+            )
+
+        successful_packages = []
+        failed_packages = []
+
         for package in packages:
             self.log(f"Installing {package}...")
             cmd = [str(python_path), "-m", "pip", "install", package]
+
             try:
-                self.safe_subprocess_run(
+                result = self.safe_subprocess_run(
                     cmd, check=True, capture_output=True, text=True, timeout=300
                 )
                 self.log(f"{package} installed successfully")
+                successful_packages.append(package)
+
             except subprocess.CalledProcessError as e:
                 self.log(f"Installation error for {package}: {e.stderr}", "WARNING")
+                failed_packages.append(package)
+
+                if package == "PyQt5" and platform.system() == "Linux":
+                    self.log("Trying PyQt5 alternative installation...")
+                    try:
+                        alt_cmd = [
+                            str(python_path),
+                            "-m",
+                            "pip",
+                            "install",
+                            "PyQt5",
+                            "--no-deps",
+                        ]
+                        self.safe_subprocess_run(
+                            alt_cmd,
+                            check=True,
+                            capture_output=True,
+                            text=True,
+                            timeout=300,
+                        )
+                        self.log("PyQt5 installed with alternative method")
+                        successful_packages.append(package)
+                        failed_packages.remove(package)
+                    except:
+                        pass
+
             except subprocess.TimeoutExpired:
                 self.log(f"Installation timeout for {package}", "WARNING")
+                failed_packages.append(package)
 
+        self.log("=" * 50)
+        self.log("📦 PYTHON DEPENDENCIES INSTALLATION REPORT")
+        self.log("=" * 50)
+
+        if self.system_info.get("cuda_available"):
+            self.log("🟢 PyTorch: CUDA acceleration enabled")
+        elif self.system_info.get("mps_available"):
+            self.log("🍎 PyTorch: Metal Performance Shaders (MPS) enabled")
+        elif self.system_info.get("rocm_available"):
+            self.log("🔴 PyTorch: ROCm acceleration enabled")
+        else:
+            self.log("💻 PyTorch: CPU-only mode")
+
+        self.log(f"✅ Successfully installed: {len(successful_packages)} packages")
+        for pkg in successful_packages[:5]:
+            self.log(f"   • {pkg}")
+        if len(successful_packages) > 5:
+            self.log(f"   • ... and {len(successful_packages) - 5} more")
+
+        if failed_packages:
+            self.log(f"⚠️ Failed to install: {len(failed_packages)} packages")
+            for pkg in failed_packages:
+                self.log(f"   • {pkg}")
+            self.log(
+                "💡 These packages are optional and shouldn't affect core functionality"
+            )
+        else:
+            self.log("🎉 All packages installed successfully!")
+
+        self.log("=" * 50)
         self.log("All Python dependencies installation completed")
 
+        try:
+            test_script = """
+    import torch
+    print(f"PyTorch version: {torch.__version__}")
+    print(f"CUDA available: {torch.cuda.is_available()}")
+    """
+
+            if self.system_info.get("mps_available"):
+                test_script += """
+    if hasattr(torch.backends, 'mps'):
+        print(f"MPS available: {torch.backends.mps.is_available()}")
+    """
+
+            test_script += """
+    print("✅ PyTorch import successful")
+    """
+
+            result = self.safe_subprocess_run(
+                [str(python_path), "-c", test_script],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            if result.returncode == 0:
+                self.log("✅ PyTorch verification successful!")
+                for line in result.stdout.strip().split("\n"):
+                    if line.strip():
+                        self.log(f"   {line}")
+            else:
+                self.log("⚠️ PyTorch verification failed", "WARNING")
+
+        except Exception as e:
+            self.log(f"Could not verify PyTorch installation: {e}", "WARNING")
+
+    def verify_mps_installation(self, python_path):
+        """Vérifie que MPS fonctionne correctement sur macOS"""
+        test_script = """
+    import torch
+    import sys
+
+    try:
+        print(f"PyTorch version: {torch.__version__}")
+        print(f"MPS available: {torch.backends.mps.is_available()}")
+        
+        if torch.backends.mps.is_available():
+            # Test simple tensor MPS
+            device = torch.device("mps")
+            x = torch.randn(3, 3, device=device)
+            y = torch.randn(3, 3, device=device)
+            z = torch.mm(x, y)
+            print(f"MPS test successful: {z.shape}")
+            print("✅ Metal Performance Shaders ready!")
+        else:
+            print("❌ MPS not available")
+            sys.exit(1)
+            
+    except Exception as e:
+        print(f"❌ MPS test failed: {e}")
+        sys.exit(1)
+    """
+
+        try:
+            result = self.safe_subprocess_run(
+                [str(python_path), "-c", test_script],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            if result.returncode == 0:
+                self.log("✅ MPS verification successful!", "SUCCESS")
+                for line in result.stdout.strip().split("\n"):
+                    if line.strip():
+                        self.log(f"   {line}")
+            else:
+                self.log("⚠️ MPS verification failed", "WARNING")
+                self.log(f"Error: {result.stderr}", "WARNING")
+
+        except Exception as e:
+            self.log(f"Could not verify MPS: {e}", "WARNING")
+
     def setup_environment(self, install_dir):
+        if self.system_info.get("cuda_available"):
+            device_hint = "cuda"
+        elif self.system_info.get("mps_available"):
+            device_hint = "mps"
+        elif self.system_info.get("rocm_available"):
+            device_hint = "cuda"
+        else:
+            device_hint = "cpu"
+
         env_content = f"""DJ_IA_API_KEYS=api keys separated by commas
     LLM_MODEL_PATH={install_dir}/models/gemma-3-4b-it.gguf
     ENVIRONMENT=dev
     HOST=127.0.0.1
     PORT=8000
     AUDIO_MODEL=stabilityai/stable-audio-open-1.0
+    TORCH_DEVICE={device_hint}
     """
 
         (install_dir / ".env").write_text(env_content)
-        self.log("✅ .env configuration created")
+        self.log("✅ .env configuration created with optimal device")
+        self.log(f"   Configured device: {device_hint}")
 
     def build_vst(self, install_dir):
         vst_dir = install_dir / "vst"
@@ -2289,6 +3595,111 @@ class ObsidianNeuralInstaller:
         cmake_file = vst_dir / "CMakeLists.txt"
         if not cmake_file.exists():
             raise Exception("CMakeLists.txt not found in vst/")
+
+        if platform.system() == "Linux":
+            self.log("Installing Linux development dependencies...")
+            try:
+                if shutil.which("apt-get"):
+                    deps = [
+                        "sudo",
+                        "apt-get",
+                        "install",
+                        "-y",
+                        "libasound2-dev",
+                        "libx11-dev",
+                        "libxext-dev",
+                        "libxrandr-dev",
+                        "libxcomposite-dev",
+                        "libxinerama-dev",
+                        "libxcursor-dev",
+                        "libfreetype6-dev",
+                        "libfontconfig1-dev",
+                        "libgtk-3-dev",
+                        "libwebkit2gtk-4.1-dev",
+                        "libcurl4-openssl-dev",
+                    ]
+                    self.safe_subprocess_run(deps, check=True)
+                    self.log("Ubuntu/Debian dependencies installed")
+
+                elif shutil.which("dnf"):
+                    deps = [
+                        "sudo",
+                        "dnf",
+                        "install",
+                        "-y",
+                        "alsa-lib-devel",
+                        "libX11-devel",
+                        "libXext-devel",
+                        "libXrandr-devel",
+                        "libXcomposite-devel",
+                        "libXinerama-devel",
+                        "libXcursor-devel",
+                        "freetype-devel",
+                        "fontconfig-devel",
+                        "gtk3-devel",
+                        "webkit2gtk4.1-devel",
+                        "libcurl-devel",
+                    ]
+                    self.safe_subprocess_run(deps, check=True)
+                    self.log("Fedora dependencies installed")
+
+                elif shutil.which("pacman"):
+                    deps = [
+                        "sudo",
+                        "pacman",
+                        "-S",
+                        "--noconfirm",
+                        "alsa-lib",
+                        "libx11",
+                        "libxext",
+                        "libxrandr",
+                        "libxcomposite",
+                        "libxinerama",
+                        "libxcursor",
+                        "freetype2",
+                        "fontconfig",
+                        "gtk3",
+                        "webkit2gtk",
+                        "curl",
+                    ]
+                    self.safe_subprocess_run(deps, check=True)
+                    self.log("Arch Linux dependencies installed")
+
+                elif shutil.which("zypper"):
+                    deps = [
+                        "sudo",
+                        "zypper",
+                        "install",
+                        "-y",
+                        "alsa-devel",
+                        "libX11-devel",
+                        "libXext-devel",
+                        "libXrandr-devel",
+                        "libXcomposite-devel",
+                        "freetype2-devel",
+                        "fontconfig-devel",
+                        "gtk3-devel",
+                        "webkit2gtk3-devel",
+                    ]
+                    self.safe_subprocess_run(deps, check=True)
+                    self.log("openSUSE dependencies installed")
+
+                else:
+                    self.log("Unsupported Linux distribution for auto-deps", "WARNING")
+                    self.log("Please install JUCE dependencies manually:", "WARNING")
+                    self.log(
+                        "  Ubuntu/Debian: sudo apt install libasound2-dev libx11-dev libfreetype6-dev",
+                        "INFO",
+                    )
+                    self.log(
+                        "  Fedora: sudo dnf install alsa-lib-devel libX11-devel freetype-devel",
+                        "INFO",
+                    )
+                    self.log("  Arch: sudo pacman -S alsa-lib libx11 freetype2", "INFO")
+
+            except Exception as e:
+                self.log(f"Could not install Linux dependencies: {e}", "WARNING")
+                self.log("Please install JUCE development packages manually", "WARNING")
 
         juce_dir = vst_dir / "JUCE"
         if not juce_dir.exists():
@@ -2330,18 +3741,31 @@ class ObsidianNeuralInstaller:
 
         build_dir.mkdir(exist_ok=True)
 
-        if self.is_admin:
+        if platform.system() == "Windows" and self.is_admin:
             self.safe_subprocess_run(
                 ["icacls", str(build_dir), "/grant", "Authenticated Users:(OI)(CI)F"],
                 check=False,
                 capture_output=True,
             )
+        elif platform.system() in ["Darwin", "Linux"]:
+            try:
+                os.chmod(build_dir, 0o755)
+                self.log("Unix build directory permissions set")
+            except Exception as e:
+                self.log(f"Could not set build permissions: {e}", "WARNING")
 
         self.log("Configuring CMake...")
-        self.log(f"Build directory: {build_dir}")
-        self.log(f"Source directory: {vst_dir}")
-
         cmake_cmd = ["cmake", ".."]
+
+        if platform.system() == "Linux":
+            cmake_cmd.extend(
+                ["-DCMAKE_BUILD_TYPE=Release", "-DJUCE_ENABLE_GPL_MODE=ON"]
+            )
+        elif platform.system() == "Darwin":
+            cmake_cmd.extend(
+                ["-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15"]
+            )
+
         result = self.safe_subprocess_run(
             cmake_cmd, cwd=build_dir, capture_output=True, text=True
         )
@@ -2350,13 +3774,26 @@ class ObsidianNeuralInstaller:
             self.log("CMake configuration failed", "ERROR")
             self.log(f"Stdout: {result.stdout}", "ERROR")
             self.log(f"Stderr: {result.stderr}", "ERROR")
-            self.log("Check that CMake and Build Tools are installed", "WARNING")
+
+            if platform.system() == "Linux":
+                self.log("💡 Make sure JUCE dependencies are installed", "INFO")
+                self.log("💡 Try: sudo apt install libasound2-dev libx11-dev", "INFO")
+            elif platform.system() == "Darwin":
+                self.log("💡 Make sure Xcode Command Line Tools are installed", "INFO")
+                self.log("💡 Try: xcode-select --install", "INFO")
+
             raise Exception("CMake configuration failed")
 
         self.log("CMake configuration successful")
-
         self.log("Compiling VST plugin...")
         build_cmd = ["cmake", "--build", ".", "--config", "Release"]
+
+        if platform.system() in ["Darwin", "Linux"]:
+            import multiprocessing
+
+            cpu_count = multiprocessing.cpu_count()
+            build_cmd.extend(["--parallel", str(cpu_count)])
+
         result = self.safe_subprocess_run(
             build_cmd, cwd=build_dir, capture_output=True, text=True
         )
@@ -2365,7 +3802,6 @@ class ObsidianNeuralInstaller:
             self.log("VST compilation failed", "ERROR")
             self.log(f"Stdout: {result.stdout}", "ERROR")
             self.log(f"Stderr: {result.stderr}", "ERROR")
-            self.log("Check CMake configuration and Build Tools", "WARNING")
             raise Exception("VST compilation failed")
         else:
             self.log("VST plugin compiled successfully")
