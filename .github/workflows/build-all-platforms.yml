@@ -192,12 +192,20 @@ jobs:
           cp python-tools/obsidian-installer-macos pkg-staging/payload/usr/local/bin/obsidian-installer
           chmod +x pkg-staging/payload/usr/local/bin/obsidian-installer
 
+          # Copy server to payload
+          cp python-tools/obsidian-server-macos pkg-staging/payload/usr/local/bin/obsidian-server
+          chmod +x pkg-staging/payload/usr/local/bin/obsidian-server
+
       - name: Create postinstall script
         run: |
           cat > pkg-staging/scripts/postinstall << 'EOF'
           #!/bin/bash
           ln -sf /usr/local/bin/obsidian-installer /usr/local/bin/obsidian-neural
           echo "OBSIDIAN-Neural installed successfully!"
+          echo "Available commands:"
+          echo "  obsidian-neural    - Run installer"
+          echo "  obsidian-server    - Run server directly"
+          echo "  obsidian-installer - Run installer directly"
           exit 0
           EOF
           chmod +x pkg-staging/scripts/postinstall
