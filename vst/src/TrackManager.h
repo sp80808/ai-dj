@@ -256,7 +256,7 @@ public:
 		return state;
 	}
 
-	void loadState(const juce::ValueTree& state, std::atomic<bool> cachedHostBpm)
+	void loadState(const juce::ValueTree& state)
 	{
 		juce::ScopedLock lock(tracksLock);
 		tracks.clear();
@@ -295,7 +295,7 @@ public:
 			track->showSequencer = trackState.getProperty("showSequencer", false);
 			track->isMuted = trackState.getProperty("muted", false);
 			track->isSolo = trackState.getProperty("solo", false);
-			track->isPlaying = trackState.getProperty("isplaying", false);
+			track->isPlaying = trackState.getProperty("isPlaying", false);
 			track->isArmed = trackState.getProperty("isArmed", false);
 			track->isArmedToStop = trackState.getProperty("isArmedToStop", false);
 			track->isCurrentlyPlaying = trackState.getProperty("isCurrentlyPlaying", false);
@@ -372,7 +372,7 @@ public:
 						}
 					}
 
-					loadAudioFileForTrack(track.get(), fileToLoad, cachedHostBpm.load());
+					loadAudioFileForTrack(track.get(), fileToLoad);
 					DBG("Loaded track audio from: " + fileToLoad.getFullPathName().toStdString());
 				}
 				else
@@ -398,6 +398,41 @@ public:
 		}
 	}
 	std::array<bool, 8> usedSlots{ false };
+	void loadAudioFileForTrack(TrackData* track, const juce::File& audioFile)
+	{
+		juce::AudioFormatManager formatManager;
+		formatManager.registerBasicFormats();
+
+		std::unique_ptr<juce::AudioFormatReader> reader(
+			formatManager.createReaderFor(audioFile));
+
+		if (reader != nullptr)
+		{
+			int numChannels = reader->numChannels;
+			int numSamples = static_cast<int>(reader->lengthInSamples);
+
+			track->audioBuffer.setSize(2, numSamples);
+			reader->read(&track->audioBuffer, 0, numSamples, 0, true, true);
+
+			if (numChannels == 1)
+			{
+				track->audioBuffer.copyFrom(1, 0, track->audioBuffer, 0, 0, numSamples);
+			}
+
+			track->numSamples = track->audioBuffer.getNumSamples();
+			track->sampleRate = reader->sampleRate;
+
+			DBG("Loaded audio file: " + audioFile.getFullPathName() +
+				" (" + juce::String(numSamples) + " samples, " +
+				juce::String(track->sampleRate) + " Hz)");
+
+			reader.reset();
+		}
+		else
+		{
+			DBG("Failed to load audio file: " + audioFile.getFullPathName());
+		}
+	}
 
 private:
 	mutable juce::CriticalSection tracksLock;
@@ -445,41 +480,7 @@ private:
 		return -1;
 	}
 
-	void loadAudioFileForTrack(TrackData* track, const juce::File& audioFile, std::atomic<bool> /*cachedHostBpm*/)
-	{
-		juce::AudioFormatManager formatManager;
-		formatManager.registerBasicFormats();
 
-		std::unique_ptr<juce::AudioFormatReader> reader(
-			formatManager.createReaderFor(audioFile));
-
-		if (reader != nullptr)
-		{
-			int numChannels = reader->numChannels;
-			int numSamples = static_cast<int>(reader->lengthInSamples);
-
-			track->audioBuffer.setSize(2, numSamples);
-			reader->read(&track->audioBuffer, 0, numSamples, 0, true, true);
-
-			if (numChannels == 1)
-			{
-				track->audioBuffer.copyFrom(1, 0, track->audioBuffer, 0, 0, numSamples);
-			}
-
-			track->numSamples = track->audioBuffer.getNumSamples();
-			track->sampleRate = reader->sampleRate;
-
-			DBG("Loaded audio file: " + audioFile.getFullPathName() +
-				" (" + juce::String(numSamples) + " samples, " +
-				juce::String(track->sampleRate) + " Hz)");
-
-			reader.reset();
-		}
-		else
-		{
-			DBG("Failed to load audio file: " + audioFile.getFullPathName());
-		}
-	}
 
 	void renderSingleTrack(TrackData& track,
 		juce::AudioBuffer<float>& mixOutput,

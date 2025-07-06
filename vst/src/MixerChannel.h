@@ -27,11 +27,16 @@ public:
 	void updateButtonColors();
 	void cleanup();
 	void addEventListeners();
+	void startGeneratingAnimation();
+	void stopGeneratingAnimation();
 
 private:
 	DjIaVstProcessor& audioProcessor;
 	std::atomic<bool> isDestroyed{ false };
 	juce::String trackId;
+
+	bool isGenerating = false;
+	bool stopBlinkState = false;
 
 	bool isSelected = false;
 	int bypassMidiFrames = 0;

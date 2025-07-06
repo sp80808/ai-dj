@@ -124,6 +124,12 @@ void MixerPanel::refreshMixerChannels()
 			static_cast<TrackData*>(trackData));
 		positionMixer(mixerChannel, xPos, channelWidth, channelSpacing);
 	}
+	for (auto& channel : mixerChannels) {
+		juce::String trackId = channel->getTrackId();
+		if (audioProcessor.getGeneratingTrackId() == trackId && audioProcessor.getIsGenerating()) {
+			channel->startGeneratingAnimation();
+		}
+	}
 	displayChannelsContainer(xPos);
 }
 
@@ -226,5 +232,29 @@ void MixerPanel::trackSelected(const juce::String& trackId)
 	{
 		bool isThisTrackSelected = (channel->getTrackId() == trackId);
 		channel->setSelected(isThisTrackSelected);
+	}
+}
+
+void MixerPanel::startGeneratingAnimationForTrack(const juce::String& trackId)
+{
+	for (auto& channel : mixerChannels)
+	{
+		if (channel->getTrackId() == trackId)
+		{
+			channel->startGeneratingAnimation();
+			break;
+		}
+	}
+}
+
+void MixerPanel::stopGeneratingAnimationForTrack(const juce::String& trackId)
+{
+	for (auto& channel : mixerChannels)
+	{
+		if (channel->getTrackId() == trackId)
+		{
+			channel->stopGeneratingAnimation();
+			break;
+		}
 	}
 }

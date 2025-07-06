@@ -24,6 +24,12 @@ MixerChannel::MixerChannel(const juce::String& trackId, DjIaVstProcessor& proces
 void MixerChannel::cleanup()
 {
 	isDestroyed.store(true);
+
+	isGenerating = false;
+	isBlinking = false;
+	blinkState = false;
+	stopBlinkState = false;
+
 	volumeSlider.onValueChange = nullptr;
 	pitchKnob.onValueChange = nullptr;
 	fineKnob.onValueChange = nullptr;
@@ -503,17 +509,31 @@ void MixerChannel::stopTrackImmediatly()
 
 void MixerChannel::timerCallback()
 {
-	if (isBlinking && track && track->isArmedToStop)
+	bool shouldContinueTimer = false;
+
+	if (isGenerating)
 	{
 		blinkState = !blinkState;
-		stopButton.setColour(juce::TextButton::buttonColourId,
-			blinkState ? ColourPalette::buttonDangerLight : ColourPalette::buttonDangerDark);
+		repaint();
+		shouldContinueTimer = true;
 	}
-	else
+
+	if (isBlinking && track && track->isArmedToStop)
 	{
-		stopTimer();
+		stopBlinkState = !stopBlinkState;
+		stopButton.setColour(juce::TextButton::buttonColourId,
+			stopBlinkState ? ColourPalette::buttonDangerLight : ColourPalette::buttonDangerDark);
+		shouldContinueTimer = true;
+	}
+	else if (isBlinking)
+	{
 		isBlinking = false;
 		updateButtonColors();
+	}
+
+	if (!shouldContinueTimer)
+	{
+		stopTimer();
 	}
 }
 
@@ -575,16 +595,47 @@ void MixerChannel::updateFromTrackData()
 void MixerChannel::paint(juce::Graphics& g)
 {
 	auto bounds = getLocalBounds();
-	juce::Colour bgColour = isSelected ? ColourPalette::backgroundMid : ColourPalette::backgroundDark;
+	juce::Colour bgColour;
+
+	if (isGenerating && blinkState)
+	{
+		bgColour = ColourPalette::playArmed.withAlpha(0.3f);
+	}
+	else if (isSelected)
+	{
+		bgColour = ColourPalette::backgroundMid;
+	}
+	else
+	{
+		bgColour = ColourPalette::backgroundDark;
+	}
+
 	g.setColour(bgColour);
 	g.fillRoundedRectangle(bounds.toFloat(), 8.0f);
 
-	juce::Colour borderColour = isSelected ? ColourPalette::trackSelected : ColourPalette::sliderTrack;
-	float borderWidth = isSelected ? 2.0f : 1.0f;
+	juce::Colour borderColour;
+	float borderWidth;
+
+	if (isGenerating)
+	{
+		borderColour = ColourPalette::playArmed;
+		borderWidth = 3.0f;
+	}
+	else if (isSelected)
+	{
+		borderColour = ColourPalette::trackSelected;
+		borderWidth = 2.0f;
+	}
+	else
+	{
+		borderColour = ColourPalette::sliderTrack;
+		borderWidth = 1.0f;
+	}
+
 	g.setColour(borderColour);
 	g.drawRoundedRectangle(bounds.toFloat().reduced(1), 8.0f, borderWidth);
 
-	if (isSelected)
+	if (isSelected && !isGenerating)
 	{
 		g.setColour(borderColour.withAlpha(0.3f));
 		g.drawRoundedRectangle(bounds.toFloat().reduced(1), 10.0f, 1.0f);
@@ -918,6 +969,30 @@ void MixerChannel::updateButtonColors()
 
 	stopButton.setColour(juce::TextButton::buttonColourId,
 		(isArmed || isPlaying) ? ColourPalette::stopActive : ColourPalette::buttonInactive);
+}
+
+void MixerChannel::startGeneratingAnimation()
+{
+	isGenerating = true;
+	blinkState = false;
+
+	if (!isTimerRunning())
+	{
+		startTimer(200);
+	}
+}
+
+void MixerChannel::stopGeneratingAnimation()
+{
+	isGenerating = false;
+	blinkState = false;
+
+	if (!isBlinking)
+	{
+		stopTimer();
+	}
+
+	repaint();
 }
 
 void MixerChannel::learn(juce::String param, std::function<void(float)> uiCallback)
