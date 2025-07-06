@@ -34,6 +34,9 @@ public:
 
 	void paint(juce::Graphics& g) override;
 	void resized() override;
+	void startGeneratingAnimationForTrack(const juce::String& trackId);
+	void stopGeneratingAnimationForTrack(const juce::String& trackId);
+
 
 private:
 	void displayChannelsContainer(int xPos);

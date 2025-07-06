@@ -1248,7 +1248,10 @@ void DjIaVstEditor::startGenerationUI(const juce::String& trackId)
 			break;
 		}
 	}
-
+	if (mixerPanel)
+	{
+		mixerPanel->startGeneratingAnimationForTrack(trackId);
+	}
 	juce::Timer::callAfterDelay(100, [this]()
 		{ statusLabel.setText("Generating loop (this may take a few minutes)...",
 			juce::dontSendNotification); });
@@ -1271,6 +1274,10 @@ void DjIaVstEditor::stopGenerationUI(const juce::String& trackId, bool success, 
 			}
 			break;
 		}
+	}
+	if (mixerPanel)
+	{
+		mixerPanel->stopGeneratingAnimationForTrack(trackId);
 	}
 	isGenerating.store(false);
 	wasGenerating.store(false);
