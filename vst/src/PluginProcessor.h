@@ -224,6 +224,7 @@ public:
 	juce::StringArray getBuiltInPrompts() const;
 	bool getBypassSequencer() const { return bypassSequencer.load(); }
 	void setBypassSequencer(bool bypass) { bypassSequencer.store(bypass); }
+	double calculateRetriggerInterval(int intervalValue, double hostBpm) const;
 
 private:
 	DjIaVstEditor* currentEditor = nullptr;
@@ -233,6 +234,9 @@ private:
 	GenerationListener* generationListener = nullptr;
 	juce::String projectId;
 	bool migrationCompleted = false;
+
+	std::atomic<int64_t> internalSampleCounter{ 0 };
+	std::atomic<double> lastHostBpmForQuantization{ 120.0 };
 
 	bool useLocalModel = false;
 	juce::String localModelsPath = "";
@@ -352,28 +356,32 @@ private:
 	std::atomic<bool> canLoad{ false };
 	std::atomic<bool> bypassSequencer{ false };
 
-	std::atomic<float>* generateParam = nullptr;
-	std::atomic<float>* playParam = nullptr;
-	std::atomic<float> masterVolume{ 0.8f };
-	std::atomic<float> masterPan{ 0.0f };
-	std::atomic<float> masterHighEQ{ 0.0f };
-	std::atomic<float> masterMidEQ{ 0.0f };
-	std::atomic<float> masterLowEQ{ 0.0f };
-	std::atomic<float>* masterVolumeParam = nullptr;
-	std::atomic<float>* masterPanParam = nullptr;
-	std::atomic<float>* masterHighParam = nullptr;
-	std::atomic<float>* masterMidParam = nullptr;
-	std::atomic<float>* masterLowParam = nullptr;
-	std::atomic<float>* slotVolumeParams[8] = { nullptr };
-	std::atomic<float>* slotPanParams[8] = { nullptr };
-	std::atomic<float>* slotMuteParams[8] = { nullptr };
-	std::atomic<float>* slotSoloParams[8] = { nullptr };
-	std::atomic<float>* slotPlayParams[8] = { nullptr };
-	std::atomic<float>* slotStopParams[8] = { nullptr };
-	std::atomic<float>* slotGenerateParams[8] = { nullptr };
-	std::atomic<float>* slotPitchParams[8] = { nullptr };
-	std::atomic<float>* slotFineParams[8] = { nullptr };
-	std::atomic<float>* slotBpmOffsetParams[8] = { nullptr };
+
+	std::atomic<float> *generateParam = nullptr;
+	std::atomic<float> *playParam = nullptr;
+	std::atomic<float> masterVolume{0.8f};
+	std::atomic<float> masterPan{0.0f};
+	std::atomic<float> masterHighEQ{0.0f};
+	std::atomic<float> masterMidEQ{0.0f};
+	std::atomic<float> masterLowEQ{0.0f};
+	std::atomic<float> *masterVolumeParam = nullptr;
+	std::atomic<float> *masterPanParam = nullptr;
+	std::atomic<float> *masterHighParam = nullptr;
+	std::atomic<float> *masterMidParam = nullptr;
+	std::atomic<float> *masterLowParam = nullptr;
+	std::atomic<float> *slotVolumeParams[8] = {nullptr};
+	std::atomic<float> *slotPanParams[8] = {nullptr};
+	std::atomic<float> *slotMuteParams[8] = {nullptr};
+	std::atomic<float> *slotSoloParams[8] = {nullptr};
+	std::atomic<float> *slotPlayParams[8] = {nullptr};
+	std::atomic<float> *slotStopParams[8] = {nullptr};
+	std::atomic<float> *slotGenerateParams[8] = {nullptr};
+	std::atomic<float> *slotPitchParams[8] = {nullptr};
+	std::atomic<float> *slotFineParams[8] = {nullptr};
+	std::atomic<float> *slotBpmOffsetParams[8] = {nullptr};
+	std::atomic<float> *slotRandomRetriggerParams[8];
+	std::atomic<float> *slotRetriggerIntervalParams[8];
+
 
 	static juce::File getGlobalConfigFile()
 	{
@@ -432,6 +440,7 @@ private:
 	juce::File createTempAudioFile(const std::vector<float>& audioData, float duration);
 	void performMigrationIfNeeded();
 	void updateTrackPathsAfterMigration();
+	void checkBeatRepeatWithSampleCounter();
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor);
 };

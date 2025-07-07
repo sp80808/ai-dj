@@ -14,21 +14,21 @@ struct TrackData
 	juce::String trackId;
 	juce::String trackName;
 	int slotIndex = -1;
-	std::atomic<bool> isPlaying{ false };
-	std::atomic<bool> isArmed{ false };
+	std::atomic<bool> isPlaying{false};
+	std::atomic<bool> isArmed{false};
 	juce::String audioFilePath;
-	std::atomic<bool> isArmedToStop{ false };
-	std::atomic<bool> isCurrentlyPlaying{ false };
+	std::atomic<bool> isArmedToStop{false};
+	std::atomic<bool> isCurrentlyPlaying{false};
 	float fineOffset = 0.0f;
-	std::atomic<double> cachedPlaybackRatio{ 1.0 };
+	std::atomic<double> cachedPlaybackRatio{1.0};
 	juce::AudioSampleBuffer stagingBuffer;
-	std::atomic<bool> hasStagingData{ false };
-	std::atomic<bool> swapRequested{ false };
+	std::atomic<bool> hasStagingData{false};
+	std::atomic<bool> swapRequested{false};
 	std::function<void(bool)> onPlayStateChanged;
 	std::function<void(bool)> onArmedStateChanged;
 	std::function<void(bool)> onArmedToStopStateChanged;
-	std::atomic<int> stagingNumSamples{ 0 };
-	std::atomic<double> stagingSampleRate{ 48000.0 };
+	std::atomic<int> stagingNumSamples{0};
+	std::atomic<double> stagingSampleRate{48000.0};
 	float stagingOriginalBpm = 126.0f;
 	double loopStart = 0.0;
 	double loopEnd = 4.0;
@@ -40,19 +40,19 @@ struct TrackData
 	juce::AudioSampleBuffer audioBuffer;
 	double sampleRate = 48000.0;
 	int numSamples = 0;
-	std::atomic<bool> isEnabled{ true };
-	std::atomic<bool> isSolo{ false };
-	std::atomic<bool> isMuted{ false };
-	std::atomic<bool> loopPointsLocked{ false };
-	std::atomic<float> volume{ 0.8f };
-	std::atomic<float> pan{ 0.0f };
+	std::atomic<bool> isEnabled{true};
+	std::atomic<bool> isSolo{false};
+	std::atomic<bool> isMuted{false};
+	std::atomic<bool> loopPointsLocked{false};
+	std::atomic<float> volume{0.8f};
+	std::atomic<float> pan{0.0f};
 	juce::String prompt;
 	juce::String style;
 	juce::String stems;
 	int customStepCounter = 0;
 	double lastPpqPosition = -1.0;
 	float bpm = 126.0f;
-	std::atomic<double> readPosition{ 0.0 };
+	std::atomic<double> readPosition{0.0};
 	bool showWaveform = false;
 	bool showSequencer = false;
 	juce::String generationPrompt;
@@ -61,14 +61,34 @@ struct TrackData
 	int generationDuration;
 	std::vector<juce::String> preferredStems = {};
 	juce::String selectedPrompt;
-	std::atomic<bool> useOriginalFile{ false };
-	std::atomic<bool> hasOriginalVersion{ false };
-	std::atomic<bool> nextHasOriginalVersion{ false };
+	std::atomic<bool> useOriginalFile{false};
+	std::atomic<bool> hasOriginalVersion{false};
+	std::atomic<bool> nextHasOriginalVersion{false};
 	juce::AudioBuffer<float> originalStagingBuffer;
 	bool isVersionSwitch = false;
 	double preservedLoopStart = 0.0;
 	double preservedLoopEnd = 4.0;
 	bool preservedLoopLocked = false;
+	std::atomic<bool> randomRetriggerEnabled{false};
+	std::atomic<int> randomRetriggerInterval{3};
+	std::atomic<double> lastRetriggerTime{ -1.0 };
+	std::atomic<double> nextRetriggerTime{ 0.0 };
+	std::atomic<bool> randomRetriggerActive{ false };
+
+	std::atomic<bool> beatRepeatActive{ false };
+	std::atomic<double> beatRepeatStartPosition{ 0.0 };
+	std::atomic<double> beatRepeatEndPosition{ 0.0 };
+	std::atomic<double> beatRepeatDuration{ 0.25 };
+
+	std::atomic<double> originalReadPosition{ 0.0 };
+
+	std::atomic<bool> beatRepeatPending{ false };  
+	std::atomic<double> lastBeatTime{ -1.0 };
+
+	std::atomic<bool> beatRepeatStopPending{ false };
+	std::atomic<bool> randomRetriggerDurationEnabled{ false };
+	std::atomic<int64_t> pendingBeatNumber{ -1 };
+	std::atomic<int64_t> pendingStopBeatNumber{ -1 };
 
 	enum class PendingAction
 	{
@@ -90,7 +110,7 @@ struct TrackData
 		return request;
 	}
 
-	void updateFromRequest(const DjIaClient::LoopRequest& request)
+	void updateFromRequest(const DjIaClient::LoopRequest &request)
 	{
 		generationPrompt = request.prompt;
 		generationBpm = request.bpm;
@@ -156,7 +176,7 @@ struct TrackData
 		if (wasPlaying != playing && onPlayStateChanged && audioBuffer.getNumChannels() > 0 && isPlaying.load())
 		{
 			juce::MessageManager::callAsync([this, playing]()
-				{
+											{
 					if (onPlayStateChanged) {
 						onPlayStateChanged(playing);
 					} });
@@ -170,7 +190,7 @@ struct TrackData
 		if (wasArmed != armed && onArmedStateChanged && audioBuffer.getNumChannels() > 0 && isPlaying.load())
 		{
 			juce::MessageManager::callAsync([this, armed]()
-				{
+											{
 					if (onArmedStateChanged) {
 						onArmedStateChanged(armed);
 					} });
@@ -183,7 +203,7 @@ struct TrackData
 		if (onArmedToStopStateChanged && audioBuffer.getNumChannels() > 0 && isCurrentlyPlaying.load())
 		{
 			juce::MessageManager::callAsync([this, armedToStop]()
-				{
+											{
 					if (onArmedToStopStateChanged) {
 						onArmedToStopStateChanged(armedToStop);
 					} });
@@ -193,7 +213,7 @@ struct TrackData
 	void setStop()
 	{
 		juce::MessageManager::callAsync([this]()
-			{
+										{
 				if (onPlayStateChanged) {
 					onPlayStateChanged(false);
 				} });
