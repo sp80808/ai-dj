@@ -224,6 +224,7 @@ public:
 	juce::StringArray getBuiltInPrompts() const;
 	bool getBypassSequencer() const { return bypassSequencer.load(); }
 	void setBypassSequencer(bool bypass) { bypassSequencer.store(bypass); }
+	double calculateRetriggerInterval(int intervalValue, double hostBpm) const;
 
 private:
 	DjIaVstEditor *currentEditor = nullptr;
@@ -233,6 +234,9 @@ private:
 	GenerationListener *generationListener = nullptr;
 	juce::String projectId;
 	bool migrationCompleted = false;
+
+	std::atomic<int64_t> internalSampleCounter{ 0 };
+	std::atomic<double> lastHostBpmForQuantization{ 120.0 };
 
 	bool useLocalModel = false;
 	juce::String localModelsPath = "";
@@ -374,6 +378,8 @@ private:
 	std::atomic<float> *slotPitchParams[8] = {nullptr};
 	std::atomic<float> *slotFineParams[8] = {nullptr};
 	std::atomic<float> *slotBpmOffsetParams[8] = {nullptr};
+	std::atomic<float> *slotRandomRetriggerParams[8];
+	std::atomic<float> *slotRetriggerIntervalParams[8];
 
 	static juce::File getGlobalConfigFile()
 	{
@@ -432,6 +438,7 @@ private:
 	juce::File createTempAudioFile(const std::vector<float> &audioData, float duration);
 	void performMigrationIfNeeded();
 	void updateTrackPathsAfterMigration();
+	void checkBeatRepeatWithSampleCounter();
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor);
 };
