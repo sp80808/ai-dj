@@ -1277,33 +1277,111 @@ class ObsidianNeuralInstaller:
     def create_server_executable_and_shortcut(self, install_dir):
         self.log("Creating desktop shortcut...")
 
-        if platform.system() == "Windows":
-            exe_name = "OBSIDIAN-Neural-Server.exe"
-        elif platform.system() == "Darwin":
+        if platform.system() == "Darwin":
             exe_name = "OBSIDIAN-Neural-Server-macos"
-        else:
+            exe_path = install_dir / "bin" / exe_name
+
+            if exe_path.exists():
+                exe_path.chmod(0o755)
+                desktop = Path.home() / "Desktop"
+                self.create_macos_shortcut(exe_path, desktop, install_dir)
+                self.log("macOS server executable shortcut created!", "SUCCESS")
+                return
+
+        elif platform.system() == "Linux":
             exe_name = "OBSIDIAN-Neural-Server-linux"
+            exe_path = install_dir / "bin" / exe_name
 
-        exe_path = install_dir / "bin" / exe_name
+            if exe_path.exists():
+                exe_path.chmod(0o755)
+                desktop = Path.home() / "Desktop"
+                self.create_linux_shortcut(exe_path, desktop, install_dir)
+                self.log("Linux server executable shortcut created!", "SUCCESS")
+                return
 
-        if not exe_path.exists():
-            self.log(f"Pre-built executable not found: {exe_path}", "WARNING")
-            self.log("You can manually compile later if needed")
-            return
+        self.create_python_shortcut(install_dir)
 
-        if platform.system() != "Windows":
-            exe_path.chmod(0o755)
+    def create_python_shortcut(self, install_dir):
 
         desktop = Path.home() / "Desktop"
 
         if platform.system() == "Windows":
-            self.create_windows_shortcut(exe_path, desktop, install_dir)
-        elif platform.system() == "Darwin":
-            self.create_macos_shortcut(exe_path, desktop, install_dir)
-        else:
-            self.create_linux_shortcut(exe_path, desktop, install_dir)
+            python_path = install_dir / "env" / "Scripts" / "python.exe"
+            script_path = install_dir / "server_interface.py"
 
-        self.log("Server setup completed!", "SUCCESS")
+            shortcut_path = desktop / "OBSIDIAN-Neural Server.lnk"
+            ico_path = install_dir / "logo.ico"
+
+            icon_line = (
+                f'$Shortcut.IconLocation = "{ico_path}"' if ico_path.exists() else ""
+            )
+
+            ps_script = f"""
+            $WshShell = New-Object -comObject WScript.Shell
+            $Shortcut = $WshShell.CreateShortcut("{shortcut_path}")
+            $Shortcut.TargetPath = "{python_path}"
+            $Shortcut.Arguments = "server_interface.py"
+            $Shortcut.WorkingDirectory = "{install_dir}"
+            $Shortcut.Description = "OBSIDIAN-Neural AI Music Generation Server Interface"
+            {icon_line}
+            $Shortcut.Save()
+            """
+
+            cmd = ["powershell", "-Command", ps_script]
+            result = self.safe_subprocess_run(cmd, capture_output=True, text=True)
+
+            if result.returncode == 0:
+                self.log("✅ Windows Python shortcut created")
+            else:
+                self.log(
+                    f"Could not create Windows shortcut: {result.stderr}", "WARNING"
+                )
+
+        elif platform.system() == "Darwin":
+            python_path = install_dir / "env" / "bin" / "python"
+            script_path = install_dir / "server_interface.py"
+
+            shortcut_path = desktop / "OBSIDIAN-Neural Server.command"
+
+            script_content = f"""#!/bin/bash
+    cd "{install_dir}"
+    exec "{python_path}" server_interface.py
+    """
+
+            try:
+                shortcut_path.write_text(script_content)
+                shortcut_path.chmod(0o755)
+                self.log("✅ macOS Python shortcut created")
+            except Exception as e:
+                self.log(f"Could not create macOS shortcut: {e}", "WARNING")
+
+        else:
+            python_path = install_dir / "env" / "bin" / "python"
+            script_path = install_dir / "server_interface.py"
+
+            shortcut_path = desktop / "obsidian-neural-server.desktop"
+            logo_path = install_dir / "logo.png"
+
+            icon_line = f"Icon={logo_path}" if logo_path.exists() else ""
+
+            desktop_content = f"""[Desktop Entry]
+    Version=1.0
+    Name=OBSIDIAN-Neural Server
+    Comment=AI Music Generation Server Interface
+    Exec={python_path} server_interface.py
+    Path={install_dir}
+    {icon_line}
+    Terminal=false
+    Type=Application
+    Categories=AudioVideo;Audio;
+    """
+
+            try:
+                shortcut_path.write_text(desktop_content)
+                shortcut_path.chmod(0o755)
+                self.log("✅ Linux Python shortcut created")
+            except Exception as e:
+                self.log(f"Could not create Linux shortcut: {e}", "WARNING")
 
     def create_windows_shortcut(self, exe_path, desktop, install_dir):
         shortcut_path = desktop / "OBSIDIAN-Neural Server.lnk"
@@ -3585,6 +3663,30 @@ class ObsidianNeuralInstaller:
         (install_dir / ".env").write_text(env_content)
         self.log("✅ .env configuration created with optimal device")
         self.log(f"   Configured device: {device_hint}")
+        self.log("=" * 50)
+        self.log("🎉 INSTALLATION COMPLETED SUCCESSFULLY!")
+        self.log("=" * 50)
+        self.log("📋 HOW TO USE OBSIDIAN-NEURAL:")
+        self.log("")
+        self.log("1️⃣ START THE SERVER:")
+        if platform.system() == "Windows":
+            self.log("   • Use desktop shortcut: 'OBSIDIAN-Neural Server'")
+            self.log("   • OR run: python server_interface.py")
+        else:
+            self.log("   • Use desktop shortcut: 'OBSIDIAN-Neural Server'")
+            self.log("   • OR run the executable from bin/ folder")
+        self.log("")
+        self.log("2️⃣ CONFIGURE THE SERVER:")
+        self.log("   • Enter your Hugging Face token")
+        self.log("   • Generate API keys")
+        self.log("   • Start the server from the GUI")
+        self.log("")
+        self.log("3️⃣ SETUP YOUR DAW:")
+        self.log("   • Load the VST3 plugin")
+        self.log("   • Set server URL (usually http://localhost:8000)")
+        self.log("   • Enter API key from server interface")
+        self.log("")
+        self.log("=" * 50)
 
     def build_vst(self, install_dir):
         vst_dir = install_dir / "vst"
@@ -3808,21 +3910,34 @@ class ObsidianNeuralInstaller:
 
     def start_server(self, install_dir):
         try:
-            exe_path = install_dir / "bin" / "OBSIDIAN-Neural-Server.exe"
+            if platform.system() == "Darwin":
+                exe_path = install_dir / "bin" / "OBSIDIAN-Neural-Server-macos"
+            elif platform.system() == "Linux":
+                exe_path = install_dir / "bin" / "OBSIDIAN-Neural-Server-linux"
+            else:
+                exe_path = None
 
-            if exe_path.exists():
+            if exe_path and exe_path.exists():
                 subprocess.Popen([str(exe_path)], cwd=install_dir)
                 self.log("✅ Server started via executable!")
             else:
-                self.log("Executable not found, falling back to Python mode")
                 if platform.system() == "Windows":
                     python_path = install_dir / "env" / "Scripts" / "python.exe"
                 else:
                     python_path = install_dir / "env" / "bin" / "python"
 
-                main_script = install_dir / "main.py"
-                subprocess.Popen([str(python_path), str(main_script)], cwd=install_dir)
-                self.log("✅ Server started via main.py!")
+                server_script = install_dir / "server_interface.py"
+                if server_script.exists():
+                    subprocess.Popen(
+                        [str(python_path), str(server_script)], cwd=install_dir
+                    )
+                    self.log("✅ Server interface started via Python!")
+                else:
+                    main_script = install_dir / "main.py"
+                    subprocess.Popen(
+                        [str(python_path), str(main_script)], cwd=install_dir
+                    )
+                    self.log("✅ Server started via main.py!")
 
         except Exception as e:
             self.log(f"❌ Startup error: {e}", "ERROR")
