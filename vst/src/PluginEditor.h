@@ -50,6 +50,7 @@ public:
 	juce::StringArray getBuiltInPrompts() const { return promptPresets; }
 	void restoreUICallbacks();
 	void updateSelectedTrack();
+	void onGenerateButtonClicked();
 
 private:
 	DjIaVstProcessor& audioProcessor;
@@ -60,7 +61,6 @@ private:
 
 	void setupUI();
 	void addEventListeners();
-	void onGenerateButtonClicked();
 	void loadPromptPresets();
 	void onPresetSelected();
 	void onSavePreset();
@@ -127,7 +127,7 @@ private:
 	juce::ComboBox styleSelector;
 	juce::Label bpmLabel;
 	juce::ComboBox keySelector;
-	juce::TextButton generateButton;
+	MidiLearnableButton generateButton;
 	juce::TextButton configButton;
 	juce::TextButton resetUIButton;
 	juce::Label serverUrlLabel;

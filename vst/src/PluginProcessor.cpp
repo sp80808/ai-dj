@@ -2614,6 +2614,103 @@ void DjIaVstProcessor::selectPreviousTrack()
 	}
 }
 
+void DjIaVstProcessor::triggerGlobalGeneration()
+{
+	if (isGenerating)
+	{
+		juce::MessageManager::callAsync([this]()
+			{
+				if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
+				{
+					editor->setStatusWithTimeout("Generation already in progress, please wait", 3000);
+				}
+			});
+		return;
+	}
+
+	if (selectedTrackId.isEmpty())
+	{
+		juce::MessageManager::callAsync([this]()
+			{
+				if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
+				{
+					editor->setStatusWithTimeout("No track selected for generation", 3000);
+				}
+			});
+		return;
+	}
+
+	syncSelectedTrackWithGlobalPrompt();
+
+	juce::MessageManager::callAsync([this]()
+		{
+			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
+			{
+				editor->onGenerateButtonClicked();
+			}
+			else
+			{
+				generateLoopFromGlobalSettings();
+			}
+		});
+}
+
+void DjIaVstProcessor::syncSelectedTrackWithGlobalPrompt()
+{
+	TrackData* track = trackManager.getTrack(selectedTrackId);
+	if (!track)
+		return;
+
+	juce::String currentGlobalPrompt = getGlobalPrompt();
+
+	track->selectedPrompt = currentGlobalPrompt;
+
+	juce::MessageManager::callAsync([this, currentGlobalPrompt]()
+		{
+			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
+			{
+				for (auto& trackComp : editor->getTrackComponents())
+				{
+					if (trackComp->getTrackId() == selectedTrackId)
+					{
+						trackComp->updatePromptSelection(currentGlobalPrompt);
+						break;
+					}
+				}
+
+				editor->setStatusWithTimeout("Track prompt synced: " + currentGlobalPrompt.substring(0, 30) + "...", 2000);
+			}
+		});
+}
+
+void DjIaVstProcessor::generateLoopFromGlobalSettings()
+{
+	if (isGenerating)
+		return;
+
+	TrackData* track = trackManager.getTrack(selectedTrackId);
+	if (!track)
+		return;
+
+	syncSelectedTrackWithGlobalPrompt();
+	setIsGenerating(true);
+	setGeneratingTrackId(selectedTrackId);
+
+	juce::Thread::launch([this]()
+		{
+			try
+			{
+				auto request = createGlobalLoopRequest();
+				generateLoop(request, selectedTrackId);
+			}
+			catch (const std::exception& /*e*/)
+			{
+				setIsGenerating(false);
+				setGeneratingTrackId("");
+			}
+		});
+}
+
 void DjIaVstProcessor::removeCustomPrompt(const juce::String &prompt)
 {
 	customPrompts.removeString(prompt);

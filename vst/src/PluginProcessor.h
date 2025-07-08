@@ -227,6 +227,8 @@ public:
 	double calculateRetriggerInterval(int intervalValue, double hostBpm) const;
 	void selectNextTrack();
 	void selectPreviousTrack();
+	void triggerGlobalGeneration();
+	void syncSelectedTrackWithGlobalPrompt();
 
 private:
 	DjIaVstEditor* currentEditor = nullptr;
@@ -239,7 +241,6 @@ private:
 
 	std::atomic<float>* nextTrackParam = nullptr;
 	std::atomic<float>* prevTrackParam = nullptr;
-
 	std::atomic<int64_t> internalSampleCounter{ 0 };
 	std::atomic<double> lastHostBpmForQuantization{ 120.0 };
 
@@ -447,6 +448,7 @@ private:
 	void performMigrationIfNeeded();
 	void updateTrackPathsAfterMigration();
 	void checkBeatRepeatWithSampleCounter();
+	void generateLoopFromGlobalSettings();
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor);
 };
