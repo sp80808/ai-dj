@@ -1,3 +1,0 @@
-[submodule "vst/deps/llama.cpp"]
-	path = vst/deps/llama.cpp
-	url = https://github.com/ggml-org/llama.cpp.git
