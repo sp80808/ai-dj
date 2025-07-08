@@ -49,6 +49,7 @@ public:
 	void startGenerationUI(const juce::String& trackId);
 	juce::StringArray getBuiltInPrompts() const { return promptPresets; }
 	void restoreUICallbacks();
+	void updateSelectedTrack();
 
 private:
 	DjIaVstProcessor& audioProcessor;
@@ -68,7 +69,6 @@ private:
 	void updateLoadButtonState();
 	void updateMidiIndicator(const juce::String& noteInfo);
 	void onAddTrack();
-	void updateSelectedTrack();
 	void onSaveSession();
 	void onLoadSession();
 	void loadSessionList();
@@ -159,6 +159,9 @@ private:
 	juce::ComboBox sessionSelector;
 	juce::ToggleButton bypassSequencerButton;
 	std::unique_ptr<juce::MenuBarComponent> menuBar;
+
+	MidiLearnableButton nextTrackButton;
+	MidiLearnableButton prevTrackButton;
 
 	enum MenuIDs
 	{

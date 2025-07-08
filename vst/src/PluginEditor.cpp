@@ -550,6 +550,16 @@ void DjIaVstEditor::setupUI()
 	getLookAndFeel().setColour(juce::Slider::thumbColourId, ColourPalette::sliderThumb);
 	getLookAndFeel().setColour(juce::Slider::trackColourId, ColourPalette::sliderTrack);
 
+	addAndMakeVisible(nextTrackButton);
+	nextTrackButton.setButtonText("Next Track");
+	nextTrackButton.setTooltip("Select next track (Right-click for MIDI learn)");
+	nextTrackButton.setDescription("Next Track");
+
+	addAndMakeVisible(prevTrackButton);
+	prevTrackButton.setButtonText("Prev Track");
+	prevTrackButton.setTooltip("Select previous track (Right-click for MIDI learn)");
+	prevTrackButton.setDescription("Previous Track");
+
 	addAndMakeVisible(pluginNameLabel);
 	pluginNameLabel.setText("NEURAL SOUND ENGINE", juce::dontSendNotification);
 	pluginNameLabel.setFont(juce::FontOptions("Courier New", 22.0f, juce::Font::bold));
@@ -970,6 +980,46 @@ void DjIaVstEditor::addEventListeners()
 			statusLabel.setText("Sequencer mode - Armed playback", juce::dontSendNotification);
 		}
 	};
+
+	nextTrackButton.onMidiLearn = [this]()
+		{
+			audioProcessor.getMidiLearnManager().startLearning(
+				"nextTrack",
+				&audioProcessor,
+				nullptr,
+				"Next Track"
+			);
+		};
+
+	nextTrackButton.onMidiRemove = [this]()
+		{
+			audioProcessor.getMidiLearnManager().removeMappingForParameter("nextTrack");
+		};
+
+	nextTrackButton.onClick = [this]()
+		{
+			audioProcessor.selectNextTrack();
+		};
+
+	prevTrackButton.onMidiLearn = [this]()
+		{
+			audioProcessor.getMidiLearnManager().startLearning(
+				"prevTrack",
+				&audioProcessor,
+				nullptr,
+				"Previous Track"
+			);
+		};
+
+	prevTrackButton.onMidiRemove = [this]()
+		{
+			audioProcessor.getMidiLearnManager().removeMappingForParameter("prevTrack");
+		};
+
+	prevTrackButton.onClick = [this]()
+		{
+			audioProcessor.selectPreviousTrack();
+		};
 }
 
 void DjIaVstEditor::notifyTracksPromptUpdate()
@@ -1238,12 +1288,15 @@ void DjIaVstEditor::resized()
 	}
 
 	auto buttonsRow = area.removeFromTop(35);
-	auto buttonWidth = buttonsRow.getWidth() / 6;
+	auto buttonWidth = buttonsRow.getWidth() / 8;
 	autoLoadButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
 	addTrackButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
 	generateButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
 	loadSampleButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
 	bypassSequencerButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
+	auto trackNavArea = buttonsRow.removeFromRight(buttonWidth * 2);
+	prevTrackButton.setBounds(trackNavArea.removeFromLeft(buttonWidth).reduced(5));
+	nextTrackButton.setBounds(trackNavArea.reduced(5));
 	resetUIButton.setBounds(buttonsRow.reduced(5));
 
 	bottomArea.removeFromTop(spacing);

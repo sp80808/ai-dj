@@ -346,6 +346,36 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
 				}
 				continue;
 			}
+			if (mapping.parameterName == "nextTrack" || mapping.parameterName == "prevTrack")
+			{
+				if (message.isNoteOn() && isBooleanParameter(mapping.parameterName))
+				{
+					if (mapping.parameterName == "nextTrack")
+					{
+						mapping.processor->selectNextTrack();
+						statusMessage += " (Next Track triggered)";
+					}
+					else if (mapping.parameterName == "prevTrack")
+					{
+						mapping.processor->selectPreviousTrack();
+						statusMessage += " (Previous Track triggered)";
+					}
+
+					juce::MessageManager::callAsync([mapping, statusMessage]()
+						{
+							if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor()))
+							{
+								editor->statusLabel.setText(statusMessage, juce::dontSendNotification);
+								juce::Timer::callAfterDelay(2000, [mapping]() {
+									if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor())) {
+										editor->statusLabel.setText("Ready", juce::dontSendNotification);
+									}
+									});
+							}
+						});
+				}
+				continue;
+			}
 			auto *param = mapping.processor->getParameterTreeState().getParameter(mapping.parameterName);
 			if (param)
 			{
@@ -429,14 +459,16 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
 	}
 }
 
-bool MidiLearnManager::isBooleanParameter(const juce::String &parameterName)
+bool MidiLearnManager::isBooleanParameter(const juce::String& parameterName)
 {
 	return parameterName.contains("Play") ||
-		   parameterName.contains("Stop") ||
-		   parameterName.contains("Mute") ||
-		   parameterName.contains("Solo") ||
-		   parameterName.contains("Generate") ||
-		   parameterName.contains("RandomRetrigger");
+		parameterName.contains("Stop") ||
+		parameterName.contains("Mute") ||
+		parameterName.contains("Solo") ||
+		parameterName.contains("Generate") ||
+		parameterName.contains("RandomRetrigger") ||
+		parameterName == "nextTrack" ||
+		parameterName == "prevTrack";
 }
 
 void MidiLearnManager::clearUICallbacks()
