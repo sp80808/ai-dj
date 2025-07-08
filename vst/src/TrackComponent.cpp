@@ -74,37 +74,33 @@ void TrackComponent::updateUIFromParameter(const juce::String &paramName,
 	}
 	else if (paramName == slotPrefix + " Random Retrigger")
 	{
+		bool isEnabled = newValue > 0.5f;
 
-		if (!randomRetriggerButton.isMouseButtonDown())
-		{
-			bool isEnabled = newValue > 0.5f;
-
-			if (isEnabled) {
-				randomRetriggerButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonSuccess); 
-			}
-			else {
-				randomRetriggerButton.setColour(juce::TextButton::buttonColourId, ColourPalette::backgroundDark);
-			}
-			randomRetriggerButton.repaint();
-
-			if (track) {
-				track->randomRetriggerEnabled = isEnabled;
-			}
+		if (isEnabled) {
+			randomRetriggerButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonSuccess); 
 		}
+		else {
+			randomRetriggerButton.setColour(juce::TextButton::buttonColourId, ColourPalette::backgroundDark);
+		}
+		randomRetriggerButton.repaint();
+
+		if (track) {
+			track->randomRetriggerEnabled = isEnabled;
+		}
+	
 	}
 	else if (paramName == slotPrefix + " Retrigger Interval")
 	{
-		if (!intervalKnob.isMouseButtonDown()) 
-		{
-			float denormalizedValue = (newValue * 9.0f) + 1.0f;
-			intervalKnob.setValue(denormalizedValue, juce::dontSendNotification);
+	
+		float denormalizedValue = (newValue * 9.0f) + 1.0f;
+		intervalKnob.setValue(denormalizedValue, juce::dontSendNotification);
 
-			intervalLabel.setText(getIntervalName((int)denormalizedValue), juce::dontSendNotification);
+		intervalLabel.setText(getIntervalName((int)denormalizedValue), juce::dontSendNotification);
 
-			if (track) {
-				track->randomRetriggerInterval = (int)denormalizedValue;
-			}
+		if (track) {
+			track->randomRetriggerInterval = (int)denormalizedValue;
 		}
+		
 	}
 }
 
@@ -730,13 +726,16 @@ void TrackComponent::setupUI()
 		onTrackPresetSelected();
 	};
 
-	addAndMakeVisible(randomRetriggerButton);
+	
 	randomRetriggerButton.setButtonText(juce::String::fromUTF8("\xE2\x86\xBB"));
 	randomRetriggerButton.setTooltip("Beat Repeat - Loop current section while held");
 	randomRetriggerButton.setColour(juce::TextButton::buttonColourId, ColourPalette::backgroundDark);
 	randomRetriggerButton.setColour(juce::TextButton::buttonOnColourId, ColourPalette::backgroundDark);
-	randomRetriggerButton.onClick = [this]()
-		{ onRandomRetriggerToggled(); };
+	randomRetriggerButton.setColour(juce::TextButton::textColourOffId, ColourPalette::textPrimary);
+	randomRetriggerButton.setColour(juce::TextButton::textColourOnId, ColourPalette::textPrimary);
+
+	addAndMakeVisible(randomRetriggerButton);
+	randomRetriggerButton.onClick = [this]() { onRandomRetriggerToggled(); };
 
 	addAndMakeVisible(intervalKnob);
 	intervalKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
@@ -764,31 +763,23 @@ void TrackComponent::setupUI()
 			statusCallback("Auto-random duration: " + juce::String(track->randomRetriggerDurationEnabled.load() ? "ON" : "OFF"));
 		}
 		};
-
-	randomRetriggerButton.setColour(juce::TextButton::buttonColourId, ColourPalette::backgroundDark);
-	randomRetriggerButton.setColour(juce::TextButton::buttonOnColourId, ColourPalette::backgroundDark);
-	randomRetriggerButton.setColour(juce::TextButton::textColourOffId, ColourPalette::textPrimary);
-	randomRetriggerButton.setColour(juce::TextButton::textColourOnId, ColourPalette::textPrimary);
-	randomRetriggerButton.setLookAndFeel(nullptr); 
 }
 
 void TrackComponent::onRandomRetriggerToggled()
 {
-	if (!track)
-		return;
+	if (!track) return;
 
 	bool isEnabled = !track->randomRetriggerEnabled.load();
 	track->randomRetriggerEnabled = isEnabled;
 
-	if (isEnabled)
-	{
+	if (isEnabled) {
 		track->beatRepeatPending.store(true);
 	}
-	else
-	{
+	else {
 		track->beatRepeatStopPending.store(true);
 	}
-	statusCallback("Random Retrigger " + juce::String(isEnabled ? "ON" : "OFF"));
+
+	statusCallback("Beat Repeat " + juce::String(isEnabled ? "ON" : "OFF"));
 	setButtonParameter("RandomRetrigger");
 }
 
@@ -845,6 +836,7 @@ juce::String TrackComponent::getIntervalName(int value)
 	default: return "1 Beat";
 	}
 }
+
 void TrackComponent::statusCallback(const juce::String &message)
 {
 	if (onStatusMessage)
@@ -902,7 +894,7 @@ void TrackComponent::loadPromptPresets()
 			allPrompts.add(customPrompt);
 		}
 	}
-
+	allPrompts.sort(true);
 	promptPresets = allPrompts;
 
 	for (int i = 0; i < allPrompts.size(); ++i)
@@ -927,9 +919,11 @@ void TrackComponent::loadPromptPresets()
 void TrackComponent::updatePromptPresets(const juce::StringArray &presets)
 {
 	juce::String currentSelection = promptPresetSelector.getText();
-	promptPresets = presets;
-
+	juce::StringArray sortedPresets = presets;
+	sortedPresets.sort(true);
+	promptPresets = sortedPresets;
 	promptPresetSelector.clear();
+
 	for (int i = 0; i < presets.size(); ++i)
 	{
 		promptPresetSelector.addItem(presets[i], i + 1);
@@ -1158,4 +1152,32 @@ void TrackComponent::setupMidiLearn()
 	{ learn("RetriggerInterval"); };
 	intervalKnob.onMidiRemove = [this]()
 	{ removeMidiMapping("RetriggerInterval"); };
+
+	juce::String paramName = "promptSelector_slot" + juce::String(track->slotIndex + 1);
+	auto promptCallback = [this](float value)
+		{
+			juce::MessageManager::callAsync([this, value]()
+				{
+					int numItems = promptPresetSelector.getNumItems();
+					if (numItems > 0) {
+						int selectedIndex = (int)(value * (numItems - 1));
+						promptPresetSelector.setSelectedItemIndex(selectedIndex, juce::sendNotification);
+					}
+				});
+		};
+
+	audioProcessor.getMidiLearnManager().registerUICallback(paramName, promptCallback);
+	promptPresetSelector.onMidiLearn = [this, paramName, promptCallback]()
+		{
+			if (audioProcessor.getActiveEditor() && track && track->slotIndex != -1)
+			{
+				juce::String description = "Slot " + juce::String(track->slotIndex + 1) + " Prompt Selector";
+				audioProcessor.getMidiLearnManager().startLearning(paramName, &audioProcessor, promptCallback, description);
+			}
+		};
+
+	promptPresetSelector.onMidiRemove = [this, paramName]()
+		{
+			audioProcessor.getMidiLearnManager().removeMappingForParameter(paramName);
+		};
 }

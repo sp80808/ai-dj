@@ -48,6 +48,7 @@ public:
 	void stopGenerationUI(const juce::String& trackId, bool success = true, const juce::String& errorMessage = "");
 	void startGenerationUI(const juce::String& trackId);
 	juce::StringArray getBuiltInPrompts() const { return promptPresets; }
+	void restoreUICallbacks();
 
 private:
 	DjIaVstProcessor& audioProcessor;

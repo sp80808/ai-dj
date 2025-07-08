@@ -984,7 +984,7 @@ void DjIaVstEditor::notifyTracksPromptUpdate()
 			allPrompts.add(customPrompt);
 		}
 	}
-
+	allPrompts.sort(true);
 	for (auto &trackComp : trackComponents)
 	{
 		trackComp->updatePromptPresets(allPrompts);
@@ -1407,6 +1407,8 @@ void DjIaVstEditor::loadPromptPresets()
 			allPrompts.add(customPrompt);
 		}
 	}
+	allPrompts.sort(true);
+	promptPresets = allPrompts;
 	for (int i = 0; i < allPrompts.size(); ++i)
 	{
 		promptPresetSelector.addItem(allPrompts[i], i + 1);
@@ -1629,13 +1631,12 @@ void DjIaVstEditor::refreshTrackComponents()
 
 		trackComp->onTrackPromptChanged = [this](const juce::String /*&trackId*/, const juce::String &prompt)
 		{
-			statusLabel.setText("Track prompt updated: " + prompt.substring(0, 20) + "...",
-								juce::dontSendNotification);
+				setStatusWithTimeout("Track prompt updated: " + prompt.substring(0, 20) + "...", 3000);
 		};
 
 		trackComp->onStatusMessage = [this](const juce::String &message)
 		{
-			statusLabel.setText(message, juce::dontSendNotification);
+			setStatusWithTimeout(message, 3000);
 		};
 
 		int fullWidth = tracksContainer.getWidth() - 4;
@@ -1750,6 +1751,17 @@ void DjIaVstEditor::toggleWaveFormButtonOnTrack()
 	for (auto &trackComponent : trackComponents)
 	{
 		trackComponent->showWaveformButton.setToggleState(false, juce::dontSendNotification);
+	}
+}
+
+void DjIaVstEditor::restoreUICallbacks()
+{
+	for (auto& trackComp : trackComponents)
+	{
+		if (trackComp->getTrack())
+		{
+			trackComp->setupMidiLearn();
+		}
 	}
 }
 

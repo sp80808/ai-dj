@@ -75,8 +75,10 @@ public:
 	void refreshWaveformIfNeeded();
 	void toggleSequencerDisplay();
 	void updatePromptPresets(const juce::StringArray &presets);
+	void setupMidiLearn();
 
 	bool isEditingLabel = false;
+	MidiLearnableComboBox promptPresetSelector;
 
 	juce::TextButton *getGenerateButton() { return &generateButton; }
 	juce::Slider *getBpmOffsetSlider() { return &bpmOffsetSlider; }
@@ -101,7 +103,6 @@ private:
 	juce::TextButton previewButton;
 	juce::TextButton originalSyncButton;
 
-	juce::ComboBox promptPresetSelector;
 	juce::StringArray promptPresets;
 
 	juce::ComboBox timeStretchModeSelector;
@@ -131,7 +132,6 @@ private:
 	void setupUI();
 	void adjustLoopPointsToTempo();
 	void updateTrackInfo();
-	void setupMidiLearn();
 	void learn(juce::String param, std::function<void(float)> uiCallback = nullptr);
 	void removeMidiMapping(const juce::String &param);
 	void addListener(juce::String name);
@@ -150,4 +150,6 @@ private:
 	void addEventListeners();
 
 	juce::String getIntervalName(int value);
+
+	JUCE_DECLARE_WEAK_REFERENCEABLE(TrackComponent);
 };
