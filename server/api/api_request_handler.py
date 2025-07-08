@@ -6,6 +6,9 @@
 
 import os
 import time
+import numpy as np
+import librosa
+from scipy.io import wavfile
 from fastapi import HTTPException
 from core.dj_system import DJSystem
 from server.api.models import GenerateRequest
@@ -28,6 +31,12 @@ class APIRequestHandler:
             "last_action_time": time.time(),
             "user_id": user_id,
         }
+
+    def normalize_audio(self, audio):
+        target_rms = 0.1
+        rms = np.sqrt(np.mean(audio**2))
+        audio_normalized = audio * (target_rms / rms)
+        return np.clip(audio_normalized, -1.0, 1.0)
 
     def get_llm_decision(self):
 
@@ -110,5 +119,11 @@ class APIRequestHandler:
 
         if os.path.exists(temp_path) and temp_path != processed_path:
             os.remove(temp_path)
+
+        final_audio, sr = librosa.load(processed_path, sr=None)
+        final_audio_normalized = self.normalize_audio(final_audio)
+        wavfile.write(
+            processed_path, sr, (final_audio_normalized * 32767).astype(np.int16)
+        )
 
         return processed_path, used_stems
