@@ -1754,6 +1754,17 @@ void DjIaVstEditor::toggleWaveFormButtonOnTrack()
 	}
 }
 
+void DjIaVstEditor::restoreUICallbacks()
+{
+	for (auto& trackComp : trackComponents)
+	{
+		if (trackComp->getTrack())
+		{
+			trackComp->setupMidiLearn();
+		}
+	}
+}
+
 void DjIaVstEditor::toggleSEQButtonOnTrack()
 {
 	auto trackIds = audioProcessor.getAllTrackIds();

@@ -1152,4 +1152,32 @@ void TrackComponent::setupMidiLearn()
 	{ learn("RetriggerInterval"); };
 	intervalKnob.onMidiRemove = [this]()
 	{ removeMidiMapping("RetriggerInterval"); };
+
+	juce::String paramName = "promptSelector_slot" + juce::String(track->slotIndex + 1);
+	auto promptCallback = [this](float value)
+		{
+			juce::MessageManager::callAsync([this, value]()
+				{
+					int numItems = promptPresetSelector.getNumItems();
+					if (numItems > 0) {
+						int selectedIndex = (int)(value * (numItems - 1));
+						promptPresetSelector.setSelectedItemIndex(selectedIndex, juce::sendNotification);
+					}
+				});
+		};
+
+	audioProcessor.getMidiLearnManager().registerUICallback(paramName, promptCallback);
+	promptPresetSelector.onMidiLearn = [this, paramName, promptCallback]()
+		{
+			if (audioProcessor.getActiveEditor() && track && track->slotIndex != -1)
+			{
+				juce::String description = "Slot " + juce::String(track->slotIndex + 1) + " Prompt Selector";
+				audioProcessor.getMidiLearnManager().startLearning(paramName, &audioProcessor, promptCallback, description);
+			}
+		};
+
+	promptPresetSelector.onMidiRemove = [this, paramName]()
+		{
+			audioProcessor.getMidiLearnManager().removeMappingForParameter(paramName);
+		};
 }

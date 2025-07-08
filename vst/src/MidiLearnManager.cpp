@@ -320,6 +320,32 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
 				}
 				continue;
 			}
+			if (mapping.parameterName.startsWith("promptSelector_slot"))
+			{
+				if (mapping.uiCallback && mapping.processor->getActiveEditor())
+				{
+					mapping.uiCallback(value);
+
+					juce::MessageManager::callAsync([mapping, statusMessage]()
+						{
+							if (mapping.processor->getActiveEditor())
+							{
+								if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor()))
+								{
+									editor->statusLabel.setText(statusMessage, juce::dontSendNotification);
+									juce::Timer::callAfterDelay(2000, [mapping]() {
+										if (mapping.processor->getActiveEditor()) {
+											if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor())) {
+												editor->statusLabel.setText("Ready", juce::dontSendNotification);
+											}
+										}
+										});
+								}
+							}
+						});
+				}
+				continue;
+			}
 			auto *param = mapping.processor->getParameterTreeState().getParameter(mapping.parameterName);
 			if (param)
 			{
@@ -423,10 +449,19 @@ void MidiLearnManager::clearUICallbacks()
 	DBG("UI callbacks cleared");
 }
 
-void MidiLearnManager::registerUICallback(const juce::String &parameterName,
-										  std::function<void(float)> callback)
+void MidiLearnManager::registerUICallback(const juce::String& parameterName,
+	std::function<void(float)> callback)
 {
 	registeredUICallbacks[parameterName] = callback;
+	for (auto& mapping : mappings)
+	{
+		if (mapping.parameterName == parameterName)
+		{
+			mapping.uiCallback = callback;
+			DBG("Immediately restored callback for existing mapping: " + parameterName);
+			break;
+		}
+	}
 }
 
 void MidiLearnManager::restoreUICallbacks()

@@ -1225,6 +1225,10 @@ void DjIaVstProcessor::performTrackDeletion(const juce::String &trackId)
 		return;
 
 	int slotIndex = trackToDelete->slotIndex;
+	if (slotIndex != -1) {
+		getMidiLearnManager().removeMappingForParameter("promptSelector_slot" + juce::String(slotIndex + 1));
+		getMidiLearnManager().removeMappingsForSlot(slotIndex + 1);
+	}
 	auto trackIds = trackManager.getAllTrackIds();
 	int deletedTrackIndex = -1;
 	for (int i = 0; i < trackIds.size(); ++i)
@@ -2165,7 +2169,7 @@ double DjIaVstProcessor::getHostBpm() const
 	return 110.0;
 }
 
-juce::AudioProcessorEditor *DjIaVstProcessor::createEditor()
+juce::AudioProcessorEditor* DjIaVstProcessor::createEditor()
 {
 	currentEditor = new DjIaVstEditor(*this);
 	midiLearnManager.setEditor(currentEditor);
