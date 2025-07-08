@@ -550,6 +550,16 @@ void DjIaVstEditor::setupUI()
 	getLookAndFeel().setColour(juce::Slider::thumbColourId, ColourPalette::sliderThumb);
 	getLookAndFeel().setColour(juce::Slider::trackColourId, ColourPalette::sliderTrack);
 
+	addAndMakeVisible(nextTrackButton);
+	nextTrackButton.setButtonText("Next Track");
+	nextTrackButton.setTooltip("Select next track (Right-click for MIDI learn)");
+	nextTrackButton.setDescription("Next Track");
+
+	addAndMakeVisible(prevTrackButton);
+	prevTrackButton.setButtonText("Prev Track");
+	prevTrackButton.setTooltip("Select previous track (Right-click for MIDI learn)");
+	prevTrackButton.setDescription("Previous Track");
+
 	addAndMakeVisible(pluginNameLabel);
 	pluginNameLabel.setText("NEURAL SOUND ENGINE", juce::dontSendNotification);
 	pluginNameLabel.setFont(juce::FontOptions("Courier New", 22.0f, juce::Font::bold));
@@ -815,7 +825,7 @@ void DjIaVstEditor::setupUI()
 	savePresetButton.setTooltip("Save current prompt as custom preset");
 	keySelector.setTooltip("Select musical key and mode for generation");
 	durationSlider.setTooltip("Generation duration in seconds (2-10s)");
-	generateButton.setTooltip("Generate audio loop for selected track");
+	generateButton.setTooltip("Generate audio loop for selected track (Right-click for MIDI learn)");
 	configButton.setTooltip("Configure API settings and generation mode");
 	drumsButton.setTooltip("Include drums stem in generation");
 	bassButton.setTooltip("Include bass stem in generation");
@@ -843,8 +853,6 @@ void DjIaVstEditor::addEventListeners()
 	{ onAutoLoadToggled(); };
 	loadSampleButton.onClick = [this]
 	{ onLoadSampleClicked(); };
-	generateButton.onClick = [this]
-	{ onGenerateButtonClicked(); };
 	savePresetButton.onClick = [this]
 	{ onSavePreset(); };
 	promptPresetSelector.onChange = [this]
@@ -970,6 +978,66 @@ void DjIaVstEditor::addEventListeners()
 			statusLabel.setText("Sequencer mode - Armed playback", juce::dontSendNotification);
 		}
 	};
+
+	nextTrackButton.onMidiLearn = [this]()
+		{
+			audioProcessor.getMidiLearnManager().startLearning(
+				"nextTrack",
+				&audioProcessor,
+				nullptr,
+				"Next Track"
+			);
+		};
+
+	nextTrackButton.onMidiRemove = [this]()
+		{
+			audioProcessor.getMidiLearnManager().removeMappingForParameter("nextTrack");
+		};
+
+	nextTrackButton.onClick = [this]()
+		{
+			audioProcessor.selectNextTrack();
+		};
+
+	prevTrackButton.onMidiLearn = [this]()
+		{
+			audioProcessor.getMidiLearnManager().startLearning(
+				"prevTrack",
+				&audioProcessor,
+				nullptr,
+				"Previous Track"
+			);
+		};
+
+	prevTrackButton.onMidiRemove = [this]()
+		{
+			audioProcessor.getMidiLearnManager().removeMappingForParameter("prevTrack");
+		};
+
+	prevTrackButton.onClick = [this]()
+		{
+			audioProcessor.selectPreviousTrack();
+		};
+
+	generateButton.onMidiLearn = [this]()
+		{
+			audioProcessor.getMidiLearnManager().startLearning(
+				"generate",
+				&audioProcessor,
+				nullptr,
+				"Generate Loop"
+			);
+		};
+
+	generateButton.onMidiRemove = [this]()
+		{
+			audioProcessor.getMidiLearnManager().removeMappingForParameter("generate");
+		};
+
+	generateButton.onClick = [this]()
+		{
+			onGenerateButtonClicked();
+		};
 }
 
 void DjIaVstEditor::notifyTracksPromptUpdate()
@@ -1238,12 +1306,15 @@ void DjIaVstEditor::resized()
 	}
 
 	auto buttonsRow = area.removeFromTop(35);
-	auto buttonWidth = buttonsRow.getWidth() / 6;
+	auto buttonWidth = buttonsRow.getWidth() / 8;
 	autoLoadButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
+	bypassSequencerButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
 	addTrackButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
 	generateButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
 	loadSampleButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
-	bypassSequencerButton.setBounds(buttonsRow.removeFromLeft(buttonWidth).reduced(5));
+	auto trackNavArea = buttonsRow.removeFromRight(buttonWidth * 2);
+	prevTrackButton.setBounds(trackNavArea.removeFromLeft(buttonWidth).reduced(5));
+	nextTrackButton.setBounds(trackNavArea.reduced(5));
 	resetUIButton.setBounds(buttonsRow.reduced(5));
 
 	bottomArea.removeFromTop(spacing);
@@ -1318,6 +1389,7 @@ void DjIaVstEditor::stopGenerationUI(const juce::String &trackId, bool success, 
 
 void DjIaVstEditor::onGenerateButtonClicked()
 {
+	audioProcessor.syncSelectedTrackWithGlobalPrompt();
 	audioProcessor.setIsGenerating(true);
 	juce::String serverUrl = audioProcessor.getServerUrl();
 	juce::String apiKey = audioProcessor.getApiKey();

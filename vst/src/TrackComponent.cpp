@@ -1107,6 +1107,25 @@ void TrackComponent::toggleSequencerDisplay()
 	resized();
 }
 
+void TrackComponent::updatePromptSelection(const juce::String& promptText)
+{
+	if (!track)
+		return;
+
+	track->selectedPrompt = promptText;
+
+	for (int i = 0; i < promptPresetSelector.getNumItems(); ++i)
+	{
+		if (promptPresetSelector.getItemText(i) == promptText)
+		{
+			promptPresetSelector.setSelectedItemIndex(i, juce::sendNotification);
+			break;
+		}
+	}
+
+	repaint();
+}
+
 void TrackComponent::learn(juce::String param, std::function<void(float)> uiCallback)
 {
 	if (audioProcessor.getActiveEditor() && track && track->slotIndex != -1)

@@ -29,8 +29,7 @@ juce::AudioProcessor::BusesProperties DjIaVstProcessor::createBusLayout()
 
 DjIaVstProcessor::DjIaVstProcessor()
 	: AudioProcessor(createBusLayout()), apiClient("", "http://localhost:8000"),
-	  parameters(*this, nullptr, "Parameters", {std::make_unique<juce::AudioParameterBool>("generate", "Generate Loop", false), std::make_unique<juce::AudioParameterBool>("play", "Play Loop", false), std::make_unique<juce::AudioParameterFloat>("bpm", "BPM", 60.0f, 200.0f, 126.0f), std::make_unique<juce::AudioParameterFloat>("masterVolume", "Master Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("masterPan", "Master Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("masterHigh", "Master High EQ", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("masterMid", "Master Mid EQ", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("masterLow", "Master Low EQ", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot1Volume", "Slot 1 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot1Pan", "Slot 1 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot1Mute", "Slot 1 Mute", false), std::make_unique<juce::AudioParameterBool>("slot1Solo", "Slot 1 Solo", false), std::make_unique<juce::AudioParameterBool>("slot1Play", "Slot 1 Play", false), std::make_unique<juce::AudioParameterBool>("slot1Stop", "Slot 1 Stop", false), std::make_unique<juce::AudioParameterBool>("slot1Generate", "Slot 1 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot1Pitch", "Slot 1 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot1Fine", "Slot 1 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot1BpmOffset", "Slot 1 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot2Volume", "Slot 2 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot2Pan", "Slot 2 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot2Mute", "Slot 2 Mute", false), std::make_unique<juce::AudioParameterBool>("slot2Solo", "Slot 2 Solo", false), std::make_unique<juce::AudioParameterBool>("slot2Play", "Slot 2 Play", false), std::make_unique<juce::AudioParameterBool>("slot2Stop", "Slot 2 Stop", false), std::make_unique<juce::AudioParameterBool>("slot2Generate", "Slot 2 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot2Pitch", "Slot 2 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot2Fine", "Slot 2 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot2BpmOffset", "Slot 2 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot3Volume", "Slot 3 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot3Pan", "Slot 3 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot3Mute", "Slot 3 Mute", false), std::make_unique<juce::AudioParameterBool>("slot3Solo", "Slot 3 Solo", false), std::make_unique<juce::AudioParameterBool>("slot3Play", "Slot 3 Play", false), std::make_unique<juce::AudioParameterBool>("slot3Stop", "Slot 3 Stop", false), std::make_unique<juce::AudioParameterBool>("slot3Generate", "Slot 3 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot3Pitch", "Slot 3 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot3Fine", "Slot 3 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot3BpmOffset", "Slot 3 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot4Volume", "Slot 4 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot4Pan", "Slot 4 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot4Mute", "Slot 4 Mute", false), std::make_unique<juce::AudioParameterBool>("slot4Solo", "Slot 4 Solo", false), std::make_unique<juce::AudioParameterBool>("slot4Play", "Slot 4 Play", false), std::make_unique<juce::AudioParameterBool>("slot4Stop", "Slot 4 Stop", false), std::make_unique<juce::AudioParameterBool>("slot4Generate", "Slot 4 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot4Pitch", "Slot 4 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot4Fine", "Slot 4 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot4BpmOffset", "Slot 4 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot5Volume", "Slot 5 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot5Pan", "Slot 5 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot5Mute", "Slot 5 Mute", false), std::make_unique<juce::AudioParameterBool>("slot5Solo", "Slot 5 Solo", false), std::make_unique<juce::AudioParameterBool>("slot5Play", "Slot 5 Play", false), std::make_unique<juce::AudioParameterBool>("slot5Stop", "Slot 5 Stop", false), std::make_unique<juce::AudioParameterBool>("slot5Generate", "Slot 5 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot5Pitch", "Slot 5 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot5Fine", "Slot 5 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot5BpmOffset", "Slot 5 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot6Volume", "Slot 6 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot6Pan", "Slot 6 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot6Mute", "Slot 6 Mute", false), std::make_unique<juce::AudioParameterBool>("slot6Solo", "Slot 6 Solo", false), std::make_unique<juce::AudioParameterBool>("slot6Play", "Slot 6 Play", false), std::make_unique<juce::AudioParameterBool>("slot6Stop", "Slot 6 Stop", false), std::make_unique<juce::AudioParameterBool>("slot6Generate", "Slot 6 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot6Pitch", "Slot 6 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot6Fine", "Slot 6 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot6BpmOffset", "Slot 6 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot7Volume", "Slot 7 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot7Pan", "Slot 7 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot7Mute", "Slot 7 Mute", false), std::make_unique<juce::AudioParameterBool>("slot7Solo", "Slot 7 Solo", false), std::make_unique<juce::AudioParameterBool>("slot7Play", "Slot 7 Play", false), std::make_unique<juce::AudioParameterBool>("slot7Stop", "Slot 7 Stop", false), std::make_unique<juce::AudioParameterBool>("slot7Generate", "Slot 7 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot7Pitch", "Slot 7 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot7Fine", "Slot 7 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot7BpmOffset", "Slot 7 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot8Volume", "Slot 8 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot8Pan", "Slot 8 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot8Mute", "Slot 8 Mute", false), std::make_unique<juce::AudioParameterBool>("slot8Solo", "Slot 8 Solo", false), std::make_unique<juce::AudioParameterBool>("slot8Play", "Slot 8 Play", false), std::make_unique<juce::AudioParameterBool>("slot8Stop", "Slot 8 Stop", false), std::make_unique<juce::AudioParameterBool>("slot8Generate", "Slot 8 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot8Pitch", "Slot 8 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot8Fine", "Slot 8 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot8BpmOffset", "Slot 8 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot1RandomRetrigger", "Slot 1 Random Retrigger", false), std::make_unique<juce::AudioParameterFloat>("slot1RetriggerInterval", "Slot 1 Retrigger Interval", juce::NormalisableRange<float>(1.0f, 10.0f, 1.0f), 3.0f), std::make_unique<juce::AudioParameterBool>("slot2RandomRetrigger", "Slot 2 Random Retrigger", false), std::make_unique<juce::AudioParameterFloat>("slot2RetriggerInterval", "Slot 2 Retrigger Interval", juce::NormalisableRange<float>(1.0f, 10.0f, 1.0f), 3.0f), std::make_unique<juce::AudioParameterBool>("slot3RandomRetrigger", "Slot 3 Random Retrigger", false), std::make_unique<juce::AudioParameterFloat>("slot3RetriggerInterval", "Slot 3 Retrigger Interval", juce::NormalisableRange<float>(1.0f, 10.0f, 1.0f), 3.0f), std::make_unique<juce::AudioParameterBool>("slot4RandomRetrigger", "Slot 4 Random Retrigger", false), std::make_unique<juce::AudioParameterFloat>("slot4RetriggerInterval", "Slot 4 Retrigger Interval", juce::NormalisableRange<float>(1.0f, 10.0f, 1.0f), 3.0f), std::make_unique<juce::AudioParameterBool>("slot5RandomRetrigger", "Slot 5 Random Retrigger", false), std::make_unique<juce::AudioParameterFloat>("slot5RetriggerInterval", "Slot 5 Retrigger Interval", juce::NormalisableRange<float>(1.0f, 10.0f, 1.0f), 3.0f), std::make_unique<juce::AudioParameterBool>("slot6RandomRetrigger", "Slot 6 Random Retrigger", false), std::make_unique<juce::AudioParameterFloat>("slot6RetriggerInterval", "Slot 6 Retrigger Interval", juce::NormalisableRange<float>(1.0f, 10.0f, 1.0f), 3.0f), std::make_unique<juce::AudioParameterBool>("slot7RandomRetrigger", "Slot 7 Random Retrigger", false), std::make_unique<juce::AudioParameterFloat>("slot7RetriggerInterval", "Slot 7 Retrigger Interval", juce::NormalisableRange<float>(1.0f, 10.0f, 1.0f), 3.0f), std::make_unique<juce::AudioParameterBool>("slot8RandomRetrigger", "Slot 8 Random Retrigger", false), std::make_unique<juce::AudioParameterFloat>("slot8RetriggerInterval", "Slot 8 Retrigger Interval", juce::NormalisableRange<float>(1.0f, 10.0f, 1.0f), 3.0f)}
-
+	  parameters(*this, nullptr, "Parameters", {std::make_unique<juce::AudioParameterBool>("generate", "Generate Loop", false), std::make_unique<juce::AudioParameterBool>("play", "Play Loop", false), std::make_unique<juce::AudioParameterFloat>("bpm", "BPM", 60.0f, 200.0f, 126.0f), std::make_unique<juce::AudioParameterFloat>("masterVolume", "Master Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("masterPan", "Master Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("masterHigh", "Master High EQ", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("masterMid", "Master Mid EQ", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("masterLow", "Master Low EQ", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot1Volume", "Slot 1 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot1Pan", "Slot 1 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot1Mute", "Slot 1 Mute", false), std::make_unique<juce::AudioParameterBool>("slot1Solo", "Slot 1 Solo", false), std::make_unique<juce::AudioParameterBool>("slot1Play", "Slot 1 Play", false), std::make_unique<juce::AudioParameterBool>("slot1Stop", "Slot 1 Stop", false), std::make_unique<juce::AudioParameterBool>("slot1Generate", "Slot 1 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot1Pitch", "Slot 1 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot1Fine", "Slot 1 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot1BpmOffset", "Slot 1 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot2Volume", "Slot 2 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot2Pan", "Slot 2 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot2Mute", "Slot 2 Mute", false), std::make_unique<juce::AudioParameterBool>("slot2Solo", "Slot 2 Solo", false), std::make_unique<juce::AudioParameterBool>("slot2Play", "Slot 2 Play", false), std::make_unique<juce::AudioParameterBool>("slot2Stop", "Slot 2 Stop", false), std::make_unique<juce::AudioParameterBool>("slot2Generate", "Slot 2 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot2Pitch", "Slot 2 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot2Fine", "Slot 2 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot2BpmOffset", "Slot 2 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot3Volume", "Slot 3 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot3Pan", "Slot 3 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot3Mute", "Slot 3 Mute", false), std::make_unique<juce::AudioParameterBool>("slot3Solo", "Slot 3 Solo", false), std::make_unique<juce::AudioParameterBool>("slot3Play", "Slot 3 Play", false), std::make_unique<juce::AudioParameterBool>("slot3Stop", "Slot 3 Stop", false), std::make_unique<juce::AudioParameterBool>("slot3Generate", "Slot 3 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot3Pitch", "Slot 3 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot3Fine", "Slot 3 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot3BpmOffset", "Slot 3 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot4Volume", "Slot 4 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot4Pan", "Slot 4 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot4Mute", "Slot 4 Mute", false), std::make_unique<juce::AudioParameterBool>("slot4Solo", "Slot 4 Solo", false), std::make_unique<juce::AudioParameterBool>("slot4Play", "Slot 4 Play", false), std::make_unique<juce::AudioParameterBool>("slot4Stop", "Slot 4 Stop", false), std::make_unique<juce::AudioParameterBool>("slot4Generate", "Slot 4 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot4Pitch", "Slot 4 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot4Fine", "Slot 4 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot4BpmOffset", "Slot 4 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot5Volume", "Slot 5 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot5Pan", "Slot 5 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot5Mute", "Slot 5 Mute", false), std::make_unique<juce::AudioParameterBool>("slot5Solo", "Slot 5 Solo", false), std::make_unique<juce::AudioParameterBool>("slot5Play", "Slot 5 Play", false), std::make_unique<juce::AudioParameterBool>("slot5Stop", "Slot 5 Stop", false), std::make_unique<juce::AudioParameterBool>("slot5Generate", "Slot 5 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot5Pitch", "Slot 5 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot5Fine", "Slot 5 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot5BpmOffset", "Slot 5 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot6Volume", "Slot 6 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot6Pan", "Slot 6 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot6Mute", "Slot 6 Mute", false), std::make_unique<juce::AudioParameterBool>("slot6Solo", "Slot 6 Solo", false), std::make_unique<juce::AudioParameterBool>("slot6Play", "Slot 6 Play", false), std::make_unique<juce::AudioParameterBool>("slot6Stop", "Slot 6 Stop", false), std::make_unique<juce::AudioParameterBool>("slot6Generate", "Slot 6 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot6Pitch", "Slot 6 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot6Fine", "Slot 6 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot6BpmOffset", "Slot 6 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot7Volume", "Slot 7 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot7Pan", "Slot 7 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot7Mute", "Slot 7 Mute", false), std::make_unique<juce::AudioParameterBool>("slot7Solo", "Slot 7 Solo", false), std::make_unique<juce::AudioParameterBool>("slot7Play", "Slot 7 Play", false), std::make_unique<juce::AudioParameterBool>("slot7Stop", "Slot 7 Stop", false), std::make_unique<juce::AudioParameterBool>("slot7Generate", "Slot 7 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot7Pitch", "Slot 7 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot7Fine", "Slot 7 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot7BpmOffset", "Slot 7 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot8Volume", "Slot 8 Volume", 0.0f, 1.0f, 0.8f), std::make_unique<juce::AudioParameterFloat>("slot8Pan", "Slot 8 Pan", -1.0f, 1.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot8Mute", "Slot 8 Mute", false), std::make_unique<juce::AudioParameterBool>("slot8Solo", "Slot 8 Solo", false), std::make_unique<juce::AudioParameterBool>("slot8Play", "Slot 8 Play", false), std::make_unique<juce::AudioParameterBool>("slot8Stop", "Slot 8 Stop", false), std::make_unique<juce::AudioParameterBool>("slot8Generate", "Slot 8 Generate", false), std::make_unique<juce::AudioParameterFloat>("slot8Pitch", "Slot 8 Pitch", -12.0f, 12.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot8Fine", "Slot 8 Fine", -50.0f, 50.0f, 0.0f), std::make_unique<juce::AudioParameterFloat>("slot8BpmOffset", "Slot 8 BPM Offset", -20.0f, 20.0f, 0.0f), std::make_unique<juce::AudioParameterBool>("slot1RandomRetrigger", "Slot 1 Random Retrigger", false), std::make_unique<juce::AudioParameterFloat>("slot1RetriggerInterval", "Slot 1 Retrigger Interval", juce::NormalisableRange<float>(1.0f, 10.0f, 1.0f), 3.0f), std::make_unique<juce::AudioParameterBool>("slot2RandomRetrigger", "Slot 2 Random Retrigger", false), std::make_unique<juce::AudioParameterFloat>("slot2RetriggerInterval", "Slot 2 Retrigger Interval", juce::NormalisableRange<float>(1.0f, 10.0f, 1.0f), 3.0f), std::make_unique<juce::AudioParameterBool>("slot3RandomRetrigger", "Slot 3 Random Retrigger", false), std::make_unique<juce::AudioParameterFloat>("slot3RetriggerInterval", "Slot 3 Retrigger Interval", juce::NormalisableRange<float>(1.0f, 10.0f, 1.0f), 3.0f), std::make_unique<juce::AudioParameterBool>("slot4RandomRetrigger", "Slot 4 Random Retrigger", false), std::make_unique<juce::AudioParameterFloat>("slot4RetriggerInterval", "Slot 4 Retrigger Interval", juce::NormalisableRange<float>(1.0f, 10.0f, 1.0f), 3.0f), std::make_unique<juce::AudioParameterBool>("slot5RandomRetrigger", "Slot 5 Random Retrigger", false), std::make_unique<juce::AudioParameterFloat>("slot5RetriggerInterval", "Slot 5 Retrigger Interval", juce::NormalisableRange<float>(1.0f, 10.0f, 1.0f), 3.0f), std::make_unique<juce::AudioParameterBool>("slot6RandomRetrigger", "Slot 6 Random Retrigger", false), std::make_unique<juce::AudioParameterFloat>("slot6RetriggerInterval", "Slot 6 Retrigger Interval", juce::NormalisableRange<float>(1.0f, 10.0f, 1.0f), 3.0f), std::make_unique<juce::AudioParameterBool>("slot7RandomRetrigger", "Slot 7 Random Retrigger", false), std::make_unique<juce::AudioParameterFloat>("slot7RetriggerInterval", "Slot 7 Retrigger Interval", juce::NormalisableRange<float>(1.0f, 10.0f, 1.0f), 3.0f), std::make_unique<juce::AudioParameterBool>("slot8RandomRetrigger", "Slot 8 Random Retrigger", false), std::make_unique<juce::AudioParameterFloat>("slot8RetriggerInterval", "Slot 8 Retrigger Interval", juce::NormalisableRange<float>(1.0f, 10.0f, 1.0f), 3.0f), std::make_unique<juce::AudioParameterBool>("nextTrack", "Next Track", false), std::make_unique<juce::AudioParameterBool>("prevTrack", "Previous Track", false) }
 	  )
 {
 	projectId = "legacy";
@@ -296,6 +295,12 @@ void DjIaVstProcessor::loadParameters()
 		slotRetriggerIntervalParams[i] = parameters.getRawParameterValue(slotName + "RetriggerInterval");
 	}
 
+	nextTrackParam = parameters.getRawParameterValue("nextTrack");
+	prevTrackParam = parameters.getRawParameterValue("prevTrack");
+
+	parameters.addParameterListener("nextTrack", this);
+	parameters.addParameterListener("prevTrack", this);
+
 	parameters.addParameterListener("generate", this);
 	parameters.addParameterListener("play", this);
 }
@@ -317,6 +322,8 @@ void DjIaVstProcessor::cleanProcessor()
 {
 	parameters.removeParameterListener("generate", this);
 	parameters.removeParameterListener("play", this);
+	parameters.removeParameterListener("nextTrack", this);
+	parameters.removeParameterListener("prevTrack", this);
 	for (int i = 1; i <= 8; ++i)
 	{
 		parameters.removeParameterListener("slot" + juce::String(i) + "Generate", this);
@@ -2515,13 +2522,193 @@ void DjIaVstProcessor::updateAllWaveformsAfterLoad()
 	}
 }
 
-void DjIaVstProcessor::parameterChanged(const juce::String &parameterID, float newValue)
+void DjIaVstProcessor::parameterChanged(const juce::String& parameterID, float newValue)
 {
 	if (parameterID == "generate" && newValue > 0.5f)
 	{
 		juce::MessageManager::callAsync([this]()
-										{ parameters.getParameter("generate")->setValueNotifyingHost(0.0f); });
+			{ parameters.getParameter("generate")->setValueNotifyingHost(0.0f); });
 	}
+	else if (parameterID == "nextTrack" && newValue > 0.5f)
+	{
+		selectNextTrack();
+		juce::MessageManager::callAsync([this]()
+			{ parameters.getParameter("nextTrack")->setValueNotifyingHost(0.0f); });
+	}
+	else if (parameterID == "prevTrack" && newValue > 0.5f)
+	{
+		selectPreviousTrack();
+		juce::MessageManager::callAsync([this]()
+			{ parameters.getParameter("prevTrack")->setValueNotifyingHost(0.0f); });
+	}
+}
+
+void DjIaVstProcessor::selectNextTrack()
+{
+	auto trackIds = trackManager.getAllTrackIds();
+	if (trackIds.size() <= 1) return;
+
+	int currentIndex = -1;
+	for (size_t i = 0; i < trackIds.size(); ++i)  
+	{
+		if (trackIds[i] == selectedTrackId)
+		{
+			currentIndex = static_cast<int>(i);
+			break;
+		}
+	}
+
+	if (currentIndex >= 0)
+	{
+		size_t nextIndex = (static_cast<size_t>(currentIndex) + 1) % trackIds.size();
+		selectedTrackId = trackIds[nextIndex];
+
+		juce::MessageManager::callAsync([this]()
+			{
+				if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
+				{
+					editor->updateSelectedTrack();
+					TrackData* track = trackManager.getTrack(selectedTrackId);
+					if (track)
+					{
+						editor->setStatusWithTimeout("Selected: " + track->trackName, 2000);
+					}
+				}
+			});
+	}
+}
+
+void DjIaVstProcessor::selectPreviousTrack()
+{
+	auto trackIds = trackManager.getAllTrackIds();
+	if (trackIds.size() <= 1) return;
+
+	int currentIndex = -1;
+	for (size_t i = 0; i < trackIds.size(); ++i) 
+	{
+		if (trackIds[i] == selectedTrackId)
+		{
+			currentIndex = static_cast<int>(i);  
+			break;
+		}
+	}
+
+	if (currentIndex >= 0)
+	{
+		size_t trackCount = trackIds.size();
+		size_t prevIndex = (static_cast<size_t>(currentIndex) + trackCount - 1) % trackCount;
+		selectedTrackId = trackIds[prevIndex];
+
+		juce::MessageManager::callAsync([this]()
+			{
+				if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
+				{
+					editor->updateSelectedTrack();
+					TrackData* track = trackManager.getTrack(selectedTrackId);
+					if (track)
+					{
+						editor->setStatusWithTimeout("Selected: " + track->trackName, 2000);
+					}
+				}
+			});
+	}
+}
+
+void DjIaVstProcessor::triggerGlobalGeneration()
+{
+	if (isGenerating)
+	{
+		juce::MessageManager::callAsync([this]()
+			{
+				if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
+				{
+					editor->setStatusWithTimeout("Generation already in progress, please wait", 3000);
+				}
+			});
+		return;
+	}
+
+	if (selectedTrackId.isEmpty())
+	{
+		juce::MessageManager::callAsync([this]()
+			{
+				if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
+				{
+					editor->setStatusWithTimeout("No track selected for generation", 3000);
+				}
+			});
+		return;
+	}
+
+	syncSelectedTrackWithGlobalPrompt();
+
+	juce::MessageManager::callAsync([this]()
+		{
+			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
+			{
+				editor->onGenerateButtonClicked();
+			}
+			else
+			{
+				generateLoopFromGlobalSettings();
+			}
+		});
+}
+
+void DjIaVstProcessor::syncSelectedTrackWithGlobalPrompt()
+{
+	TrackData* track = trackManager.getTrack(selectedTrackId);
+	if (!track)
+		return;
+
+	juce::String currentGlobalPrompt = getGlobalPrompt();
+
+	track->selectedPrompt = currentGlobalPrompt;
+
+	juce::MessageManager::callAsync([this, currentGlobalPrompt]()
+		{
+			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
+			{
+				for (auto& trackComp : editor->getTrackComponents())
+				{
+					if (trackComp->getTrackId() == selectedTrackId)
+					{
+						trackComp->updatePromptSelection(currentGlobalPrompt);
+						break;
+					}
+				}
+
+				editor->setStatusWithTimeout("Track prompt synced: " + currentGlobalPrompt.substring(0, 30) + "...", 2000);
+			}
+		});
+}
+
+void DjIaVstProcessor::generateLoopFromGlobalSettings()
+{
+	if (isGenerating)
+		return;
+
+	TrackData* track = trackManager.getTrack(selectedTrackId);
+	if (!track)
+		return;
+
+	syncSelectedTrackWithGlobalPrompt();
+	setIsGenerating(true);
+	setGeneratingTrackId(selectedTrackId);
+
+	juce::Thread::launch([this]()
+		{
+			try
+			{
+				auto request = createGlobalLoopRequest();
+				generateLoop(request, selectedTrackId);
+			}
+			catch (const std::exception& /*e*/)
+			{
+				setIsGenerating(false);
+				setGeneratingTrackId("");
+			}
+		});
 }
 
 void DjIaVstProcessor::removeCustomPrompt(const juce::String &prompt)

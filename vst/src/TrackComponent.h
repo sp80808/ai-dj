@@ -76,6 +76,7 @@ public:
 	void toggleSequencerDisplay();
 	void updatePromptPresets(const juce::StringArray &presets);
 	void setupMidiLearn();
+	void updatePromptSelection(const juce::String& promptText);
 
 	bool isEditingLabel = false;
 	MidiLearnableComboBox promptPresetSelector;

@@ -225,6 +225,10 @@ public:
 	bool getBypassSequencer() const { return bypassSequencer.load(); }
 	void setBypassSequencer(bool bypass) { bypassSequencer.store(bypass); }
 	double calculateRetriggerInterval(int intervalValue, double hostBpm) const;
+	void selectNextTrack();
+	void selectPreviousTrack();
+	void triggerGlobalGeneration();
+	void syncSelectedTrackWithGlobalPrompt();
 
 private:
 	DjIaVstEditor* currentEditor = nullptr;
@@ -235,6 +239,8 @@ private:
 	juce::String projectId;
 	bool migrationCompleted = false;
 
+	std::atomic<float>* nextTrackParam = nullptr;
+	std::atomic<float>* prevTrackParam = nullptr;
 	std::atomic<int64_t> internalSampleCounter{ 0 };
 	std::atomic<double> lastHostBpmForQuantization{ 120.0 };
 
@@ -321,7 +327,8 @@ private:
 		"slot5Mute", "slot5Solo", "slot5Play", "slot5Stop", "slot5Generate",
 		"slot6Mute", "slot6Solo", "slot6Play", "slot6Stop", "slot6Generate",
 		"slot7Mute", "slot7Solo", "slot7Play", "slot7Stop", "slot7Generate",
-		"slot8Mute", "slot8Solo", "slot8Play", "slot8Stop", "slot8Generate" };
+		"slot8Mute", "slot8Solo", "slot8Play", "slot8Stop", "slot8Generate",   
+		"nextTrack", "prevTrack" };
 
 	juce::StringArray floatParamIds = {
 		"bpm", "masterVolume", "masterPan", "masterHigh", "masterMid", "masterLow",
@@ -441,6 +448,7 @@ private:
 	void performMigrationIfNeeded();
 	void updateTrackPathsAfterMigration();
 	void checkBeatRepeatWithSampleCounter();
+	void generateLoopFromGlobalSettings();
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor);
 };
