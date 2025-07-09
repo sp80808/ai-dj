@@ -260,9 +260,11 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git pull --rebase origin main
+
           git add bin/
           git commit -m "Update binaries [skip ci]" || exit 0
+
+          git pull --rebase origin main
           git push
 
   create-release:
