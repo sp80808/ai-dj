@@ -2,9 +2,9 @@ name: Build VST - All Platforms
 
 on:
   push:
-    branches: [main, macosPKG]
+    branches: [main, dev]
   pull_request:
-    branches: [main, macosPKG]
+    branches: [main, dev]
 
 permissions:
   contents: write
@@ -245,13 +245,8 @@ jobs:
 
       - name: Organize binaries
         run: |
+          rm -rf bin/*
           mkdir -p bin
-
-          if [ -f "bin/obsidian-server-windows.exe" ]; then
-            cp bin/obsidian-server-windows.exe bin/OBSIDIAN-Neural-Server.exe
-          else
-            echo "Warning: Windows executable not found in repo"
-          fi
 
           if [ -d "ObsidianNeural-Python-macos" ]; then
             cp ObsidianNeural-Python-macos/obsidian-server-macos bin/OBSIDIAN-Neural-Server-macos
@@ -292,6 +287,9 @@ jobs:
 
       - name: Create release assets
         run: |
+          # Copy installer.py for Windows users
+          cp installer.py ./OBSIDIAN-Neural-Installer.py
+
           # VST3 plugins
           if [ -d "ObsidianNeural-Windows-VST3" ]; then
             cd ObsidianNeural-Windows-VST3
@@ -316,11 +314,6 @@ jobs:
             cp "ObsidianNeural-macOS-DMG/OBSIDIAN-Neural-Installer-macOS.dmg" ./
           fi
 
-          # Windows installer
-          if [ -f "bin/obsidian-installer-windows.exe" ]; then
-            cp bin/obsidian-installer-windows.exe ./OBSIDIAN-Neural-Installer-Windows.exe
-          fi
-
           # Linux installer
           if [ -d "ObsidianNeural-Python-linux" ]; then
             cp ObsidianNeural-Python-linux/obsidian-installer-linux ./OBSIDIAN-Neural-Installer-Linux
@@ -341,16 +334,35 @@ jobs:
 
             ### 📥 Quick Install
               Download the installer for your platform:
+              - **Windows**: `OBSIDIAN-Neural-Installer.py` (requires Python 3.10+)
               - **macOS**: 
                 - `OBSIDIAN-Neural-Installer-macOS.dmg` (double-click to mount, then run the installer)
                 - `OBSIDIAN-Neural-Installer-macOS.pkg` (double-click to install system-wide)
-              - **Windows**: `OBSIDIAN-Neural-Installer-Windows.exe` (run as admin)
               - **Linux**: `OBSIDIAN-Neural-Installer-Linux`
 
               ### 🎛️ VST3 Plugins (for DAWs)
               - **Windows**: `OBSIDIAN-Neural-Windows-VST3.zip`
               - **macOS**: `OBSIDIAN-Neural-macOS-VST3.zip`
               - **Linux**: `OBSIDIAN-Neural-Linux-VST3.tar.gz`
+
+            ---
+
+            ## 🪟 Windows Installation
+
+            **Requirements:** Python 3.10+ installed from [python.org](https://python.org)
+
+            1. **Download** `OBSIDIAN-Neural-Installer.py` from the assets below
+            2. **Run** `python OBSIDIAN-Neural-Installer.py` 
+            3. **Follow** the installation prompts
+
+            The installer will automatically:
+            - Set up virtual environment
+            - Install all dependencies
+            - Download AI models
+            - Configure the system
+            - Optionally build VST plugin
+
+            **Alternative:** Clone the repo and run `python installer.py`
 
             ---
 
@@ -382,8 +394,8 @@ jobs:
           files: |
             OBSIDIAN-Neural-Installer-macOS.dmg
             OBSIDIAN-Neural-Installer-macOS.pkg
-            OBSIDIAN-Neural-Installer-Windows.exe
             OBSIDIAN-Neural-Installer-Linux
+            OBSIDIAN-Neural-Installer.py
             OBSIDIAN-Neural-*-VST3.*
           draft: false
           prerelease: false

@@ -2,6 +2,12 @@
 
 🎵 **Real-time AI music generation VST3 plugin for live performance**
 
+---
+
+**🌟 Love this project? [☕ Support development](https://paypal.me/ateliersauvage47) - keeps it free & open source!**
+
+---
+
 ### 🎓 **Base Tutorial**
 
 [![OBSIDIAN-Neural Tutorial](./assets/tuto.png)](https://youtu.be/-qdFo_PcKoY)
@@ -40,13 +46,11 @@ Let's build a community of AI-human musical chaos! 🤖🎵
 
 ---
 
-## 🚀 **MAJOR UPDATE: Local Models Now Available!**
+## 🚀 **Installation Options**
 
-**🎉 The current release runs completely offline with local TensorFlow Lite models!**
+### 📦 **Option 1: Local Models**
 
-Special thanks to [@fcaspe](https://github.com/fcaspe) for introducing me to audiogen and putting me on this path! This completely solves OBSIDIAN-Neural's main pain point: server dependencies and resource requirements.
-
-### 📦 **Current Release**
+**🎉 Runs completely offline with local TensorFlow Lite models!**
 
 **No more servers, Python, or GPU requirements!**
 
@@ -76,7 +80,7 @@ Special thanks to [@fcaspe](https://github.com/fcaspe) for introducing me to aud
 
 ## 🎯 **Alternative Options (if local doesn't work for you):**
 
-### 🚀 **Option 1: Beta Testing**
+### 🚀 **Option 2: Beta Testing**
 
 **Get FREE API access - No setup required!**
 
@@ -84,121 +88,126 @@ Special thanks to [@fcaspe](https://github.com/fcaspe) for introducing me to aud
 - Download VST3 from [Releases](https://github.com/innermost47/ai-dj/releases)
 - **Contact:** b03caa1n5@mozmail.com
 
-### 🔧 **Option 2: Windows Installer (Self-Hosting)**
+### 🔧 **Option 3: Build from Source (Self-Hosting)**
 
-**Complete setup with local server - addresses installation complexity!**
+**Complete control with local server - for developers and advanced users!**
 
 #### **Prerequisites:**
 
-1. **Get Stability AI access**: [Request access](https://huggingface.co/stabilityai/stable-audio-open-1.0) to Stable Audio Open on Hugging Face
-2. **Wait for approval**: Usually takes a few minutes to a few hours
-3. **Run as Administrator**: The installer requires admin rights for system-wide installations
+1. **Python 3.10+** installed from [python.org](https://python.org)
+2. **Get Stability AI access**: [Request access](https://huggingface.co/stabilityai/stable-audio-open-1.0) to Stable Audio Open on Hugging Face
+3. **Wait for approval**: Usually takes a few minutes to a few hours
 
-#### **Installation:**
+#### **Installation Steps:**
 
-- Download the [.exe installer](https://github.com/innermost47/ai-dj/releases)
-- **Optional**: Download VST3 separately from [Releases](https://github.com/innermost47/ai-dj/releases)
-- **Space requirements**: ~20GB total installation
+**🪟 Windows:**
 
-**What the installer automatically installs:**
+```bash
+# Download the Python installer
+# From releases: OBSIDIAN-Neural-Installer.py
+python OBSIDIAN-Neural-Installer.py
 
-- **Python 3.10** (if not detected)
-- **Git** (for source code management)
-- **CMake** (build system for VST compilation)
-- **Visual Studio Build Tools** (Windows compiler)
-- **CUDA Toolkit** (if NVIDIA GPU detected)
-- **PyTorch** (with CUDA/ROCm support based on your GPU)
-- **All Python dependencies** (FastAPI, Stable Audio Tools, etc.)
+# Alternative: Clone and build
+git clone https://github.com/innermost47/ai-dj.git
+cd ai-dj
+python installer.py
+```
 
-**Installation process (automatic):**
+**🍎 macOS:**
 
-1. **System Detection**: Analyzes your hardware (CPU, RAM, GPU)
-2. **Prerequisites Check**: Installs missing components (Python, CMake, Git, etc.)
-3. **Source Download**: Clones OBSIDIAN-Neural from GitHub
-4. **Python Environment**: Creates isolated virtual environment
-5. **AI Model Download**: Downloads Gemma-3-4B model (2.49 GB)
-6. **VST Compilation**: Builds VST3 plugin from source (or skip with manual option)
-7. **Desktop Shortcuts**: Creates server launcher shortcuts
-8. **Performance Benchmark**: Tests your system capabilities (optional)
+```bash
+# Download from releases
+# OBSIDIAN-Neural-Installer-macOS.dmg (recommended)
+# OR OBSIDIAN-Neural-Installer-macOS.pkg (system-wide)
 
-**VST3 Installation Options:**
+# Alternative: Use the executable
+chmod +x OBSIDIAN-Neural-Installer-macOS
+./OBSIDIAN-Neural-Installer-macOS
+```
 
-- **Automatic**: Let installer build and install VST3
-- **Manual**: Download VST3 separately, uncheck "Build VST3" in installer, manually copy to `C:\Program Files\Common Files\VST3\`
+**🐧 Linux:**
 
-**Installation locations:**
+```bash
+# Download from releases
+chmod +x OBSIDIAN-Neural-Installer-Linux
+./OBSIDIAN-Neural-Installer-Linux
 
-- **Main files**: `C:\ProgramData\OBSIDIAN-Neural\`
-- **AI models**: `%USERPROFILE%\.huggingface\hub\`
-- **VST3 plugin**: `C:\Program Files\Common Files\VST3\`
-- **Configuration database**: `%USERPROFILE%\.obsidian_neural\config.db`
+# Alternative: Build from source
+git clone https://github.com/innermost47/ai-dj.git
+cd ai-dj
+python installer.py
+```
 
-**Complete uninstall:**
+**The installer automatically handles:**
 
-1. Delete `C:\ProgramData\OBSIDIAN-Neural\`
-2. Delete `%USERPROFILE%\.huggingface\hub\`
-3. Delete `C:\Program Files\Common Files\VST3\OBSIDIAN-Neural.vst3`
-4. Delete `%USERPROFILE%\.obsidian_neural\config.db` (encrypted database)
-5. Manually remove Python/CUDA/CMake if no longer needed
+- **Virtual environment creation**
+- **All Python dependencies** (PyTorch, FastAPI, Stable Audio Tools, etc.)
+- **AI model downloads** (Gemma-3-4B, 2.49 GB)
+- **CUDA/ROCm detection** and installation (if GPU available)
+- **VST3 compilation** (optional, requires build tools)
+- **Configuration setup**
 
-**Step-by-step workflow after installation:**
+#### **Step-by-step workflow after installation:**
 
-#### 1. **Server Interface Overview**
+#### 1. **Launch Server Interface**
 
-The desktop shortcut launches a complete control panel with:
+The installation creates a GUI control panel with:
 
 **Server Interface Features:**
 
-- **System Tray Support**: Minimize to tray with green triangle icon, control server from tray menu
-- **🚀 Server Control Tab**: Real-time status, start/stop/restart buttons, copy-paste server URL
+- **System Tray Support**: Minimize to tray with green triangle icon
+- **🚀 Server Control Tab**: Real-time status, start/stop/restart buttons
 - **⚙️ Configuration Tab**:
-  - API Keys management with credit system (🔓 UNLIMITED, ✅ 50/50 credits, ❌ NO CREDITS)
+  - API Keys management with credit system (🔓 UNLIMITED, ✅ 50/50 credits)
   - Secure Hugging Face token storage with built-in verification
   - Model settings and server configuration
 - **📝 Logs Tab**: Real-time server output with color-coded messages
 - **First-Time Setup Wizard**: Guided configuration for new installations
-- **Auto-save**: All settings saved automatically, encrypted local database
 
 #### 2. **Configure the Server**
 
-- Launch "OBSIDIAN Server" from desktop shortcut
+- Launch the server interface: `python server_interface.py`
 - **First launch**: Setup wizard will guide you through configuration
 - **Hugging Face Token**: Enter your approved token (built-in verification available)
 - **API Keys**: Generate keys with credit limits or unlimited access
 
-#### 3. **Then: Launch the Server**
+#### 3. **Start the Server**
 
 - Start the AI server from the GUI interface
-- **API Keys prompt will appear**:
+- **API Keys prompt**:
   - **"Use stored API keys for authentication?"**
   - **Yes**: Use API authentication (for production/network access)
-  - **No**: Development bypass - no auth needed (for localhost/closed network)
-- **Server URL**: Will be displayed in the interface (usually `http://localhost:8000`)
-- **Copy-paste friendly**: You can select and copy the server URL directly from the GUI
+  - **No**: Development bypass - no auth needed (for localhost)
+- **Server URL**: Will be displayed (usually `http://localhost:8000`)
 
-#### 4. **Finally: Configure the VST**
+#### 4. **Configure the VST**
 
+- Download VST3 from [Releases](https://github.com/innermost47/ai-dj/releases) or build from source
 - Load OBSIDIAN-Neural VST3 in your DAW
-- **Server URL**: Paste the URL from server GUI (e.g., `http://localhost:8000`)
-- **API Key**: Copy from server interface if you chose "Yes" to API authentication
-- Choose "Server Mode" in plugin settings
+- **Server URL**: Paste from server GUI (e.g., `http://localhost:8000`)
+- **API Key**: Copy from server interface (if using authentication)
 
 **Troubleshooting:**
 
-- **No admin rights?** Installer must run as Administrator for system installations
+- **Windows users**: Python installer is the simplest approach
 - **No Hugging Face access?** You must be approved for Stable Audio Open first
-- **VST3 not found?** Check if it was built or copy manually to Common Files
-- **CUDA not detected?** Installer automatically detects NVIDIA GPU for CUDA installation
-- **API Keys confusion?** Choose "No" for simple localhost setup, "Yes" if opening server to network
-- **"Development bypass"**: Perfect for local testing, no authentication needed
-- **Can't find server?** Check the desktop shortcut was created during installation
-- **URL not working?** Make sure server is running before configuring VST
+- **Build errors?** Download pre-compiled VST3 from releases instead
+- **API confusion?** Choose "No" for simple localhost setup
+- **Can't connect?** Make sure server is running before configuring VST
 
-### 👨‍💻 **Option 3: Manual Installation (Developers)**
+### 🎛️ **VST3 Downloads**
 
-- Full source compilation
-- Requires Python, CMake, GPU toolchains
-- Most flexible but complex setup
+Pre-compiled VST3 plugins available for all platforms:
+
+- **Windows**: `OBSIDIAN-Neural-Windows-VST3.zip`
+- **macOS**: `OBSIDIAN-Neural-macOS-VST3.zip`
+- **Linux**: `OBSIDIAN-Neural-Linux-VST3.tar.gz`
+
+**Installation locations:**
+
+- **Windows**: `C:\Program Files\Common Files\VST3\`
+- **macOS**: `~/Library/Audio/Plug-Ins/VST3/` or `/Library/Audio/Plug-Ins/VST3/`
+- **Linux**: `~/.vst3/` or `/usr/lib/vst3/`
 
 ---
 
@@ -278,21 +287,11 @@ Include: DAW name/version, OS, steps to reproduce, expected vs actual behavior
 
 ---
 
-## 🔒 Security Notice
-
-**Antivirus Detection:** Some antivirus software may occasionally flag PyInstaller applications as false positives. This is a known issue affecting many legitimate Python applications.
-
-**Current Status:** Latest executables scan clean on VirusTotal. All source code is open for inspection.
-
-**If flagged:** You can safely whitelist the application or run the Python scripts directly.
-
----
-
 ## 📈 Project Status
 
-🚀 **Local models**: Available now (with some limitations)  
-✅ **Server option**: Still the best for live performance  
-⚠️ **Pre-release**: Active development, frequent updates  
+🚀 **Local models**: Available now (with some limitations)
+✅ **Server option**: Still the best for live performance
+⚠️ **Pre-release**: Active development, frequent updates
 🌟 **Star count**: 70+ - Thank you for the support!
 
 ---
@@ -319,6 +318,23 @@ For organizations preferring proprietary licensing terms or requiring additional
 - **License Compatibility**: MPL-2.0 is compatible with GPL, LGPL, and AGPL projects
 
 **Attribution**: Please keep attribution to InnerMost47 in all cases.
+
+---
+
+## ⚖️ Disclaimer
+
+**OBSIDIAN-Neural is provided "AS IS" without warranty of any kind.**
+
+By using this software, you acknowledge that:
+
+- You install at your own risk
+- You are responsible for choosing appropriate installation paths
+- The developer is not liable for any system damage or data loss
+- You should have backups before installation
+- You understand this is experimental software
+
+**Installation Safety:** Always review installation paths carefully.
+Avoid system directories like `/Applications`, `/System`, `C:\Windows`, etc.
 
 ---
 

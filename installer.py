@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import json
 import platform
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
@@ -57,10 +58,18 @@ class ObsidianNeuralInstaller:
         y = (self.root.winfo_screenheight() // 2) - (750 // 2)
         self.root.geometry(f"850x750+{x}+{y}")
         self.is_admin = self.check_admin()
-        if self.is_admin:
-            default_install_path = "C:/ProgramData/OBSIDIAN-Neural"
-        else:
+        if platform.system() == "Windows":
+            if self.is_admin:
+                default_install_path = "C:/ProgramData/OBSIDIAN-Neural"
+            else:
+                default_install_path = str(Path.home() / "OBSIDIAN-Neural")
+        elif platform.system() == "Darwin":
             default_install_path = str(Path.home() / "OBSIDIAN-Neural")
+        else:
+            if self.is_admin:
+                default_install_path = "/opt/OBSIDIAN-Neural"
+            else:
+                default_install_path = str(Path.home() / "OBSIDIAN-Neural")
 
         self.install_path = tk.StringVar(value=default_install_path)
         detected_vst_path_val = self._do_detect_vst_folder()
@@ -1192,6 +1201,20 @@ class ObsidianNeuralInstaller:
         self.root.update()
 
     def start_installation(self):
+        install_dir = Path(self.install_path.get())
+        confirmation = self.confirm_installation_path(install_dir)
+
+        if not confirmation["confirmed"]:
+            if confirmation["new_path"]:
+                self.install_path.set(confirmation["new_path"])
+                self.start_installation()
+            else:
+                self.log("Installation cancelled by user", "INFO")
+            return
+
+        self.log(f"User confirmed installation to: {install_dir}")
+        self.log("User accepted responsibility for installation path")
+
         self.install_button.config(state="disabled")
         thread = threading.Thread(target=self.install_process)
         thread.start()
@@ -1246,7 +1269,7 @@ class ObsidianNeuralInstaller:
                 except Exception as e:
                     self.log(f"Error during {step_name}: {str(e)}", "ERROR")
                     raise
-
+            self.create_installation_registry(install_dir=install_dir)
             self.update_progress(100, "Installation completed successfully!")
             self.log(
                 "🎉 OBSIDIAN-Neural installation completed successfully!", "SUCCESS"
@@ -1277,33 +1300,111 @@ class ObsidianNeuralInstaller:
     def create_server_executable_and_shortcut(self, install_dir):
         self.log("Creating desktop shortcut...")
 
-        if platform.system() == "Windows":
-            exe_name = "OBSIDIAN-Neural-Server.exe"
-        elif platform.system() == "Darwin":
+        if platform.system() == "Darwin":
             exe_name = "OBSIDIAN-Neural-Server-macos"
-        else:
+            exe_path = install_dir / "bin" / exe_name
+
+            if exe_path.exists():
+                exe_path.chmod(0o755)
+                desktop = Path.home() / "Desktop"
+                self.create_macos_shortcut(exe_path, desktop, install_dir)
+                self.log("macOS server executable shortcut created!", "SUCCESS")
+                return
+
+        elif platform.system() == "Linux":
             exe_name = "OBSIDIAN-Neural-Server-linux"
+            exe_path = install_dir / "bin" / exe_name
 
-        exe_path = install_dir / "bin" / exe_name
+            if exe_path.exists():
+                exe_path.chmod(0o755)
+                desktop = Path.home() / "Desktop"
+                self.create_linux_shortcut(exe_path, desktop, install_dir)
+                self.log("Linux server executable shortcut created!", "SUCCESS")
+                return
 
-        if not exe_path.exists():
-            self.log(f"Pre-built executable not found: {exe_path}", "WARNING")
-            self.log("You can manually compile later if needed")
-            return
+        self.create_python_shortcut(install_dir)
 
-        if platform.system() != "Windows":
-            exe_path.chmod(0o755)
+    def create_python_shortcut(self, install_dir):
 
         desktop = Path.home() / "Desktop"
 
         if platform.system() == "Windows":
-            self.create_windows_shortcut(exe_path, desktop, install_dir)
-        elif platform.system() == "Darwin":
-            self.create_macos_shortcut(exe_path, desktop, install_dir)
-        else:
-            self.create_linux_shortcut(exe_path, desktop, install_dir)
+            python_path = install_dir / "env" / "Scripts" / "python.exe"
+            script_path = install_dir / "server_interface.py"
 
-        self.log("Server setup completed!", "SUCCESS")
+            shortcut_path = desktop / "OBSIDIAN-Neural Server.lnk"
+            ico_path = install_dir / "logo.ico"
+
+            icon_line = (
+                f'$Shortcut.IconLocation = "{ico_path}"' if ico_path.exists() else ""
+            )
+
+            ps_script = f"""
+            $WshShell = New-Object -comObject WScript.Shell
+            $Shortcut = $WshShell.CreateShortcut("{shortcut_path}")
+            $Shortcut.TargetPath = "{python_path}"
+            $Shortcut.Arguments = "server_interface.py"
+            $Shortcut.WorkingDirectory = "{install_dir}"
+            $Shortcut.Description = "OBSIDIAN-Neural AI Music Generation Server Interface"
+            {icon_line}
+            $Shortcut.Save()
+            """
+
+            cmd = ["powershell", "-Command", ps_script]
+            result = self.safe_subprocess_run(cmd, capture_output=True, text=True)
+
+            if result.returncode == 0:
+                self.log("✅ Windows Python shortcut created")
+            else:
+                self.log(
+                    f"Could not create Windows shortcut: {result.stderr}", "WARNING"
+                )
+
+        elif platform.system() == "Darwin":
+            python_path = install_dir / "env" / "bin" / "python"
+            script_path = install_dir / "server_interface.py"
+
+            shortcut_path = desktop / "OBSIDIAN-Neural Server.command"
+
+            script_content = f"""#!/bin/bash
+    cd "{install_dir}"
+    exec "{python_path}" server_interface.py
+    """
+
+            try:
+                shortcut_path.write_text(script_content)
+                shortcut_path.chmod(0o755)
+                self.log("✅ macOS Python shortcut created")
+            except Exception as e:
+                self.log(f"Could not create macOS shortcut: {e}", "WARNING")
+
+        else:
+            python_path = install_dir / "env" / "bin" / "python"
+            script_path = install_dir / "server_interface.py"
+
+            shortcut_path = desktop / "obsidian-neural-server.desktop"
+            logo_path = install_dir / "logo.png"
+
+            icon_line = f"Icon={logo_path}" if logo_path.exists() else ""
+
+            desktop_content = f"""[Desktop Entry]
+    Version=1.0
+    Name=OBSIDIAN-Neural Server
+    Comment=AI Music Generation Server Interface
+    Exec={python_path} server_interface.py
+    Path={install_dir}
+    {icon_line}
+    Terminal=false
+    Type=Application
+    Categories=AudioVideo;Audio;
+    """
+
+            try:
+                shortcut_path.write_text(desktop_content)
+                shortcut_path.chmod(0o755)
+                self.log("✅ Linux Python shortcut created")
+            except Exception as e:
+                self.log(f"Could not create Linux shortcut: {e}", "WARNING")
 
     def create_windows_shortcut(self, exe_path, desktop, install_dir):
         shortcut_path = desktop / "OBSIDIAN-Neural Server.lnk"
@@ -1945,6 +2046,29 @@ class ObsidianNeuralInstaller:
         urllib.request.urlretrieve(model_url, model_path, reporthook=download_progress)
         self.log("✅ Model downloaded successfully.")
 
+    def create_installation_registry(self, install_dir):
+        if platform.system() == "Windows":
+            registry_dir = Path(os.environ.get("APPDATA")) / "OBSIDIAN-Neural"
+        elif platform.system() == "Darwin":
+            registry_dir = Path.home() / "Library/Application Support/OBSIDIAN-Neural"
+        else:
+            registry_dir = Path.home() / ".config/obsidian-neural"
+
+        registry_dir.mkdir(parents=True, exist_ok=True)
+        registry_file = registry_dir / "installation.json"
+
+        installation_info = {
+            "installation_path": str(install_dir),
+            "version": "1.0",
+            "install_date": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "platform": platform.system(),
+        }
+
+        with open(registry_file, "w") as f:
+            json.dump(installation_info, f, indent=2)
+
+        self.log(f"Installation registry created: {registry_file}")
+
     def install_git_func(self, install_dir):
         if platform.system() == "Windows":
             self.log("Downloading Git...")
@@ -2008,7 +2132,324 @@ class ObsidianNeuralInstaller:
 
             cuda_installer.unlink()
 
+    def validate_install_dir(self, install_dir):
+        dangerous_paths = [
+            "/Applications",
+            "/System",
+            "/Library",
+            "/usr",
+            "/bin",
+            "/sbin",
+            "C:\\Windows",
+            "C:\\Program Files",
+            str(Path.home()),
+        ]
+
+        for danger in dangerous_paths:
+            if str(install_dir).startswith(danger) or str(install_dir) == danger:
+                raise Exception(
+                    f"REFUSED: Cannot install to dangerous path: {install_dir}"
+                )
+
+    def confirm_installation_path(self, install_dir):
+        dangerous_paths = [
+            "/Applications",
+            "/System",
+            "/Library",
+            "/usr",
+            "/bin",
+            "/sbin",
+            "C:\\Windows",
+            "C:\\Program Files",
+            "C:\\Program Files (x86)",
+            str(Path.home()),
+            "/",
+            "C:\\",
+        ]
+
+        is_dangerous = any(
+            str(install_dir).startswith(danger) or str(install_dir) == danger
+            for danger in dangerous_paths
+        )
+
+        if is_dangerous:
+            warning_title = "⚠️ DANGEROUS INSTALLATION PATH"
+            warning_color = "red"
+            warning_text = f"""🚨 WARNING: You are about to install to a SYSTEM DIRECTORY:
+
+    {install_dir}
+
+    This could potentially:
+    - Overwrite existing files
+    - Damage your system
+    - Require administrator privileges
+    - Make uninstallation difficult
+
+    RECOMMENDATION: Choose a safer location like:
+    - {Path.home()}/OBSIDIAN-Neural
+    - {Path.home()}/Documents/OBSIDIAN-Neural
+    - {Path.home()}/Desktop/OBSIDIAN-Neural"""
+        else:
+            warning_title = "📁 Confirm Installation Location"
+            warning_color = "blue"
+            warning_text = f"""Installation will create files and folders in:
+
+    {install_dir}
+
+    This directory will contain:
+    - Source code and Python environment (~500MB)
+    - AI models (~3GB)
+    - Configuration files
+    - Build tools and dependencies"""
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title(warning_title)
+        dialog.geometry("1200x600")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.resizable(True, True)
+        dialog.minsize(600, 500)
+
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() // 2) - (1200 // 2)
+        y = (dialog.winfo_screenheight() // 2) - (600 // 2)
+        dialog.geometry(f"1200x600+{x}+{y}")
+
+        main_frame = ttk.Frame(dialog, padding="10")
+        main_frame.pack(fill="both", expand=True)
+
+        title_frame = ttk.Frame(main_frame)
+        title_frame.pack(fill="x", pady=(0, 10))
+
+        title_label = ttk.Label(
+            title_frame,
+            text=warning_title,
+            font=("Arial", 14, "bold"),
+            foreground=warning_color,
+        )
+        title_label.pack()
+
+        canvas = tk.Canvas(main_frame, highlightthickness=0, bd=0)
+        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        canvas_window = canvas.create_window(
+            (0, 0), window=scrollable_frame, anchor="nw"
+        )
+
+        def configure_scroll_region(event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            canvas.itemconfig(canvas_window, width=canvas.winfo_width())
+
+        canvas.bind("<Configure>", configure_scroll_region)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        content_frame = scrollable_frame
+
+        warning_label = ttk.Label(
+            content_frame,
+            text=warning_text,
+            font=("Arial", 10),
+            wraplength=550,
+            justify="left",
+        )
+        warning_label.pack(pady=(0, 15), padx=10)
+
+        path_frame = ttk.LabelFrame(
+            content_frame, text="Installation Path", padding="10"
+        )
+        path_frame.pack(fill="x", pady=(0, 15), padx=10)
+
+        path_label = ttk.Label(
+            path_frame,
+            text=str(install_dir),
+            font=("Consolas", 11, "bold"),
+            foreground="darkblue",
+            wraplength=500,
+        )
+        path_label.pack()
+
+        details_frame = ttk.LabelFrame(
+            content_frame, text="📋 What will be installed", padding="10"
+        )
+        details_frame.pack(fill="x", pady=(0, 15), padx=10)
+
+        details_text = """• Python virtual environment and dependencies
+    - PyTorch with GPU support (if available)
+    - AI models: Gemma-3-4B (2.49 GB)
+    - FastAPI server and web interface
+    - VST3 plugin (if compilation enabled)
+    - Desktop shortcuts and configuration files
+    - Benchmark and performance testing tools
+
+    Total disk space required: ~4-5 GB"""
+
+        details_label = ttk.Label(
+            details_frame,
+            text=details_text,
+            font=("Arial", 9),
+            wraplength=500,
+            justify="left",
+        )
+        details_label.pack()
+
+        disclaimer_frame = ttk.LabelFrame(
+            content_frame, text="⚖️ Legal Disclaimer & User Responsibility", padding="10"
+        )
+        disclaimer_frame.pack(fill="x", pady=(0, 15), padx=10)
+
+        disclaimer_text = """BY PROCEEDING WITH THIS INSTALLATION, YOU ACKNOWLEDGE AND AGREE THAT:
+
+    RESPONSIBILITY:
+    - You understand exactly where files will be installed
+    - You accept FULL RESPONSIBILITY for any system changes
+    - You have verified the installation path is safe and appropriate
+    - You have backups of important data before proceeding
+
+    WARRANTY DISCLAIMER:
+    - OBSIDIAN-Neural is provided "AS IS" without warranty of any kind
+    - No guarantee of fitness for any particular purpose
+    - No warranty that the software will be error-free or uninterrupted
+
+    LIABILITY LIMITATION:
+    - The developer is NOT LIABLE for any damage, data loss, or system issues
+    - You use this software entirely at your own risk
+    - You are responsible for any consequences of the installation
+
+    TECHNICAL RISKS:
+    - Installing to system directories may damage your operating system
+    - Large files will be downloaded and disk space will be used
+    - Python environment and dependencies will be installed
+    - Configuration files will be created in system directories
+
+    USER OBLIGATIONS:
+    - Choose installation paths carefully
+    - Avoid system directories (/Applications, /System, C:\\Windows, etc.)
+    - Ensure you have sufficient disk space (5+ GB)
+    - Read and understand what will be installed
+
+    LICENSE:
+    This software is open source under Mozilla Public License 2.0
+    Full license: https://mozilla.org/MPL/2.0/
+
+    By checking the box below, you confirm you have read, understood, 
+    and accept these terms and the associated risks."""
+
+        disclaimer_label = ttk.Label(
+            disclaimer_frame,
+            text=disclaimer_text,
+            font=("Arial", 9),
+            wraplength=500,
+            justify="left",
+            foreground="black",
+        )
+        disclaimer_label.pack()
+
+        bottom_frame = ttk.Frame(main_frame)
+        bottom_frame.pack(fill="x", pady=(10, 0))
+
+        separator = ttk.Separator(bottom_frame, orient="horizontal")
+        separator.pack(fill="x", pady=(0, 10))
+
+        confirmation_frame = ttk.Frame(bottom_frame)
+        confirmation_frame.pack(fill="x", pady=(0, 10))
+
+        confirm_var = tk.BooleanVar(value=False)
+        confirm_check = ttk.Checkbutton(
+            confirmation_frame,
+            text="✅ I have read and accept all terms above, understand the risks, and take full responsibility",
+            variable=confirm_var,
+            command=lambda: proceed_btn.config(
+                state="normal" if confirm_var.get() else "disabled"
+            ),
+        )
+        confirm_check.pack(anchor="w")
+
+        note_label = ttk.Label(
+            confirmation_frame,
+            text="⚠️ You must scroll up and read the complete disclaimer before proceeding",
+            font=("Arial", 8),
+            foreground="red",
+        )
+        note_label.pack(anchor="w", pady=(5, 0))
+
+        button_frame = ttk.Frame(bottom_frame)
+        button_frame.pack(fill="x")
+
+        result = {"confirmed": False, "new_path": None}
+
+        def proceed():
+            if confirm_var.get():
+                result["confirmed"] = True
+                dialog.destroy()
+            else:
+                messagebox.showerror(
+                    "Confirmation Required",
+                    "Please read the disclaimer and check the confirmation box to proceed.",
+                )
+
+        def change_path():
+            new_path = filedialog.askdirectory(
+                title="Choose Safe Installation Directory", initialdir=str(Path.home())
+            )
+            if new_path:
+                result["new_path"] = new_path
+                dialog.destroy()
+
+        def cancel():
+            result["confirmed"] = False
+            dialog.destroy()
+
+        proceed_btn = ttk.Button(
+            button_frame,
+            text="🚀 I Accept - Proceed with Installation",
+            command=proceed,
+            state="disabled",
+        )
+        proceed_btn.pack(side="right", padx=(5, 0))
+
+        change_btn = ttk.Button(
+            button_frame, text="📁 Choose Different Path", command=change_path
+        )
+        change_btn.pack(side="left", padx=(5, 0))
+
+        cancel_btn = ttk.Button(
+            button_frame, text="❌ Cancel Installation", command=cancel
+        )
+        cancel_btn.pack(side="right", padx=(5, 0))
+
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        def _bind_mousewheel(event):
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        def _unbind_mousewheel(event):
+            canvas.unbind_all("<MouseWheel>")
+
+        canvas.bind("<Enter>", _bind_mousewheel)
+        canvas.bind("<Leave>", _unbind_mousewheel)
+
+        dialog.focus_set()
+        dialog.wait_window()
+
+        return result
+
+    def update_confirm_buttons(self, confirmed, proceed_btn, change_btn):
+        if confirmed:
+            proceed_btn.config(state="normal")
+        else:
+            proceed_btn.config(state="disabled")
+
     def download_source(self, install_dir):
+        self.validate_install_dir(install_dir)
         current_dir = Path(__file__).parent
 
         repo_markers = [
@@ -3585,6 +4026,30 @@ class ObsidianNeuralInstaller:
         (install_dir / ".env").write_text(env_content)
         self.log("✅ .env configuration created with optimal device")
         self.log(f"   Configured device: {device_hint}")
+        self.log("=" * 50)
+        self.log("🎉 INSTALLATION COMPLETED SUCCESSFULLY!")
+        self.log("=" * 50)
+        self.log("📋 HOW TO USE OBSIDIAN-NEURAL:")
+        self.log("")
+        self.log("1️⃣ START THE SERVER:")
+        if platform.system() == "Windows":
+            self.log("   • Use desktop shortcut: 'OBSIDIAN-Neural Server'")
+            self.log("   • OR run: python server_interface.py")
+        else:
+            self.log("   • Use desktop shortcut: 'OBSIDIAN-Neural Server'")
+            self.log("   • OR run the executable from bin/ folder")
+        self.log("")
+        self.log("2️⃣ CONFIGURE THE SERVER:")
+        self.log("   • Enter your Hugging Face token")
+        self.log("   • Generate API keys")
+        self.log("   • Start the server from the GUI")
+        self.log("")
+        self.log("3️⃣ SETUP YOUR DAW:")
+        self.log("   • Load the VST3 plugin")
+        self.log("   • Set server URL (usually http://localhost:8000)")
+        self.log("   • Enter API key from server interface")
+        self.log("")
+        self.log("=" * 50)
 
     def build_vst(self, install_dir):
         vst_dir = install_dir / "vst"
@@ -3808,21 +4273,34 @@ class ObsidianNeuralInstaller:
 
     def start_server(self, install_dir):
         try:
-            exe_path = install_dir / "bin" / "OBSIDIAN-Neural-Server.exe"
+            if platform.system() == "Darwin":
+                exe_path = install_dir / "bin" / "OBSIDIAN-Neural-Server-macos"
+            elif platform.system() == "Linux":
+                exe_path = install_dir / "bin" / "OBSIDIAN-Neural-Server-linux"
+            else:
+                exe_path = None
 
-            if exe_path.exists():
+            if exe_path and exe_path.exists():
                 subprocess.Popen([str(exe_path)], cwd=install_dir)
                 self.log("✅ Server started via executable!")
             else:
-                self.log("Executable not found, falling back to Python mode")
                 if platform.system() == "Windows":
                     python_path = install_dir / "env" / "Scripts" / "python.exe"
                 else:
                     python_path = install_dir / "env" / "bin" / "python"
 
-                main_script = install_dir / "main.py"
-                subprocess.Popen([str(python_path), str(main_script)], cwd=install_dir)
-                self.log("✅ Server started via main.py!")
+                server_script = install_dir / "server_interface.py"
+                if server_script.exists():
+                    subprocess.Popen(
+                        [str(python_path), str(server_script)], cwd=install_dir
+                    )
+                    self.log("✅ Server interface started via Python!")
+                else:
+                    main_script = install_dir / "main.py"
+                    subprocess.Popen(
+                        [str(python_path), str(main_script)], cwd=install_dir
+                    )
+                    self.log("✅ Server started via main.py!")
 
         except Exception as e:
             self.log(f"❌ Startup error: {e}", "ERROR")

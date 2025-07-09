@@ -11,6 +11,7 @@ import subprocess
 import shutil
 import threading
 import os
+import json
 import sys
 import time
 from pathlib import Path
@@ -57,13 +58,13 @@ class ObsidianNeuralLauncher:
         self.log_text = None
 
         self.init_database()
+        self.installation_dir = self.detect_installation_dir()
+        if self.installation_dir != Path.cwd():
+            os.chdir(self.installation_dir)
         self.setup_variables()
 
         self.setup_ui()
 
-        self.installation_dir = self.detect_installation_dir()
-        if self.installation_dir != Path.cwd():
-            os.chdir(self.installation_dir)
         self.load_config()
         self.load_api_keys()
 
@@ -353,10 +354,266 @@ class ObsidianNeuralLauncher:
         else:
             return install_dir / ".env"
 
-    def get_env_path(self):
-        return self.handle_admin_install()
+    def create_path_management_section(self, parent):
+        path_frame = ttk.LabelFrame(parent, text="📁 Installation Path", padding="15")
+        path_frame.pack(fill="x", pady=(0, 15), padx=10)
+
+        status_frame = ttk.Frame(path_frame)
+        status_frame.pack(fill="x", pady=(0, 10))
+
+        installation_path = getattr(self, "installation_dir", Path.cwd())
+
+        if installation_path and (installation_path / "main.py").exists():
+            status_icon = "✅"
+            status_text = "Valid installation detected"
+            status_color = "dark green"
+        else:
+            status_icon = "❌"
+            status_text = "Installation may be invalid"
+            status_color = "red"
+
+        ttk.Label(
+            status_frame,
+            text=f"{status_icon} {status_text}",
+            foreground=status_color,
+            font=("Arial", 10, "bold"),
+        ).pack(anchor="w")
+
+        ttk.Label(path_frame, text="Current installation path:").pack(
+            anchor="w", pady=(10, 5)
+        )
+
+        if not hasattr(self, "install_path_var"):
+            self.install_path_var = tk.StringVar(value=str(installation_path))
+
+        path_display_frame = ttk.Frame(path_frame)
+        path_display_frame.pack(fill="x", pady=(0, 10))
+
+        path_entry = ttk.Entry(
+            path_display_frame,
+            textvariable=self.install_path_var,
+            state="readonly",
+            font=("Consolas", 9),
+        )
+        path_entry.pack(side="left", fill="x", expand=True)
+
+        ttk.Button(
+            path_display_frame, text="📁 Change", command=self.change_installation_path
+        ).pack(side="left", padx=(5, 0))
+
+        ttk.Button(
+            path_display_frame, text="🔍 Verify", command=self.verify_installation_path
+        ).pack(side="left", padx=(5, 0))
+
+        info_text = "This path should contain main.py, server/, core/, and other OBSIDIAN-Neural files."
+        ttk.Label(
+            path_frame,
+            text=info_text,
+            font=("Arial", 9),
+            foreground="gray",
+            wraplength=400,
+        ).pack(anchor="w", pady=(5, 0))
+
+    def change_installation_path(self):
+        from tkinter import filedialog, messagebox
+
+        new_path = filedialog.askdirectory(
+            title="Select OBSIDIAN-Neural Installation Folder",
+            initialdir=str(self.installation_dir),
+            mustexist=True,
+        )
+
+        if new_path:
+            new_path = Path(new_path)
+
+            if not (new_path / "main.py").exists():
+                messagebox.showerror(
+                    "Invalid Installation",
+                    f"Selected folder does not contain main.py:\n{new_path}",
+                )
+                return
+
+            self.installation_dir = new_path
+            self.install_path_var.set(str(new_path))
+
+            self.save_installation_path(new_path)
+
+            os.chdir(new_path)
+
+            self.load_config()
+
+            self.log(f"Installation path changed to: {new_path}", "SUCCESS")
+            messagebox.showinfo(
+                "Path Updated", f"Installation path updated to:\n{new_path}"
+            )
+
+    def save_installation_path(self, install_path):
+        try:
+            registry_path = self.get_installation_registry_path()
+            registry_path.parent.mkdir(parents=True, exist_ok=True)
+
+            installation_info = {
+                "installation_path": str(install_path),
+                "version": "1.0",
+                "found_date": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "method": "user_selection",
+            }
+
+            with open(registry_path, "w") as f:
+                json.dump(installation_info, f, indent=2)
+
+            self.log(f"Installation path saved for future use: {install_path}")
+        except Exception as e:
+            self.log(f"Could not save installation path: {e}", "WARNING")
+
+    def prompt_for_installation_path(self):
+        if hasattr(self, "root"):
+            from tkinter import filedialog, messagebox
+
+            messagebox.showwarning(
+                "Installation Not Found",
+                "Could not automatically locate OBSIDIAN-Neural installation.\n"
+                "Please select the installation folder containing main.py",
+            )
+
+            folder = filedialog.askdirectory(
+                title="Select OBSIDIAN-Neural Installation Folder", mustexist=True
+            )
+
+            if folder and (Path(folder) / "main.py").exists():
+                self.save_installation_path(Path(folder))
+                return Path(folder)
+            elif folder:
+                messagebox.showerror(
+                    "Invalid Folder", "Selected folder does not contain main.py"
+                )
+
+        return Path.cwd()
+
+    def verify_installation_path(self):
+        try:
+            current_path = Path(self.install_path_var.get())
+
+            missing_items = []
+            found_items = []
+
+            required_items = [
+                ("main.py", "file", "Main server script"),
+                ("server", "dir", "Server modules"),
+                ("core", "dir", "Core functionality"),
+                (".env", "file", "Environment configuration"),
+            ]
+
+            optional_items = [
+                ("models", "dir", "AI models directory"),
+                ("vst", "dir", "VST plugin source"),
+                ("env", "dir", "Python virtual environment"),
+            ]
+
+            for item_name, item_type, description in required_items:
+                item_path = current_path / item_name
+                if item_type == "file" and item_path.is_file():
+                    found_items.append(f"✅ {item_name} - {description}")
+                elif item_type == "dir" and item_path.is_dir():
+                    found_items.append(f"✅ {item_name}/ - {description}")
+                else:
+                    missing_items.append(f"❌ {item_name} - {description} (REQUIRED)")
+
+            for item_name, item_type, description in optional_items:
+                item_path = current_path / item_name
+                if item_type == "file" and item_path.is_file():
+                    found_items.append(f"✅ {item_name} - {description}")
+                elif item_type == "dir" and item_path.is_dir():
+                    found_items.append(f"✅ {item_name}/ - {description}")
+                else:
+                    found_items.append(f"⚠️ {item_name} - {description} (Optional)")
+
+            result_message = (
+                f"Installation Path Verification\n{'='*50}\n\nPath: {current_path}\n\n"
+            )
+
+            if missing_items:
+                result_message += "❌ MISSING REQUIRED ITEMS:\n"
+                result_message += "\n".join(missing_items) + "\n\n"
+
+                result_message += "✅ FOUND ITEMS:\n"
+                result_message += "\n".join(found_items)
+
+                result_message += f"\n\n⚠️ This does not appear to be a valid OBSIDIAN-Neural installation."
+                result_message += f"\n\nPlease select the correct installation folder containing main.py"
+
+                messagebox.showwarning("Installation Issues Found", result_message)
+                self.log(
+                    "Installation verification failed - missing required files",
+                    "WARNING",
+                )
+
+            else:
+                result_message += "✅ ALL REQUIRED ITEMS FOUND:\n"
+                result_message += "\n".join(
+                    [
+                        item
+                        for item in found_items
+                        if "✅" in item and "REQUIRED" not in item
+                    ]
+                )
+
+                optional_found = [item for item in found_items if "⚠️" in item]
+                if optional_found:
+                    result_message += "\n\n⚠️ OPTIONAL ITEMS:\n"
+                    result_message += "\n".join(optional_found)
+
+                result_message += (
+                    f"\n\n🎉 This appears to be a valid OBSIDIAN-Neural installation!"
+                )
+
+                messagebox.showinfo("Installation Verified", result_message)
+                self.log("Installation verification successful", "SUCCESS")
+
+        except Exception as e:
+            error_msg = f"Error verifying installation path: {e}"
+            self.log(error_msg, "ERROR")
+            messagebox.showerror("Verification Error", error_msg)
+
+    def search_installation_recursively(self, start_path, max_depth=3):
+        def search_in_path(path, depth):
+            if depth > max_depth:
+                return None
+
+            if (path / "main.py").exists():
+                return path
+
+            try:
+                for child in path.iterdir():
+                    if child.is_dir() and not child.name.startswith("."):
+                        result = search_in_path(child, depth + 1)
+                        if result:
+                            return result
+            except PermissionError:
+                pass
+
+            return None
+
+        result = search_in_path(start_path, 0)
+        if result:
+            self.log(f"Found installation via recursive search: {result}")
+            return result
+
+        return self.prompt_for_installation_path()
 
     def detect_installation_dir(self):
+        registry_path = self.get_installation_registry_path()
+        if registry_path and registry_path.exists():
+            try:
+                with open(registry_path, "r") as f:
+                    install_info = json.load(f)
+                    registered_path = Path(install_info["installation_path"])
+                    if (registered_path / "main.py").exists():
+                        self.log(f"Found installation via registry: {registered_path}")
+                        return registered_path
+            except Exception as e:
+                self.log(f"Could not read installation registry: {e}", "WARNING")
+
         current_dir = Path.cwd()
 
         if platform.system() == "Windows":
@@ -388,16 +645,29 @@ class ObsidianNeuralLauncher:
                 current_dir.parent,
             ]
 
-        if current_dir.name == "bin":
-            possible_paths.insert(0, current_dir.parent)
-
         for path in possible_paths:
             if (path / "main.py").exists():
-                self.log(f"Found OBSIDIAN-Neural installation at: {path}")
                 return path
 
-        self.log("Using current directory as installation path")
-        return current_dir
+        return self.search_installation_recursively(current_dir)
+
+    def get_installation_registry_path(self):
+        if platform.system() == "Windows":
+            return (
+                Path(os.environ.get("APPDATA", ""))
+                / "OBSIDIAN-Neural"
+                / "installation.json"
+            )
+        elif platform.system() == "Darwin":
+            return (
+                Path.home()
+                / "Library/Application Support/OBSIDIAN-Neural/installation.json"
+            )
+        else:
+            return Path.home() / ".config/obsidian-neural/installation.json"
+
+    def get_env_path(self):
+        return self.handle_admin_install()
 
     def setup_variables(self):
         self.api_keys_list = []
@@ -730,6 +1000,8 @@ class ObsidianNeuralLauncher:
         canvas = tk.Canvas(config_frame, highlightthickness=0, bd=0)
         scrollbar = ttk.Scrollbar(config_frame, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
+
+        self.create_path_management_section(scrollable_frame)
 
         scrollable_frame.bind(
             "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
