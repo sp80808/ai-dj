@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import json
 import platform
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
@@ -1268,7 +1269,7 @@ class ObsidianNeuralInstaller:
                 except Exception as e:
                     self.log(f"Error during {step_name}: {str(e)}", "ERROR")
                     raise
-
+            self.create_installation_registry(install_dir=install_dir)
             self.update_progress(100, "Installation completed successfully!")
             self.log(
                 "🎉 OBSIDIAN-Neural installation completed successfully!", "SUCCESS"
@@ -2044,6 +2045,29 @@ class ObsidianNeuralInstaller:
 
         urllib.request.urlretrieve(model_url, model_path, reporthook=download_progress)
         self.log("✅ Model downloaded successfully.")
+
+    def create_installation_registry(self, install_dir):
+        if platform.system() == "Windows":
+            registry_dir = Path(os.environ.get("APPDATA")) / "OBSIDIAN-Neural"
+        elif platform.system() == "Darwin":
+            registry_dir = Path.home() / "Library/Application Support/OBSIDIAN-Neural"
+        else:
+            registry_dir = Path.home() / ".config/obsidian-neural"
+
+        registry_dir.mkdir(parents=True, exist_ok=True)
+        registry_file = registry_dir / "installation.json"
+
+        installation_info = {
+            "installation_path": str(install_dir),
+            "version": "1.0",
+            "install_date": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "platform": platform.system(),
+        }
+
+        with open(registry_file, "w") as f:
+            json.dump(installation_info, f, indent=2)
+
+        self.log(f"Installation registry created: {registry_file}")
 
     def install_git_func(self, install_dir):
         if platform.system() == "Windows":
