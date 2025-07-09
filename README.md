@@ -321,6 +321,23 @@ For organizations preferring proprietary licensing terms or requiring additional
 
 ---
 
+## ⚖️ Disclaimer
+
+**OBSIDIAN-Neural is provided "AS IS" without warranty of any kind.**
+
+By using this software, you acknowledge that:
+
+- You install at your own risk
+- You are responsible for choosing appropriate installation paths
+- The developer is not liable for any system damage or data loss
+- You should have backups before installation
+- You understand this is experimental software
+
+**Installation Safety:** Always review installation paths carefully.
+Avoid system directories like `/Applications`, `/System`, `C:\Windows`, etc.
+
+---
+
 ## 🌐 More Projects
 
 **Music & Creative Coding:**
