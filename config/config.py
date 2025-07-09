@@ -6,6 +6,7 @@
 
 import asyncio
 from typing import List
+from core.paths import get_config_db_path
 
 API_KEYS: List[str] = []
 ENVIRONMENT: str = "dev"
@@ -40,9 +41,9 @@ def load_api_keys_from_db():
     try:
         from core.secure_storage import SecureStorage
         import sqlite3
-        from pathlib import Path
 
-        db_path = Path.home() / ".obsidian_neural" / "config.db"
+        config_dir = get_config_db_path()
+        db_path = config_dir / "config.db"
         if not db_path.exists():
             print("Warning: No database found, no API keys loaded")
             return []
