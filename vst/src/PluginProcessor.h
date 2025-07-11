@@ -51,6 +51,7 @@ public:
 	void parameterChanged(const juce::String& parameterID, float newValue) override;
 	void releaseResources() override;
 	void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+	void handlePreviewPlaying(juce::AudioSampleBuffer& buffer);
 	void checkIfUIUpdateNeeded(juce::MidiBuffer& midiMessages);
 	void applyMasterEffects(juce::AudioSampleBuffer& mainOutput);
 	void copyTracksToIndividualOutputs(juce::AudioSampleBuffer& buffer);
@@ -233,7 +234,7 @@ public:
 	SampleBank* getSampleBank() { return sampleBank.get(); }
 	void loadSampleFromBank(const juce::String& sampleId, const juce::String& trackId);
 	void loadAudioFileAsync(const juce::String& trackId, const juce::File& audioData);
-	void previewSampleFromBank(const juce::String& sampleId);
+	bool previewSampleFromBank(const juce::String& sampleId);
 	void stopSamplePreview();
 	bool isSamplePreviewing() const { return isPreviewPlaying.load(); }
 

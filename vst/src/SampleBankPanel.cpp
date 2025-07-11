@@ -263,13 +263,20 @@ SampleBankPanel::~SampleBankPanel()
 void SampleBankPanel::playPreview(SampleBankEntry* entry)
 {
 	if (!entry) return;
+
 	if (currentPreviewEntry && currentPreviewItem)
 	{
 		currentPreviewItem->setIsPlaying(false);
 	}
 
 	stopPreview();
-	audioProcessor.previewSampleFromBank(entry->id);
+
+	bool previewStarted = audioProcessor.previewSampleFromBank(entry->id);
+	if (!previewStarted) {
+		DBG("Failed to start preview for: " + entry->originalPrompt);
+		return;
+	}
+
 	currentPreviewEntry = entry;
 
 	for (auto& item : sampleItems)
@@ -328,7 +335,10 @@ void SampleBankPanel::resized()
 	cleanupButton.setBounds(headerArea.removeFromRight(100).reduced(5));
 	headerArea.removeFromRight(5);
 
-	area.removeFromTop(10);
+	auto infoArea = area.removeFromTop(20);
+	infoLabel.setBounds(infoArea);
+
+	area.removeFromTop(5);
 	samplesViewport.setBounds(area);
 
 	int totalHeight = 5;
@@ -398,6 +408,12 @@ void SampleBankPanel::setupUI()
 	titleLabel.setText("Sample Bank", juce::dontSendNotification);
 	titleLabel.setFont(juce::FontOptions(18.0f, juce::Font::bold));
 	titleLabel.setColour(juce::Label::textColourId, ColourPalette::textAccent);
+
+	addAndMakeVisible(infoLabel);
+	infoLabel.setText("Preview plays on channel 9 (Preview). Enable multioutput in DAW to hear it.", juce::dontSendNotification);
+	infoLabel.setFont(juce::FontOptions(12.0f));
+	infoLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
+	infoLabel.setJustificationType(juce::Justification::centredLeft);
 
 	addAndMakeVisible(cleanupButton);
 	cleanupButton.setButtonText("Clean Unused");

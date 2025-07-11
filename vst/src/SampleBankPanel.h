@@ -78,6 +78,7 @@ private:
 	juce::TextButton cleanupButton;
 	juce::Viewport samplesViewport;
 	juce::Component samplesContainer;
+	juce::Label infoLabel;
 
 	enum class SortType
 	{

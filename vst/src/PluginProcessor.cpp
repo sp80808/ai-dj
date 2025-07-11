@@ -19,7 +19,7 @@ juce::AudioProcessor::BusesProperties DjIaVstProcessor::createBusLayout()
 {
 	auto layout = juce::AudioProcessor::BusesProperties();
 	layout = layout.withOutput("Main", juce::AudioChannelSet::stereo(), true);
-	for (int i = 0; i < MAX_TRACKS; ++i)
+	for (int i = 0; i < MAX_TRACKS + 1; ++i)
 	{
 		layout = layout.withOutput("Track " + juce::String(i + 1),
 			juce::AudioChannelSet::stereo(), false);
@@ -438,15 +438,24 @@ void DjIaVstProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
 	trackManager.renderAllTracks(mainOutput, individualOutputBuffers, hostBpm);
 
 	copyTracksToIndividualOutputs(buffer);
+	handlePreviewPlaying(buffer);
 
+	applyMasterEffects(mainOutput);
+	checkIfUIUpdateNeeded(midiMessages);
+}
+
+void DjIaVstProcessor::handlePreviewPlaying(juce::AudioSampleBuffer& buffer)
+{
 	if (isPreviewPlaying.load())
 	{
 		juce::ScopedLock lock(previewLock);
-
 		if (previewBuffer.getNumSamples() > 0)
 		{
 			double currentPos = previewPosition.load();
 			double ratio = previewSampleRate.load() / hostSampleRate;
+
+			const int previewBusIndex = 9;
+			auto previewOutput = getBusBuffer(buffer, false, previewBusIndex);
 
 			for (int i = 0; i < buffer.getNumSamples(); ++i)
 			{
@@ -456,22 +465,16 @@ void DjIaVstProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
 					isPreviewPlaying = false;
 					break;
 				}
-
-				for (int ch = 0; ch < std::min(2, buffer.getNumChannels()); ++ch)
+				for (int ch = 0; ch < std::min(previewOutput.getNumChannels(), 2); ++ch)
 				{
 					float sample = previewBuffer.getSample(ch, sampleIndex) * 0.7f;
-					mainOutput.addSample(ch, i, sample);
+					previewOutput.addSample(ch, i, sample);
 				}
-
 				currentPos += ratio;
 			}
-
-			previewPosition = currentPos;
+			previewPosition.store(currentPos);
 		}
 	}
-	applyMasterEffects(mainOutput);
-
-	checkIfUIUpdateNeeded(midiMessages);
 }
 
 void DjIaVstProcessor::addSequencerMidiMessage(const juce::MidiMessage& message)
@@ -3021,6 +3024,54 @@ void DjIaVstProcessor::handleAdvanceStep(TrackData* track, bool hostIsPlaying)
 	}
 }
 
+bool DjIaVstProcessor::previewSampleFromBank(const juce::String& sampleId)
+{
+	if (!sampleBank) return false;
+	auto* entry = sampleBank->getSample(sampleId);
+	if (!entry) return false;
+
+	juce::File sampleFile(entry->filePath);
+	if (!sampleFile.exists()) return false;
+
+	juce::AudioFormatManager formatManager;
+	formatManager.registerBasicFormats();
+	std::unique_ptr<juce::AudioFormatReader> testReader(formatManager.createReaderFor(sampleFile));
+	if (!testReader) {
+		DBG("Cannot read audio file: " + sampleFile.getFullPathName());
+		return false;
+	}
+
+	stopSamplePreview();
+
+	juce::Thread::launch([this, sampleFile]()
+		{
+			juce::AudioFormatManager formatManager;
+			formatManager.registerBasicFormats();
+			std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(sampleFile));
+			if (!reader) {
+				juce::ScopedLock lock(previewLock);
+				isPreviewPlaying = false;
+				return;
+			}
+
+			{
+				juce::ScopedLock lock(previewLock);
+				previewBuffer.setSize(2, (int)reader->lengthInSamples);
+				reader->read(&previewBuffer, 0, (int)reader->lengthInSamples, 0, true, true);
+				if (reader->numChannels == 1)
+				{
+					previewBuffer.copyFrom(1, 0, previewBuffer, 0, 0, previewBuffer.getNumSamples());
+				}
+				previewSampleRate = reader->sampleRate;
+				previewPosition = 0.0;
+				isPreviewPlaying = true;
+			}
+			DBG("Preview loaded: " + sampleFile.getFileName());
+		});
+
+	return true;
+}
+
 void DjIaVstProcessor::triggerSequencerStep(TrackData* track)
 {
 	if (getBypassSequencer())
@@ -3041,44 +3092,6 @@ void DjIaVstProcessor::triggerSequencerStep(TrackData* track)
 			(juce::uint8)(track->sequencerData.velocities[measure][step] * 127));
 		addSequencerMidiMessage(noteOn);
 	}
-}
-
-void DjIaVstProcessor::previewSampleFromBank(const juce::String& sampleId)
-{
-	if (!sampleBank) return;
-
-	auto* entry = sampleBank->getSample(sampleId);
-	if (!entry) return;
-
-	juce::File sampleFile(entry->filePath);
-	if (!sampleFile.exists()) return;
-
-	juce::Thread::launch([this, sampleFile]()
-		{
-			juce::AudioFormatManager formatManager;
-			formatManager.registerBasicFormats();
-
-			std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(sampleFile));
-			if (!reader) return;
-
-			{
-				juce::ScopedLock lock(previewLock);
-
-				previewBuffer.setSize(2, (int)reader->lengthInSamples);
-				reader->read(&previewBuffer, 0, (int)reader->lengthInSamples, 0, true, true);
-
-				if (reader->numChannels == 1)
-				{
-					previewBuffer.copyFrom(1, 0, previewBuffer, 0, 0, previewBuffer.getNumSamples());
-				}
-
-				previewSampleRate = reader->sampleRate;
-				previewPosition = 0.0;
-				isPreviewPlaying = true;
-			}
-
-			DBG("Preview loaded: " + sampleFile.getFileName());
-		});
 }
 
 void DjIaVstProcessor::stopSamplePreview()
