@@ -75,6 +75,8 @@ target_sources(ObsidianNeuralVST PRIVATE
     src/ColourPalette.cpp
     src/MixerPanel.cpp
     src/StableAudioEngine.cpp
+    src/SampleBank.cpp
+    src/SampleBankPanel.cpp
 )
 
 target_include_directories(ObsidianNeuralVST PRIVATE

@@ -10,10 +10,11 @@
 #include "TrackComponent.h"
 #include "MixerPanel.h"
 #include "MidiLearnableComponents.h"
+#include "SampleBankPanel.h"
 
 class SequencerComponent;
 
-class DjIaVstEditor : public juce::AudioProcessorEditor, public juce::MenuBarModel, public juce::Timer, public DjIaVstProcessor::GenerationListener
+class DjIaVstEditor : public juce::AudioProcessorEditor, public juce::MenuBarModel, public juce::Timer, public DjIaVstProcessor::GenerationListener, public juce::DragAndDropContainer
 {
 public:
 	explicit DjIaVstEditor(DjIaVstProcessor&);
@@ -51,6 +52,8 @@ public:
 	void restoreUICallbacks();
 	void updateSelectedTrack();
 	void onGenerateButtonClicked();
+	void toggleSampleBank();
+	void refreshSampleBankPanel();
 
 private:
 	DjIaVstProcessor& audioProcessor;
@@ -58,6 +61,9 @@ private:
 	juce::Image bannerImage;
 	juce::Rectangle<int> bannerArea;
 	std::unique_ptr<juce::TooltipWindow> tooltipWindow;
+	std::unique_ptr<SampleBankPanel> sampleBankPanel;
+	juce::TextButton showSampleBankButton;
+	bool sampleBankVisible = false;
 
 	void setupUI();
 	void addEventListeners();
