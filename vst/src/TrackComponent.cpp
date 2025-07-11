@@ -12,7 +12,7 @@
 #include "PluginEditor.h"
 #include "ColourPalette.h"
 
-TrackComponent::TrackComponent(const juce::String &trackId, DjIaVstProcessor &processor)
+TrackComponent::TrackComponent(const juce::String& trackId, DjIaVstProcessor& processor)
 	: trackId(trackId), track(nullptr), audioProcessor(processor)
 {
 	setupUI();
@@ -38,7 +38,7 @@ void TrackComponent::addEventListeners()
 	addListener("RetriggerInterval");
 }
 
-void TrackComponent::setTrackData(TrackData *trackData)
+void TrackComponent::setTrackData(TrackData* trackData)
 {
 	track = trackData;
 	updateFromTrackData();
@@ -58,9 +58,9 @@ void TrackComponent::updateWaveformWithTimeStretch()
 	calculateHostBasedDisplay();
 }
 
-void TrackComponent::updateUIFromParameter(const juce::String &paramName,
-										   const juce::String &slotPrefix,
-										   float newValue)
+void TrackComponent::updateUIFromParameter(const juce::String& paramName,
+	const juce::String& slotPrefix,
+	float newValue)
 {
 	if (isDestroyed.load())
 		return;
@@ -77,7 +77,7 @@ void TrackComponent::updateUIFromParameter(const juce::String &paramName,
 		bool isEnabled = newValue > 0.5f;
 
 		if (isEnabled) {
-			randomRetriggerButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonSuccess); 
+			randomRetriggerButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonSuccess);
 		}
 		else {
 			randomRetriggerButton.setColour(juce::TextButton::buttonColourId, ColourPalette::backgroundDark);
@@ -87,11 +87,11 @@ void TrackComponent::updateUIFromParameter(const juce::String &paramName,
 		if (track) {
 			track->randomRetriggerEnabled = isEnabled;
 		}
-	
+
 	}
 	else if (paramName == slotPrefix + " Retrigger Interval")
 	{
-	
+
 		float denormalizedValue = (newValue * 9.0f) + 1.0f;
 		intervalKnob.setValue(denormalizedValue, juce::dontSendNotification);
 
@@ -100,7 +100,7 @@ void TrackComponent::updateUIFromParameter(const juce::String &paramName,
 		if (track) {
 			track->randomRetriggerInterval = (int)denormalizedValue;
 		}
-		
+
 	}
 }
 
@@ -114,23 +114,23 @@ void TrackComponent::parameterValueChanged(int parameterIndex, float newValue)
 		return;
 
 	juce::String slotPrefix = "Slot " + juce::String(track->slotIndex + 1);
-	auto &allParams = audioProcessor.AudioProcessor::getParameters();
+	auto& allParams = audioProcessor.AudioProcessor::getParameters();
 
 	if (parameterIndex >= 0 && parameterIndex < allParams.size())
 	{
-		auto *param = allParams[parameterIndex];
+		auto* param = allParams[parameterIndex];
 		juce::String paramName = param->getName(256);
 
 		if (juce::MessageManager::getInstance()->isThisTheMessageThread())
 		{
 			juce::Timer::callAfterDelay(50, [this, paramName, slotPrefix, newValue]()
-										{ updateUIFromParameter(paramName, slotPrefix, newValue); });
+				{ updateUIFromParameter(paramName, slotPrefix, newValue); });
 		}
 		else
 		{
 			juce::MessageManager::callAsync([this, paramName, slotPrefix, newValue]()
-											{ juce::Timer::callAfterDelay(50, [this, paramName, slotPrefix, newValue]()
-																		  { updateUIFromParameter(paramName, slotPrefix, newValue); }); });
+				{ juce::Timer::callAfterDelay(50, [this, paramName, slotPrefix, newValue]()
+					{ updateUIFromParameter(paramName, slotPrefix, newValue); }); });
 		}
 	}
 }
@@ -145,14 +145,14 @@ void TrackComponent::setButtonParameter(juce::String name)
 	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
 	try
 	{
-		auto *param = audioProcessor.getParameters().getParameter(paramName);
+		auto* param = audioProcessor.getParameters().getParameter(paramName);
 		if (param != nullptr)
 		{
 			if (name == "Generate")
 			{
 				param->setValueNotifyingHost(1.0f);
 				juce::Timer::callAfterDelay(100, [param]()
-											{ param->setValueNotifyingHost(0.0f); });
+					{ param->setValueNotifyingHost(0.0f); });
 			}
 			else
 			{
@@ -194,18 +194,18 @@ void TrackComponent::toggleWaveformDisplay()
 		{
 			waveformDisplay = std::make_unique<WaveformDisplay>(audioProcessor, *track);
 			waveformDisplay->onLoopPointsChanged = [this](double start, double end)
-			{
-				if (track)
 				{
-					track->loopStart = start;
-					track->loopEnd = end;
-					waveformDisplay->setLoopPoints(start, end);
-					if (track->isPlaying.load())
+					if (track)
 					{
-						track->readPosition = 0.0;
+						track->loopStart = start;
+						track->loopEnd = end;
+						waveformDisplay->setLoopPoints(start, end);
+						if (track->isPlaying.load())
+						{
+							track->readPosition = 0.0;
+						}
 					}
-				}
-			};
+				};
 
 			addAndMakeVisible(*waveformDisplay);
 		}
@@ -236,14 +236,14 @@ void TrackComponent::toggleWaveformDisplay()
 
 	setSize(getWidth(), newHeight);
 
-	if (auto *parentViewport = findParentComponentOfClass<juce::Viewport>())
+	if (auto* parentViewport = findParentComponentOfClass<juce::Viewport>())
 	{
-		if (auto *parentContainer = parentViewport->getViewedComponent())
+		if (auto* parentContainer = parentViewport->getViewedComponent())
 		{
 			int totalHeight = 5;
 			for (int i = 0; i < parentContainer->getNumChildComponents(); ++i)
 			{
-				if (auto *trackComp = dynamic_cast<TrackComponent *>(parentContainer->getChildComponent(i)))
+				if (auto* trackComp = dynamic_cast<TrackComponent*>(parentContainer->getChildComponent(i)))
 				{
 					bool hasWaveform = trackComp->showWaveformButton.getToggleState();
 					bool hasSequencer = trackComp->sequencerVisible;
@@ -403,12 +403,16 @@ void TrackComponent::setSelected(bool selected)
 	repaint();
 }
 
-void TrackComponent::paint(juce::Graphics &g)
+void TrackComponent::paint(juce::Graphics& g)
 {
 	auto bounds = getLocalBounds();
 	juce::Colour bgColour;
 
-	if (isGenerating && blinkState)
+	if (isDragOver)
+	{
+		bgColour = ColourPalette::buttonSuccess.withAlpha(0.4f);
+	}
+	else if (isGenerating && blinkState)
 	{
 		bgColour = ColourPalette::playArmed.withAlpha(0.3f);
 	}
@@ -428,7 +432,7 @@ void TrackComponent::paint(juce::Graphics &g)
 
 	g.setColour(borderColour);
 	g.drawRoundedRectangle(bounds.toFloat().reduced(1), 6.0f,
-						   isGenerating ? 3.0f : (isSelected ? 2.0f : 1.0f));
+		isGenerating ? 3.0f : (isSelected ? 2.0f : 1.0f));
 
 	if (isSelected)
 	{
@@ -555,7 +559,7 @@ void TrackComponent::removeListener(juce::String name)
 	if (!track || track->slotIndex == -1)
 		return;
 	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
-	auto *param = audioProcessor.getParameterTreeState().getParameter(paramName);
+	auto* param = audioProcessor.getParameterTreeState().getParameter(paramName);
 	if (param)
 	{
 		param->removeListener(this);
@@ -590,63 +594,63 @@ void TrackComponent::setupUI()
 	selectButton.setButtonText(juce::String::fromUTF8("\xE2\x97\x89"));
 	selectButton.setTooltip("Select this track");
 	selectButton.onClick = [this]()
-	{
-		if (onSelectTrack)
-			onSelectTrack(trackId);
-	};
+		{
+			if (onSelectTrack)
+				onSelectTrack(trackId);
+		};
 
 	addAndMakeVisible(deleteButton);
 	deleteButton.setButtonText(juce::String::fromUTF8("\xE2\x9C\x95"));
 	deleteButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonDanger);
 	deleteButton.setTooltip("Delete this track");
 	deleteButton.onClick = [this]()
-	{
-		if (onDeleteTrack)
-			onDeleteTrack(trackId);
-	};
+		{
+			if (onDeleteTrack)
+				onDeleteTrack(trackId);
+		};
 
 	addAndMakeVisible(generateButton);
 	generateButton.setButtonText(juce::String::fromUTF8("\xE2\x9C\x93"));
 	generateButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonSuccess);
 	generateButton.setTooltip("Generate new sample for this track");
 	generateButton.onClick = [this]()
-	{
-		if (onGenerateForTrack)
 		{
-			if (track)
+			if (onGenerateForTrack)
 			{
-				track->selectedPrompt = promptPresetSelector.getText();
-				track->generationBpm = audioProcessor.getGlobalBpm();
-				track->generationKey = audioProcessor.getGlobalKey();
-				track->generationDuration = audioProcessor.getGlobalDuration();
+				if (track)
+				{
+					track->selectedPrompt = promptPresetSelector.getText();
+					track->generationBpm = audioProcessor.getGlobalBpm();
+					track->generationKey = audioProcessor.getGlobalKey();
+					track->generationDuration = audioProcessor.getGlobalDuration();
 
-				if (audioProcessor.isGlobalStemEnabled("drums"))
-					track->preferredStems.push_back("drums");
-				if (audioProcessor.isGlobalStemEnabled("bass"))
-					track->preferredStems.push_back("bass");
-				if (audioProcessor.isGlobalStemEnabled("other"))
-					track->preferredStems.push_back("other");
-				if (audioProcessor.isGlobalStemEnabled("vocals"))
-					track->preferredStems.push_back("vocals");
-				if (audioProcessor.isGlobalStemEnabled("guitar"))
-					track->preferredStems.push_back("guitar");
-				if (audioProcessor.isGlobalStemEnabled("piano"))
-					track->preferredStems.push_back("piano");
+					if (audioProcessor.isGlobalStemEnabled("drums"))
+						track->preferredStems.push_back("drums");
+					if (audioProcessor.isGlobalStemEnabled("bass"))
+						track->preferredStems.push_back("bass");
+					if (audioProcessor.isGlobalStemEnabled("other"))
+						track->preferredStems.push_back("other");
+					if (audioProcessor.isGlobalStemEnabled("vocals"))
+						track->preferredStems.push_back("vocals");
+					if (audioProcessor.isGlobalStemEnabled("guitar"))
+						track->preferredStems.push_back("guitar");
+					if (audioProcessor.isGlobalStemEnabled("piano"))
+						track->preferredStems.push_back("piano");
+				}
+				onGenerateForTrack(trackId);
+				setButtonParameter("Generate");
 			}
-			onGenerateForTrack(trackId);
-			setButtonParameter("Generate");
-		}
-	};
+		};
 
 	addAndMakeVisible(sequencerToggleButton);
 	sequencerToggleButton.setButtonText(juce::String::fromUTF8("\xE2\x96\xA6"));
 	sequencerToggleButton.setClickingTogglesState(true);
 	sequencerToggleButton.setTooltip("Show/hide step sequencer");
 	sequencerToggleButton.onClick = [this]()
-	{
-		track->showSequencer = sequencerToggleButton.getToggleState();
-		toggleSequencerDisplay();
-	};
+		{
+			track->showSequencer = sequencerToggleButton.getToggleState();
+			toggleSequencerDisplay();
+		};
 
 	addAndMakeVisible(originalSyncButton);
 	originalSyncButton.setButtonText(juce::String::fromUTF8("\xE2\x97\x8F"));
@@ -654,9 +658,9 @@ void TrackComponent::setupUI()
 	originalSyncButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonPrimary);
 	originalSyncButton.setTooltip("Toggle between original and time-stretched version");
 	originalSyncButton.onClick = [this]()
-	{
-		toggleOriginalSync();
-	};
+		{
+			toggleOriginalSync();
+		};
 
 	addAndMakeVisible(infoLabel);
 	infoLabel.setText("Empty track - Generate your sample!", juce::dontSendNotification);
@@ -668,40 +672,40 @@ void TrackComponent::setupUI()
 	showWaveformButton.setTooltip("Show/hide waveform display");
 	showWaveformButton.setClickingTogglesState(true);
 	showWaveformButton.onClick = [this]()
-	{
-		if (track)
 		{
-			track->showWaveform = showWaveformButton.getToggleState();
-			toggleWaveformDisplay();
-		}
-	};
+			if (track)
+			{
+				track->showWaveform = showWaveformButton.getToggleState();
+				toggleWaveformDisplay();
+			}
+		};
 
 	addAndMakeVisible(trackNameLabel);
 	trackNameLabel.setText(track ? track->trackName : "Track", juce::dontSendNotification);
 	trackNameLabel.setColour(juce::Label::textColourId, ColourPalette::textPrimary);
 	trackNameLabel.setEditable(true);
 	trackNameLabel.onEditorShow = [this]()
-	{
-		isEditingLabel = true;
-		if (auto *editor = trackNameLabel.getCurrentTextEditor())
 		{
-			editor->selectAll();
-		}
-	};
+			isEditingLabel = true;
+			if (auto* editor = trackNameLabel.getCurrentTextEditor())
+			{
+				editor->selectAll();
+			}
+		};
 
 	trackNameLabel.onTextChange = [this]()
-	{
-		if (track)
 		{
-			track->trackName = trackNameLabel.getText();
-			if (onTrackRenamed)
-				onTrackRenamed(trackId, trackNameLabel.getText());
-		}
-	};
+			if (track)
+			{
+				track->trackName = trackNameLabel.getText();
+				if (onTrackRenamed)
+					onTrackRenamed(trackId, trackNameLabel.getText());
+			}
+		};
 	trackNameLabel.onEditorHide = [this]()
-	{
-		isEditingLabel = false;
-	};
+		{
+			isEditingLabel = false;
+		};
 	trackNameLabel.toFront(false);
 
 	addAndMakeVisible(trackNumberLabel);
@@ -714,19 +718,19 @@ void TrackComponent::setupUI()
 	previewButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonPrimary);
 	previewButton.setTooltip("Preview sample (independent of ARM/STOP state)");
 	previewButton.onClick = [this]()
-	{
-		if (track && onPreviewTrack)
-			onPreviewTrack(trackId);
-	};
+		{
+			if (track && onPreviewTrack)
+				onPreviewTrack(trackId);
+		};
 
 	addAndMakeVisible(promptPresetSelector);
 	promptPresetSelector.setTooltip("Select prompt for this track");
 	promptPresetSelector.onChange = [this]()
-	{
-		onTrackPresetSelected();
-	};
+		{
+			onTrackPresetSelected();
+		};
 
-	
+
 	randomRetriggerButton.setButtonText(juce::String::fromUTF8("\xE2\x86\xBB"));
 	randomRetriggerButton.setTooltip("Beat Repeat - Loop current section while held");
 	randomRetriggerButton.setColour(juce::TextButton::buttonColourId, ColourPalette::backgroundDark);
@@ -796,7 +800,7 @@ void TrackComponent::onIntervalChanged()
 
 		if (track->beatRepeatActive.load())
 		{
-			double hostBpm = audioProcessor.getHostBpm(); 
+			double hostBpm = audioProcessor.getHostBpm();
 			if (hostBpm <= 0.0)
 				hostBpm = 120.0;
 
@@ -837,19 +841,19 @@ juce::String TrackComponent::getIntervalName(int value)
 	}
 }
 
-void TrackComponent::statusCallback(const juce::String &message)
+void TrackComponent::statusCallback(const juce::String& message)
 {
 	if (onStatusMessage)
 	{
 		onStatusMessage(message);
 	}
-	if (auto *editor = dynamic_cast<DjIaVstEditor *>(audioProcessor.getActiveEditor()))
+	if (auto* editor = dynamic_cast<DjIaVstEditor*>(audioProcessor.getActiveEditor()))
 	{
 		editor->statusLabel.setText(message, juce::dontSendNotification);
 	}
 }
 
-void TrackComponent::setSliderParameter(juce::String name, juce::Slider &slider)
+void TrackComponent::setSliderParameter(juce::String name, juce::Slider& slider)
 {
 	if (!track || track->slotIndex == -1)
 		return;
@@ -859,8 +863,8 @@ void TrackComponent::setSliderParameter(juce::String name, juce::Slider &slider)
 	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
 	try
 	{
-		auto &parameterTreeState = audioProcessor.getParameterTreeState();
-		auto *param = parameterTreeState.getParameter(paramName);
+		auto& parameterTreeState = audioProcessor.getParameterTreeState();
+		auto* param = parameterTreeState.getParameter(paramName);
 
 		if (param != nullptr)
 		{
@@ -887,7 +891,7 @@ void TrackComponent::loadPromptPresets()
 	juce::StringArray allPrompts = audioProcessor.getBuiltInPrompts();
 	auto customPrompts = audioProcessor.getCustomPrompts();
 
-	for (const auto &customPrompt : customPrompts)
+	for (const auto& customPrompt : customPrompts)
 	{
 		if (!allPrompts.contains(customPrompt))
 		{
@@ -916,7 +920,7 @@ void TrackComponent::loadPromptPresets()
 	}
 }
 
-void TrackComponent::updatePromptPresets(const juce::StringArray &presets)
+void TrackComponent::updatePromptPresets(const juce::StringArray& presets)
 {
 	juce::String currentSelection = promptPresetSelector.getText();
 	juce::StringArray sortedPresets = presets;
@@ -1018,7 +1022,7 @@ void TrackComponent::updateTrackInfo()
 			break;
 		case 2:
 			stretchIndicator = (effectiveBpm > originalBpm) ? " +" : (effectiveBpm < originalBpm) ? " -"
-																								  : " =";
+				: " =";
 			bpmInfo = " | BPM: " + juce::String(effectiveBpm, 1) + stretchIndicator;
 			break;
 		case 3:
@@ -1027,13 +1031,13 @@ void TrackComponent::updateTrackInfo()
 			break;
 		case 4:
 			stretchIndicator = (track->bpmOffset > 0) ? " +" : (track->bpmOffset < 0) ? " -"
-																					  : "";
+				: "";
 			bpmInfo = " | Host+ " + juce::String(track->bpmOffset, 1) + stretchIndicator;
 			break;
 		}
 
 		infoLabel.setText(track->prompt.substring(0, 30) + "..." + bpmInfo,
-						  juce::dontSendNotification);
+			juce::dontSendNotification);
 	}
 	repaint();
 }
@@ -1076,15 +1080,15 @@ void TrackComponent::toggleSequencerDisplay()
 
 	setSize(getWidth(), newHeight);
 
-	if (auto *parentViewport = findParentComponentOfClass<juce::Viewport>())
+	if (auto* parentViewport = findParentComponentOfClass<juce::Viewport>())
 	{
-		if (auto *parentContainer = parentViewport->getViewedComponent())
+		if (auto* parentContainer = parentViewport->getViewedComponent())
 		{
 			int totalHeight = 5;
 
 			for (int i = 0; i < parentContainer->getNumChildComponents(); ++i)
 			{
-				if (auto *trackComp = dynamic_cast<TrackComponent *>(parentContainer->getChildComponent(i)))
+				if (auto* trackComp = dynamic_cast<TrackComponent*>(parentContainer->getChildComponent(i)))
 				{
 					bool hasWaveform = trackComp->showWaveformButton.getToggleState();
 					bool hasSequencer = trackComp->sequencerVisible;
@@ -1133,17 +1137,17 @@ void TrackComponent::learn(juce::String param, std::function<void(float)> uiCall
 		juce::String parameterName = "slot" + juce::String(track->slotIndex + 1) + param;
 		juce::String description = "Slot " + juce::String(track->slotIndex + 1) + " " + param;
 		juce::MessageManager::callAsync([this, description]()
-										{
+			{
 				if (auto* editor = dynamic_cast<DjIaVstEditor*>(audioProcessor.getActiveEditor()))
 				{
 					editor->statusLabel.setText("Learning MIDI for " + description + "...", juce::dontSendNotification);
 				} });
-		audioProcessor.getMidiLearnManager()
-			.startLearning(parameterName, &audioProcessor, uiCallback, description);
+				audioProcessor.getMidiLearnManager()
+					.startLearning(parameterName, &audioProcessor, uiCallback, description);
 	}
 }
 
-void TrackComponent::removeMidiMapping(const juce::String &param)
+void TrackComponent::removeMidiMapping(const juce::String& param)
 {
 	if (track && track->slotIndex != -1)
 	{
@@ -1158,19 +1162,19 @@ void TrackComponent::setupMidiLearn()
 		return;
 
 	generateButton.onMidiLearn = [this]()
-	{ learn("Generate"); };
+		{ learn("Generate"); };
 	generateButton.onMidiRemove = [this]()
-	{ removeMidiMapping("Generate"); };
+		{ removeMidiMapping("Generate"); };
 
 	randomRetriggerButton.onMidiLearn = [this]()
-	{ learn("RandomRetrigger"); };
+		{ learn("RandomRetrigger"); };
 	randomRetriggerButton.onMidiRemove = [this]()
-	{ removeMidiMapping("RandomRetrigger"); };
+		{ removeMidiMapping("RandomRetrigger"); };
 
 	intervalKnob.onMidiLearn = [this]()
-	{ learn("RetriggerInterval"); };
+		{ learn("RetriggerInterval"); };
 	intervalKnob.onMidiRemove = [this]()
-	{ removeMidiMapping("RetriggerInterval"); };
+		{ removeMidiMapping("RetriggerInterval"); };
 
 	juce::String paramName = "promptSelector_slot" + juce::String(track->slotIndex + 1);
 	auto promptCallback = [this](float value)
@@ -1199,4 +1203,63 @@ void TrackComponent::setupMidiLearn()
 		{
 			audioProcessor.getMidiLearnManager().removeMappingForParameter(paramName);
 		};
+}
+
+bool TrackComponent::isInterestedInDragSource(const SourceDetails& dragSourceDetails)
+{
+	return dragSourceDetails.description.isString() &&
+		dragSourceDetails.description.toString().isNotEmpty();
+}
+
+void TrackComponent::itemDragEnter(const SourceDetails& /*dragSourceDetails*/)
+{
+	isDragOver = true;
+	repaint();
+}
+
+void TrackComponent::itemDragMove(const SourceDetails& /*dragSourceDetails*/)
+{
+	// Pas besoin de faire quelque chose ici pour l'instant
+}
+
+void TrackComponent::itemDragExit(const SourceDetails& /*dragSourceDetails*/)
+{
+	isDragOver = false;
+	repaint();
+}
+
+void TrackComponent::itemDropped(const SourceDetails& dragSourceDetails)
+{
+	isDragOver = false;
+
+	juce::String sampleId = dragSourceDetails.description.toString();
+	if (sampleId.isNotEmpty() && track)
+	{
+		audioProcessor.loadSampleFromBank(sampleId, trackId);
+
+		if (auto* sampleBank = audioProcessor.getSampleBank())
+		{
+			auto* sampleEntry = sampleBank->getSample(sampleId);
+			if (sampleEntry && !sampleEntry->originalPrompt.isEmpty())
+			{
+				for (int i = 0; i < promptPresetSelector.getNumItems(); ++i)
+				{
+					if (promptPresetSelector.getItemText(i) == sampleEntry->originalPrompt)
+					{
+						promptPresetSelector.setSelectedItemIndex(i, juce::dontSendNotification);
+						track->selectedPrompt = sampleEntry->originalPrompt;
+						DBG("Updated prompt selector to: " + sampleEntry->originalPrompt);
+						break;
+					}
+				}
+			}
+		}
+
+		if (onStatusMessage)
+		{
+			onStatusMessage("Sample loaded from bank!");
+		}
+	}
+
+	repaint();
 }

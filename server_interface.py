@@ -18,6 +18,7 @@ from pathlib import Path
 import psutil
 import sqlite3
 import pystray
+from core.paths import get_config_db_path
 
 try:
     import pystray
@@ -1333,16 +1334,7 @@ class ObsidianNeuralLauncher:
                 messagebox.showerror("Error", f"Could not clear data: {e}")
 
     def init_database(self):
-        if platform.system() == "Windows":
-            config_dir = (
-                Path(os.environ.get("APPDATA", Path.home() / "AppData/Roaming"))
-                / "OBSIDIAN-Neural"
-            )
-        elif platform.system() == "Darwin":
-            config_dir = Path.home() / "Library/Application Support/OBSIDIAN-Neural"
-        else:
-            xdg_config = os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")
-            config_dir = Path(xdg_config) / "obsidian-neural"
+        config_dir = get_config_db_path()
 
         config_dir.mkdir(parents=True, exist_ok=True)
         self.db_path = config_dir / "config.db"

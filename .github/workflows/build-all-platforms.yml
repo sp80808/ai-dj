@@ -113,8 +113,11 @@ jobs:
           - os: ubuntu-latest
             name: linux
 
+          - os: macos-13
+            name: macos-intel
+
           - os: macos-latest
-            name: macos
+            name: macos-arm64
 
     steps:
       - uses: actions/checkout@v4
@@ -154,77 +157,152 @@ jobs:
       - name: Download macOS Python executables
         uses: actions/download-artifact@v4
         with:
-          name: ObsidianNeural-Python-macos
-          path: ./python-tools/
+          name: ObsidianNeural-Python-macos-intel
+          path: ./python-tools-intel/
 
-      - name: Create DMG with installer
+      - name: Download macOS ARM Python executables
+        uses: actions/download-artifact@v4
+        with:
+          name: ObsidianNeural-Python-macos-arm64
+          path: ./python-tools-arm64/
+
+      - name: Create Intel DMG with installer
         run: |
-          mkdir -p dmg-staging
+          mkdir -p dmg-staging-intel
 
-          # Copy installer
-          cp python-tools/obsidian-installer-macos dmg-staging/OBSIDIAN-Neural-Installer
-          chmod +x dmg-staging/OBSIDIAN-Neural-Installer
+          # Copy Intel installer
+          cp python-tools-intel/obsidian-installer-macos-intel dmg-staging-intel/OBSIDIAN-Neural-Installer
+          chmod +x dmg-staging-intel/OBSIDIAN-Neural-Installer
 
-      - name: Create DMG
+      - name: Create ARM DMG with installer
+        run: |
+          mkdir -p dmg-staging-arm64
+
+          # Copy ARM installer
+          cp python-tools-arm64/obsidian-installer-macos-arm64 dmg-staging-arm64/OBSIDIAN-Neural-Installer
+          chmod +x dmg-staging-arm64/OBSIDIAN-Neural-Installer
+
+      - name: Create Intel DMG
         run: |
           create-dmg \
-            --volname "OBSIDIAN-Neural-Installer" \
+            --volname "OBSIDIAN-Neural-Installer-Intel" \
             --window-pos 200 120 \
             --window-size 500 300 \
             --icon-size 100 \
             --icon "OBSIDIAN-Neural-Installer" 250 150 \
             --hide-extension "OBSIDIAN-Neural-Installer" \
-            "OBSIDIAN-Neural-Installer-macOS.dmg" \
-            "dmg-staging/"
+            "OBSIDIAN-Neural-Installer-macOS-Intel.dmg" \
+            "dmg-staging-intel/"
 
-      - name: Upload DMG
+      - name: Create ARM DMG
+        run: |
+          create-dmg \
+            --volname "OBSIDIAN-Neural-Installer-ARM64" \
+            --window-pos 200 120 \
+            --window-size 500 300 \
+            --icon-size 100 \
+            --icon "OBSIDIAN-Neural-Installer" 250 150 \
+            --hide-extension "OBSIDIAN-Neural-Installer" \
+            "OBSIDIAN-Neural-Installer-macOS-ARM64.dmg" \
+            "dmg-staging-arm64/"
+
+      - name: Upload Intel DMG
         uses: actions/upload-artifact@v4
         with:
-          name: ObsidianNeural-macOS-DMG
-          path: OBSIDIAN-Neural-Installer-macOS.dmg
+          name: ObsidianNeural-macOS-DMG-Intel
+          path: OBSIDIAN-Neural-Installer-macOS-Intel.dmg
 
-      - name: Prepare PKG payload
+      - name: Upload ARM DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: ObsidianNeural-macOS-DMG-ARM64
+          path: OBSIDIAN-Neural-Installer-macOS-ARM64.dmg
+
+      - name: Prepare Intel PKG payload
         run: |
-          mkdir -p pkg-staging/payload/usr/local/bin
-          mkdir -p pkg-staging/scripts
+          mkdir -p pkg-staging-intel/payload/usr/local/bin
+          mkdir -p pkg-staging-intel/scripts
 
-          # Copy installer to payload
-          cp python-tools/obsidian-installer-macos pkg-staging/payload/usr/local/bin/obsidian-installer
-          chmod +x pkg-staging/payload/usr/local/bin/obsidian-installer
+          # Copy Intel installer to payload
+          cp python-tools-intel/obsidian-installer-macos-intel pkg-staging-intel/payload/usr/local/bin/obsidian-installer
+          chmod +x pkg-staging-intel/payload/usr/local/bin/obsidian-installer
 
-          # Copy server to payload
-          cp python-tools/obsidian-server-macos pkg-staging/payload/usr/local/bin/obsidian-server
-          chmod +x pkg-staging/payload/usr/local/bin/obsidian-server
+          # Copy Intel server to payload
+          cp python-tools-intel/obsidian-server-macos-intel pkg-staging-intel/payload/usr/local/bin/obsidian-server
+          chmod +x pkg-staging-intel/payload/usr/local/bin/obsidian-server
 
-      - name: Create postinstall script
+      - name: Prepare ARM PKG payload
         run: |
-          cat > pkg-staging/scripts/postinstall << 'EOF'
+          mkdir -p pkg-staging-arm64/payload/usr/local/bin
+          mkdir -p pkg-staging-arm64/scripts
+
+          # Copy ARM installer to payload
+          cp python-tools-arm64/obsidian-installer-macos-arm64 pkg-staging-arm64/payload/usr/local/bin/obsidian-installer
+          chmod +x pkg-staging-arm64/payload/usr/local/bin/obsidian-installer
+
+          # Copy ARM server to payload
+          cp python-tools-arm64/obsidian-server-macos-arm64 pkg-staging-arm64/payload/usr/local/bin/obsidian-server
+          chmod +x pkg-staging-arm64/payload/usr/local/bin/obsidian-server
+
+      - name: Create Intel postinstall script
+        run: |
+          cat > pkg-staging-intel/scripts/postinstall << 'EOF'
           #!/bin/bash
           ln -sf /usr/local/bin/obsidian-installer /usr/local/bin/obsidian-neural
-          echo "OBSIDIAN-Neural installed successfully!"
+          echo "OBSIDIAN-Neural (Intel) installed successfully!"
           echo "Available commands:"
           echo "  obsidian-neural    - Run installer"
           echo "  obsidian-server    - Run server directly"
           echo "  obsidian-installer - Run installer directly"
           exit 0
           EOF
-          chmod +x pkg-staging/scripts/postinstall
+          chmod +x pkg-staging-intel/scripts/postinstall
 
-      - name: Build PKG
+      - name: Create ARM postinstall script
+        run: |
+          cat > pkg-staging-arm64/scripts/postinstall << 'EOF'
+          #!/bin/bash
+          ln -sf /usr/local/bin/obsidian-installer /usr/local/bin/obsidian-neural
+          echo "OBSIDIAN-Neural (Apple Silicon) installed successfully!"
+          echo "Available commands:"
+          echo "  obsidian-neural    - Run installer"
+          echo "  obsidian-server    - Run server directly"
+          echo "  obsidian-installer - Run installer directly"
+          exit 0
+          EOF
+          chmod +x pkg-staging-arm64/scripts/postinstall
+
+      - name: Build Intel PKG
         run: |
           pkgbuild \
-            --root pkg-staging/payload \
-            --identifier com.obsidianneural.installer \
+            --root pkg-staging-intel/payload \
+            --identifier com.obsidianneural.installer.intel \
             --version "1.0.${{ github.run_number }}" \
-            --scripts pkg-staging/scripts \
+            --scripts pkg-staging-intel/scripts \
             --install-location / \
-            OBSIDIAN-Neural-Installer-macOS.pkg
+            OBSIDIAN-Neural-Installer-macOS-Intel.pkg
 
-      - name: Upload PKG
+      - name: Build ARM PKG
+        run: |
+          pkgbuild \
+            --root pkg-staging-arm64/payload \
+            --identifier com.obsidianneural.installer.arm64 \
+            --version "1.0.${{ github.run_number }}" \
+            --scripts pkg-staging-arm64/scripts \
+            --install-location / \
+            OBSIDIAN-Neural-Installer-macOS-ARM64.pkg
+
+      - name: Upload Intel PKG
         uses: actions/upload-artifact@v4
         with:
-          name: ObsidianNeural-macOS-PKG
-          path: OBSIDIAN-Neural-Installer-macOS.pkg
+          name: ObsidianNeural-macOS-PKG-Intel
+          path: OBSIDIAN-Neural-Installer-macOS-Intel.pkg
+
+      - name: Upload ARM PKG
+        uses: actions/upload-artifact@v4
+        with:
+          name: ObsidianNeural-macOS-PKG-ARM64
+          path: OBSIDIAN-Neural-Installer-macOS-ARM64.pkg
 
   commit-binaries:
     needs: [build-python-executables]
@@ -248,8 +326,12 @@ jobs:
           rm -rf bin/*
           mkdir -p bin
 
-          if [ -d "ObsidianNeural-Python-macos" ]; then
-            cp ObsidianNeural-Python-macos/obsidian-server-macos bin/OBSIDIAN-Neural-Server-macos
+          if [ -d "ObsidianNeural-Python-macos-intel" ]; then
+            cp ObsidianNeural-Python-macos-intel/obsidian-server-macos-intel bin/OBSIDIAN-Neural-Server-macos-intel
+          fi
+
+          if [ -d "ObsidianNeural-Python-macos-arm64" ]; then
+            cp ObsidianNeural-Python-macos-arm64/obsidian-server-macos-arm64 bin/OBSIDIAN-Neural-Server-macos-arm64
           fi
 
           if [ -d "ObsidianNeural-Python-linux" ]; then
@@ -260,8 +342,11 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+
           git add bin/
           git commit -m "Update binaries [skip ci]" || exit 0
+
+          git pull --rebase origin main
           git push
 
   create-release:
@@ -309,19 +394,27 @@ jobs:
             cd ..
           fi
 
-          # Copy DMG
-          if [ -f "ObsidianNeural-macOS-DMG/OBSIDIAN-Neural-Installer-macOS.dmg" ]; then
-            cp "ObsidianNeural-macOS-DMG/OBSIDIAN-Neural-Installer-macOS.dmg" ./
+          # Copy Intel DMG and PKG
+          if [ -f "ObsidianNeural-macOS-DMG-Intel/OBSIDIAN-Neural-Installer-macOS-Intel.dmg" ]; then
+            cp "ObsidianNeural-macOS-DMG-Intel/OBSIDIAN-Neural-Installer-macOS-Intel.dmg" ./
+          fi
+
+          if [ -f "ObsidianNeural-macOS-PKG-Intel/OBSIDIAN-Neural-Installer-macOS-Intel.pkg" ]; then
+            cp "ObsidianNeural-macOS-PKG-Intel/OBSIDIAN-Neural-Installer-macOS-Intel.pkg" ./
+          fi
+
+          # Copy ARM DMG and PKG
+          if [ -f "ObsidianNeural-macOS-DMG-ARM64/OBSIDIAN-Neural-Installer-macOS-ARM64.dmg" ]; then
+            cp "ObsidianNeural-macOS-DMG-ARM64/OBSIDIAN-Neural-Installer-macOS-ARM64.dmg" ./
+          fi
+
+          if [ -f "ObsidianNeural-macOS-PKG-ARM64/OBSIDIAN-Neural-Installer-macOS-ARM64.pkg" ]; then
+            cp "ObsidianNeural-macOS-PKG-ARM64/OBSIDIAN-Neural-Installer-macOS-ARM64.pkg" ./
           fi
 
           # Linux installer
           if [ -d "ObsidianNeural-Python-linux" ]; then
             cp ObsidianNeural-Python-linux/obsidian-installer-linux ./OBSIDIAN-Neural-Installer-Linux
-          fi
-
-          # Copy PKG
-          if [ -f "ObsidianNeural-macOS-PKG/OBSIDIAN-Neural-Installer-macOS.pkg" ]; then
-            cp "ObsidianNeural-macOS-PKG/OBSIDIAN-Neural-Installer-macOS.pkg" ./
           fi
 
       - name: Create Release
@@ -335,9 +428,12 @@ jobs:
             ### 📥 Quick Install
               Download the installer for your platform:
               - **Windows**: `OBSIDIAN-Neural-Installer.py` (requires Python 3.10+)
-              - **macOS**: 
-                - `OBSIDIAN-Neural-Installer-macOS.dmg` (double-click to mount, then run the installer)
-                - `OBSIDIAN-Neural-Installer-macOS.pkg` (double-click to install system-wide)
+              - **macOS Intel**: 
+                - `OBSIDIAN-Neural-Installer-macOS-Intel.dmg` (for Intel Macs)
+                - `OBSIDIAN-Neural-Installer-macOS-Intel.pkg` (system-wide install)
+              - **macOS Apple Silicon**: 
+                - `OBSIDIAN-Neural-Installer-macOS-ARM64.dmg` (for Apple Silicon Macs)
+                - `OBSIDIAN-Neural-Installer-macOS-ARM64.pkg` (system-wide install)
               - **Linux**: `OBSIDIAN-Neural-Installer-Linux`
 
               ### 🎛️ VST3 Plugins (for DAWs)
@@ -355,45 +451,34 @@ jobs:
             2. **Run** `python OBSIDIAN-Neural-Installer.py` 
             3. **Follow** the installation prompts
 
-            The installer will automatically:
-            - Set up virtual environment
-            - Install all dependencies
-            - Download AI models
-            - Configure the system
-            - Optionally build VST plugin
-
-            **Alternative:** Clone the repo and run `python installer.py`
-
             ---
 
             ## 🍎 macOS Installation
 
+            **⚠️ Choose the right version for your Mac:**
+            - **Intel Macs**: Use `*-Intel.*` files
+            - **Apple Silicon (M1/M2/M3)**: Use `*-ARM64.*` files
+
             **⚠️ Important:** Files are not signed, so macOS will block them initially.
 
             ### Option 1: DMG (Recommended)
-            1. **Download** `OBSIDIAN-Neural-Installer-macOS.dmg`
+            1. **Download** the correct DMG for your architecture
             2. **Double-click** the `.dmg` file to mount it
             3. **Double-click** `OBSIDIAN-Neural-Installer` in the opened window
             4. If blocked: **Right-click** → **Open** → **Open** again
 
             ### Option 2: PKG (System-wide)
-            1. **Download** `OBSIDIAN-Neural-Installer-macOS.pkg`
+            1. **Download** the correct PKG for your architecture
             2. **Double-click** the `.pkg` file
             3. If blocked by Gatekeeper, run: `sudo spctl --master-disable`
             4. **Install** the package, then re-enable: `sudo spctl --master-enable`
             5. **Run** `obsidian-neural` from terminal
 
-            ### Alternative: Terminal bypass
-            ```bash
-            # Remove quarantine attribute
-            xattr -d com.apple.quarantine /path/to/downloaded/file
-            ```
-
-            ⚠️ Having issues? Please mention your macOS version when reporting problems.
-
           files: |
-            OBSIDIAN-Neural-Installer-macOS.dmg
-            OBSIDIAN-Neural-Installer-macOS.pkg
+            OBSIDIAN-Neural-Installer-macOS-Intel.dmg
+            OBSIDIAN-Neural-Installer-macOS-Intel.pkg
+            OBSIDIAN-Neural-Installer-macOS-ARM64.dmg
+            OBSIDIAN-Neural-Installer-macOS-ARM64.pkg
             OBSIDIAN-Neural-Installer-Linux
             OBSIDIAN-Neural-Installer.py
             OBSIDIAN-Neural-*-VST3.*
