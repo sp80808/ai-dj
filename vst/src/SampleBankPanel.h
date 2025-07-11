@@ -12,7 +12,7 @@
 
 class DjIaVstProcessor;
 
-class SampleBankItem : public juce::Component
+class SampleBankItem : public juce::Component, public juce::DragAndDropContainer
 {
 public:
 	SampleBankItem(SampleBankEntry* entry, DjIaVstProcessor& processor);

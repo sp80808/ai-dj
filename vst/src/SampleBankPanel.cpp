@@ -179,6 +179,19 @@ void SampleBankItem::mouseDrag(const juce::MouseEvent& event)
 		isDragging = true;
 		repaint();
 
+		if (event.mods.isCtrlDown() && sampleEntry)
+		{
+			juce::File sampleFile(sampleEntry->filePath);
+			if (sampleFile.exists())
+			{
+				juce::StringArray files;
+				files.add(sampleFile.getFullPathName());
+				DBG("Starting external drag with: " + sampleFile.getFullPathName());
+				performExternalDragDropOfFiles(files, false);
+				return;
+			}
+		}
+
 		juce::DragAndDropContainer* dragContainer = juce::DragAndDropContainer::findParentDragContainerFor(this);
 		if (dragContainer)
 		{
@@ -335,7 +348,7 @@ void SampleBankPanel::resized()
 	cleanupButton.setBounds(headerArea.removeFromRight(100).reduced(5));
 	headerArea.removeFromRight(5);
 
-	auto infoArea = area.removeFromTop(20);
+	auto infoArea = area.removeFromTop(40);
 	infoLabel.setBounds(infoArea);
 
 	area.removeFromTop(5);
@@ -410,7 +423,7 @@ void SampleBankPanel::setupUI()
 	titleLabel.setColour(juce::Label::textColourId, ColourPalette::textAccent);
 
 	addAndMakeVisible(infoLabel);
-	infoLabel.setText("Preview plays on channel 9 (Preview). Enable multioutput in DAW to hear it.", juce::dontSendNotification);
+	infoLabel.setText("Preview plays on channel 9 (Preview). Enable multioutput in DAW to hear it.\nDrag: Drop on track | Ctrl+Drag: Drop in DAW", juce::dontSendNotification);
 	infoLabel.setFont(juce::FontOptions(12.0f));
 	infoLabel.setColour(juce::Label::textColourId, ColourPalette::textSecondary);
 	infoLabel.setJustificationType(juce::Justification::centredLeft);
