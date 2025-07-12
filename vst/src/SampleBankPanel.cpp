@@ -585,6 +585,7 @@ void SampleBankPanel::resized()
 	titleLabel.setBounds(headerArea.removeFromLeft(150));
 	cleanupButton.setBounds(headerArea.removeFromRight(100).reduced(5));
 	headerArea.removeFromRight(5);
+	sortMenu.setBounds(headerArea.removeFromRight(150).reduced(5));
 
 	auto infoArea = area.removeFromTop(40);
 	infoLabel.setBounds(infoArea);
@@ -618,6 +619,7 @@ void SampleBankPanel::refreshSampleList()
 				return a->creationTime > b->creationTime;
 			});
 		break;
+
 	case SortType::Prompt:
 		std::sort(samples.begin(), samples.end(),
 			[](const SampleBankEntry* a, const SampleBankEntry* b)
@@ -625,11 +627,28 @@ void SampleBankPanel::refreshSampleList()
 				return a->originalPrompt.compareIgnoreCase(b->originalPrompt) < 0;
 			});
 		break;
+
 	case SortType::Usage:
 		std::sort(samples.begin(), samples.end(),
 			[](const SampleBankEntry* a, const SampleBankEntry* b)
 			{
 				return a->usedInProjects.size() > b->usedInProjects.size();
+			});
+		break;
+
+	case SortType::BPM:
+		std::sort(samples.begin(), samples.end(),
+			[](const SampleBankEntry* a, const SampleBankEntry* b)
+			{
+				return a->bpm > b->bpm;
+			});
+		break;
+
+	case SortType::Duration:
+		std::sort(samples.begin(), samples.end(),
+			[](const SampleBankEntry* a, const SampleBankEntry* b)
+			{
+				return a->duration > b->duration;
 			});
 		break;
 	}
@@ -674,6 +693,19 @@ void SampleBankPanel::setupUI()
 	cleanupButton.setButtonText("Clean Unused");
 	cleanupButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonDanger);
 	cleanupButton.onClick = [this]() { cleanupUnusedSamples(); };
+
+	addAndMakeVisible(sortMenu);
+	sortMenu.addItem("Sort by: Recent", SortType::Time);
+	sortMenu.addItem("Sort by: Prompt", SortType::Prompt);
+	sortMenu.addItem("Sort by: Usage", SortType::Usage);
+	sortMenu.addItem("Sort by: BPM", SortType::BPM);
+	sortMenu.addItem("Sort by: Duration", SortType::Duration);
+	sortMenu.setSelectedId(SortType::Prompt);
+	sortMenu.onChange = [this]()
+		{
+			currentSortType = static_cast<SortType>(sortMenu.getSelectedId());
+			refreshSampleList();
+		};
 
 	addAndMakeVisible(samplesViewport);
 	samplesViewport.setViewedComponent(&samplesContainer, false);

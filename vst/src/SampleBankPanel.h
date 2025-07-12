@@ -93,12 +93,15 @@ private:
 	juce::Viewport samplesViewport;
 	juce::Component samplesContainer;
 	juce::Label infoLabel;
+	juce::ComboBox sortMenu;
 
-	enum class SortType
+	enum SortType
 	{
-		Time,
-		Prompt,
-		Usage
+		Time = 1,
+		Prompt = 2,
+		Usage = 3,
+		BPM = 4,
+		Duration = 5
 	};
 	SortType currentSortType = SortType::Prompt;
 
