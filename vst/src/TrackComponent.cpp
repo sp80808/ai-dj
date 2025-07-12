@@ -1219,7 +1219,6 @@ void TrackComponent::itemDragEnter(const SourceDetails& /*dragSourceDetails*/)
 
 void TrackComponent::itemDragMove(const SourceDetails& /*dragSourceDetails*/)
 {
-	// Pas besoin de faire quelque chose ici pour l'instant
 }
 
 void TrackComponent::itemDragExit(const SourceDetails& /*dragSourceDetails*/)
