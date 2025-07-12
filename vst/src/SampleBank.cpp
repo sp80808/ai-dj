@@ -244,7 +244,6 @@ void SampleBank::saveBankData()
 		sampleData->setProperty("numChannels", entry->numChannels);
 		sampleData->setProperty("numSamples", entry->numSamples);
 
-		// Stems
 		juce::Array<juce::var> stemsArray;
 		for (const auto& stem : entry->stems)
 			stemsArray.add(stem);

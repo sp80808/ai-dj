@@ -59,15 +59,69 @@ SampleBankItem::SampleBankItem(SampleBankEntry* entry, DjIaVstProcessor& process
 				onDeleteRequested(sampleEntry->id);
 		};
 	updateLabels();
-	setSize(400, 45);
+	setSize(400, 80);
 }
 
-SampleBankItem::~SampleBankItem() = default;
+SampleBankItem::~SampleBankItem()
+{
+	stopTimer();
+}
+
+void SampleBankItem::loadAudioDataIfNeeded()
+{
+	if (audioBuffer.getNumSamples() == 0)
+	{
+		loadAudioData();
+		if (!waveformBounds.isEmpty())
+		{
+			generateThumbnail();
+			repaint();
+		}
+	}
+}
 
 void SampleBankItem::setIsPlaying(bool playing)
 {
 	isPlaying = playing;
 	updatePlayButton();
+
+	if (isPlaying)
+	{
+		playbackPosition = 0.0f;
+		lastTimerCall = juce::Time::getMillisecondCounterHiRes() / 1000.0;
+		startTimer(30);
+	}
+	else
+	{
+		stopTimer();
+		playbackPosition = 0.0f;
+	}
+
+	repaint();
+}
+
+void SampleBankItem::timerCallback()
+{
+	if (!isPlaying || !sampleEntry)
+	{
+		stopTimer();
+		return;
+	}
+	double currentTime = juce::Time::getMillisecondCounterHiRes() / 1000.0;
+	double deltaTime = currentTime - lastTimerCall;
+	lastTimerCall = currentTime;
+
+	playbackPosition += static_cast<float>(deltaTime);
+
+	if (playbackPosition >= sampleEntry->duration)
+	{
+		playbackPosition = sampleEntry->duration;
+		setIsPlaying(false);
+		if (onStopRequested)
+			onStopRequested();
+	}
+
+	repaint();
 }
 
 void SampleBankItem::updatePlayButton()
@@ -111,26 +165,210 @@ void SampleBankItem::paint(juce::Graphics& g)
 	g.setColour(isDragging ? ColourPalette::buttonWarning : ColourPalette::backgroundLight);
 	g.drawRoundedRectangle(bounds.toFloat().reduced(0.5f), 4.0f,
 		isDragging ? 2.0f : 1.0f);
+	drawMiniWaveform(g);
+}
+
+void SampleBankItem::setPlaybackPosition(float positionInSeconds)
+{
+	playbackPosition = positionInSeconds;
+	repaint();
 }
 
 void SampleBankItem::resized()
 {
 	auto area = getLocalBounds().reduced(8);
-	auto buttonArea = area.removeFromRight(80);
-	playButton.setBounds(buttonArea.removeFromLeft(35).reduced(3));
-	buttonArea.removeFromLeft(5);
-	deleteButton.setBounds(buttonArea.removeFromLeft(35).reduced(3));
+	auto buttonArea = area.removeFromRight(65);
+
+	int buttonSize = 28;
+	int buttonY = 8;
+
+	auto playButtonBounds = juce::Rectangle<int>(buttonArea.getX(), buttonY, buttonSize, buttonSize);
+	auto deleteButtonBounds = juce::Rectangle<int>(buttonArea.getX() + buttonSize + 5, buttonY, buttonSize, buttonSize);
+
+	playButton.setBounds(playButtonBounds);
+	deleteButton.setBounds(deleteButtonBounds);
+
 	area.removeFromRight(10);
 
-	auto topRow = area.removeFromTop(20);
+	auto topRow = area.removeFromTop(16);
 	nameLabel.setBounds(topRow.removeFromLeft(200));
 
-	auto bottomRow = area.removeFromTop(20);
+	auto bottomRow = area.removeFromTop(16);
 	durationLabel.setBounds(bottomRow.removeFromLeft(60));
 	bottomRow.removeFromLeft(10);
 	bpmLabel.setBounds(bottomRow.removeFromLeft(60));
 	bottomRow.removeFromLeft(10);
 	usageLabel.setBounds(bottomRow);
+
+	area.removeFromTop(4);
+	waveformBounds = area;
+
+	generateThumbnail();
+	repaint();
+
+}
+
+void SampleBankItem::loadAudioData()
+{
+	if (!sampleEntry) return;
+
+	juce::File audioFile(sampleEntry->filePath);
+	if (!audioFile.exists()) return;
+
+	juce::Thread::launch([this, audioFile]()
+		{
+			juce::AudioFormatManager formatManager;
+			formatManager.registerBasicFormats();
+
+			auto reader = std::unique_ptr<juce::AudioFormatReader>(
+				formatManager.createReaderFor(audioFile));
+
+			if (reader)
+			{
+				const int downsampleRatio = std::max(1, (int)(reader->lengthInSamples / 4096));
+				const int numSamples = (int)(reader->lengthInSamples / downsampleRatio);
+
+				juce::AudioBuffer<float> tempBuffer(reader->numChannels, numSamples);
+
+				for (int i = 0; i < numSamples; ++i)
+				{
+					reader->read(&tempBuffer, i, 1, i * downsampleRatio, true, true);
+				}
+
+				juce::MessageManager::callAsync([this, tempBuffer]()
+					{
+						audioBuffer = tempBuffer;
+						sampleRate = audioProcessor.getSampleRate();
+
+						if (!waveformBounds.isEmpty())
+						{
+							generateThumbnail();
+							repaint();
+						}
+					});
+			}
+		});
+}
+
+void SampleBankItem::drawMiniWaveform(juce::Graphics& g)
+{
+	if (thumbnail.empty() || waveformBounds.isEmpty()) return;
+
+	g.saveState();
+
+	juce::Path clipPath;
+	clipPath.addRoundedRectangle(waveformBounds.toFloat(), 4.0f);
+	g.reduceClipRegion(clipPath);
+
+	g.setColour(juce::Colours::black);
+	g.fillRoundedRectangle(waveformBounds.toFloat(), 4.0f);
+
+	g.setColour(juce::Colours::lightblue);
+
+	juce::Path waveformPath;
+	juce::Path bottomPath;
+	bool topPathStarted = false;
+	bool bottomPathStarted = false;
+
+	float centerY = static_cast<float>(waveformBounds.getCentreY());
+	float pixelsPerPoint = static_cast<float>(waveformBounds.getWidth()) / static_cast<float>(thumbnail.size());
+
+	for (size_t i = 0; i < thumbnail.size(); ++i)
+	{
+		float x = waveformBounds.getX() + (i * pixelsPerPoint);
+		float amplitude = thumbnail[i];
+		float waveHeight = amplitude * (waveformBounds.getHeight() * 0.4f);
+
+		float topY = centerY - waveHeight;
+		float bottomY = centerY + waveHeight;
+
+		if (!topPathStarted)
+		{
+			waveformPath.startNewSubPath(x, centerY);
+			topPathStarted = true;
+		}
+		waveformPath.lineTo(x, topY);
+
+		if (!bottomPathStarted)
+		{
+			bottomPath.startNewSubPath(x, centerY);
+			bottomPathStarted = true;
+		}
+		bottomPath.lineTo(x, bottomY);
+	}
+
+	g.strokePath(waveformPath, juce::PathStrokeType(1.0f));
+	g.strokePath(bottomPath, juce::PathStrokeType(1.0f));
+
+	g.setColour(juce::Colours::lightblue.withAlpha(0.3f));
+	g.drawLine(static_cast<float>(waveformBounds.getX()), centerY,
+		static_cast<float>(waveformBounds.getRight()), centerY, 0.5f);
+
+	if (isPlaying && sampleEntry)
+	{
+		float duration = sampleEntry->duration;
+		if (duration > 0.0f && playbackPosition >= 0.0f && playbackPosition <= duration)
+		{
+			float progress = playbackPosition / duration;
+			float headX = waveformBounds.getX() + (progress * waveformBounds.getWidth());
+
+			g.setColour(juce::Colours::red);
+			g.drawLine(headX, static_cast<float>(waveformBounds.getY()),
+				headX, static_cast<float>(waveformBounds.getBottom()), 2.0f);
+
+			juce::Path triangle;
+			triangle.addTriangle(headX - 3, static_cast<float>(waveformBounds.getY()),
+				headX + 3, static_cast<float>(waveformBounds.getY()),
+				headX, static_cast<float>(waveformBounds.getY()) + 6);
+			g.setColour(juce::Colours::yellow);
+			g.fillPath(triangle);
+		}
+	}
+
+	g.restoreState();
+
+	g.setColour(ColourPalette::backgroundLight.withAlpha(0.5f));
+	g.drawRoundedRectangle(waveformBounds.toFloat(), 4.0f, 1.0f);
+}
+
+void SampleBankItem::generateThumbnail()
+{
+	thumbnail.clear();
+
+	if (audioBuffer.getNumSamples() == 0) return;
+
+	int targetPoints = waveformBounds.getWidth();
+	if (targetPoints <= 0) targetPoints = 100;
+
+	int samplesPerPoint = juce::jmax(1, audioBuffer.getNumSamples() / targetPoints);
+
+	for (int point = 0; point < targetPoints; ++point)
+	{
+		int sampleStart = point * samplesPerPoint;
+		int sampleEnd = std::min(sampleStart + samplesPerPoint, audioBuffer.getNumSamples());
+
+		if (sampleStart >= audioBuffer.getNumSamples()) break;
+
+		float rmsSum = 0.0f;
+		float peak = 0.0f;
+		int count = 0;
+
+		for (int sample = sampleStart; sample < sampleEnd; ++sample)
+		{
+			for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch)
+			{
+				float val = audioBuffer.getSample(ch, sample);
+				rmsSum += val * val;
+				peak = std::max(peak, std::abs(val));
+				count++;
+			}
+		}
+
+		float rms = count > 0 ? std::sqrt(rmsSum / count) : 0.0f;
+		float finalValue = (rms * 0.7f) + (peak * 0.3f);
+
+		thumbnail.push_back(finalValue);
+	}
 }
 
 void SampleBankItem::mouseEnter(const juce::MouseEvent& event)
@@ -347,6 +585,7 @@ void SampleBankPanel::resized()
 	titleLabel.setBounds(headerArea.removeFromLeft(150));
 	cleanupButton.setBounds(headerArea.removeFromRight(100).reduced(5));
 	headerArea.removeFromRight(5);
+	sortMenu.setBounds(headerArea.removeFromRight(150).reduced(5));
 
 	auto infoArea = area.removeFromTop(40);
 	infoLabel.setBounds(infoArea);
@@ -380,6 +619,7 @@ void SampleBankPanel::refreshSampleList()
 				return a->creationTime > b->creationTime;
 			});
 		break;
+
 	case SortType::Prompt:
 		std::sort(samples.begin(), samples.end(),
 			[](const SampleBankEntry* a, const SampleBankEntry* b)
@@ -387,11 +627,28 @@ void SampleBankPanel::refreshSampleList()
 				return a->originalPrompt.compareIgnoreCase(b->originalPrompt) < 0;
 			});
 		break;
+
 	case SortType::Usage:
 		std::sort(samples.begin(), samples.end(),
 			[](const SampleBankEntry* a, const SampleBankEntry* b)
 			{
 				return a->usedInProjects.size() > b->usedInProjects.size();
+			});
+		break;
+
+	case SortType::BPM:
+		std::sort(samples.begin(), samples.end(),
+			[](const SampleBankEntry* a, const SampleBankEntry* b)
+			{
+				return a->bpm > b->bpm;
+			});
+		break;
+
+	case SortType::Duration:
+		std::sort(samples.begin(), samples.end(),
+			[](const SampleBankEntry* a, const SampleBankEntry* b)
+			{
+				return a->duration > b->duration;
 			});
 		break;
 	}
@@ -404,6 +661,10 @@ void SampleBankPanel::setVisible(bool shouldBeVisible)
 	Component::setVisible(shouldBeVisible);
 	if (shouldBeVisible)
 	{
+		for (auto& item : sampleItems)
+		{
+			item->loadAudioDataIfNeeded();
+		}
 		juce::Timer::callAfterDelay(100, [this]()
 			{
 				refreshSampleList();
@@ -430,8 +691,21 @@ void SampleBankPanel::setupUI()
 
 	addAndMakeVisible(cleanupButton);
 	cleanupButton.setButtonText("Clean Unused");
-	cleanupButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonPrimary);
+	cleanupButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonDanger);
 	cleanupButton.onClick = [this]() { cleanupUnusedSamples(); };
+
+	addAndMakeVisible(sortMenu);
+	sortMenu.addItem("Sort by: Recent", SortType::Time);
+	sortMenu.addItem("Sort by: Prompt", SortType::Prompt);
+	sortMenu.addItem("Sort by: Usage", SortType::Usage);
+	sortMenu.addItem("Sort by: BPM", SortType::BPM);
+	sortMenu.addItem("Sort by: Duration", SortType::Duration);
+	sortMenu.setSelectedId(SortType::Prompt);
+	sortMenu.onChange = [this]()
+		{
+			currentSortType = static_cast<SortType>(sortMenu.getSelectedId());
+			refreshSampleList();
+		};
 
 	addAndMakeVisible(samplesViewport);
 	samplesViewport.setViewedComponent(&samplesContainer, false);
@@ -463,11 +737,15 @@ void SampleBankPanel::createSampleItems(const std::vector<SampleBankEntry*>& sam
 				}
 			};
 
-		item->setBounds(5, yPos, samplesContainer.getWidth() - 10, 45);
+		item->setBounds(5, yPos, samplesContainer.getWidth() - 10, 80);
 		samplesContainer.addAndMakeVisible(item.get());
+		if (isVisible())
+		{
+			item->loadAudioDataIfNeeded();
+		}
 		sampleItems.push_back(std::move(item));
 
-		yPos += 50;
+		yPos += 85;
 	}
 
 	samplesContainer.setSize(samplesViewport.getWidth() - 20, yPos + 5);
