@@ -12,7 +12,7 @@
 
 class DjIaVstProcessor;
 
-class SampleBankItem : public juce::Component, public juce::DragAndDropContainer
+class SampleBankItem : public juce::Component, public juce::DragAndDropContainer, public juce::Timer
 {
 public:
 	SampleBankItem(SampleBankEntry* entry, DjIaVstProcessor& processor);
@@ -26,6 +26,7 @@ public:
 	void mouseEnter(const juce::MouseEvent& event) override;
 	void mouseExit(const juce::MouseEvent& event) override;
 	void setIsPlaying(bool playing);
+	void loadAudioDataIfNeeded();
 
 	SampleBankEntry* getSampleEntry() const { return sampleEntry; }
 
@@ -43,6 +44,14 @@ private:
 	juce::Label usageLabel;
 	juce::TextButton playButton;
 	juce::TextButton deleteButton;
+
+	juce::Rectangle<int> waveformBounds;
+	std::vector<float> thumbnail;
+	juce::AudioBuffer<float> audioBuffer;
+	double sampleRate = 48000.0;
+	float playbackPosition = 0.0f;
+	double lastTimerCall = 0.0;
+
 	bool isPlaying = false;
 
 	bool isSelected = false;
@@ -52,6 +61,11 @@ private:
 	juce::String formatDuration(float seconds);
 	juce::String formatUsage();
 	void updatePlayButton();
+	void generateThumbnail();
+	void loadAudioData();
+	void drawMiniWaveform(juce::Graphics& g);
+	void setPlaybackPosition(float positionInSeconds);
+	void timerCallback() override;
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SampleBankItem)
 };
@@ -79,12 +93,15 @@ private:
 	juce::Viewport samplesViewport;
 	juce::Component samplesContainer;
 	juce::Label infoLabel;
+	juce::ComboBox sortMenu;
 
-	enum class SortType
+	enum SortType
 	{
-		Time,
-		Prompt,
-		Usage
+		Time = 1,
+		Prompt = 2,
+		Usage = 3,
+		BPM = 4,
+		Duration = 5
 	};
 	SortType currentSortType = SortType::Prompt;
 
