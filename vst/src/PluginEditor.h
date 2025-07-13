@@ -53,7 +53,6 @@ public:
 	void updateSelectedTrack();
 	void onGenerateButtonClicked();
 	void toggleSampleBank();
-	void refreshSampleBankPanel();
 
 private:
 	DjIaVstProcessor& audioProcessor;
