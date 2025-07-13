@@ -27,12 +27,17 @@ public:
 	void mouseExit(const juce::MouseEvent& event) override;
 	void setIsPlaying(bool playing);
 	void loadAudioDataIfNeeded();
+	void showCategoryMenu();
+	int getRequiredHeight();
 
 	SampleBankEntry* getSampleEntry() const { return sampleEntry; }
 
 	std::function<void(const juce::String&)> onDeleteRequested;
 	std::function<void(SampleBankEntry*)> onPreviewRequested;
 	std::function<void()> onStopRequested;
+	std::function<void(SampleBankEntry*, const std::vector<juce::String>&)> onCategoriesChanged;
+
+	std::function<std::vector<juce::String>()> getCategoriesList;
 
 private:
 	SampleBankEntry* sampleEntry;
@@ -50,6 +55,8 @@ private:
 	juce::AudioBuffer<float> audioBuffer;
 	std::shared_ptr<std::atomic<bool>> validityFlag;
 	std::atomic<bool> isDestroyed{ false };
+
+	int maxVisibleBadges = 0;
 	double sampleRate = 48000.0;
 	float playbackPosition = 0.0f;
 	double lastTimerCall = 0.0;
@@ -68,6 +75,9 @@ private:
 	void drawMiniWaveform(juce::Graphics& g);
 	void setPlaybackPosition(float positionInSeconds);
 	void timerCallback() override;
+	void drawCategoryBadges(juce::Graphics& g);
+	juce::Colour getCategoryColor(const juce::String& category);
+	void updateBadgeLayout();
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SampleBankItem)
 };
@@ -157,6 +167,8 @@ private:
 	juce::ComboBox categoryFilter;
 	SampleCategory currentCategory = SampleCategory::All;
 	std::map<SampleCategory, juce::String> categoryNames;
+	bool isCategoryEditable(int categoryId) const;
+	void rebuildCategoryFilter();
 
 	enum SortType
 	{
@@ -180,6 +192,12 @@ private:
 	void deleteSample(const juce::String& sampleId);
 	void cleanupUnusedSamples();
 	void showDeleteConfirmation(const juce::String& sampleId, const juce::String& sampleName);
+	void addCategory();
+	void editCategory();
+	void deleteCategory();
+	void saveCategoriesConfig();
+	void loadCategoriesConfig();
+	int getNextCategoryId();
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SampleBankPanel)
 };
