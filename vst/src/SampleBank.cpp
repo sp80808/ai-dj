@@ -31,6 +31,29 @@ juce::String SampleBank::addSample(const juce::String& prompt,
 	entry->key = key;
 	entry->stems = stems;
 
+	auto& categories = entry->categories;
+
+	for (const auto& stem : stems)
+	{
+		if (stem == "drums") categories.push_back("Drums");
+		if (stem == "bass") categories.push_back("Bass");
+		if (stem == "vocals") categories.push_back("Vocal");
+		if (stem == "piano") categories.push_back("Piano");
+		if (stem == "guitar") categories.push_back("Guitar");
+	}
+
+	juce::String lowerPrompt = prompt.toLowerCase();
+	if (lowerPrompt.contains("ambient") || lowerPrompt.contains("pad"))
+		categories.push_back("Ambient");
+	if (lowerPrompt.contains("house")) categories.push_back("House");
+	if (lowerPrompt.contains("techno")) categories.push_back("Techno");
+	if (lowerPrompt.contains("hip hop") || lowerPrompt.contains("hiphop"))
+		categories.push_back("Hip-Hop");
+	if (lowerPrompt.contains("jazz")) categories.push_back("Jazz");
+	if (lowerPrompt.contains("rock")) categories.push_back("Rock");
+
+	if (categories.empty()) categories.push_back("Electronic");
+
 	entry->filename = createSafeFilename(prompt, entry->creationTime);
 
 	juce::File destinationFile = bankDirectory.getChildFile(entry->filename);
@@ -243,6 +266,10 @@ void SampleBank::saveBankData()
 		sampleData->setProperty("sampleRate", entry->sampleRate);
 		sampleData->setProperty("numChannels", entry->numChannels);
 		sampleData->setProperty("numSamples", entry->numSamples);
+		juce::Array<juce::var> categoriesArray;
+		for (const auto& category : entry->categories)
+			categoriesArray.add(category);
+		sampleData->setProperty("categories", categoriesArray);
 
 		juce::Array<juce::var> stemsArray;
 		for (const auto& stem : entry->stems)
@@ -308,6 +335,14 @@ void SampleBank::loadBankData()
 		entry->sampleRate = sampleObj->getProperty("sampleRate");
 		entry->numChannels = sampleObj->getProperty("numChannels");
 		entry->numSamples = sampleObj->getProperty("numSamples");
+
+		auto categoriesVar = sampleObj->getProperty("categories");
+		if (categoriesVar.isArray())
+		{
+			auto* categoriesArray = categoriesVar.getArray();
+			for (int j = 0; j < categoriesArray->size(); ++j)
+				entry->categories.push_back(categoriesArray->getUnchecked(j).toString());
+		}
 
 		auto stemsVar = sampleObj->getProperty("stems");
 		if (stemsVar.isArray())

@@ -72,6 +72,35 @@ private:
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SampleBankItem)
 };
 
+enum class SampleCategory
+{
+	All = 0,
+	Drums,
+	Bass,
+	Melody,
+	Ambient,
+	Percussion,
+	Vocal,
+	FX,
+	Loop,
+	OneShot,
+	House,
+	Techno,
+	HipHop,
+	Jazz,
+	Rock,
+	Electronic,
+	Piano,
+	Guitar,
+	Synth,
+	Custom
+};
+
+struct CategoryInfo {
+	int id;
+	juce::String name;
+};
+
 class SampleBankPanel : public juce::Component,
 	public juce::Timer
 {
@@ -96,6 +125,38 @@ private:
 	juce::Component samplesContainer;
 	juce::Label infoLabel;
 	juce::ComboBox sortMenu;
+
+	juce::TextEditor categoryInput;
+	juce::TextButton addCategoryButton;
+	juce::TextButton editCategoryButton;
+	juce::TextButton deleteCategoryButton;
+
+	int currentCategoryId = 0;
+	std::vector<CategoryInfo> categoryInfos = {
+		 {0, "All Samples"},
+		 {1, "Drums"},
+		 {2, "Bass"},
+		 {3, "Melody"},
+		 {4, "Ambient"},
+		 {5, "Percussion"},
+		 {6, "Vocal"},
+		 {7, "FX"},
+		 {8, "Loops"},
+		 {9, "One-shots"},
+		 {10, "House"},
+		 {11, "Techno"},
+		 {12, "Hip-Hop"},
+		 {13, "Jazz"},
+		 {14, "Rock"},
+		 {15, "Electronic"},
+		 {16, "Piano"},
+		 {17, "Guitar"},
+		 {18, "Synth"}
+	};
+
+	juce::ComboBox categoryFilter;
+	SampleCategory currentCategory = SampleCategory::All;
+	std::map<SampleCategory, juce::String> categoryNames;
 
 	enum SortType
 	{

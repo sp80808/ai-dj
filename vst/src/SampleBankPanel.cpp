@@ -497,6 +497,26 @@ juce::String SampleBankItem::formatUsage()
 SampleBankPanel::SampleBankPanel(DjIaVstProcessor& processor)
 	: audioProcessor(processor)
 {
+	categoryNames[SampleCategory::All] = "All Samples";
+	categoryNames[SampleCategory::Drums] = "Drums";
+	categoryNames[SampleCategory::Bass] = "Bass";
+	categoryNames[SampleCategory::Melody] = "Melody";
+	categoryNames[SampleCategory::Ambient] = "Ambient";
+	categoryNames[SampleCategory::Percussion] = "Percussion";
+	categoryNames[SampleCategory::Vocal] = "Vocal";
+	categoryNames[SampleCategory::FX] = "FX";
+	categoryNames[SampleCategory::Loop] = "Loops";
+	categoryNames[SampleCategory::OneShot] = "One-shots";
+	categoryNames[SampleCategory::House] = "House";
+	categoryNames[SampleCategory::Techno] = "Techno";
+	categoryNames[SampleCategory::HipHop] = "Hip-Hop";
+	categoryNames[SampleCategory::Jazz] = "Jazz";
+	categoryNames[SampleCategory::Rock] = "Rock";
+	categoryNames[SampleCategory::Electronic] = "Electronic";
+	categoryNames[SampleCategory::Piano] = "Piano";
+	categoryNames[SampleCategory::Guitar] = "Guitar";
+	categoryNames[SampleCategory::Synth] = "Synth";
+
 	setupUI();
 	refreshSampleList();
 
@@ -596,6 +616,7 @@ void SampleBankPanel::paint(juce::Graphics& g)
 void SampleBankPanel::resized()
 {
 	auto area = getLocalBounds().reduced(10);
+
 	auto headerArea = area.removeFromTop(40);
 	titleLabel.setBounds(headerArea.removeFromLeft(150));
 	cleanupButton.setBounds(headerArea.removeFromRight(100).reduced(5));
@@ -604,6 +625,19 @@ void SampleBankPanel::resized()
 
 	auto infoArea = area.removeFromTop(40);
 	infoLabel.setBounds(infoArea);
+	area.removeFromTop(5);
+	auto categoryArea = area.removeFromTop(35);
+	categoryFilter.setBounds(categoryArea.removeFromLeft(150));
+	categoryArea.removeFromLeft(10);
+	categoryInput.setBounds(categoryArea);
+
+	area.removeFromTop(5);
+	auto buttonArea = area.removeFromTop(30);
+	addCategoryButton.setBounds(buttonArea.removeFromLeft(60).reduced(5));
+	buttonArea.removeFromLeft(5);
+	editCategoryButton.setBounds(buttonArea.removeFromLeft(60).reduced(5));
+	buttonArea.removeFromLeft(5);
+	deleteCategoryButton.setBounds(buttonArea.removeFromLeft(60).reduced(5));
 
 	area.removeFromTop(5);
 	samplesViewport.setBounds(area);
@@ -624,6 +658,19 @@ void SampleBankPanel::refreshSampleList()
 	if (!bank) return;
 
 	auto samples = bank->getAllSamples();
+
+	if (currentCategory != SampleCategory::All)
+	{
+		juce::String categoryName = categoryNames[currentCategory];
+		samples.erase(
+			std::remove_if(samples.begin(), samples.end(),
+				[&categoryName](const SampleBankEntry* entry)
+				{
+					return std::find(entry->categories.begin(), entry->categories.end(), categoryName) == entry->categories.end();
+				}),
+			samples.end()
+		);
+	}
 
 	switch (currentSortType)
 	{
@@ -727,6 +774,33 @@ void SampleBankPanel::setupUI()
 	addAndMakeVisible(samplesViewport);
 	samplesViewport.setViewedComponent(&samplesContainer, false);
 	samplesViewport.setScrollBarsShown(true, false);
+
+	addAndMakeVisible(categoryFilter);
+	for (const auto& info : categoryInfos)
+	{
+		categoryFilter.addItem(info.name, info.id + 1);
+	}
+	categoryFilter.setSelectedId(1);
+	categoryFilter.onChange = [this]()
+		{
+			currentCategory = static_cast<SampleCategory>(categoryFilter.getSelectedId() - 1);
+			refreshSampleList();
+		};
+
+	addAndMakeVisible(categoryInput);
+	categoryInput.setTextToShowWhenEmpty("New category name...", ColourPalette::textSecondary);
+
+	addAndMakeVisible(addCategoryButton);
+	addCategoryButton.setButtonText("Add");
+	addCategoryButton.setColour(juce::TextButton::buttonColourId, ColourPalette::emerald);
+
+	addAndMakeVisible(editCategoryButton);
+	editCategoryButton.setButtonText("Edit");
+	editCategoryButton.setColour(juce::TextButton::buttonColourId, ColourPalette::amber);
+
+	addAndMakeVisible(deleteCategoryButton);
+	deleteCategoryButton.setButtonText("Delete");
+	deleteCategoryButton.setColour(juce::TextButton::buttonColourId, ColourPalette::coral);
 }
 
 void SampleBankPanel::createSampleItems(const std::vector<SampleBankEntry*>& samples)
