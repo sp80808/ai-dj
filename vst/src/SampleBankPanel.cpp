@@ -10,7 +10,7 @@
 
 
 SampleBankItem::SampleBankItem(SampleBankEntry* entry, DjIaVstProcessor& processor)
-	: sampleEntry(entry), audioProcessor(processor)
+	: sampleEntry(entry), audioProcessor(processor), validityFlag(std::make_shared<std::atomic<bool>>(true))
 {
 	addAndMakeVisible(nameLabel);
 	addAndMakeVisible(durationLabel);
@@ -64,7 +64,10 @@ SampleBankItem::SampleBankItem(SampleBankEntry* entry, DjIaVstProcessor& process
 
 SampleBankItem::~SampleBankItem()
 {
+	isDestroyed.store(true);
+	validityFlag->store(false);
 	stopTimer();
+	sampleEntry = nullptr;
 }
 
 void SampleBankItem::loadAudioDataIfNeeded()
@@ -215,37 +218,49 @@ void SampleBankItem::loadAudioData()
 	juce::File audioFile(sampleEntry->filePath);
 	if (!audioFile.exists()) return;
 
-	juce::Thread::launch([this, audioFile]()
+	double currentSampleRate = audioProcessor.getSampleRate();
+	auto validity = validityFlag;
+
+	juce::Thread::launch([this, audioFile, currentSampleRate, validity]()
 		{
+			if (!validity->load()) return;
+
 			juce::AudioFormatManager formatManager;
 			formatManager.registerBasicFormats();
 
 			auto reader = std::unique_ptr<juce::AudioFormatReader>(
 				formatManager.createReaderFor(audioFile));
 
-			if (reader)
+			if (reader && validity->load())
 			{
 				const int downsampleRatio = std::max(1, (int)(reader->lengthInSamples / 4096));
 				const int numSamples = (int)(reader->lengthInSamples / downsampleRatio);
 
-				juce::AudioBuffer<float> tempBuffer(reader->numChannels, numSamples);
+				auto tempBuffer = std::make_shared<juce::AudioBuffer<float>>(reader->numChannels, numSamples);
 
 				for (int i = 0; i < numSamples; ++i)
 				{
-					reader->read(&tempBuffer, i, 1, i * downsampleRatio, true, true);
+					if (!validity->load()) return;
+					reader->read(tempBuffer.get(), i, 1, i * downsampleRatio, true, true);
 				}
 
-				juce::MessageManager::callAsync([this, tempBuffer]()
-					{
-						audioBuffer = tempBuffer;
-						sampleRate = audioProcessor.getSampleRate();
-
-						if (!waveformBounds.isEmpty())
+				if (validity->load())
+				{
+					juce::MessageManager::callAsync([this, tempBuffer, currentSampleRate, validity]()
 						{
-							generateThumbnail();
-							repaint();
-						}
-					});
+							if (validity->load() && !isDestroyed.load() && sampleEntry)
+							{
+								audioBuffer = *tempBuffer;
+								sampleRate = currentSampleRate;
+
+								if (!waveformBounds.isEmpty())
+								{
+									generateThumbnail();
+									repaint();
+								}
+							}
+						});
+				}
 			}
 		});
 }
@@ -673,6 +688,8 @@ void SampleBankPanel::setVisible(bool shouldBeVisible)
 	else
 	{
 		stopPreview();
+		sampleItems.clear();
+		samplesContainer.removeAllChildren();
 	}
 }
 

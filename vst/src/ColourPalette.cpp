@@ -39,6 +39,13 @@ constexpr auto COLOR_SEQUENCER_ACCENT = 0xff6a7a6a;
 constexpr auto COLOR_SEQUENCER_BEAT = 0xff6a6a7a;
 constexpr auto COLOR_SEQUENCER_SUBBEAT = 0xff5a5a5a;
 constexpr auto COLOR_CREDITS = 0xff888888;
+constexpr auto COLOR_VIOLET = 0xff9b59b6;
+constexpr auto COLOR_EMERALD = 0xff27ae60;
+constexpr auto COLOR_CORAL = 0xffe67e22;
+constexpr auto COLOR_SLATE = 0xff7f8c8d;
+constexpr auto COLOR_INDIGO = 0xff5b6b9d;
+constexpr auto COLOR_TEAL = 0xff16a085;
+constexpr auto COLOR_AMBER = 0xfff39c12;
 
 const juce::Colour ColourPalette::track1(COLOR_TRACK1);
 const juce::Colour ColourPalette::track2(COLOR_TRACK2);
@@ -93,24 +100,32 @@ const juce::Colour ColourPalette::sequencerSubBeat(COLOR_SEQUENCER_SUBBEAT);
 
 const juce::Colour ColourPalette::credits(COLOR_CREDITS);
 
+const juce::Colour ColourPalette::violet(COLOR_VIOLET);
+const juce::Colour ColourPalette::emerald(COLOR_EMERALD);
+const juce::Colour ColourPalette::coral(COLOR_CORAL);
+const juce::Colour ColourPalette::slate(COLOR_SLATE);
+const juce::Colour ColourPalette::indigo(COLOR_INDIGO);
+const juce::Colour ColourPalette::teal(COLOR_TEAL);
+const juce::Colour ColourPalette::amber(COLOR_AMBER);
+
 juce::Colour ColourPalette::getTrackColour(int trackIndex)
 {
 	static const std::vector<juce::Colour> trackColours = {
-		track1, track2, track3, track4, track5, track6, track7, track8};
+		track1, track2, track3, track4, track5, track6, track7, track8 };
 	return trackColours[trackIndex % trackColours.size()];
 }
 
-juce::Colour ColourPalette::withAlpha(const juce::Colour &colour, float alpha)
+juce::Colour ColourPalette::withAlpha(const juce::Colour& colour, float alpha)
 {
 	return colour.withAlpha(alpha);
 }
 
-juce::Colour ColourPalette::darken(const juce::Colour &colour, float amount)
+juce::Colour ColourPalette::darken(const juce::Colour& colour, float amount)
 {
 	return colour.darker(amount);
 }
 
-juce::Colour ColourPalette::lighten(const juce::Colour &colour, float amount)
+juce::Colour ColourPalette::lighten(const juce::Colour& colour, float amount)
 {
 	return colour.brighter(amount);
 }

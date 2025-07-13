@@ -48,6 +48,8 @@ private:
 	juce::Rectangle<int> waveformBounds;
 	std::vector<float> thumbnail;
 	juce::AudioBuffer<float> audioBuffer;
+	std::shared_ptr<std::atomic<bool>> validityFlag;
+	std::atomic<bool> isDestroyed{ false };
 	double sampleRate = 48000.0;
 	float playbackPosition = 0.0f;
 	double lastTimerCall = 0.0;
