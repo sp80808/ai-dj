@@ -1277,14 +1277,6 @@ void DjIaVstProcessor::performTrackDeletion(const juce::String& trackId)
 	if (sampleBank && !trackToDelete->currentSampleId.isEmpty())
 	{
 		sampleBank->markSampleAsUnused(trackToDelete->currentSampleId, projectId);
-		DBG("Marked sample as unused for deleted track: " + trackToDelete->currentSampleId);
-		juce::MessageManager::callAsync([this]()
-			{
-				if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
-				{
-					editor->refreshSampleBankPanel();
-				}
-			});
 	}
 	auto trackIds = trackManager.getAllTrackIds();
 	int deletedTrackIndex = -1;
@@ -1553,14 +1545,6 @@ void DjIaVstProcessor::loadSampleFromBank(const juce::String& sampleId, const ju
 	{
 		track->currentSampleId = sampleId;
 	}
-
-	juce::MessageManager::callAsync([this]()
-		{
-			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor()))
-			{
-				editor->refreshSampleBankPanel();
-			}
-		});
 
 	juce::Thread::launch([this, trackId, sampleFile]()
 		{

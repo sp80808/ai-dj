@@ -592,7 +592,8 @@ void DjIaVstEditor::setupUI()
 
 	addAndMakeVisible(resetUIButton);
 	resetUIButton.setButtonText("Reset UI");
-	resetUIButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonWarning);
+	resetUIButton.setColour(juce::TextButton::buttonColourId, ColourPalette::amber);
+	resetUIButton.setColour(juce::TextButton::textColourOffId, ColourPalette::textPrimary);
 	resetUIButton.setTooltip("Reset UI state if stuck in generation mode");
 
 	addAndMakeVisible(keySelector);
@@ -811,7 +812,8 @@ void DjIaVstEditor::setupUI()
 
 	addAndMakeVisible(showSampleBankButton);
 	showSampleBankButton.setButtonText("Bank");
-	showSampleBankButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonSecondary);
+	showSampleBankButton.setColour(juce::TextButton::buttonColourId, ColourPalette::indigo);
+	showSampleBankButton.setColour(juce::TextButton::textColourOffId, ColourPalette::textPrimary);
 	showSampleBankButton.setTooltip("Show/hide sample bank");
 
 	refreshTrackComponents();
@@ -821,7 +823,8 @@ void DjIaVstEditor::setupUI()
 	generateButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonSuccess);
 	generateButton.setColour(juce::TextButton::textColourOffId, ColourPalette::textPrimary);
 	addTrackButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonPrimary);
-	loadSampleButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonSecondary);
+	loadSampleButton.setColour(juce::TextButton::buttonColourId, ColourPalette::coral);
+	loadSampleButton.setColour(juce::TextButton::textColourOffId, ColourPalette::textPrimary);
 	statusLabel.setColour(juce::Label::backgroundColourId, ColourPalette::backgroundDeep);
 	statusLabel.setColour(juce::Label::textColourId, ColourPalette::textSuccess);
 
@@ -1366,13 +1369,13 @@ void DjIaVstEditor::toggleSampleBank()
 	if (sampleBankVisible)
 	{
 		showSampleBankButton.setButtonText("Hide Bank");
-		showSampleBankButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonWarning);
+		showSampleBankButton.setColour(juce::TextButton::buttonColourId, ColourPalette::coral);
 		setStatusWithTimeout("Sample bank opened", 2000);
 	}
 	else
 	{
 		showSampleBankButton.setButtonText("Bank");
-		showSampleBankButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonSecondary);
+		showSampleBankButton.setColour(juce::TextButton::buttonColourId, ColourPalette::indigo);
 		setStatusWithTimeout("Sample bank closed", 2000);
 	}
 
@@ -1628,12 +1631,12 @@ void DjIaVstEditor::updateLoadButtonState()
 		if (audioProcessor.hasSampleWaiting())
 		{
 			loadSampleButton.setButtonText("Load Sample (Ready!)");
-			loadSampleButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonWarning);
+			loadSampleButton.setColour(juce::TextButton::buttonColourId, ColourPalette::amber);
 		}
 		else
 		{
 			loadSampleButton.setButtonText("Load Sample");
-			loadSampleButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonSecondary);
+			loadSampleButton.setColour(juce::TextButton::buttonColourId, ColourPalette::coral);
 		}
 	}
 }
@@ -2261,13 +2264,5 @@ void DjIaVstEditor::refreshMixerChannels()
 	if (mixerPanel)
 	{
 		mixerPanel->refreshAllChannels();
-	}
-}
-
-void DjIaVstEditor::refreshSampleBankPanel()
-{
-	if (sampleBankPanel)
-	{
-		sampleBankPanel->refreshSampleList();
 	}
 }

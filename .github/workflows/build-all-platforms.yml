@@ -2,9 +2,9 @@ name: Build VST - All Platforms
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   pull_request:
-    branches: [main, dev]
+    branches: [main]
 
 permissions:
   contents: write
