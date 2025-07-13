@@ -23,6 +23,8 @@ struct SampleBankEntry
 	std::vector<juce::String> stems;
 	std::vector<juce::String> usedInProjects;
 
+	std::vector<juce::String> categories;
+
 	double sampleRate;
 	int numChannels;
 	int numSamples;

@@ -77,6 +77,7 @@ target_sources(ObsidianNeuralVST PRIVATE
     src/StableAudioEngine.cpp
     src/SampleBank.cpp
     src/SampleBankPanel.cpp
+    src/CategoryWindow.cpp
 )
 
 target_include_directories(ObsidianNeuralVST PRIVATE
