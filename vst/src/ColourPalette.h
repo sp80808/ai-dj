@@ -66,8 +66,16 @@ public:
 
 	static const juce::Colour credits;
 
+	static const juce::Colour violet;
+	static const juce::Colour emerald;
+	static const juce::Colour coral;
+	static const juce::Colour slate;
+	static const juce::Colour indigo;
+	static const juce::Colour teal;
+	static const juce::Colour amber;
+
 	static juce::Colour getTrackColour(int trackIndex);
-	static juce::Colour withAlpha(const juce::Colour &colour, float alpha);
-	static juce::Colour darken(const juce::Colour &colour, float amount = 0.2f);
-	static juce::Colour lighten(const juce::Colour &colour, float amount = 0.2f);
+	static juce::Colour withAlpha(const juce::Colour& colour, float alpha);
+	static juce::Colour darken(const juce::Colour& colour, float amount = 0.2f);
+	static juce::Colour lighten(const juce::Colour& colour, float amount = 0.2f);
 };
