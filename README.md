@@ -2,12 +2,6 @@
 
 🎵 **Real-time AI music generation VST3 plugin for live performance**
 
----
-
-**🌟 Love this project? [☕ Support development](https://paypal.me/ateliersauvage47) - keeps it free & open source!**
-
----
-
 ### 🎓 **Base Tutorial**
 
 [![OBSIDIAN-Neural Tutorial](./assets/tuto.png)](https://youtu.be/-qdFo_PcKoY)
