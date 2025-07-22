@@ -848,56 +848,84 @@ void DjIaVstProcessor::generateLoopFromMidi(const juce::String& trackId)
 		{
 			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
 				editor->startGenerationUI(trackId);
-			} });
+			}
+		});
 
-			juce::Thread::launch([this, trackId]()
-				{
-					try {
-						TrackData* track = trackManager.getTrack(trackId);
-						if (!track) {
-							throw std::runtime_error("Track not found");
-						}
+	juce::Thread::launch([this, trackId]()
+		{
+			try {
+				TrackData* track = trackManager.getTrack(trackId);
+				if (!track) {
+					throw std::runtime_error("Track not found");
+				}
 
-						DjIaClient::LoopRequest request;
+				DjIaClient::LoopRequest request;
 
-						if (!track->selectedPrompt.isEmpty()) {
-							request.prompt = track->selectedPrompt;
-							request.bpm = static_cast<float>(getHostBpm());
-							request.key = getGlobalKey();
-							request.generationDuration = static_cast<float>(getGlobalDuration());
+				if (track->usePages.load()) {
+					auto& currentPage = track->getCurrentPage();
 
-							request.preferredStems.clear();
-							if (isGlobalStemEnabled("drums")) request.preferredStems.push_back("drums");
-							if (isGlobalStemEnabled("bass")) request.preferredStems.push_back("bass");
-							if (isGlobalStemEnabled("other")) request.preferredStems.push_back("other");
-							if (isGlobalStemEnabled("vocals")) request.preferredStems.push_back("vocals");
-							if (isGlobalStemEnabled("guitar")) request.preferredStems.push_back("guitar");
-							if (isGlobalStemEnabled("piano")) request.preferredStems.push_back("piano");
-						}
-						else {
-							request = createGlobalLoopRequest();
-						}
-						track->updateFromRequest(request);
-						juce::String promptSource = !track->selectedPrompt.isEmpty() ?
-							"track prompt: " + track->selectedPrompt.substring(0, 20) + "..." :
-							"global prompt";
-						juce::MessageManager::callAsync([this, promptSource]() {
-							if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
-								editor->statusLabel.setText("Generating with " + promptSource, juce::dontSendNotification);
-							}
-							});
-						generateLoop(request, trackId);
+					if (!currentPage.selectedPrompt.isEmpty()) {
+						request.prompt = currentPage.selectedPrompt;
+						request.bpm = currentPage.generationBpm > 0 ? currentPage.generationBpm : static_cast<float>(getHostBpm());
+						request.key = !currentPage.generationKey.isEmpty() ? currentPage.generationKey : getGlobalKey();
+						request.generationDuration = currentPage.generationDuration > 0 ? static_cast<float>(currentPage.generationDuration) : static_cast<float>(getGlobalDuration());
+
+						request.preferredStems = currentPage.preferredStems;
 					}
-					catch (const std::exception& e) {
-						setIsGenerating(false);
-						setGeneratingTrackId("");
+					else {
+						request = createGlobalLoopRequest();
+						currentPage.selectedPrompt = request.prompt;
+						currentPage.generationBpm = request.bpm;
+						currentPage.generationKey = request.key;
+						currentPage.generationDuration = static_cast<int>(request.generationDuration);
+						currentPage.preferredStems = request.preferredStems;
+					}
 
-						juce::MessageManager::callAsync([this, trackId, error = juce::String(e.what())]() {
-							if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
-								editor->stopGenerationUI(trackId, false, error);
-							}
-							});
-					} });
+					track->syncLegacyProperties();
+					DBG("MIDI generation for page " << (char)('A' + track->currentPageIndex));
+				}
+				else {
+					if (!track->selectedPrompt.isEmpty()) {
+						request.prompt = track->selectedPrompt;
+						request.bpm = static_cast<float>(getHostBpm());
+						request.key = getGlobalKey();
+						request.generationDuration = static_cast<float>(getGlobalDuration());
+
+						request.preferredStems.clear();
+						if (isGlobalStemEnabled("drums")) request.preferredStems.push_back("drums");
+						if (isGlobalStemEnabled("bass")) request.preferredStems.push_back("bass");
+						if (isGlobalStemEnabled("other")) request.preferredStems.push_back("other");
+						if (isGlobalStemEnabled("vocals")) request.preferredStems.push_back("vocals");
+						if (isGlobalStemEnabled("guitar")) request.preferredStems.push_back("guitar");
+						if (isGlobalStemEnabled("piano")) request.preferredStems.push_back("piano");
+					}
+					else {
+						request = createGlobalLoopRequest();
+					}
+					track->updateFromRequest(request);
+				}
+
+				juce::String promptSource = !request.prompt.isEmpty() ?
+					"track prompt: " + request.prompt.substring(0, 20) + "..." :
+					"global prompt";
+				juce::MessageManager::callAsync([this, promptSource]() {
+					if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+						editor->statusLabel.setText("Generating with " + promptSource, juce::dontSendNotification);
+					}
+					});
+				generateLoop(request, trackId);
+			}
+			catch (const std::exception& e) {
+				setIsGenerating(false);
+				setGeneratingTrackId("");
+
+				juce::MessageManager::callAsync([this, trackId, error = juce::String(e.what())]() {
+					if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+						editor->stopGenerationUI(trackId, false, error);
+					}
+					});
+			}
+		});
 }
 
 void DjIaVstProcessor::handlePlayAndStop(bool /*hostIsPlaying*/)
@@ -1995,8 +2023,13 @@ void DjIaVstProcessor::loadAudioFileAsync(const juce::String& trackId, const juc
 
 		loadAudioToStagingBuffer(reader, track);
 		processAudioBPMAndSync(track);
-
-		auto permanentFile = getTrackAudioFile(trackId);
+		juce::File permanentFile;
+		if (track->usePages.load()) {
+			permanentFile = getTrackPageAudioFile(trackId, track->currentPageIndex);
+		}
+		else {
+			permanentFile = getTrackAudioFile(trackId);
+		}
 		permanentFile.getParentDirectory().createDirectory();
 
 		DBG("Saving buffer(s) with " << track->stagingBuffer.getNumSamples() << " samples");
@@ -2011,7 +2044,13 @@ void DjIaVstProcessor::loadAudioFileAsync(const juce::String& trackId, const juc
 			DBG("File saved to: " << permanentFile.getFullPathName());
 		}
 
-		track->audioFilePath = permanentFile.getFullPathName();
+		if (track->usePages.load()) {
+			auto& currentPage = track->getCurrentPage();
+			currentPage.audioFilePath = permanentFile.getFullPathName();
+		}
+		else {
+			track->audioFilePath = permanentFile.getFullPathName();
+		}
 		track->hasStagingData = true;
 		track->swapRequested = true;
 
@@ -2051,7 +2090,7 @@ void DjIaVstProcessor::reloadTrackWithVersion(const juce::String& trackId, bool 
 			if (projectId != "legacy" && !projectId.isEmpty()) {
 				audioDir = audioDir.getChildFile(projectId);
 			}
-			fileToLoad = audioDir.getChildFile(trackId + "_" + juce::String(pageName) + "_original.wav");
+			fileToLoad = audioDir.getChildFile(trackId + "_original_" + juce::String(pageName) + ".wav");
 		}
 		else {
 			fileToLoad = getTrackPageAudioFile(trackId, track->currentPageIndex);
@@ -2215,10 +2254,22 @@ void DjIaVstProcessor::saveOriginalAndStretchedBuffers(const juce::AudioBuffer<f
 	}
 	audioDir.createDirectory();
 
-	auto originalFile = audioDir.getChildFile(trackId + "_original.wav");
-	saveBufferToFile(originalBuffer, originalFile, sampleRate);
+	TrackData* track = trackManager.getTrack(trackId);
 
-	auto stretchedFile = audioDir.getChildFile(trackId + ".wav");
+	juce::File originalFile;
+	juce::File stretchedFile;
+
+	if (track && track->usePages.load()) {
+		char pageName = static_cast<char>('A' + track->currentPageIndex);
+		originalFile = audioDir.getChildFile(trackId + "_original_" + juce::String(pageName) + ".wav");
+		stretchedFile = audioDir.getChildFile(trackId + "_" + juce::String(pageName) + ".wav");
+	}
+	else {
+		originalFile = audioDir.getChildFile(trackId + "_original.wav");
+		stretchedFile = audioDir.getChildFile(trackId + ".wav");
+	}
+
+	saveBufferToFile(originalBuffer, originalFile, sampleRate);
 	saveBufferToFile(stretchedBuffer, stretchedFile, sampleRate);
 }
 
@@ -2994,6 +3045,28 @@ void DjIaVstProcessor::generateLoopFromGlobalSettings()
 		{
 			try
 			{
+				TrackData* track = trackManager.getTrack(selectedTrackId);
+				if (!track) return;
+
+				if (track->usePages.load()) {
+					auto& currentPage = track->getCurrentPage();
+
+					currentPage.selectedPrompt = getGlobalPrompt();
+					currentPage.generationBpm = getGlobalBpm();
+					currentPage.generationKey = getGlobalKey();
+					currentPage.generationDuration = getGlobalDuration();
+
+					currentPage.preferredStems.clear();
+					if (isGlobalStemEnabled("drums")) currentPage.preferredStems.push_back("drums");
+					if (isGlobalStemEnabled("bass")) currentPage.preferredStems.push_back("bass");
+					if (isGlobalStemEnabled("other")) currentPage.preferredStems.push_back("other");
+					if (isGlobalStemEnabled("vocals")) currentPage.preferredStems.push_back("vocals");
+					if (isGlobalStemEnabled("guitar")) currentPage.preferredStems.push_back("guitar");
+					if (isGlobalStemEnabled("piano")) currentPage.preferredStems.push_back("piano");
+
+					track->syncLegacyProperties();
+				}
+
 				auto request = createGlobalLoopRequest();
 				generateLoop(request, selectedTrackId);
 			}

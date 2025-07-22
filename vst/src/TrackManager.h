@@ -535,8 +535,12 @@ public:
 
 		DBG("loadAudioFileForPage: Attempting to load page " << (char)('A' + pageIndex) << " from: " << audioFile.getFullPathName());
 
-		juce::AudioFormatManager formatManager;
-		formatManager.registerBasicFormats();
+		static juce::AudioFormatManager formatManager;
+		static bool initialized = false;
+		if (!initialized) {
+			formatManager.registerBasicFormats();
+			initialized = true;
+		}
 
 		std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(audioFile));
 		if (!reader) {
@@ -598,11 +602,14 @@ public:
 
 	void loadAudioFileForTrack(TrackData* track, const juce::File& audioFile)
 	{
-		juce::AudioFormatManager formatManager;
-		formatManager.registerBasicFormats();
+		static juce::AudioFormatManager formatManager;
+		static bool initialized = false;
+		if (!initialized) {
+			formatManager.registerBasicFormats();
+			initialized = true;
+		}
 
-		std::unique_ptr<juce::AudioFormatReader> reader(
-			formatManager.createReaderFor(audioFile));
+		std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(audioFile));
 
 		if (reader != nullptr)
 		{

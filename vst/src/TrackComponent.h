@@ -133,6 +133,18 @@ private:
 	juce::TextButton togglePagesButton;
 	bool pagesMode = false;
 	static const int PAGE_BUTTON_SIZE = 14;
+	enum KeyboardLayout {
+		QWERTY,
+		AZERTY,
+		QWERTZ
+	};
+
+	KeyboardLayout detectedLayout = QWERTY;
+	bool keyboardControlEnabled = true;
+
+	KeyboardLayout detectKeyboardLayout();
+	void handleKeyboardInput(const juce::KeyPress& key);
+	bool keyPressed(const juce::KeyPress& key) override;
 
 	void setupPagesUI();
 	void updatePagesDisplay();
