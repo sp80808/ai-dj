@@ -1864,43 +1864,80 @@ void DjIaVstProcessor::checkAndSwapStagingBuffers()
 void DjIaVstProcessor::performAtomicSwap(TrackData* track, const juce::String& trackId)
 {
 	DBG("Swapping buffer for track: " << trackId << " - New samples: " << track->stagingNumSamples.load());
-	std::swap(track->audioBuffer, track->stagingBuffer);
-	track->numSamples = track->stagingNumSamples.load();
-	track->sampleRate = track->stagingSampleRate.load();
-	track->originalBpm = track->stagingOriginalBpm;
-	track->hasOriginalVersion.store(track->nextHasOriginalVersion.load());
 
-	if (track->isVersionSwitch)
-	{
-		track->loopStart = track->preservedLoopStart;
-		track->loopEnd = track->preservedLoopEnd;
-		track->loopPointsLocked = track->preservedLoopLocked;
-		double maxDuration = track->numSamples / track->sampleRate;
-		track->loopEnd = std::min(track->loopEnd, maxDuration);
-		track->loopStart = std::min(track->loopStart, track->loopEnd);
-		track->isVersionSwitch = false;
+	if (track->usePages.load()) {
+		auto& currentPage = track->getCurrentPage();
+		std::swap(currentPage.audioBuffer, track->stagingBuffer);
+		currentPage.numSamples = track->stagingNumSamples.load();
+		currentPage.sampleRate = track->stagingSampleRate.load();
+		currentPage.originalBpm = track->stagingOriginalBpm;
+		currentPage.hasOriginalVersion.store(track->nextHasOriginalVersion.load());
+		currentPage.isLoaded = true;
+
+		if (track->isVersionSwitch) {
+			currentPage.loopStart = track->preservedLoopStart;
+			currentPage.loopEnd = track->preservedLoopEnd;
+			track->loopPointsLocked = track->preservedLoopLocked;
+			double maxDuration = currentPage.numSamples / currentPage.sampleRate;
+			currentPage.loopEnd = std::min(currentPage.loopEnd, maxDuration);
+			currentPage.loopStart = std::min(currentPage.loopStart, currentPage.loopEnd);
+			track->isVersionSwitch = false;
+		}
+		else {
+			currentPage.useOriginalFile = false;
+			double sampleDuration = currentPage.numSamples / currentPage.sampleRate;
+			if (sampleDuration <= 8.0) {
+				currentPage.loopStart = 0.0;
+				currentPage.loopEnd = sampleDuration;
+			}
+			else {
+				double beatDuration = 60.0 / currentPage.originalBpm;
+				double fourBars = beatDuration * 16.0;
+				currentPage.loopStart = 0.0;
+				currentPage.loopEnd = std::min(fourBars, sampleDuration);
+			}
+		}
+		track->syncLegacyProperties();
 	}
-	else
-	{
-		track->useOriginalFile = false;
-		double sampleDuration = track->numSamples / track->sampleRate;
-		if (sampleDuration <= 8.0)
+	else {
+		std::swap(track->audioBuffer, track->stagingBuffer);
+		track->numSamples = track->stagingNumSamples.load();
+		track->sampleRate = track->stagingSampleRate.load();
+		track->originalBpm = track->stagingOriginalBpm;
+		track->hasOriginalVersion.store(track->nextHasOriginalVersion.load());
+
+		if (track->isVersionSwitch)
 		{
-			track->loopStart = 0.0;
-			track->loopEnd = sampleDuration;
+			track->loopStart = track->preservedLoopStart;
+			track->loopEnd = track->preservedLoopEnd;
+			track->loopPointsLocked = track->preservedLoopLocked;
+			double maxDuration = track->numSamples / track->sampleRate;
+			track->loopEnd = std::min(track->loopEnd, maxDuration);
+			track->loopStart = std::min(track->loopStart, track->loopEnd);
+			track->isVersionSwitch = false;
 		}
 		else
 		{
-			double beatDuration = 60.0 / track->originalBpm;
-			double fourBars = beatDuration * 16.0;
-			track->loopStart = 0.0;
-			track->loopEnd = std::min(fourBars, sampleDuration);
+			track->useOriginalFile = false;
+			double sampleDuration = track->numSamples / track->sampleRate;
+			if (sampleDuration <= 8.0)
+			{
+				track->loopStart = 0.0;
+				track->loopEnd = sampleDuration;
+			}
+			else
+			{
+				double beatDuration = 60.0 / track->originalBpm;
+				double fourBars = beatDuration * 16.0;
+				track->loopStart = 0.0;
+				track->loopEnd = std::min(fourBars, sampleDuration);
+			}
 		}
-	}
 
-	track->readPosition = 0.0;
-	track->hasStagingData = false;
-	track->stagingBuffer.setSize(0, 0);
+		track->readPosition = 0.0;
+		track->hasStagingData = false;
+		track->stagingBuffer.setSize(0, 0);
+	}
 
 	juce::MessageManager::callAsync([this, trackId]()
 		{ updateWaveformDisplay(trackId); });
@@ -2156,6 +2193,12 @@ juce::File DjIaVstProcessor::getTrackAudioFile(const juce::String& trackId)
 	if (projectId != "legacy" && !projectId.isEmpty())
 	{
 		audioDir = audioDir.getChildFile(projectId);
+	}
+
+	TrackData* track = trackManager.getTrack(trackId);
+	if (track && track->usePages.load()) {
+		char pageName = 'A' + static_cast<char>(track->currentPageIndex);
+		return audioDir.getChildFile(trackId + "_" + juce::String(pageName) + ".wav");
 	}
 
 	return audioDir.getChildFile(trackId + ".wav");
@@ -2539,21 +2582,29 @@ void DjIaVstProcessor::setStateInformation(const void* data, int sizeInBytes)
 			auto trackIds = trackManager.getAllTrackIds();
 			for (const auto& trackId : trackIds) {
 				TrackData* track = trackManager.getTrack(trackId);
-				if (track && track->numSamples == 0 && !track->audioFilePath.isEmpty()) {
-					juce::File audioFile(track->audioFilePath);
-					if (audioFile.existsAsFile()) {
-						trackManager.loadAudioFileForTrack(track, audioFile);
+				if (track) {
+					if (track->usePages.load()) {
+						DBG("setStateInformation: Track " << track->trackName << " uses pages - skipping legacy reload");
+						continue;
+					}
+					if (track->numSamples == 0 && !track->audioFilePath.isEmpty()) {
+						juce::File audioFile(track->audioFilePath);
+						if (audioFile.existsAsFile()) {
+							DBG("setStateInformation: Reloading legacy track " << track->trackName);
+							trackManager.loadAudioFileForTrack(track, audioFile);
+						}
 					}
 				}
+			}
+		});
+	midiLearnManager.restoreUICallbacks();
+	stateLoaded = true;
+	juce::MessageManager::callAsync([this]()
+		{
+			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+				editor->refreshTrackComponents();
+				editor->updateUIFromProcessor();
 			} });
-			midiLearnManager.restoreUICallbacks();
-			stateLoaded = true;
-			juce::MessageManager::callAsync([this]()
-				{
-					if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
-						editor->refreshTrackComponents();
-						editor->updateUIFromProcessor();
-					} });
 }
 
 TrackComponent* DjIaVstProcessor::findTrackComponentByName(const juce::String& trackName, DjIaVstEditor* editor)

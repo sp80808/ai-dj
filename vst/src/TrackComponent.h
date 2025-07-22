@@ -129,8 +129,19 @@ private:
 	bool blinkState = false;
 	bool sequencerVisible = false;
 
+	juce::TextButton pageButtons[4];
+	juce::TextButton togglePagesButton;
+	bool pagesMode = false;
+	static const int PAGE_BUTTON_SIZE = 14;
+
+	void setupPagesUI();
+	void updatePagesDisplay();
+	void onPageSelected(int pageIndex);
+	void onTogglePagesMode();
+	void loadPageIfNeeded(int pageIndex);
+	void loadPageAudioFile(int pageIndex, const juce::File& audioFile);
+	void layoutPagesButtons(juce::Rectangle<int> area);
 	void calculateHostBasedDisplay();
-	float calculateEffectiveBpm();
 	void paint(juce::Graphics& g);
 	void resized();
 	void timerCallback() override;
@@ -155,6 +166,8 @@ private:
 	void onIntervalChanged();
 	void setSliderParameter(juce::String name, juce::Slider& slider);
 	void addEventListeners();
+
+	float calculateEffectiveBpm();
 
 	juce::String getIntervalName(int value);
 
