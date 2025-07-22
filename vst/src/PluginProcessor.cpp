@@ -2041,11 +2041,9 @@ void DjIaVstProcessor::reloadTrackWithVersion(const juce::String& trackId, bool 
 	juce::File fileToLoad;
 
 	if (track->usePages.load()) {
-		// === MODE PAGES: Charge la version pour la page courante ===
 		if (!track->getCurrentPage().hasOriginalVersion.load()) return;
 
 		if (useOriginal) {
-			// Fichier original de la page courante
 			char pageName = static_cast<char>('A' + track->currentPageIndex);
 			auto audioDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
 				.getChildFile("OBSIDIAN-Neural")
@@ -2056,12 +2054,10 @@ void DjIaVstProcessor::reloadTrackWithVersion(const juce::String& trackId, bool 
 			fileToLoad = audioDir.getChildFile(trackId + "_" + juce::String(pageName) + "_original.wav");
 		}
 		else {
-			// Fichier time-stretched de la page courante
 			fileToLoad = getTrackPageAudioFile(trackId, track->currentPageIndex);
 		}
 	}
 	else {
-		// === MODE LEGACY: Code existant ===
 		if (!track->hasOriginalVersion.load()) return;
 
 		if (useOriginal) {

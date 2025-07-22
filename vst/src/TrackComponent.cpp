@@ -302,19 +302,33 @@ void TrackComponent::updateFromTrackData()
 	sequencerToggleButton.setToggleState(track->showSequencer, juce::dontSendNotification);
 	randomDurationToggle.setToggleState(track->randomRetriggerDurationEnabled.load(), juce::dontSendNotification);
 
-	if (track->hasOriginalVersion.load())
-	{
-		bool useOriginal = track->useOriginalFile.load();
-		originalSyncButton.setToggleState(useOriginal, juce::dontSendNotification);
-		originalSyncButton.setButtonText(useOriginal ? juce::String::fromUTF8("\xE2\x97\x8F") : juce::String::fromUTF8("\xE2\x97\x8B"));
-		originalSyncButton.setEnabled(true);
+	if (track->usePages.load()) {
+		const auto& currentPage = track->getCurrentPage();
+		if (currentPage.hasOriginalVersion.load()) {
+			bool useOriginal = currentPage.useOriginalFile.load();
+			originalSyncButton.setToggleState(useOriginal, juce::dontSendNotification);
+			originalSyncButton.setButtonText(useOriginal ? juce::String::fromUTF8("\xE2\x97\x8F") : juce::String::fromUTF8("\xE2\x97\x8B"));
+			originalSyncButton.setEnabled(true);
+		}
+		else {
+			originalSyncButton.setToggleState(false, juce::dontSendNotification);
+			originalSyncButton.setButtonText(juce::String::fromUTF8("\xE2\x97\x8B"));
+			originalSyncButton.setEnabled(false);
+		}
 	}
-	else
-	{
-		track->useOriginalFile = false;
-		originalSyncButton.setToggleState(false, juce::dontSendNotification);
-		originalSyncButton.setButtonText(juce::String::fromUTF8("\xE2\x97\x8B"));
-		originalSyncButton.setEnabled(false);
+	else {
+		if (track->hasOriginalVersion.load()) {
+			bool useOriginal = track->useOriginalFile.load();
+			originalSyncButton.setToggleState(useOriginal, juce::dontSendNotification);
+			originalSyncButton.setButtonText(useOriginal ? juce::String::fromUTF8("\xE2\x97\x8F") : juce::String::fromUTF8("\xE2\x97\x8B"));
+			originalSyncButton.setEnabled(true);
+		}
+		else {
+			track->useOriginalFile = false;
+			originalSyncButton.setToggleState(false, juce::dontSendNotification);
+			originalSyncButton.setButtonText(juce::String::fromUTF8("\xE2\x97\x8B"));
+			originalSyncButton.setEnabled(false);
+		}
 	}
 
 	trackNameLabel.setText(track->trackName, juce::dontSendNotification);
@@ -1316,13 +1330,27 @@ void TrackComponent::toggleOriginalSync()
 		return;
 
 	bool useOriginal = originalSyncButton.getToggleState();
-	track->useOriginalFile = useOriginal;
-	originalSyncButton.setButtonText(useOriginal ? juce::String::fromUTF8("\xE2\x97\x8F") : juce::String::fromUTF8("\xE2\x97\x8B"));
 
-	if (track->hasOriginalVersion.load())
-	{
-		audioProcessor.reloadTrackWithVersion(trackId, useOriginal);
+	if (track->usePages.load()) {
+		auto& currentPage = track->getCurrentPage();
+		if (!currentPage.hasOriginalVersion.load()) {
+			originalSyncButton.setToggleState(!useOriginal, juce::dontSendNotification);
+			return;
+		}
+		currentPage.useOriginalFile = useOriginal;
+		track->syncLegacyProperties();
 	}
+	else {
+		if (!track->hasOriginalVersion.load()) {
+			originalSyncButton.setToggleState(!useOriginal, juce::dontSendNotification);
+			return;
+		}
+		track->useOriginalFile = useOriginal;
+	}
+	originalSyncButton.setButtonText(useOriginal ? juce::String::fromUTF8("\xE2\x97\x8F") : juce::String::fromUTF8("\xE2\x97\x8B"));
+	audioProcessor.reloadTrackWithVersion(trackId, useOriginal);
+
+	DBG("toggleOriginalSync: Switched to " << (useOriginal ? "ORIGINAL" : "STRETCHED") << " version");
 }
 
 void TrackComponent::onTrackPresetSelected()
