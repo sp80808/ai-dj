@@ -291,7 +291,7 @@ Include: DAW name/version, OS, steps to reproduce, expected vs actual behavior
 🚀 **Local models**: Available now (with some limitations)
 ✅ **Server option**: Still the best for live performance
 ⚠️ **Pre-release**: Active development, frequent updates
-🌟 **Star count**: 70+ - Thank you for the support!
+🌟 **Star count**: 90+ - Thank you for the support!
 
 ---
 
