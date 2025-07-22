@@ -665,7 +665,7 @@ void TrackComponent::setupPagesUI()
 	}
 
 	addAndMakeVisible(togglePagesButton);
-	togglePagesButton.setButtonText("P");
+	togglePagesButton.setButtonText(juce::String::fromUTF8("\xE2\x97\xA8"));
 	juce::String keyboardKeys = (detectedLayout == AZERTY ? "A-Z-E-R" :
 		detectedLayout == QWERTZ ? "Q-W-E-R" : "Q-W-E-R");
 	togglePagesButton.setTooltip("Enable multi-page mode (A/B/C/D)\nKeyboard: " + keyboardKeys);
