@@ -417,10 +417,19 @@ public:
 							}
 							else {
 								DBG("Page " << (char)('A' + pageIndex) << " file not found: " << page.audioFilePath);
+								juce::String fileName = audioFile.getFileName();
+								if (fileName.contains("_" + juce::String('A' + pageIndex))) {
+									char pageName = static_cast<char>('A' + pageIndex);
+									juce::String newFileName = fileName.replace("_" + juce::String('A' + pageIndex), "_" + juce::String(pageName));
+									juce::File newFile = audioFile.getParentDirectory().getChildFile(newFileName);
+
+									if (newFile.existsAsFile()) {
+										DBG("Found file with new naming: " << newFile.getFullPathName());
+										loadAudioFileForPage(track.get(), pageIndex, newFile);
+										page.audioFilePath = newFile.getFullPathName();
+									}
+								}
 							}
-						}
-						else {
-							DBG("Page " << (char)('A' + pageIndex) << " has no audio file");
 						}
 					}
 					else {

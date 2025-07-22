@@ -2036,24 +2036,134 @@ void DjIaVstProcessor::loadAudioFileAsync(const juce::String& trackId, const juc
 void DjIaVstProcessor::reloadTrackWithVersion(const juce::String& trackId, bool useOriginal)
 {
 	TrackData* track = trackManager.getTrack(trackId);
-	if (!track || !track->hasOriginalVersion.load())
-		return;
+	if (!track) return;
+
 	juce::File fileToLoad;
-	if (useOriginal)
-	{
-		fileToLoad = getTrackAudioFile(trackId + "_original");
+
+	if (track->usePages.load()) {
+		// === MODE PAGES: Charge la version pour la page courante ===
+		if (!track->getCurrentPage().hasOriginalVersion.load()) return;
+
+		if (useOriginal) {
+			// Fichier original de la page courante
+			char pageName = static_cast<char>('A' + track->currentPageIndex);
+			auto audioDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+				.getChildFile("OBSIDIAN-Neural")
+				.getChildFile("AudioCache");
+			if (projectId != "legacy" && !projectId.isEmpty()) {
+				audioDir = audioDir.getChildFile(projectId);
+			}
+			fileToLoad = audioDir.getChildFile(trackId + "_" + juce::String(pageName) + "_original.wav");
+		}
+		else {
+			// Fichier time-stretched de la page courante
+			fileToLoad = getTrackPageAudioFile(trackId, track->currentPageIndex);
+		}
 	}
-	else
-	{
-		fileToLoad = getTrackAudioFile(trackId);
+	else {
+		// === MODE LEGACY: Code existant ===
+		if (!track->hasOriginalVersion.load()) return;
+
+		if (useOriginal) {
+			fileToLoad = getTrackAudioFile(trackId + "_original");
+		}
+		else {
+			fileToLoad = getTrackAudioFile(trackId);
+		}
 	}
 
-	DBG("Loading file: " << fileToLoad.getFullPathName() << " - Exists: " << (fileToLoad.existsAsFile() ? "YES" : "NO"));
-	DBG("File size: " << fileToLoad.getSize() << " bytes");
-	if (!fileToLoad.existsAsFile())
-		return;
-	juce::Thread::launch([this, trackId, fileToLoad]()
-		{ loadAudioFileForSwitch(trackId, fileToLoad); });
+	DBG("reloadTrackWithVersion: Loading file: " << fileToLoad.getFullPathName() << " - Exists: " << (fileToLoad.existsAsFile() ? "YES" : "NO"));
+
+	if (!fileToLoad.existsAsFile()) {
+		DBG("File not found, trying legacy naming...");
+		if (track->usePages.load()) {
+			int asciiCode = 'A' + track->currentPageIndex;
+			auto audioDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+				.getChildFile("OBSIDIAN-Neural")
+				.getChildFile("AudioCache");
+			if (projectId != "legacy" && !projectId.isEmpty()) {
+				audioDir = audioDir.getChildFile(projectId);
+			}
+			if (useOriginal) {
+				fileToLoad = audioDir.getChildFile(trackId + "_" + juce::String(asciiCode) + "_original.wav");
+			}
+			else {
+				fileToLoad = audioDir.getChildFile(trackId + "_" + juce::String(asciiCode) + ".wav");
+			}
+			DBG("Trying legacy naming: " << fileToLoad.getFullPathName());
+		}
+
+		if (!fileToLoad.existsAsFile()) return;
+	}
+
+	if (track->usePages.load()) {
+		int currentPageIndex = track->currentPageIndex;
+		juce::Thread::launch([this, trackId, currentPageIndex, fileToLoad]() {
+			loadAudioFileForPageSwitch(trackId, currentPageIndex, fileToLoad);
+			});
+	}
+	else {
+		juce::Thread::launch([this, trackId, fileToLoad]() {
+			loadAudioFileForSwitch(trackId, fileToLoad);
+			});
+	}
+}
+
+void DjIaVstProcessor::loadAudioFileForPageSwitch(const juce::String& trackId, int pageIndex, const juce::File& audioFile)
+{
+	TrackData* track = trackManager.getTrack(trackId);
+	if (!track || pageIndex < 0 || pageIndex >= 4) return;
+
+	auto& page = track->pages[pageIndex];
+	double preservedLoopStart = page.loopStart;
+	double preservedLoopEnd = page.loopEnd;
+	bool preservedLocked = track->loopPointsLocked.load();
+
+	try {
+		juce::AudioFormatManager formatManager;
+		formatManager.registerBasicFormats();
+
+		std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(audioFile));
+		if (!reader) return;
+		int numChannels = reader->numChannels;
+		int numSamples = static_cast<int>(reader->lengthInSamples);
+
+		track->stagingBuffer.setSize(2, numSamples);
+		reader->read(&track->stagingBuffer, 0, numSamples, 0, true, true);
+
+		if (numChannels == 1) {
+			track->stagingBuffer.copyFrom(1, 0, track->stagingBuffer, 0, 0, numSamples);
+		}
+
+		track->stagingNumSamples = numSamples;
+		track->stagingSampleRate = reader->sampleRate;
+
+		track->isVersionSwitch = true;
+		track->preservedLoopStart = preservedLoopStart;
+		track->preservedLoopEnd = preservedLoopEnd;
+		track->preservedLoopLocked = preservedLocked;
+
+		if (pageIndex == track->currentPageIndex) {
+			track->hasStagingData = true;
+			track->swapRequested = true;
+		}
+		else {
+			page.audioBuffer.makeCopyOf(track->stagingBuffer);
+			page.numSamples = numSamples;
+			page.sampleRate = reader->sampleRate;
+			page.isLoaded = true;
+		}
+
+		juce::MessageManager::callAsync([this, trackId, pageIndex]() {
+			updateWaveformDisplay(trackId);
+			});
+
+	}
+	catch (const std::exception&) {
+		page.loopStart = preservedLoopStart;
+		page.loopEnd = preservedLoopEnd;
+		track->loopPointsLocked = preservedLocked;
+	}
 }
 
 void DjIaVstProcessor::loadAudioFileForSwitch(const juce::String& trackId, const juce::File& audioFile)
