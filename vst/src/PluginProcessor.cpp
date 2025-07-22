@@ -1531,7 +1531,9 @@ void DjIaVstProcessor::loadSampleFromBank(const juce::String& sampleId, const ju
 		return;
 
 	TrackData* track = trackManager.getTrack(trackId);
-	if (track && !track->currentSampleId.isEmpty() && track->currentSampleId != sampleId)
+	if (!track) return;
+
+	if (!track->currentSampleId.isEmpty() && track->currentSampleId != sampleId)
 	{
 		sampleBank->markSampleAsUnused(track->currentSampleId, projectId);
 		DBG("Marked previous sample as unused: " + track->currentSampleId);
@@ -1546,9 +1548,18 @@ void DjIaVstProcessor::loadSampleFromBank(const juce::String& sampleId, const ju
 		track->currentSampleId = sampleId;
 	}
 
-	juce::Thread::launch([this, trackId, sampleFile]()
+	juce::Thread::launch([this, trackId, sampleFile, sampleId]()
 		{
-			loadAudioFileAsync(trackId, sampleFile);
+			TrackData* track = trackManager.getTrack(trackId);
+			if (!track) return;
+
+			if (track->usePages.load()) {
+				loadSampleToBankPage(trackId, track->currentPageIndex, sampleFile, sampleId);
+			}
+			else {
+				loadAudioFileAsync(trackId, sampleFile);
+			}
+
 			juce::Timer::callAfterDelay(2000, [this]()
 				{
 					isLoadingFromBank = false;
@@ -2197,7 +2208,7 @@ juce::File DjIaVstProcessor::getTrackAudioFile(const juce::String& trackId)
 
 	TrackData* track = trackManager.getTrack(trackId);
 	if (track && track->usePages.load()) {
-		char pageName = 'A' + static_cast<char>(track->currentPageIndex);
+		char pageName = static_cast<char>('A' + track->currentPageIndex);
 		return audioDir.getChildFile(trackId + "_" + juce::String(pageName) + ".wav");
 	}
 
@@ -3133,4 +3144,109 @@ void DjIaVstProcessor::stopSamplePreview()
 {
 	isPreviewPlaying = false;
 	previewPosition = 0.0;
+}
+
+juce::File DjIaVstProcessor::getTrackPageAudioFile(const juce::String& trackId, int pageIndex)
+{
+	auto audioDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+		.getChildFile("OBSIDIAN-Neural")
+		.getChildFile("AudioCache");
+	if (projectId != "legacy" && !projectId.isEmpty())
+	{
+		audioDir = audioDir.getChildFile(projectId);
+	}
+
+	char pageName = static_cast<char>('A' + pageIndex);
+	juce::String filename = trackId + "_" + juce::String(pageName) + ".wav";
+	return audioDir.getChildFile(filename);
+}
+
+void DjIaVstProcessor::loadSampleToBankPage(const juce::String& trackId, int pageIndex, const juce::File& sampleFile, const juce::String& sampleId)
+{
+	TrackData* track = trackManager.getTrack(trackId);
+	if (!track || pageIndex < 0 || pageIndex >= 4) return;
+
+	auto& page = track->pages[pageIndex];
+
+	try {
+		juce::AudioFormatManager formatManager;
+		formatManager.registerBasicFormats();
+
+		std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(sampleFile));
+		if (!reader) return;
+
+		int numChannels = reader->numChannels;
+		int numSamples = static_cast<int>(reader->lengthInSamples);
+
+		track->stagingBuffer.setSize(2, numSamples);
+		reader->read(&track->stagingBuffer, 0, numSamples, 0, true, true);
+
+		if (numChannels == 1) {
+			track->stagingBuffer.copyFrom(1, 0, track->stagingBuffer, 0, 0, numSamples);
+		}
+
+		track->stagingNumSamples = numSamples;
+		track->stagingSampleRate = reader->sampleRate;
+		track->stagingOriginalBpm = 126.0f;
+
+		processAudioBPMAndSync(track);
+
+		auto permanentFile = getTrackPageAudioFile(trackId, pageIndex);
+		permanentFile.getParentDirectory().createDirectory();
+
+		DBG("Saving bank sample to page " << (char)('A' + pageIndex) << ": " << permanentFile.getFullPathName());
+
+		if (track->nextHasOriginalVersion.load()) {
+			auto originalFile = getTrackPageAudioFile(trackId + "_original", pageIndex);
+			auto stretchedFile = getTrackPageAudioFile(trackId, pageIndex);
+			saveBufferToFile(track->originalStagingBuffer, originalFile, track->stagingSampleRate);
+			saveBufferToFile(track->stagingBuffer, stretchedFile, track->stagingSampleRate);
+		}
+		else {
+			saveBufferToFile(track->stagingBuffer, permanentFile, track->stagingSampleRate);
+		}
+
+		page.audioFilePath = permanentFile.getFullPathName();
+		page.numSamples = track->stagingNumSamples.load();
+		page.sampleRate = track->stagingSampleRate.load();
+		page.originalBpm = track->stagingOriginalBpm;
+		page.isLoaded = true;
+		page.isLoading = false;
+
+		auto* sampleEntry = sampleBank->getSample(sampleId);
+		if (sampleEntry) {
+			page.prompt = sampleEntry->originalPrompt;
+			page.selectedPrompt = sampleEntry->originalPrompt;
+			page.generationBpm = sampleEntry->bpm;
+			page.generationKey = sampleEntry->key;
+		}
+
+		if (pageIndex == track->currentPageIndex) {
+			track->hasStagingData = true;
+			track->swapRequested = true;
+		}
+
+		juce::MessageManager::callAsync([this, trackId, pageIndex]() {
+			if (auto* editor = dynamic_cast<DjIaVstEditor*>(getActiveEditor())) {
+				editor->setStatusWithTimeout("Sample loaded to page " + juce::String((char)('A' + pageIndex)) + "!");
+				TrackData* track = trackManager.getTrack(trackId);
+				if (track && pageIndex == track->currentPageIndex) {
+					for (auto& trackComp : editor->getTrackComponents()) {
+						if (trackComp->getTrackId() == trackId) {
+							trackComp->updateFromTrackData();
+							if (trackComp->isWaveformVisible()) {
+								trackComp->refreshWaveformDisplay();
+							}
+							break;
+						}
+					}
+				}
+			}
+			});
+
+		DBG("Sample from bank loaded successfully to page " << (char)('A' + pageIndex));
+	}
+	catch (const std::exception& e) {
+		DBG("Failed to load sample from bank to page: " << e.what());
+	}
 }
