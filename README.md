@@ -205,23 +205,28 @@ Pre-compiled VST3 plugins available for all platforms:
 
 ---
 
-## 🎯 What OBSIDIAN-Neural Actually Does
+**## 🎯 What OBSIDIAN-Neural Actually Does**
 
 **Think of it as having an AI jam partner directly in your DAW.**
 
 - **Type simple keywords** → AI generates musical loops instantly
 - **Real-time generation** → No stopping your creative flow
-- **8-track sampler** → Layer AI-generated elements like drums, bass, pads
+- **8-track sampler with multi-page system** → Each track has 4 pages (A/B/C/D) for instant variation switching
 - **MIDI triggering** → Play AI samples from your keyboard (C3-B3)
-- **Perfect DAW sync** → Everything locks to your project tempo
+- **Perfect DAW sync** → Everything locks to your project tempo with intelligent time-stretching
+- **Beat repeat & retrigger** → Built-in performance effects for live jamming
+- **Stems separation** → Generate with isolated drums, bass, vocals, etc.
+- **Sample bank** → Drag & drop your generated samples between tracks
 
 **Example workflow:**
 
-1. Type "dark techno kick" → AI generates a techno kick loop
-2. Type "acid bassline" → AI adds a 303-style bass
-3. Trigger both with MIDI keys while jamming on hardware synths
+1. Type "dark techno kick" → AI generates a techno kick loop on page A
+2. Switch to page B → Type "acid bassline" → Generate 303-style bass
+3. Use keyboard shortcuts (Q-W-E-R) to switch between pages instantly
+4. Trigger both with MIDI keys while jamming on hardware synths
+5. Apply beat repeat for live performance effects
 
-**It's like having a TB-303, but instead of tweaking knobs, you describe what you want in plain English.**
+**It's like having a TB-303, but instead of tweaking knobs, you describe what you want in plain English. Plus you get 4 variations per track for endless creative possibilities.**
 
 ---
 
@@ -286,7 +291,7 @@ Include: DAW name/version, OS, steps to reproduce, expected vs actual behavior
 🚀 **Local models**: Available now (with some limitations)
 ✅ **Server option**: Still the best for live performance
 ⚠️ **Pre-release**: Active development, frequent updates
-🌟 **Star count**: 70+ - Thank you for the support!
+🌟 **Star count**: 90+ - Thank you for the support!
 
 ---
 
