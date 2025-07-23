@@ -14,12 +14,17 @@
 #include "SequencerComponent.h"
 #include "version.h"
 #include "ColourPalette.h"
+#if JUCE_WINDOWS
+#include <windows.h>
+#include <winuser.h>
+#endif
 
 DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor& p)
 	: AudioProcessorEditor(&p), audioProcessor(p)
 {
 	setSize(1300, 800);
 	setWantsKeyboardFocus(true);
+	grabKeyboardFocus();
 	tooltipWindow = std::make_unique<juce::TooltipWindow>(this, 700);
 	logoImage = juce::ImageCache::getFromMemory(BinaryData::logo_png,
 		BinaryData::logo_pngSize);
@@ -1573,6 +1578,99 @@ void DjIaVstEditor::loadPromptPresets()
 	}
 	juce::String selectedPresetText = promptPresetSelector.getText();
 	promptInput.setText(selectedPresetText, juce::dontSendNotification);
+}
+
+DjIaVstEditor::KeyboardLayout DjIaVstEditor::detectKeyboardLayout()
+{
+#if JUCE_WINDOWS
+	HKL layout = GetKeyboardLayout(0);
+	WORD primaryLang = PRIMARYLANGID(LOWORD(layout));
+
+	if (primaryLang == LANG_FRENCH) return AZERTY;
+	if (primaryLang == LANG_GERMAN) return QWERTZ;
+#endif
+	return QWERTY;
+}
+
+bool DjIaVstEditor::keyMatches(const juce::KeyPress& pressed, const juce::KeyPress& expected)
+{
+	if (pressed == expected) return true;
+	if (pressed.getKeyCode() == expected.getKeyCode()) return true;
+	if (expected.getKeyCode() >= '1' && expected.getKeyCode() <= '4') {
+		int expectedNum = expected.getKeyCode() - '0';
+		if (pressed.getKeyCode() >= '1' && pressed.getKeyCode() <= '4') {
+			int pressedNum = pressed.getKeyCode() - '0';
+			return pressedNum == expectedNum;
+		}
+	}
+
+	return false;
+}
+
+bool DjIaVstEditor::keyPressed(const juce::KeyPress& key)
+{
+	KeyboardLayout layout = detectKeyboardLayout();
+
+	std::vector<std::vector<juce::KeyPress>> layoutKeys(8);
+
+	switch (layout) {
+	case AZERTY:
+		layoutKeys = {
+			{juce::KeyPress('1'), juce::KeyPress('2'), juce::KeyPress('3'), juce::KeyPress('4')},
+			{juce::KeyPress('a'), juce::KeyPress('z'), juce::KeyPress('e'), juce::KeyPress('r')},
+			{juce::KeyPress('q'), juce::KeyPress('s'), juce::KeyPress('d'), juce::KeyPress('f')},
+			{juce::KeyPress('w'), juce::KeyPress('x'), juce::KeyPress('c'), juce::KeyPress('v')},
+			{juce::KeyPress('8'), juce::KeyPress('9'), juce::KeyPress('0'), juce::KeyPress('-')},
+			{juce::KeyPress('t'), juce::KeyPress('y'), juce::KeyPress('u'), juce::KeyPress('i')},
+			{juce::KeyPress('g'), juce::KeyPress('h'), juce::KeyPress('j'), juce::KeyPress('k')},
+			{juce::KeyPress('b'), juce::KeyPress('n'), juce::KeyPress(','), juce::KeyPress(';')}
+		};
+		break;
+
+	case QWERTY:
+		layoutKeys = {
+			{juce::KeyPress('1'), juce::KeyPress('2'), juce::KeyPress('3'), juce::KeyPress('4')},
+			{juce::KeyPress('a'), juce::KeyPress('s'), juce::KeyPress('d'), juce::KeyPress('f')},
+			{juce::KeyPress('q'), juce::KeyPress('w'), juce::KeyPress('e'), juce::KeyPress('r')},
+			{juce::KeyPress('z'), juce::KeyPress('x'), juce::KeyPress('c'), juce::KeyPress('v')},
+			{juce::KeyPress('8'), juce::KeyPress('9'), juce::KeyPress('0'), juce::KeyPress('-')},
+			{juce::KeyPress('t'), juce::KeyPress('y'), juce::KeyPress('u'), juce::KeyPress('i')},
+			{juce::KeyPress('g'), juce::KeyPress('h'), juce::KeyPress('j'), juce::KeyPress('k')},
+			{juce::KeyPress('b'), juce::KeyPress('n'), juce::KeyPress('m'), juce::KeyPress(',')}
+		};
+		break;
+
+	case QWERTZ:
+		layoutKeys = {
+			{juce::KeyPress('1'), juce::KeyPress('2'), juce::KeyPress('3'), juce::KeyPress('4')},
+			{juce::KeyPress('a'), juce::KeyPress('s'), juce::KeyPress('d'), juce::KeyPress('f')},
+			{juce::KeyPress('q'), juce::KeyPress('w'), juce::KeyPress('e'), juce::KeyPress('r')},
+			{juce::KeyPress('y'), juce::KeyPress('x'), juce::KeyPress('c'), juce::KeyPress('v')},
+			{juce::KeyPress('8'), juce::KeyPress('9'), juce::KeyPress('0'), juce::KeyPress('-')},
+			{juce::KeyPress('t'), juce::KeyPress('z'), juce::KeyPress('u'), juce::KeyPress('i')},
+			{juce::KeyPress('g'), juce::KeyPress('h'), juce::KeyPress('j'), juce::KeyPress('k')},
+			{juce::KeyPress('b'), juce::KeyPress('n'), juce::KeyPress('m'), juce::KeyPress(',')}
+		};
+		break;
+	}
+
+	for (int slotIndex = 0; slotIndex < 8; ++slotIndex) {
+		for (int page = 0; page < 4; ++page) {
+			if (keyMatches(key, layoutKeys[slotIndex][page])) {
+				for (auto& trackComp : trackComponents) {
+					if (auto* track = trackComp->getTrack()) {
+						if (track->slotIndex == slotIndex && track->usePages.load()) {
+							DBG("Global shortcut: slot " << (slotIndex + 1) << " page " << (char)('A' + page) << " [" << (layout == AZERTY ? "AZERTY" : layout == QWERTZ ? "QWERTZ" : "QWERTY") << "]");
+							trackComp->onPageSelected(page);
+							return true;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return Component::keyPressed(key);
 }
 
 void DjIaVstEditor::onPresetSelected()

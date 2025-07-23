@@ -83,6 +83,7 @@ public:
 	void updatePromptPresets(const juce::StringArray& presets);
 	void setupMidiLearn();
 	void updatePromptSelection(const juce::String& promptText);
+	void onPageSelected(int pageIndex);
 
 	bool isEditingLabel = false;
 	MidiLearnableComboBox promptPresetSelector;
@@ -133,22 +134,9 @@ private:
 	juce::TextButton togglePagesButton;
 	bool pagesMode = false;
 	static const int PAGE_BUTTON_SIZE = 14;
-	enum KeyboardLayout {
-		QWERTY,
-		AZERTY,
-		QWERTZ
-	};
-
-	KeyboardLayout detectedLayout = QWERTY;
-	bool keyboardControlEnabled = true;
-
-	KeyboardLayout detectKeyboardLayout();
-	void handleKeyboardInput(const juce::KeyPress& key);
-	bool keyPressed(const juce::KeyPress& key) override;
 
 	void setupPagesUI();
 	void updatePagesDisplay();
-	void onPageSelected(int pageIndex);
 	void onTogglePagesMode();
 	void loadPageIfNeeded(int pageIndex);
 	void loadPageAudioFile(int pageIndex, const juce::File& audioFile);
