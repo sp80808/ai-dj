@@ -11,10 +11,6 @@
 #include "SequencerComponent.h"
 #include "PluginEditor.h"
 #include "ColourPalette.h"
-#if JUCE_WINDOWS
-#include <windows.h>
-#include <winuser.h>
-#endif
 
 TrackComponent::TrackComponent(const juce::String& trackId, DjIaVstProcessor& processor)
 	: trackId(trackId), track(nullptr), audioProcessor(processor)
@@ -33,80 +29,6 @@ TrackComponent::~TrackComponent()
 	isDestroyed.store(true);
 	stopTimer();
 	track = nullptr;
-}
-
-
-TrackComponent::KeyboardLayout TrackComponent::detectKeyboardLayout()
-{
-#if JUCE_WINDOWS
-	HKL layout = GetKeyboardLayout(0);
-	WORD primaryLang = PRIMARYLANGID(LOWORD(layout));
-
-	if (primaryLang == LANG_FRENCH) {
-		return AZERTY;
-	}
-	else if (primaryLang == LANG_GERMAN) {
-		return QWERTZ;
-	}
-
-	return QWERTY;
-#else
-	return QWERTY;
-#endif
-}
-
-bool TrackComponent::keyPressed(const juce::KeyPress& key)
-{
-	if (!keyboardControlEnabled || !pagesMode || !track) {
-		return Component::keyPressed(key);
-	}
-
-	if (detectedLayout == QWERTY && juce::Time::getCurrentTime().toMilliseconds() % 10000 < 100) {
-		detectedLayout = detectKeyboardLayout();
-	}
-
-	handleKeyboardInput(key);
-	return true;
-}
-
-void TrackComponent::handleKeyboardInput(const juce::KeyPress& key)
-{
-	int targetPage = -1;
-
-	switch (detectedLayout) {
-	case QWERTY:
-		if (key == juce::KeyPress('q')) targetPage = 0;
-		else if (key == juce::KeyPress('w')) targetPage = 1;
-		else if (key == juce::KeyPress('e')) targetPage = 2;
-		else if (key == juce::KeyPress('r')) targetPage = 3;
-		break;
-
-	case AZERTY:
-		if (key == juce::KeyPress('a')) targetPage = 0;
-		else if (key == juce::KeyPress('z')) targetPage = 1;
-		else if (key == juce::KeyPress('e')) targetPage = 2;
-		else if (key == juce::KeyPress('r')) targetPage = 3;
-		break;
-
-	case QWERTZ:
-		if (key == juce::KeyPress('q')) targetPage = 0;
-		else if (key == juce::KeyPress('w')) targetPage = 1;
-		else if (key == juce::KeyPress('e')) targetPage = 2;
-		else if (key == juce::KeyPress('r')) targetPage = 3;
-		break;
-	}
-
-	if (targetPage >= 0 && targetPage < 4 && targetPage != track->currentPageIndex) {
-		DBG("Keyboard shortcut: switching to page " << (char)('A' + targetPage));
-		onPageSelected(targetPage);
-		pageButtons[targetPage].setToggleState(true, juce::sendNotification);
-
-		if (onStatusMessage) {
-			juce::String layoutName = (detectedLayout == AZERTY) ? "AZERTY" :
-				(detectedLayout == QWERTZ) ? "QWERTZ" : "QWERTY";
-			onStatusMessage("Page " + juce::String((char)('A' + targetPage)) + " (" + layoutName + ")");
-		}
-	}
 }
 
 void TrackComponent::addEventListeners()
@@ -675,9 +597,7 @@ void TrackComponent::setupPagesUI()
 
 	addAndMakeVisible(togglePagesButton);
 	togglePagesButton.setButtonText(juce::String::fromUTF8("\xE2\x97\xA8"));
-	juce::String keyboardKeys = (detectedLayout == AZERTY ? "A-Z-E-R" :
-		detectedLayout == QWERTZ ? "Q-W-E-R" : "Q-W-E-R");
-	togglePagesButton.setTooltip("Enable multi-page mode (A/B/C/D)\nKeyboard: " + keyboardKeys);
+	togglePagesButton.setTooltip("Enable multi-page mode (A/B/C/D)");
 	togglePagesButton.onClick = [this]() { onTogglePagesMode(); };
 }
 
@@ -1234,8 +1154,7 @@ void TrackComponent::setupUI()
 			statusCallback("Auto-random duration: " + juce::String(track->randomRetriggerDurationEnabled.load() ? "ON" : "OFF"));
 		}
 		};
-	setWantsKeyboardFocus(true);
-	detectedLayout = detectKeyboardLayout();
+
 	setupPagesUI();
 }
 
