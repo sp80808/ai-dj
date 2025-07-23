@@ -1906,14 +1906,15 @@ void DjIaVstProcessor::performAtomicSwap(TrackData* track, const juce::String& t
 
 	if (track->usePages.load()) {
 		auto& currentPage = track->getCurrentPage();
+		bool preservedHasOriginal = currentPage.hasOriginalVersion.load();
 		std::swap(currentPage.audioBuffer, track->stagingBuffer);
 		currentPage.numSamples = track->stagingNumSamples.load();
 		currentPage.sampleRate = track->stagingSampleRate.load();
 		currentPage.originalBpm = track->stagingOriginalBpm;
-		currentPage.hasOriginalVersion.store(track->nextHasOriginalVersion.load());
 		currentPage.isLoaded = true;
 
 		if (track->isVersionSwitch) {
+			currentPage.hasOriginalVersion.store(preservedHasOriginal);
 			currentPage.loopStart = track->preservedLoopStart;
 			currentPage.loopEnd = track->preservedLoopEnd;
 			track->loopPointsLocked = track->preservedLoopLocked;
@@ -1923,6 +1924,7 @@ void DjIaVstProcessor::performAtomicSwap(TrackData* track, const juce::String& t
 			track->isVersionSwitch = false;
 		}
 		else {
+			currentPage.hasOriginalVersion.store(track->nextHasOriginalVersion.load());
 			currentPage.useOriginalFile = false;
 			double sampleDuration = currentPage.numSamples / currentPage.sampleRate;
 			if (sampleDuration <= 8.0) {

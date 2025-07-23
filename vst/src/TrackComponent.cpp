@@ -1450,8 +1450,21 @@ void TrackComponent::toggleOriginalSync()
 	}
 
 	originalSyncButton.setButtonText(useOriginal ? juce::String::fromUTF8("\xE2\x97\x8F") : juce::String::fromUTF8("\xE2\x97\x8B"));
+	originalSyncButton.setEnabled(false);
 	DBG("About to call reloadTrackWithVersion...");
 	audioProcessor.reloadTrackWithVersion(trackId, useOriginal);
+	juce::Timer::callAfterDelay(500, [this]() {
+		if (track && track->usePages.load()) {
+			const auto& currentPage = track->getCurrentPage();
+			if (currentPage.hasOriginalVersion.load()) {
+				originalSyncButton.setEnabled(true);
+				DBG("Button re-enabled after reload");
+			}
+			else {
+				DBG("Button stays disabled - no original version");
+			}
+		}
+		});
 	DBG("=== toggleOriginalSync END ===");
 }
 
