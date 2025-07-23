@@ -275,8 +275,17 @@ void TrackComponent::toggleWaveformDisplay()
 				{
 					if (track)
 					{
-						track->loopStart = start;
-						track->loopEnd = end;
+						if (track->usePages.load()) {
+							auto& currentPage = track->getCurrentPage();
+							currentPage.loopStart = start;
+							currentPage.loopEnd = end;
+							track->syncLegacyProperties();
+						}
+						else {
+							track->loopStart = start;
+							track->loopEnd = end;
+						}
+
 						waveformDisplay->setLoopPoints(start, end);
 						if (track->isPlaying.load())
 						{
@@ -1412,17 +1421,23 @@ void TrackComponent::toggleOriginalSync()
 		return;
 
 	bool useOriginal = originalSyncButton.getToggleState();
+	DBG("=== toggleOriginalSync START ===");
+	DBG("useOriginal: " << (useOriginal ? "YES" : "NO"));
 
 	if (track->usePages.load()) {
 		auto& currentPage = track->getCurrentPage();
+		DBG("Page hasOriginalVersion BEFORE: " << (currentPage.hasOriginalVersion.load() ? "YES" : "NO"));
+
 		if (!currentPage.hasOriginalVersion.load()) {
-			originalSyncButton.setToggleState(false, juce::dontSendNotification);
+			DBG("ERROR: No original version - reverting button");
+			originalSyncButton.setToggleState(!useOriginal, juce::dontSendNotification);
 			originalSyncButton.setEnabled(false);
-			DBG("No original version available for current page");
 			return;
 		}
 		currentPage.useOriginalFile = useOriginal;
 		track->syncLegacyProperties();
+
+		DBG("Page hasOriginalVersion AFTER syncLegacyProperties: " << (currentPage.hasOriginalVersion.load() ? "YES" : "NO"));
 	}
 	else {
 		if (!track->hasOriginalVersion.load()) {
@@ -1435,9 +1450,9 @@ void TrackComponent::toggleOriginalSync()
 	}
 
 	originalSyncButton.setButtonText(useOriginal ? juce::String::fromUTF8("\xE2\x97\x8F") : juce::String::fromUTF8("\xE2\x97\x8B"));
+	DBG("About to call reloadTrackWithVersion...");
 	audioProcessor.reloadTrackWithVersion(trackId, useOriginal);
-
-	DBG("toggleOriginalSync: Switched to " << (useOriginal ? "ORIGINAL" : "STRETCHED") << " version");
+	DBG("=== toggleOriginalSync END ===");
 }
 
 void TrackComponent::onTrackPresetSelected()
