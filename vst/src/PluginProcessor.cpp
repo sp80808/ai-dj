@@ -1777,6 +1777,7 @@ juce::File DjIaVstProcessor::createTempAudioFile(const std::vector<float>& audio
 		{
 			buffer.copyFrom(0, 0, audioData.data(), numSamples);
 		}
+		normalizeAudioBuffer(buffer);
 		juce::WavAudioFormat wavFormat;
 		juce::FileOutputStream* outputStream = new juce::FileOutputStream(tempFile);
 		if (!outputStream->openedOk())
@@ -2422,9 +2423,10 @@ void DjIaVstProcessor::processAudioBPMAndSync(TrackData* track)
 	if (hostBpmValid && originalBpmValid && bpmDifferenceSignificant && !isTempoBypass)
 	{
 		track->originalStagingBuffer.makeCopyOf(track->stagingBuffer);
-
+		normalizeAudioBuffer(track->originalStagingBuffer);
 		double stretchRatio = hostBpm / static_cast<double>(track->stagingOriginalBpm);
 		AudioAnalyzer::timeStretchBuffer(track->stagingBuffer, stretchRatio, track->stagingSampleRate);
+		normalizeAudioBuffer(track->stagingBuffer);
 		track->stagingNumSamples.store(track->stagingBuffer.getNumSamples());
 		track->stagingOriginalBpm = static_cast<float>(hostBpm);
 		track->nextHasOriginalVersion.store(true);
@@ -2452,6 +2454,7 @@ void DjIaVstProcessor::loadAudioToStagingBuffer(std::unique_ptr<juce::AudioForma
 		track->stagingBuffer.copyFrom(1, 0, track->stagingBuffer, 0, 0, numSamples);
 	}
 
+	normalizeAudioBuffer(track->stagingBuffer);
 	track->stagingNumSamples = numSamples;
 	track->stagingSampleRate = sampleRate;
 }
@@ -3325,6 +3328,42 @@ void DjIaVstProcessor::stopSamplePreview()
 {
 	isPreviewPlaying = false;
 	previewPosition = 0.0;
+}
+
+void DjIaVstProcessor::normalizeAudioBuffer(juce::AudioBuffer<float>& buffer)
+{
+	if (buffer.getNumSamples() == 0) return;
+
+	float maxPeak = 0.0f;
+	float totalRMS = 0.0f;
+
+	for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+	{
+		float channelPeak = buffer.getMagnitude(channel, 0, buffer.getNumSamples());
+		float channelRMS = buffer.getRMSLevel(channel, 0, buffer.getNumSamples());
+
+		maxPeak = std::max(maxPeak, channelPeak);
+		totalRMS += channelRMS * channelRMS;
+	}
+
+	float avgRMS = std::sqrt(totalRMS / buffer.getNumChannels());
+
+	if (maxPeak < 0.001f) return;
+
+	float targetRMS = 0.3f;
+	float maxPeakAllowed = 0.95f;
+
+	float rmsGain = (avgRMS > 0.001f) ? targetRMS / avgRMS : 1.0f;
+	float peakGain = maxPeakAllowed / maxPeak;
+
+	float finalGain = std::min(rmsGain, peakGain);
+
+	finalGain = std::min(finalGain, 4.0f);
+
+	buffer.applyGain(finalGain);
+
+	DBG("Normalized - Peak: " << maxPeak << " RMS: " << avgRMS
+		<< " Gain: " << finalGain << " (" << 20.0f * std::log10(finalGain) << "dB)");
 }
 
 juce::File DjIaVstProcessor::getTrackPageAudioFile(const juce::String& trackId, int pageIndex)

@@ -14,12 +14,17 @@
 #include "SequencerComponent.h"
 #include "version.h"
 #include "ColourPalette.h"
+#if JUCE_WINDOWS
+#include <windows.h>
+#include <winuser.h>
+#endif
 
 DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor& p)
 	: AudioProcessorEditor(&p), audioProcessor(p)
 {
 	setSize(1300, 800);
 	setWantsKeyboardFocus(true);
+	grabKeyboardFocus();
 	tooltipWindow = std::make_unique<juce::TooltipWindow>(this, 700);
 	logoImage = juce::ImageCache::getFromMemory(BinaryData::logo_png,
 		BinaryData::logo_pngSize);
@@ -1575,6 +1580,105 @@ void DjIaVstEditor::loadPromptPresets()
 	promptInput.setText(selectedPresetText, juce::dontSendNotification);
 }
 
+DjIaVstEditor::KeyboardLayout DjIaVstEditor::detectKeyboardLayout()
+{
+#if JUCE_WINDOWS
+	HKL layout = GetKeyboardLayout(0);
+	WORD primaryLang = PRIMARYLANGID(LOWORD(layout));
+
+	if (primaryLang == LANG_FRENCH) return AZERTY;
+	if (primaryLang == LANG_GERMAN) return QWERTZ;
+#endif
+	return QWERTY;
+}
+
+bool DjIaVstEditor::keyMatches(const juce::KeyPress& pressed, const juce::KeyPress& expected)
+{
+	if (pressed == expected) return true;
+	if (pressed.getKeyCode() == expected.getKeyCode()) return true;
+	if (expected.getKeyCode() >= '1' && expected.getKeyCode() <= '4') {
+		int expectedNum = expected.getKeyCode() - '0';
+		if (pressed.getKeyCode() >= '1' && pressed.getKeyCode() <= '4') {
+			int pressedNum = pressed.getKeyCode() - '0';
+			return pressedNum == expectedNum;
+		}
+	}
+
+	return false;
+}
+
+bool DjIaVstEditor::keyPressed(const juce::KeyPress& key)
+{
+	KeyboardLayout layout = detectKeyboardLayout();
+
+	std::vector<std::vector<juce::KeyPress>> layoutKeys(8);
+
+	switch (layout) {
+	case AZERTY:
+		layoutKeys = {
+			{juce::KeyPress('1'), juce::KeyPress('2'), juce::KeyPress('3'), juce::KeyPress('4')},
+			{juce::KeyPress('a'), juce::KeyPress('z'), juce::KeyPress('e'), juce::KeyPress('r')},
+			{juce::KeyPress('q'), juce::KeyPress('s'), juce::KeyPress('d'), juce::KeyPress('f')},
+			{juce::KeyPress('w'), juce::KeyPress('x'), juce::KeyPress('c'), juce::KeyPress('v')},
+			{juce::KeyPress('8'), juce::KeyPress('9'), juce::KeyPress('0'), juce::KeyPress('-')},
+			{juce::KeyPress('t'), juce::KeyPress('y'), juce::KeyPress('u'), juce::KeyPress('i')},
+			{juce::KeyPress('g'), juce::KeyPress('h'), juce::KeyPress('j'), juce::KeyPress('k')},
+			{juce::KeyPress('b'), juce::KeyPress('n'), juce::KeyPress(','), juce::KeyPress(';')}
+		};
+		break;
+
+	case QWERTY:
+		layoutKeys = {
+			{juce::KeyPress('1'), juce::KeyPress('2'), juce::KeyPress('3'), juce::KeyPress('4')},
+			{juce::KeyPress('a'), juce::KeyPress('s'), juce::KeyPress('d'), juce::KeyPress('f')},
+			{juce::KeyPress('q'), juce::KeyPress('w'), juce::KeyPress('e'), juce::KeyPress('r')},
+			{juce::KeyPress('z'), juce::KeyPress('x'), juce::KeyPress('c'), juce::KeyPress('v')},
+			{juce::KeyPress('8'), juce::KeyPress('9'), juce::KeyPress('0'), juce::KeyPress('-')},
+			{juce::KeyPress('t'), juce::KeyPress('y'), juce::KeyPress('u'), juce::KeyPress('i')},
+			{juce::KeyPress('g'), juce::KeyPress('h'), juce::KeyPress('j'), juce::KeyPress('k')},
+			{juce::KeyPress('b'), juce::KeyPress('n'), juce::KeyPress('m'), juce::KeyPress(',')}
+		};
+		break;
+
+	case QWERTZ:
+		layoutKeys = {
+			{juce::KeyPress('1'), juce::KeyPress('2'), juce::KeyPress('3'), juce::KeyPress('4')},
+			{juce::KeyPress('a'), juce::KeyPress('s'), juce::KeyPress('d'), juce::KeyPress('f')},
+			{juce::KeyPress('q'), juce::KeyPress('w'), juce::KeyPress('e'), juce::KeyPress('r')},
+			{juce::KeyPress('y'), juce::KeyPress('x'), juce::KeyPress('c'), juce::KeyPress('v')},
+			{juce::KeyPress('8'), juce::KeyPress('9'), juce::KeyPress('0'), juce::KeyPress('-')},
+			{juce::KeyPress('t'), juce::KeyPress('z'), juce::KeyPress('u'), juce::KeyPress('i')},
+			{juce::KeyPress('g'), juce::KeyPress('h'), juce::KeyPress('j'), juce::KeyPress('k')},
+			{juce::KeyPress('b'), juce::KeyPress('n'), juce::KeyPress('m'), juce::KeyPress(',')}
+		};
+		break;
+	}
+
+	for (int slotIndex = 0; slotIndex < 8; ++slotIndex) {
+		for (int page = 0; page < 4; ++page) {
+			if (keyMatches(key, layoutKeys[slotIndex][page])) {
+				for (auto& trackComp : trackComponents) {
+					if (auto* track = trackComp->getTrack()) {
+						if (track->slotIndex == slotIndex && track->usePages.load()) {
+							if (audioProcessor.getIsGenerating() && audioProcessor.getGeneratingTrackId() == track->trackId) {
+								setStatusWithTimeout("Cannot switch pages during generation...");
+								return false;
+							}
+							else {
+								DBG("Global shortcut: slot " << (slotIndex + 1) << " page " << (char)('A' + page) << " [" << (layout == AZERTY ? "AZERTY" : layout == QWERTZ ? "QWERTZ" : "QWERTY") << "]");
+								trackComp->onPageSelected(page);
+								return true;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return Component::keyPressed(key);
+}
+
 void DjIaVstEditor::onPresetSelected()
 {
 	int selectedId = promptPresetSelector.getSelectedId();
@@ -2281,29 +2385,46 @@ void DjIaVstEditor::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/)
 		break;
 
 	case showHelp:
+	{
+		juce::String helpText =
+			"OBSIDIAN-Neural Help\n\n"
+			"Quick Start:\n"
+			"1. Configure server URL and API key\n"
+			"2. Add tracks and assign MIDI notes\n"
+			"3. Generate loops with prompts\n"
+			"4. Play with MIDI keyboard!\n\n"
+
+			"Pages System:\n"
+			"- Click button to enable multi-page mode (A/B/C/D)\n"
+			"- Keyboard shortcuts:\n"
+			"  Slot 1: 1,2,3,4 -> Pages A,B,C,D\n"
+			"  Slot 2: A,Z,E,R -> Pages A,B,C,D\n"
+			"  Slot 3: Q,S,D,F -> Pages A,B,C,D\n"
+			"  etc...\n\n"
+
+			"Sample Bank:\n"
+			"- Auto-saves all generated samples\n"
+			"- Drag & Drop samples to tracks or DAW\n"
+			"- Preview with play button\n\n"
+
+			"Controls:\n"
+			"- Waveform: Show/edit loop points\n"
+			"- Sequencer: Program patterns\n"
+			"- Beat Repeat: Live loop slicing\n"
+			"- MIDI Learn: Right-click any control\n\n"
+
+			"See documentation for complete features.";
+
 		juce::AlertWindow::showAsync(
 			juce::MessageBoxOptions()
 			.withIconType(juce::MessageBoxIconType::InfoIcon)
 			.withTitle("OBSIDIAN-Neural Help")
-			.withMessage("Quick Start:\n"
-				"1. Configure server URL and API key\n"
-				"2. Add tracks and assign MIDI notes\n"
-				"3. Generate loops with prompts\n"
-				"4. Play with MIDI keyboard!\n\n"
-				"Each track can be triggered by its assigned MIDI note.\n\n"
-				"MIDI Learn:\n"
-				"- Samples: C3-G3 (notes 60-67) reserved for track triggers\n"
-				"- Controls: Use notes 0-59 or 68-127 for MIDI mapping\n"
-				"- Assignable controls: Play, Mute, Solo, Pitch, Fine, Pan\n"
-				"- Right-click any control, Enable MIDI Learn, Press MIDI control\n\n"
-				"Play Button Behavior:\n"
-				"- First click: Arms sample to start on next MIDI note\n"
-				"- Second click: Arms sample to stop on next MIDI note\n"
-				"- Stop button: Arms for immediate stop on next MIDI note\n"
-				"- No separate Stop in MIDI Learn - Play button handles both!")
+			.withMessage(helpText)
 			.withButton("OK"),
 			nullptr);
+
 		break;
+	}
 	}
 }
 

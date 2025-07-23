@@ -63,7 +63,10 @@ private:
 	std::unique_ptr<SampleBankPanel> sampleBankPanel;
 	juce::TextButton showSampleBankButton;
 	bool sampleBankVisible = false;
-
+	enum KeyboardLayout { QWERTY, AZERTY, QWERTZ };
+	KeyboardLayout detectKeyboardLayout();
+	bool keyMatches(const juce::KeyPress& pressed, const juce::KeyPress& expected);
+	bool keyPressed(const juce::KeyPress& key) override;
 	void setupUI();
 	void addEventListeners();
 	void loadPromptPresets();
