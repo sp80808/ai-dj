@@ -199,7 +199,10 @@ juce::String SampleBank::promptToSnakeCase(const juce::String& prompt)
 {
 	juce::String result = prompt.toLowerCase();
 
-	result = result.replaceCharacters(" !@#$%^&*()+-=[]{}|;':\",./<>?", "_");
+	juce::String invalidChars = " !@#$%^&*()+-=[]{}|;':\",./<>?";
+	for (int i = 0; i < invalidChars.length(); ++i) {
+		result = result.replaceCharacter(invalidChars[i], '_');
+	}
 
 	while (result.contains("__"))
 	{
