@@ -451,6 +451,10 @@ private:
 		const juce::String& trackId,
 		double sampleRate);
 	void loadAudioFileForSwitch(const juce::String& trackId, const juce::File& audioFile);
+	void loadSampleToBankPage(const juce::String& trackId, int pageIndex, const juce::File& sampleFile, const juce::String& sampleId);
+	void loadAudioFileForPageSwitch(const juce::String& trackId, int pageIndex, const juce::File& audioFile);
+
+	juce::File getTrackPageAudioFile(const juce::String& trackId, int pageIndex);
 
 	TrackComponent* findTrackComponentByName(const juce::String& trackName, DjIaVstEditor* editor);
 
