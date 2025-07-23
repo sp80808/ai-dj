@@ -1660,9 +1660,15 @@ bool DjIaVstEditor::keyPressed(const juce::KeyPress& key)
 				for (auto& trackComp : trackComponents) {
 					if (auto* track = trackComp->getTrack()) {
 						if (track->slotIndex == slotIndex && track->usePages.load()) {
-							DBG("Global shortcut: slot " << (slotIndex + 1) << " page " << (char)('A' + page) << " [" << (layout == AZERTY ? "AZERTY" : layout == QWERTZ ? "QWERTZ" : "QWERTY") << "]");
-							trackComp->onPageSelected(page);
-							return true;
+							if (audioProcessor.getIsGenerating() && audioProcessor.getGeneratingTrackId() == track->trackId) {
+								setStatusWithTimeout("Cannot switch pages during generation...");
+								return false;
+							}
+							else {
+								DBG("Global shortcut: slot " << (slotIndex + 1) << " page " << (char)('A' + page) << " [" << (layout == AZERTY ? "AZERTY" : layout == QWERTZ ? "QWERTZ" : "QWERTY") << "]");
+								trackComp->onPageSelected(page);
+								return true;
+							}
 						}
 					}
 				}
