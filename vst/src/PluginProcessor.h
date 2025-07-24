@@ -473,7 +473,6 @@ private:
 	void updateTrackPathsAfterMigration();
 	void checkBeatRepeatWithSampleCounter();
 	void generateLoopFromGlobalSettings();
-	void normalizeAudioBuffer(juce::AudioBuffer<float>& buffer);
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DjIaVstProcessor);
 };

@@ -1391,10 +1391,18 @@ void TrackComponent::onTrackPresetSelected()
 {
 	if (track)
 	{
-		track->selectedPrompt = promptPresetSelector.getText();
-		if (onTrackPromptChanged)
-		{
-			onTrackPromptChanged(trackId, track->selectedPrompt);
+		juce::String newPrompt = promptPresetSelector.getText();
+		if (track->usePages.load()) {
+			auto& currentPage = track->getCurrentPage();
+			currentPage.selectedPrompt = newPrompt;
+			track->syncLegacyProperties();
+		}
+		else {
+			track->selectedPrompt = newPrompt;
+		}
+
+		if (onTrackPromptChanged) {
+			onTrackPromptChanged(trackId, newPrompt);
 		}
 	}
 }
