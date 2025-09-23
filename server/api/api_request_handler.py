@@ -41,9 +41,13 @@ class APIRequestHandler:
         return llm_decision
 
     def generate_simple(self, request: GenerateRequest, llm_decision: dict):
-        sample_details = llm_decision.get("parameters", {}).get("sample_details", {})
-
-        musicgen_prompt = sample_details.get("musicgen_prompt", request.prompt)
+        if isinstance(llm_decision, str):
+            musicgen_prompt = llm_decision
+        else:
+            sample_details = llm_decision.get("parameters", {}).get(
+                "sample_details", {}
+            )
+            musicgen_prompt = sample_details.get("musicgen_prompt", request.prompt)
 
         self.dj_system.music_gen.init_model()
         audio, sample_info = self.dj_system.music_gen.generate_sample(

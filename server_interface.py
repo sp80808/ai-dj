@@ -675,6 +675,7 @@ class ObsidianNeuralLauncher:
         self.server_url = tk.StringVar(value="")
         self.auto_save_enabled = False
         self.hf_token_var = tk.StringVar(value="")
+        self.bypass_llm = tk.BooleanVar(value=False)
 
     def enable_auto_save(self):
         if self.auto_save_enabled:
@@ -688,6 +689,7 @@ class ObsidianNeuralLauncher:
             self.port,
             self.audio_model,
             self.hf_token_var,
+            self.bypass_llm,
         ]
 
         for var in variables:
@@ -1223,6 +1225,24 @@ class ObsidianNeuralLauncher:
             button_frame, text="🔧 Reset to Defaults", command=self.reset_to_defaults
         ).pack(side="left")
 
+        bypass_frame = ttk.Frame(server_frame)
+        bypass_frame.pack(fill="x", pady=(10, 0))
+
+        self.bypass_checkbox = ttk.Checkbutton(
+            bypass_frame,
+            text="🚀 Bypass LLM (Direct Audio Generation)",
+            variable=self.bypass_llm,
+        )
+        self.bypass_checkbox.pack(anchor="w")
+
+        bypass_help = ttk.Label(
+            bypass_frame,
+            text="Skip AI brain analysis, use raw prompts directly with Stable Audio",
+            font=("Arial", 9),
+            foreground="gray",
+        )
+        bypass_help.pack(anchor="w", pady=(2, 0))
+
     def remove_api_keys(self):
         selections = self.api_keys_listbox.curselection()
         if not selections:
@@ -1729,6 +1749,7 @@ class ObsidianNeuralLauncher:
                 ("host", self.host.get(), 0),
                 ("port", self.port.get(), 0),
                 ("audio_model", self.audio_model.get(), 0),
+                ("bypass_llm", str(self.bypass_llm.get()), 0),
             ]
 
             if hasattr(self, "hf_token_var") and self.hf_token_var.get().strip():
@@ -1774,6 +1795,8 @@ class ObsidianNeuralLauncher:
                         self.port.set(value)
                     elif key == "audio_model":
                         self.audio_model.set(value)
+                    elif key == "bypass_llm":
+                        self.bypass_llm.set(value.lower() == "true")
 
             conn.close()
 
@@ -2472,6 +2495,10 @@ class ObsidianNeuralLauncher:
                 "--audio-model",
                 self.audio_model.get(),
             ]
+
+            if self.bypass_llm.get():
+                cmd.append("--bypass-llm")
+                self.log("LLM bypass enabled - direct audio generation mode")
 
             environment = self.environment.get()
             has_api_keys = len(self.api_keys_list) > 0

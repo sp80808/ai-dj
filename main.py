@@ -109,6 +109,11 @@ def main():
         action="store_true",
         help="Bypass models generations for faster testing",
     )
+    parser.add_argument(
+        "--bypass-llm",
+        action="store_true",
+        help="Bypass LLM for direct stable audio generation",
+    )
 
     args = parser.parse_args()
 
@@ -136,6 +141,7 @@ def main():
     print(f"   Environment: {environment}")
     print(f"   Model: {model_path}")
     print(f"   Audio Model: {audio_model}")
+    print(f"   Use LLM: {not args.bypass_llm}")
     print(
         f"   API Authentication: {len(api_keys)} keys"
         if api_keys
@@ -150,6 +156,7 @@ def main():
         audio_model=audio_model,
         use_stored_keys=args.use_stored_keys,
         is_test=args.is_test,
+        bypass_llm=args.bypass_llm,
     )
 
     init_config_from_args(config_args)
