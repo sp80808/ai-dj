@@ -156,6 +156,7 @@ def main():
         audio_model=audio_model,
         use_stored_keys=args.use_stored_keys,
         is_test=args.is_test,
+        bypass_llm=args.bypass_llm,
     )
 
     init_config_from_args(config_args)
