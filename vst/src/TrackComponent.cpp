@@ -1,18 +1,11 @@
-﻿/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/.
- *
- * Copyright (C) 2025 Anthony Charretier
- */
-
-#include "TrackComponent.h"
+﻿#include "TrackComponent.h"
 #include "WaveformDisplay.h"
 #include "PluginProcessor.h"
 #include "SequencerComponent.h"
 #include "PluginEditor.h"
 #include "ColourPalette.h"
 
-TrackComponent::TrackComponent(const juce::String& trackId, DjIaVstProcessor& processor)
+TrackComponent::TrackComponent(const juce::String &trackId, DjIaVstProcessor &processor)
 	: trackId(trackId), track(nullptr), audioProcessor(processor)
 {
 	setupUI();
@@ -21,7 +14,8 @@ TrackComponent::TrackComponent(const juce::String& trackId, DjIaVstProcessor& pr
 
 TrackComponent::~TrackComponent()
 {
-	if (track && track->slotIndex != -1) {
+	if (track && track->slotIndex != -1)
+	{
 		removeListener("Generate");
 		removeListener("RandomRetrigger");
 		removeListener("RetriggerInterval");
@@ -38,11 +32,12 @@ void TrackComponent::addEventListeners()
 	addListener("RetriggerInterval");
 }
 
-void TrackComponent::setTrackData(TrackData* trackData)
+void TrackComponent::setTrackData(TrackData *trackData)
 {
 	track = trackData;
 	updateFromTrackData();
-	if (track && track->slotIndex != -1) {
+	if (track && track->slotIndex != -1)
+	{
 		addEventListeners();
 	}
 	setupMidiLearn();
@@ -58,9 +53,9 @@ void TrackComponent::updateWaveformWithTimeStretch()
 	calculateHostBasedDisplay();
 }
 
-void TrackComponent::updateUIFromParameter(const juce::String& paramName,
-	const juce::String& slotPrefix,
-	float newValue)
+void TrackComponent::updateUIFromParameter(const juce::String &paramName,
+										   const juce::String &slotPrefix,
+										   float newValue)
 {
 	if (isDestroyed.load())
 		return;
@@ -76,18 +71,20 @@ void TrackComponent::updateUIFromParameter(const juce::String& paramName,
 	{
 		bool isEnabled = newValue > 0.5f;
 
-		if (isEnabled) {
+		if (isEnabled)
+		{
 			randomRetriggerButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonSuccess);
 		}
-		else {
+		else
+		{
 			randomRetriggerButton.setColour(juce::TextButton::buttonColourId, ColourPalette::backgroundDark);
 		}
 		randomRetriggerButton.repaint();
 
-		if (track) {
+		if (track)
+		{
 			track->randomRetriggerEnabled = isEnabled;
 		}
-
 	}
 	else if (paramName == slotPrefix + " Retrigger Interval")
 	{
@@ -97,10 +94,10 @@ void TrackComponent::updateUIFromParameter(const juce::String& paramName,
 
 		intervalLabel.setText(getIntervalName((int)denormalizedValue), juce::dontSendNotification);
 
-		if (track) {
+		if (track)
+		{
 			track->randomRetriggerInterval = (int)denormalizedValue;
 		}
-
 	}
 }
 
@@ -114,23 +111,23 @@ void TrackComponent::parameterValueChanged(int parameterIndex, float newValue)
 		return;
 
 	juce::String slotPrefix = "Slot " + juce::String(track->slotIndex + 1);
-	auto& allParams = audioProcessor.AudioProcessor::getParameters();
+	auto &allParams = audioProcessor.AudioProcessor::getParameters();
 
 	if (parameterIndex >= 0 && parameterIndex < allParams.size())
 	{
-		auto* param = allParams[parameterIndex];
+		auto *param = allParams[parameterIndex];
 		juce::String paramName = param->getName(256);
 
 		if (juce::MessageManager::getInstance()->isThisTheMessageThread())
 		{
 			juce::Timer::callAfterDelay(50, [this, paramName, slotPrefix, newValue]()
-				{ updateUIFromParameter(paramName, slotPrefix, newValue); });
+										{ updateUIFromParameter(paramName, slotPrefix, newValue); });
 		}
 		else
 		{
 			juce::MessageManager::callAsync([this, paramName, slotPrefix, newValue]()
-				{ juce::Timer::callAfterDelay(50, [this, paramName, slotPrefix, newValue]()
-					{ updateUIFromParameter(paramName, slotPrefix, newValue); }); });
+											{ juce::Timer::callAfterDelay(50, [this, paramName, slotPrefix, newValue]()
+																		  { updateUIFromParameter(paramName, slotPrefix, newValue); }); });
 		}
 	}
 }
@@ -145,14 +142,14 @@ void TrackComponent::setButtonParameter(juce::String name)
 	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
 	try
 	{
-		auto* param = audioProcessor.getParameters().getParameter(paramName);
+		auto *param = audioProcessor.getParameters().getParameter(paramName);
 		if (param != nullptr)
 		{
 			if (name == "Generate")
 			{
 				param->setValueNotifyingHost(1.0f);
 				juce::Timer::callAfterDelay(100, [param]()
-					{ param->setValueNotifyingHost(0.0f); });
+											{ param->setValueNotifyingHost(0.0f); });
 			}
 			else
 			{
@@ -194,27 +191,29 @@ void TrackComponent::toggleWaveformDisplay()
 		{
 			waveformDisplay = std::make_unique<WaveformDisplay>(audioProcessor, *track);
 			waveformDisplay->onLoopPointsChanged = [this](double start, double end)
+			{
+				if (track)
 				{
-					if (track)
+					if (track->usePages.load())
 					{
-						if (track->usePages.load()) {
-							auto& currentPage = track->getCurrentPage();
-							currentPage.loopStart = start;
-							currentPage.loopEnd = end;
-							track->syncLegacyProperties();
-						}
-						else {
-							track->loopStart = start;
-							track->loopEnd = end;
-						}
-
-						waveformDisplay->setLoopPoints(start, end);
-						if (track->isPlaying.load())
-						{
-							track->readPosition = 0.0;
-						}
+						auto &currentPage = track->getCurrentPage();
+						currentPage.loopStart = start;
+						currentPage.loopEnd = end;
+						track->syncLegacyProperties();
 					}
-				};
+					else
+					{
+						track->loopStart = start;
+						track->loopEnd = end;
+					}
+
+					waveformDisplay->setLoopPoints(start, end);
+					if (track->isPlaying.load())
+					{
+						track->readPosition = 0.0;
+					}
+				}
+			};
 
 			addAndMakeVisible(*waveformDisplay);
 		}
@@ -245,14 +244,14 @@ void TrackComponent::toggleWaveformDisplay()
 
 	setSize(getWidth(), newHeight);
 
-	if (auto* parentViewport = findParentComponentOfClass<juce::Viewport>())
+	if (auto *parentViewport = findParentComponentOfClass<juce::Viewport>())
 	{
-		if (auto* parentContainer = parentViewport->getViewedComponent())
+		if (auto *parentContainer = parentViewport->getViewedComponent())
 		{
 			int totalHeight = 5;
 			for (int i = 0; i < parentContainer->getNumChildComponents(); ++i)
 			{
-				if (auto* trackComp = dynamic_cast<TrackComponent*>(parentContainer->getChildComponent(i)))
+				if (auto *trackComp = dynamic_cast<TrackComponent *>(parentContainer->getChildComponent(i)))
 				{
 					bool hasWaveform = trackComp->showWaveformButton.getToggleState();
 					bool hasSequencer = trackComp->sequencerVisible;
@@ -290,19 +289,23 @@ void TrackComponent::updateFromTrackData()
 	if (!track)
 		return;
 
-	if (track->usePages.load()) {
+	if (track->usePages.load())
+	{
 		pagesMode = true;
 		togglePagesButton.setVisible(false);
-		for (int i = 0; i < 4; ++i) {
+		for (int i = 0; i < 4; ++i)
+		{
 			pageButtons[i].setVisible(true);
 		}
 		pageButtons[track->currentPageIndex].setToggleState(true, juce::dontSendNotification);
 		updatePagesDisplay();
 	}
-	else {
+	else
+	{
 		pagesMode = false;
 		togglePagesButton.setVisible(true);
-		for (int i = 0; i < 4; ++i) {
+		for (int i = 0; i < 4; ++i)
+		{
 			pageButtons[i].setVisible(false);
 		}
 	}
@@ -311,28 +314,34 @@ void TrackComponent::updateFromTrackData()
 	sequencerToggleButton.setToggleState(track->showSequencer, juce::dontSendNotification);
 	randomDurationToggle.setToggleState(track->randomRetriggerDurationEnabled.load(), juce::dontSendNotification);
 
-	if (track->usePages.load()) {
-		const auto& currentPage = track->getCurrentPage();
-		if (currentPage.hasOriginalVersion.load()) {
+	if (track->usePages.load())
+	{
+		const auto &currentPage = track->getCurrentPage();
+		if (currentPage.hasOriginalVersion.load())
+		{
 			bool useOriginal = currentPage.useOriginalFile.load();
 			originalSyncButton.setToggleState(useOriginal, juce::dontSendNotification);
 			originalSyncButton.setButtonText(useOriginal ? juce::String::fromUTF8("\xE2\x97\x8F") : juce::String::fromUTF8("\xE2\x97\x8B"));
 			originalSyncButton.setEnabled(true);
 		}
-		else {
+		else
+		{
 			originalSyncButton.setToggleState(false, juce::dontSendNotification);
 			originalSyncButton.setButtonText(juce::String::fromUTF8("\xE2\x97\x8B"));
 			originalSyncButton.setEnabled(false);
 		}
 	}
-	else {
-		if (track->hasOriginalVersion.load()) {
+	else
+	{
+		if (track->hasOriginalVersion.load())
+		{
 			bool useOriginal = track->useOriginalFile.load();
 			originalSyncButton.setToggleState(useOriginal, juce::dontSendNotification);
 			originalSyncButton.setButtonText(useOriginal ? juce::String::fromUTF8("\xE2\x97\x8F") : juce::String::fromUTF8("\xE2\x97\x8B"));
 			originalSyncButton.setEnabled(true);
 		}
-		else {
+		else
+		{
 			track->useOriginalFile = false;
 			originalSyncButton.setToggleState(false, juce::dontSendNotification);
 			originalSyncButton.setButtonText(juce::String::fromUTF8("\xE2\x97\x8B"));
@@ -443,7 +452,7 @@ void TrackComponent::setSelected(bool selected)
 	repaint();
 }
 
-void TrackComponent::paint(juce::Graphics& g)
+void TrackComponent::paint(juce::Graphics &g)
 {
 	auto bounds = getLocalBounds();
 	juce::Colour bgColour;
@@ -472,7 +481,7 @@ void TrackComponent::paint(juce::Graphics& g)
 
 	g.setColour(borderColour);
 	g.drawRoundedRectangle(bounds.toFloat().reduced(1), 6.0f,
-		isGenerating ? 3.0f : (isSelected ? 2.0f : 1.0f));
+						   isGenerating ? 3.0f : (isSelected ? 2.0f : 1.0f));
 
 	if (isSelected)
 	{
@@ -491,12 +500,14 @@ void TrackComponent::resized()
 	selectButton.setBounds(headerArea.removeFromLeft(35));
 	headerArea.removeFromLeft(5);
 
-	if (pagesMode) {
+	if (pagesMode)
+	{
 		auto pagesArea = headerArea.removeFromLeft(40);
 		layoutPagesButtons(pagesArea);
 		headerArea.removeFromLeft(3);
 	}
-	else {
+	else
+	{
 		togglePagesButton.setBounds(headerArea.removeFromLeft(25));
 		headerArea.removeFromLeft(3);
 	}
@@ -577,20 +588,23 @@ void TrackComponent::layoutPagesButtons(juce::Rectangle<int> area)
 
 void TrackComponent::setupPagesUI()
 {
-	const char* pageLabels[4] = { "A", "B", "C", "D" };
+	const char *pageLabels[4] = {"A", "B", "C", "D"};
 
-	for (int i = 0; i < 4; ++i) {
+	for (int i = 0; i < 4; ++i)
+	{
 		addChildComponent(pageButtons[i]);
 		pageButtons[i].setButtonText(pageLabels[i]);
 		pageButtons[i].setClickingTogglesState(true);
 
 		int groupId = 1000;
-		if (track) {
+		if (track)
+		{
 			groupId += track->slotIndex;
 		}
 		pageButtons[i].setRadioGroupId(groupId);
 
-		pageButtons[i].onClick = [this, i]() { onPageSelected(i); };
+		pageButtons[i].onClick = [this, i]()
+		{ onPageSelected(i); };
 		pageButtons[i].setColour(juce::TextButton::buttonColourId, ColourPalette::backgroundDark);
 		pageButtons[i].setColour(juce::TextButton::buttonOnColourId, ColourPalette::buttonSuccess);
 	}
@@ -598,22 +612,26 @@ void TrackComponent::setupPagesUI()
 	addAndMakeVisible(togglePagesButton);
 	togglePagesButton.setButtonText(juce::String::fromUTF8("\xE2\x97\xA8"));
 	togglePagesButton.setTooltip("Enable multi-page mode (A/B/C/D)");
-	togglePagesButton.onClick = [this]() { onTogglePagesMode(); };
+	togglePagesButton.onClick = [this]()
+	{ onTogglePagesMode(); };
 }
-
 
 void TrackComponent::onTogglePagesMode()
 {
-	if (!track) return;
+	if (!track)
+		return;
 
 	pagesMode = !pagesMode;
 
-	if (pagesMode) {
-		if (!track->usePages.load()) {
+	if (pagesMode)
+	{
+		if (!track->usePages.load())
+		{
 			track->migrateToPages();
 		}
 
-		for (int i = 0; i < 4; ++i) {
+		for (int i = 0; i < 4; ++i)
+		{
 			pageButtons[i].setVisible(true);
 		}
 		togglePagesButton.setVisible(false);
@@ -623,8 +641,10 @@ void TrackComponent::onTogglePagesMode()
 
 		statusCallback("Pages mode enabled - " + juce::String(4) + " slots available");
 	}
-	else {
-		for (int i = 0; i < 4; ++i) {
+	else
+	{
+		for (int i = 0; i < 4; ++i)
+		{
 			pageButtons[i].setVisible(false);
 		}
 		togglePagesButton.setVisible(true);
@@ -638,8 +658,10 @@ void TrackComponent::onTogglePagesMode()
 
 void TrackComponent::onPageSelected(int pageIndex)
 {
-	if (!track || !pagesMode || pageIndex < 0 || pageIndex >= 4) return;
-	if (track->currentPageIndex == pageIndex) return;
+	if (!track || !pagesMode || pageIndex < 0 || pageIndex >= 4)
+		return;
+	if (track->currentPageIndex == pageIndex)
+		return;
 
 	DBG("Switching to page " << (char)('A' + pageIndex) << " for track " << track->trackName);
 
@@ -657,13 +679,15 @@ void TrackComponent::onPageSelected(int pageIndex)
 	track->isCurrentlyPlaying = wasCurrentlyPlaying;
 	track->readPosition = currentReadPosition;
 
-	const auto& newPage = track->getCurrentPage();
+	const auto &newPage = track->getCurrentPage();
 
-	if (newPage.numSamples == 0 && wasPlaying) {
+	if (newPage.numSamples == 0 && wasPlaying)
+	{
 		track->isPlaying = false;
 		track->isCurrentlyPlaying = false;
 		track->readPosition = 0.0;
-		if (track->onPlayStateChanged) {
+		if (track->onPlayStateChanged)
+		{
 			track->onPlayStateChanged(false);
 		}
 		DBG("Stopped playback: switched to empty page");
@@ -672,13 +696,16 @@ void TrackComponent::onPageSelected(int pageIndex)
 	updatePagesDisplay();
 	updateFromTrackData();
 
-	if (waveformDisplay && showWaveformButton.getToggleState()) {
-		if (newPage.numSamples > 0 && newPage.isLoaded.load()) {
+	if (waveformDisplay && showWaveformButton.getToggleState())
+	{
+		if (newPage.numSamples > 0 && newPage.isLoaded.load())
+		{
 			waveformDisplay->setAudioData(newPage.audioBuffer, newPage.sampleRate);
 			waveformDisplay->setLoopPoints(newPage.loopStart, newPage.loopEnd);
 			calculateHostBasedDisplay();
 		}
-		else {
+		else
+		{
 			juce::AudioBuffer<float> emptyBuffer;
 			emptyBuffer.setSize(2, 0);
 			waveformDisplay->setAudioData(emptyBuffer, 48000.0);
@@ -686,30 +713,38 @@ void TrackComponent::onPageSelected(int pageIndex)
 		}
 	}
 
-	if (!newPage.isLoaded.load() && !newPage.audioFilePath.isEmpty()) {
+	if (!newPage.isLoaded.load() && !newPage.audioFilePath.isEmpty())
+	{
 		loadPageIfNeeded(pageIndex);
 	}
 
 	char pageName = 'A' + static_cast<char>(pageIndex);
-	if (newPage.numSamples > 0) {
+	if (newPage.numSamples > 0)
+	{
 		juce::String promptText = newPage.selectedPrompt;
-		if (promptText.isEmpty()) promptText = newPage.prompt;
-		if (promptText.isEmpty()) promptText = "Generated sample";
+		if (promptText.isEmpty())
+			promptText = newPage.prompt;
+		if (promptText.isEmpty())
+			promptText = "Generated sample";
 
 		juce::String playState = "";
-		if (track->isPlaying.load()) {
+		if (track->isPlaying.load())
+		{
 			playState = " [PLAYING @" + juce::String(currentReadPosition, 1) + "s]";
 		}
-		else if (track->isArmed.load()) {
+		else if (track->isArmed.load())
+		{
 			playState = " [ARMED]";
 		}
 
 		statusCallback("Switched to page " + juce::String(pageName) + " - " +
-			promptText.substring(0, 20) + "..." + playState);
+					   promptText.substring(0, 20) + "..." + playState);
 	}
-	else {
+	else
+	{
 		juce::String playState = "";
-		if (track->isArmed.load()) playState = " [ARMED - waiting for sample]";
+		if (track->isArmed.load())
+			playState = " [ARMED - waiting for sample]";
 
 		statusCallback("Switched to page " + juce::String(pageName) + " - Empty" + playState);
 	}
@@ -717,21 +752,26 @@ void TrackComponent::onPageSelected(int pageIndex)
 
 void TrackComponent::updatePagesDisplay()
 {
-	if (!track || !pagesMode) return;
+	if (!track || !pagesMode)
+		return;
 
-	for (int i = 0; i < 4; ++i) {
+	for (int i = 0; i < 4; ++i)
+	{
 		pageButtons[i].setToggleState(i == track->currentPageIndex, juce::dontSendNotification);
 
-		if (track->pages[i].numSamples > 0) {
+		if (track->pages[i].numSamples > 0)
+		{
 			pageButtons[i].setColour(juce::TextButton::textColourOffId, ColourPalette::textSuccess);
 			pageButtons[i].setColour(juce::TextButton::buttonColourId,
-				i == track->currentPageIndex ? ColourPalette::buttonSuccess : ColourPalette::backgroundLight);
+									 i == track->currentPageIndex ? ColourPalette::buttonSuccess : ColourPalette::backgroundLight);
 		}
-		else if (track->pages[i].isLoading.load()) {
+		else if (track->pages[i].isLoading.load())
+		{
 			pageButtons[i].setColour(juce::TextButton::textColourOffId, ColourPalette::amber);
 			pageButtons[i].setColour(juce::TextButton::buttonColourId, ColourPalette::backgroundDark);
 		}
-		else {
+		else
+		{
 			pageButtons[i].setColour(juce::TextButton::textColourOffId, ColourPalette::textSecondary);
 			pageButtons[i].setColour(juce::TextButton::buttonColourId, ColourPalette::backgroundDark);
 		}
@@ -740,20 +780,23 @@ void TrackComponent::updatePagesDisplay()
 
 void TrackComponent::loadPageIfNeeded(int pageIndex)
 {
-	if (!track || pageIndex < 0 || pageIndex >= 4) return;
+	if (!track || pageIndex < 0 || pageIndex >= 4)
+		return;
 
-	auto& page = track->pages[pageIndex];
-	if (page.isLoaded.load() || page.isLoading.load()) return;
+	auto &page = track->pages[pageIndex];
+	if (page.isLoaded.load() || page.isLoading.load())
+		return;
 
 	page.isLoading = true;
 	updatePagesDisplay();
 
-	if (!page.audioFilePath.isEmpty()) {
+	if (!page.audioFilePath.isEmpty())
+	{
 		juce::File audioFile(page.audioFilePath);
-		if (audioFile.existsAsFile()) {
-			juce::Thread::launch([this, pageIndex, audioFile]() {
-				loadPageAudioFile(pageIndex, audioFile);
-				});
+		if (audioFile.existsAsFile())
+		{
+			juce::Thread::launch([this, pageIndex, audioFile]()
+								 { loadPageAudioFile(pageIndex, audioFile); });
 			return;
 		}
 	}
@@ -762,18 +805,21 @@ void TrackComponent::loadPageIfNeeded(int pageIndex)
 	updatePagesDisplay();
 }
 
-void TrackComponent::loadPageAudioFile(int pageIndex, const juce::File& audioFile)
+void TrackComponent::loadPageAudioFile(int pageIndex, const juce::File &audioFile)
 {
-	if (!track || pageIndex < 0 || pageIndex >= 4) return;
+	if (!track || pageIndex < 0 || pageIndex >= 4)
+		return;
 
-	auto& page = track->pages[pageIndex];
+	auto &page = track->pages[pageIndex];
 
-	try {
+	try
+	{
 		juce::AudioFormatManager formatManager;
 		formatManager.registerBasicFormats();
 
 		std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(audioFile));
-		if (!reader) {
+		if (!reader)
+		{
 			page.isLoading = false;
 			return;
 		}
@@ -784,7 +830,8 @@ void TrackComponent::loadPageAudioFile(int pageIndex, const juce::File& audioFil
 		page.audioBuffer.setSize(2, numSamples);
 		reader->read(&page.audioBuffer, 0, numSamples, 0, true, true);
 
-		if (numChannels == 1) {
+		if (numChannels == 1)
+		{
 			page.audioBuffer.copyFrom(1, 0, page.audioBuffer, 0, 0, numSamples);
 		}
 
@@ -793,7 +840,8 @@ void TrackComponent::loadPageAudioFile(int pageIndex, const juce::File& audioFil
 		page.isLoaded = true;
 		page.isLoading = false;
 
-		juce::MessageManager::callAsync([this, pageIndex]() {
+		juce::MessageManager::callAsync([this, pageIndex]()
+										{
 			if (track && track->currentPageIndex == pageIndex) {
 				track->syncLegacyProperties();
 				updateFromTrackData();
@@ -801,29 +849,28 @@ void TrackComponent::loadPageAudioFile(int pageIndex, const juce::File& audioFil
 					refreshWaveformDisplay();
 				}
 			}
-			updatePagesDisplay();
-			});
+			updatePagesDisplay(); });
 
 		DBG("Page " << (char)('A' + pageIndex) << " loaded successfully: " << numSamples << " samples");
-
 	}
-	catch (const std::exception& e) {
+	catch (const std::exception &e)
+	{
 		DBG("Failed to load page " << pageIndex << ": " << e.what());
 		page.isLoading = false;
 
-		juce::MessageManager::callAsync([this]() {
-			updatePagesDisplay();
-			});
+		juce::MessageManager::callAsync([this]()
+										{ updatePagesDisplay(); });
 	}
 }
-
 
 void TrackComponent::startGeneratingAnimation()
 {
 	isGenerating = true;
 
-	if (pagesMode) {
-		for (int i = 0; i < 4; ++i) {
+	if (pagesMode)
+	{
+		for (int i = 0; i < 4; ++i)
+		{
 			pageButtons[i].setEnabled(false);
 		}
 	}
@@ -836,8 +883,10 @@ void TrackComponent::stopGeneratingAnimation()
 {
 	isGenerating = false;
 
-	if (pagesMode) {
-		for (int i = 0; i < 4; ++i) {
+	if (pagesMode)
+	{
+		for (int i = 0; i < 4; ++i)
+		{
 			pageButtons[i].setEnabled(true);
 		}
 	}
@@ -845,16 +894,21 @@ void TrackComponent::stopGeneratingAnimation()
 
 	stopTimer();
 
-	if (waveformDisplay && showWaveformButton.getToggleState() && track) {
-		if (track->usePages.load()) {
-			const auto& currentPage = track->getCurrentPage();
-			if (currentPage.numSamples > 0) {
+	if (waveformDisplay && showWaveformButton.getToggleState() && track)
+	{
+		if (track->usePages.load())
+		{
+			const auto &currentPage = track->getCurrentPage();
+			if (currentPage.numSamples > 0)
+			{
 				waveformDisplay->setAudioData(currentPage.audioBuffer, currentPage.sampleRate);
 				waveformDisplay->setLoopPoints(currentPage.loopStart, currentPage.loopEnd);
 			}
 		}
-		else {
-			if (track->numSamples > 0) {
+		else
+		{
+			if (track->numSamples > 0)
+			{
 				waveformDisplay->setAudioData(track->audioBuffer, track->sampleRate);
 				waveformDisplay->setLoopPoints(track->loopStart, track->loopEnd);
 			}
@@ -875,34 +929,42 @@ void TrackComponent::timerCallback()
 
 void TrackComponent::refreshWaveformDisplay()
 {
-	if (!waveformDisplay || !track) return;
+	if (!waveformDisplay || !track)
+		return;
 
-	if (track->usePages.load()) {
-		const auto& currentPage = track->getCurrentPage();
+	if (track->usePages.load())
+	{
+		const auto &currentPage = track->getCurrentPage();
 
-		if (currentPage.numSamples > 0 && currentPage.isLoaded.load()) {
+		if (currentPage.numSamples > 0 && currentPage.isLoaded.load())
+		{
 			waveformDisplay->setAudioData(currentPage.audioBuffer, currentPage.sampleRate);
 			waveformDisplay->setLoopPoints(currentPage.loopStart, currentPage.loopEnd);
 
-			if (!currentPage.audioFilePath.isEmpty()) {
+			if (!currentPage.audioFilePath.isEmpty())
+			{
 				juce::File audioFile(currentPage.audioFilePath);
 				waveformDisplay->setAudioFile(audioFile);
 			}
 			calculateHostBasedDisplay();
 		}
-		else {
+		else
+		{
 			juce::AudioBuffer<float> emptyBuffer;
 			emptyBuffer.setSize(2, 0);
 			waveformDisplay->setAudioData(emptyBuffer, 48000.0);
 			waveformDisplay->setLoopPoints(0.0, 0.0);
 		}
 	}
-	else {
-		if (track->numSamples > 0) {
+	else
+	{
+		if (track->numSamples > 0)
+		{
 			waveformDisplay->setAudioData(track->audioBuffer, track->sampleRate);
 			waveformDisplay->setLoopPoints(track->loopStart, track->loopEnd);
 
-			if (!track->audioFilePath.isEmpty()) {
+			if (!track->audioFilePath.isEmpty())
+			{
 				juce::File audioFile(track->audioFilePath);
 				waveformDisplay->setAudioFile(audioFile);
 			}
@@ -921,7 +983,7 @@ void TrackComponent::removeListener(juce::String name)
 	if (!track || track->slotIndex == -1)
 		return;
 	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
-	auto* param = audioProcessor.getParameterTreeState().getParameter(paramName);
+	auto *param = audioProcessor.getParameterTreeState().getParameter(paramName);
 	if (param)
 	{
 		param->removeListener(this);
@@ -938,7 +1000,7 @@ void TrackComponent::addListener(juce::String name)
 	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
 	DBG("Adding listener for: " + paramName);
 
-	auto* param = audioProcessor.getParameterTreeState().getParameter(paramName);
+	auto *param = audioProcessor.getParameterTreeState().getParameter(paramName);
 	if (param)
 	{
 		param->addListener(this);
@@ -956,88 +1018,90 @@ void TrackComponent::setupUI()
 	selectButton.setButtonText(juce::String::fromUTF8("\xE2\x97\x89"));
 	selectButton.setTooltip("Select this track");
 	selectButton.onClick = [this]()
-		{
-			if (onSelectTrack)
-				onSelectTrack(trackId);
-		};
+	{
+		if (onSelectTrack)
+			onSelectTrack(trackId);
+	};
 
 	addAndMakeVisible(deleteButton);
 	deleteButton.setButtonText(juce::String::fromUTF8("\xE2\x9C\x95"));
 	deleteButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonDanger);
 	deleteButton.setTooltip("Delete this track");
 	deleteButton.onClick = [this]()
-		{
-			if (onDeleteTrack)
-				onDeleteTrack(trackId);
-		};
+	{
+		if (onDeleteTrack)
+			onDeleteTrack(trackId);
+	};
 
 	addAndMakeVisible(generateButton);
 	generateButton.setButtonText(juce::String::fromUTF8("\xE2\x9C\x93"));
 	generateButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonSuccess);
 	generateButton.setTooltip("Generate new sample for this track");
 	generateButton.onClick = [this]()
+	{
+		if (onGenerateForTrack)
 		{
-			if (onGenerateForTrack)
+			if (track)
 			{
-				if (track)
+				if (track->usePages.load())
 				{
-					if (track->usePages.load()) {
-						auto& currentPage = track->getCurrentPage();
-						currentPage.selectedPrompt = promptPresetSelector.getText();
-						currentPage.generationBpm = audioProcessor.getGlobalBpm();
-						currentPage.generationKey = audioProcessor.getGlobalKey();
-						currentPage.generationDuration = audioProcessor.getGlobalDuration();
+					auto &currentPage = track->getCurrentPage();
+					currentPage.selectedPrompt = promptPresetSelector.getText();
+					currentPage.generationBpm = audioProcessor.getGlobalBpm();
+					currentPage.generationKey = audioProcessor.getGlobalKey();
+					currentPage.generationDuration = audioProcessor.getGlobalDuration();
 
-						currentPage.preferredStems.clear();
-						if (audioProcessor.isGlobalStemEnabled("drums"))
-							currentPage.preferredStems.push_back("drums");
-						if (audioProcessor.isGlobalStemEnabled("bass"))
-							currentPage.preferredStems.push_back("bass");
-						if (audioProcessor.isGlobalStemEnabled("other"))
-							currentPage.preferredStems.push_back("other");
-						if (audioProcessor.isGlobalStemEnabled("vocals"))
-							currentPage.preferredStems.push_back("vocals");
-						if (audioProcessor.isGlobalStemEnabled("guitar"))
-							currentPage.preferredStems.push_back("guitar");
-						if (audioProcessor.isGlobalStemEnabled("piano"))
-							currentPage.preferredStems.push_back("piano");
+					currentPage.preferredStems.clear();
+					if (audioProcessor.isGlobalStemEnabled("drums"))
+						currentPage.preferredStems.push_back("drums");
+					if (audioProcessor.isGlobalStemEnabled("bass"))
+						currentPage.preferredStems.push_back("bass");
+					if (audioProcessor.isGlobalStemEnabled("other"))
+						currentPage.preferredStems.push_back("other");
+					if (audioProcessor.isGlobalStemEnabled("vocals"))
+						currentPage.preferredStems.push_back("vocals");
+					if (audioProcessor.isGlobalStemEnabled("guitar"))
+						currentPage.preferredStems.push_back("guitar");
+					if (audioProcessor.isGlobalStemEnabled("piano"))
+						currentPage.preferredStems.push_back("piano");
 
-						track->syncLegacyProperties();
-					}
-					else {
-						track->selectedPrompt = promptPresetSelector.getText();
-						track->generationBpm = audioProcessor.getGlobalBpm();
-						track->generationKey = audioProcessor.getGlobalKey();
-						track->generationDuration = audioProcessor.getGlobalDuration();
-
-						if (audioProcessor.isGlobalStemEnabled("drums"))
-							track->preferredStems.push_back("drums");
-						if (audioProcessor.isGlobalStemEnabled("bass"))
-							track->preferredStems.push_back("bass");
-						if (audioProcessor.isGlobalStemEnabled("other"))
-							track->preferredStems.push_back("other");
-						if (audioProcessor.isGlobalStemEnabled("vocals"))
-							track->preferredStems.push_back("vocals");
-						if (audioProcessor.isGlobalStemEnabled("guitar"))
-							track->preferredStems.push_back("guitar");
-						if (audioProcessor.isGlobalStemEnabled("piano"))
-							track->preferredStems.push_back("piano");
-					}
+					track->syncLegacyProperties();
 				}
-				onGenerateForTrack(trackId);
-				setButtonParameter("Generate");
+				else
+				{
+					track->selectedPrompt = promptPresetSelector.getText();
+					track->generationBpm = audioProcessor.getGlobalBpm();
+					track->generationKey = audioProcessor.getGlobalKey();
+					track->generationDuration = audioProcessor.getGlobalDuration();
+
+					if (audioProcessor.isGlobalStemEnabled("drums"))
+						track->preferredStems.push_back("drums");
+					if (audioProcessor.isGlobalStemEnabled("bass"))
+						track->preferredStems.push_back("bass");
+					if (audioProcessor.isGlobalStemEnabled("other"))
+						track->preferredStems.push_back("other");
+					if (audioProcessor.isGlobalStemEnabled("vocals"))
+						track->preferredStems.push_back("vocals");
+					if (audioProcessor.isGlobalStemEnabled("guitar"))
+						track->preferredStems.push_back("guitar");
+					if (audioProcessor.isGlobalStemEnabled("piano"))
+						track->preferredStems.push_back("piano");
+				}
 			}
-		};
+			onGenerateForTrack(trackId);
+			setButtonParameter("Generate");
+		}
+	};
 
 	addAndMakeVisible(sequencerToggleButton);
 	sequencerToggleButton.setButtonText(juce::String::fromUTF8("\xE2\x96\xA6"));
 	sequencerToggleButton.setClickingTogglesState(true);
 	sequencerToggleButton.setTooltip("Show/hide step sequencer");
 	sequencerToggleButton.onClick = [this]()
-		{
-			track->showSequencer = sequencerToggleButton.getToggleState();
-			toggleSequencerDisplay();
-		};
+	{
+		track->showSequencer = sequencerToggleButton.getToggleState();
+		toggleSequencerDisplay();
+	};
 
 	addAndMakeVisible(originalSyncButton);
 	originalSyncButton.setButtonText(juce::String::fromUTF8("\xE2\x97\x8F"));
@@ -1045,9 +1109,9 @@ void TrackComponent::setupUI()
 	originalSyncButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonPrimary);
 	originalSyncButton.setTooltip("Toggle between original and time-stretched version");
 	originalSyncButton.onClick = [this]()
-		{
-			toggleOriginalSync();
-		};
+	{
+		toggleOriginalSync();
+	};
 
 	addAndMakeVisible(infoLabel);
 	infoLabel.setText("Empty track - Generate your sample!", juce::dontSendNotification);
@@ -1059,40 +1123,40 @@ void TrackComponent::setupUI()
 	showWaveformButton.setTooltip("Show/hide waveform display");
 	showWaveformButton.setClickingTogglesState(true);
 	showWaveformButton.onClick = [this]()
+	{
+		if (track)
 		{
-			if (track)
-			{
-				track->showWaveform = showWaveformButton.getToggleState();
-				toggleWaveformDisplay();
-			}
-		};
+			track->showWaveform = showWaveformButton.getToggleState();
+			toggleWaveformDisplay();
+		}
+	};
 
 	addAndMakeVisible(trackNameLabel);
 	trackNameLabel.setText(track ? track->trackName : "Track", juce::dontSendNotification);
 	trackNameLabel.setColour(juce::Label::textColourId, ColourPalette::textPrimary);
 	trackNameLabel.setEditable(true);
 	trackNameLabel.onEditorShow = [this]()
+	{
+		isEditingLabel = true;
+		if (auto *editor = trackNameLabel.getCurrentTextEditor())
 		{
-			isEditingLabel = true;
-			if (auto* editor = trackNameLabel.getCurrentTextEditor())
-			{
-				editor->selectAll();
-			}
-		};
+			editor->selectAll();
+		}
+	};
 
 	trackNameLabel.onTextChange = [this]()
+	{
+		if (track)
 		{
-			if (track)
-			{
-				track->trackName = trackNameLabel.getText();
-				if (onTrackRenamed)
-					onTrackRenamed(trackId, trackNameLabel.getText());
-			}
-		};
+			track->trackName = trackNameLabel.getText();
+			if (onTrackRenamed)
+				onTrackRenamed(trackId, trackNameLabel.getText());
+		}
+	};
 	trackNameLabel.onEditorHide = [this]()
-		{
-			isEditingLabel = false;
-		};
+	{
+		isEditingLabel = false;
+	};
 	trackNameLabel.toFront(false);
 
 	addAndMakeVisible(trackNumberLabel);
@@ -1105,18 +1169,17 @@ void TrackComponent::setupUI()
 	previewButton.setColour(juce::TextButton::buttonColourId, ColourPalette::buttonPrimary);
 	previewButton.setTooltip("Preview sample (independent of ARM/STOP state)");
 	previewButton.onClick = [this]()
-		{
-			if (track && onPreviewTrack)
-				onPreviewTrack(trackId);
-		};
+	{
+		if (track && onPreviewTrack)
+			onPreviewTrack(trackId);
+	};
 
 	addAndMakeVisible(promptPresetSelector);
 	promptPresetSelector.setTooltip("Select prompt for this track");
 	promptPresetSelector.onChange = [this]()
-		{
-			onTrackPresetSelected();
-		};
-
+	{
+		onTrackPresetSelected();
+	};
 
 	randomRetriggerButton.setButtonText(juce::String::fromUTF8("\xE2\x86\xBB"));
 	randomRetriggerButton.setTooltip("Beat Repeat - Loop current section while held");
@@ -1126,7 +1189,8 @@ void TrackComponent::setupUI()
 	randomRetriggerButton.setColour(juce::TextButton::textColourOnId, ColourPalette::textPrimary);
 
 	addAndMakeVisible(randomRetriggerButton);
-	randomRetriggerButton.onClick = [this]() { onRandomRetriggerToggled(); };
+	randomRetriggerButton.onClick = [this]()
+	{ onRandomRetriggerToggled(); };
 
 	addAndMakeVisible(intervalKnob);
 	intervalKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
@@ -1137,7 +1201,7 @@ void TrackComponent::setupUI()
 	intervalKnob.setColour(juce::Slider::backgroundColourId, ColourPalette::backgroundDeep);
 	intervalKnob.setColour(juce::Slider::rotarySliderOutlineColourId, ColourPalette::sliderTrack);
 	intervalKnob.onValueChange = [this]()
-		{ onIntervalChanged(); };
+	{ onIntervalChanged(); };
 
 	addAndMakeVisible(intervalLabel);
 	intervalLabel.setJustificationType(juce::Justification::centred);
@@ -1148,27 +1212,32 @@ void TrackComponent::setupUI()
 	randomDurationToggle.setButtonText("R");
 	randomDurationToggle.setTooltip("Auto-randomize beat repeat duration");
 	randomDurationToggle.setColour(juce::ToggleButton::textColourId, ColourPalette::textSecondary);
-	randomDurationToggle.onClick = [this]() {
-		if (track) {
+	randomDurationToggle.onClick = [this]()
+	{
+		if (track)
+		{
 			track->randomRetriggerDurationEnabled = randomDurationToggle.getToggleState();
 			statusCallback("Auto-random duration: " + juce::String(track->randomRetriggerDurationEnabled.load() ? "ON" : "OFF"));
 		}
-		};
+	};
 
 	setupPagesUI();
 }
 
 void TrackComponent::onRandomRetriggerToggled()
 {
-	if (!track) return;
+	if (!track)
+		return;
 
 	bool isEnabled = !track->randomRetriggerEnabled.load();
 	track->randomRetriggerEnabled = isEnabled;
 
-	if (isEnabled) {
+	if (isEnabled)
+	{
 		track->beatRepeatPending.store(true);
 	}
-	else {
+	else
+	{
 		track->beatRepeatStopPending.store(true);
 	}
 
@@ -1216,33 +1285,44 @@ juce::String TrackComponent::getIntervalName(int value)
 {
 	switch (value)
 	{
-	case 1: return "4 Beats";
-	case 2: return "2 Beats";
-	case 3: return "1 Beat";
-	case 4: return "1/2 Beat";
-	case 5: return "1/4 Beat";
-	case 6: return "1/8 Beat";
-	case 7: return "1/16 Beat";
-	case 8: return "1/32 Beat";
-	case 9: return "1/64 Beat";
-	case 10: return "1/128 Beat";
-	default: return "1 Beat";
+	case 1:
+		return "4 Beats";
+	case 2:
+		return "2 Beats";
+	case 3:
+		return "1 Beat";
+	case 4:
+		return "1/2 Beat";
+	case 5:
+		return "1/4 Beat";
+	case 6:
+		return "1/8 Beat";
+	case 7:
+		return "1/16 Beat";
+	case 8:
+		return "1/32 Beat";
+	case 9:
+		return "1/64 Beat";
+	case 10:
+		return "1/128 Beat";
+	default:
+		return "1 Beat";
 	}
 }
 
-void TrackComponent::statusCallback(const juce::String& message)
+void TrackComponent::statusCallback(const juce::String &message)
 {
 	if (onStatusMessage)
 	{
 		onStatusMessage(message);
 	}
-	if (auto* editor = dynamic_cast<DjIaVstEditor*>(audioProcessor.getActiveEditor()))
+	if (auto *editor = dynamic_cast<DjIaVstEditor *>(audioProcessor.getActiveEditor()))
 	{
 		editor->statusLabel.setText(message, juce::dontSendNotification);
 	}
 }
 
-void TrackComponent::setSliderParameter(juce::String name, juce::Slider& slider)
+void TrackComponent::setSliderParameter(juce::String name, juce::Slider &slider)
 {
 	if (!track || track->slotIndex == -1)
 		return;
@@ -1252,8 +1332,8 @@ void TrackComponent::setSliderParameter(juce::String name, juce::Slider& slider)
 	juce::String paramName = "slot" + juce::String(track->slotIndex + 1) + name;
 	try
 	{
-		auto& parameterTreeState = audioProcessor.getParameterTreeState();
-		auto* param = parameterTreeState.getParameter(paramName);
+		auto &parameterTreeState = audioProcessor.getParameterTreeState();
+		auto *param = parameterTreeState.getParameter(paramName);
 
 		if (param != nullptr)
 		{
@@ -1280,7 +1360,7 @@ void TrackComponent::loadPromptPresets()
 	juce::StringArray allPrompts = audioProcessor.getBuiltInPrompts();
 	auto customPrompts = audioProcessor.getCustomPrompts();
 
-	for (const auto& customPrompt : customPrompts)
+	for (const auto &customPrompt : customPrompts)
 	{
 		if (!allPrompts.contains(customPrompt))
 		{
@@ -1309,7 +1389,7 @@ void TrackComponent::loadPromptPresets()
 	}
 }
 
-void TrackComponent::updatePromptPresets(const juce::StringArray& presets)
+void TrackComponent::updatePromptPresets(const juce::StringArray &presets)
 {
 	juce::String currentSelection = promptPresetSelector.getText();
 	juce::StringArray sortedPresets = presets;
@@ -1343,11 +1423,13 @@ void TrackComponent::toggleOriginalSync()
 	DBG("=== toggleOriginalSync START ===");
 	DBG("useOriginal: " << (useOriginal ? "YES" : "NO"));
 
-	if (track->usePages.load()) {
-		auto& currentPage = track->getCurrentPage();
+	if (track->usePages.load())
+	{
+		auto &currentPage = track->getCurrentPage();
 		DBG("Page hasOriginalVersion BEFORE: " << (currentPage.hasOriginalVersion.load() ? "YES" : "NO"));
 
-		if (!currentPage.hasOriginalVersion.load()) {
+		if (!currentPage.hasOriginalVersion.load())
+		{
 			DBG("ERROR: No original version - reverting button");
 			originalSyncButton.setToggleState(!useOriginal, juce::dontSendNotification);
 			originalSyncButton.setEnabled(false);
@@ -1358,8 +1440,10 @@ void TrackComponent::toggleOriginalSync()
 
 		DBG("Page hasOriginalVersion AFTER syncLegacyProperties: " << (currentPage.hasOriginalVersion.load() ? "YES" : "NO"));
 	}
-	else {
-		if (!track->hasOriginalVersion.load()) {
+	else
+	{
+		if (!track->hasOriginalVersion.load())
+		{
 			originalSyncButton.setToggleState(false, juce::dontSendNotification);
 			originalSyncButton.setEnabled(false);
 			DBG("No original version available for track");
@@ -1372,7 +1456,8 @@ void TrackComponent::toggleOriginalSync()
 	originalSyncButton.setEnabled(false);
 	DBG("About to call reloadTrackWithVersion...");
 	audioProcessor.reloadTrackWithVersion(trackId, useOriginal);
-	juce::Timer::callAfterDelay(500, [this]() {
+	juce::Timer::callAfterDelay(500, [this]()
+								{
 		if (track && track->usePages.load()) {
 			const auto& currentPage = track->getCurrentPage();
 			if (currentPage.hasOriginalVersion.load()) {
@@ -1382,8 +1467,7 @@ void TrackComponent::toggleOriginalSync()
 			else {
 				DBG("Button stays disabled - no original version");
 			}
-		}
-		});
+		} });
 	DBG("=== toggleOriginalSync END ===");
 }
 
@@ -1392,16 +1476,19 @@ void TrackComponent::onTrackPresetSelected()
 	if (track)
 	{
 		juce::String newPrompt = promptPresetSelector.getText();
-		if (track->usePages.load()) {
-			auto& currentPage = track->getCurrentPage();
+		if (track->usePages.load())
+		{
+			auto &currentPage = track->getCurrentPage();
 			currentPage.selectedPrompt = newPrompt;
 			track->syncLegacyProperties();
 		}
-		else {
+		else
+		{
 			track->selectedPrompt = newPrompt;
 		}
 
-		if (onTrackPromptChanged) {
+		if (onTrackPromptChanged)
+		{
 			onTrackPromptChanged(trackId, newPrompt);
 		}
 	}
@@ -1457,7 +1544,7 @@ void TrackComponent::updateTrackInfo()
 			break;
 		case 2:
 			stretchIndicator = (effectiveBpm > originalBpm) ? " +" : (effectiveBpm < originalBpm) ? " -"
-				: " =";
+																								  : " =";
 			bpmInfo = " | BPM: " + juce::String(effectiveBpm, 1) + stretchIndicator;
 			break;
 		case 3:
@@ -1466,13 +1553,13 @@ void TrackComponent::updateTrackInfo()
 			break;
 		case 4:
 			stretchIndicator = (track->bpmOffset > 0) ? " +" : (track->bpmOffset < 0) ? " -"
-				: "";
+																					  : "";
 			bpmInfo = " | Host+ " + juce::String(track->bpmOffset, 1) + stretchIndicator;
 			break;
 		}
 
 		infoLabel.setText(track->prompt.substring(0, 30) + "..." + bpmInfo,
-			juce::dontSendNotification);
+						  juce::dontSendNotification);
 	}
 	repaint();
 }
@@ -1515,15 +1602,15 @@ void TrackComponent::toggleSequencerDisplay()
 
 	setSize(getWidth(), newHeight);
 
-	if (auto* parentViewport = findParentComponentOfClass<juce::Viewport>())
+	if (auto *parentViewport = findParentComponentOfClass<juce::Viewport>())
 	{
-		if (auto* parentContainer = parentViewport->getViewedComponent())
+		if (auto *parentContainer = parentViewport->getViewedComponent())
 		{
 			int totalHeight = 5;
 
 			for (int i = 0; i < parentContainer->getNumChildComponents(); ++i)
 			{
-				if (auto* trackComp = dynamic_cast<TrackComponent*>(parentContainer->getChildComponent(i)))
+				if (auto *trackComp = dynamic_cast<TrackComponent *>(parentContainer->getChildComponent(i)))
 				{
 					bool hasWaveform = trackComp->showWaveformButton.getToggleState();
 					bool hasSequencer = trackComp->sequencerVisible;
@@ -1546,7 +1633,7 @@ void TrackComponent::toggleSequencerDisplay()
 	resized();
 }
 
-void TrackComponent::updatePromptSelection(const juce::String& promptText)
+void TrackComponent::updatePromptSelection(const juce::String &promptText)
 {
 	if (!track)
 		return;
@@ -1572,17 +1659,17 @@ void TrackComponent::learn(juce::String param, std::function<void(float)> uiCall
 		juce::String parameterName = "slot" + juce::String(track->slotIndex + 1) + param;
 		juce::String description = "Slot " + juce::String(track->slotIndex + 1) + " " + param;
 		juce::MessageManager::callAsync([this, description]()
-			{
+										{
 				if (auto* editor = dynamic_cast<DjIaVstEditor*>(audioProcessor.getActiveEditor()))
 				{
 					editor->statusLabel.setText("Learning MIDI for " + description + "...", juce::dontSendNotification);
 				} });
-				audioProcessor.getMidiLearnManager()
-					.startLearning(parameterName, &audioProcessor, uiCallback, description);
+		audioProcessor.getMidiLearnManager()
+			.startLearning(parameterName, &audioProcessor, uiCallback, description);
 	}
 }
 
-void TrackComponent::removeMidiMapping(const juce::String& param)
+void TrackComponent::removeMidiMapping(const juce::String &param)
 {
 	if (track && track->slotIndex != -1)
 	{
@@ -1597,72 +1684,71 @@ void TrackComponent::setupMidiLearn()
 		return;
 
 	generateButton.onMidiLearn = [this]()
-		{ learn("Generate"); };
+	{ learn("Generate"); };
 	generateButton.onMidiRemove = [this]()
-		{ removeMidiMapping("Generate"); };
+	{ removeMidiMapping("Generate"); };
 
 	randomRetriggerButton.onMidiLearn = [this]()
-		{ learn("RandomRetrigger"); };
+	{ learn("RandomRetrigger"); };
 	randomRetriggerButton.onMidiRemove = [this]()
-		{ removeMidiMapping("RandomRetrigger"); };
+	{ removeMidiMapping("RandomRetrigger"); };
 
 	intervalKnob.onMidiLearn = [this]()
-		{ learn("RetriggerInterval"); };
+	{ learn("RetriggerInterval"); };
 	intervalKnob.onMidiRemove = [this]()
-		{ removeMidiMapping("RetriggerInterval"); };
+	{ removeMidiMapping("RetriggerInterval"); };
 
 	juce::String paramName = "promptSelector_slot" + juce::String(track->slotIndex + 1);
 	auto promptCallback = [this](float value)
-		{
-			juce::MessageManager::callAsync([this, value]()
-				{
+	{
+		juce::MessageManager::callAsync([this, value]()
+										{
 					int numItems = promptPresetSelector.getNumItems();
 					if (numItems > 0) {
 						int selectedIndex = (int)(value * (numItems - 1));
 						promptPresetSelector.setSelectedItemIndex(selectedIndex, juce::sendNotification);
-					}
-				});
-		};
+					} });
+	};
 
 	audioProcessor.getMidiLearnManager().registerUICallback(paramName, promptCallback);
 	promptPresetSelector.onMidiLearn = [this, paramName, promptCallback]()
+	{
+		if (audioProcessor.getActiveEditor() && track && track->slotIndex != -1)
 		{
-			if (audioProcessor.getActiveEditor() && track && track->slotIndex != -1)
-			{
-				juce::String description = "Slot " + juce::String(track->slotIndex + 1) + " Prompt Selector";
-				audioProcessor.getMidiLearnManager().startLearning(paramName, &audioProcessor, promptCallback, description);
-			}
-		};
+			juce::String description = "Slot " + juce::String(track->slotIndex + 1) + " Prompt Selector";
+			audioProcessor.getMidiLearnManager().startLearning(paramName, &audioProcessor, promptCallback, description);
+		}
+	};
 
 	promptPresetSelector.onMidiRemove = [this, paramName]()
-		{
-			audioProcessor.getMidiLearnManager().removeMappingForParameter(paramName);
-		};
+	{
+		audioProcessor.getMidiLearnManager().removeMappingForParameter(paramName);
+	};
 }
 
-bool TrackComponent::isInterestedInDragSource(const SourceDetails& dragSourceDetails)
+bool TrackComponent::isInterestedInDragSource(const SourceDetails &dragSourceDetails)
 {
 	return dragSourceDetails.description.isString() &&
-		dragSourceDetails.description.toString().isNotEmpty();
+		   dragSourceDetails.description.toString().isNotEmpty();
 }
 
-void TrackComponent::itemDragEnter(const SourceDetails& /*dragSourceDetails*/)
+void TrackComponent::itemDragEnter(const SourceDetails & /*dragSourceDetails*/)
 {
 	isDragOver = true;
 	repaint();
 }
 
-void TrackComponent::itemDragMove(const SourceDetails& /*dragSourceDetails*/)
+void TrackComponent::itemDragMove(const SourceDetails & /*dragSourceDetails*/)
 {
 }
 
-void TrackComponent::itemDragExit(const SourceDetails& /*dragSourceDetails*/)
+void TrackComponent::itemDragExit(const SourceDetails & /*dragSourceDetails*/)
 {
 	isDragOver = false;
 	repaint();
 }
 
-void TrackComponent::itemDropped(const SourceDetails& dragSourceDetails)
+void TrackComponent::itemDropped(const SourceDetails &dragSourceDetails)
 {
 	isDragOver = false;
 
@@ -1671,9 +1757,9 @@ void TrackComponent::itemDropped(const SourceDetails& dragSourceDetails)
 	{
 		audioProcessor.loadSampleFromBank(sampleId, trackId);
 
-		if (auto* sampleBank = audioProcessor.getSampleBank())
+		if (auto *sampleBank = audioProcessor.getSampleBank())
 		{
-			auto* sampleEntry = sampleBank->getSample(sampleId);
+			auto *sampleEntry = sampleBank->getSample(sampleId);
 			if (sampleEntry && !sampleEntry->originalPrompt.isEmpty())
 			{
 				for (int i = 0; i < promptPresetSelector.getNumItems(); ++i)

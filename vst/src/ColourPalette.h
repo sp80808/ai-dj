@@ -1,10 +1,3 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/.
- *
- * Copyright (C) 2025 Anthony Charretier
- */
-
 #pragma once
 #include <JuceHeader.h>
 
@@ -75,7 +68,7 @@ public:
 	static const juce::Colour amber;
 
 	static juce::Colour getTrackColour(int trackIndex);
-	static juce::Colour withAlpha(const juce::Colour& colour, float alpha);
-	static juce::Colour darken(const juce::Colour& colour, float amount = 0.2f);
-	static juce::Colour lighten(const juce::Colour& colour, float amount = 0.2f);
+	static juce::Colour withAlpha(const juce::Colour &colour, float alpha);
+	static juce::Colour darken(const juce::Colour &colour, float amount = 0.2f);
+	static juce::Colour lighten(const juce::Colour &colour, float amount = 0.2f);
 };
