@@ -1,11 +1,4 @@
-﻿/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/.
- *
- * Copyright (C) 2025 Anthony Charretier
- */
-
-#include <JuceHeader.h>
+﻿#include <JuceHeader.h>
 #include "MidiLearnManager.h"
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
@@ -327,7 +320,7 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
 					mapping.uiCallback(value);
 
 					juce::MessageManager::callAsync([mapping, statusMessage]()
-						{
+													{
 							if (mapping.processor->getActiveEditor())
 							{
 								if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor()))
@@ -341,8 +334,7 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
 										}
 										});
 								}
-							}
-						});
+							} });
 				}
 				continue;
 			}
@@ -362,7 +354,7 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
 					}
 
 					juce::MessageManager::callAsync([mapping, statusMessage]()
-						{
+													{
 							if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor()))
 							{
 								editor->statusLabel.setText(statusMessage, juce::dontSendNotification);
@@ -371,8 +363,7 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
 										editor->statusLabel.setText("Ready", juce::dontSendNotification);
 									}
 									});
-							}
-						});
+							} });
 				}
 				continue;
 			}
@@ -392,7 +383,7 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
 					}
 
 					juce::MessageManager::callAsync([mapping, statusMessage, isWarning]()
-						{
+													{
 							if (auto* editor = dynamic_cast<DjIaVstEditor*>(mapping.processor->getActiveEditor()))
 							{
 								editor->statusLabel.setText(statusMessage, juce::dontSendNotification);
@@ -405,10 +396,9 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
 										editor->statusLabel.setColour(juce::Label::textColourId, ColourPalette::textSuccess);
 									}
 									});
-							}
-						});
+							} });
 				}
-				continue; 
+				continue;
 			}
 			auto *param = mapping.processor->getParameterTreeState().getParameter(mapping.parameterName);
 			if (param)
@@ -493,17 +483,17 @@ void MidiLearnManager::processMidiMappings(const juce::MidiMessage &message)
 	}
 }
 
-bool MidiLearnManager::isBooleanParameter(const juce::String& parameterName)
+bool MidiLearnManager::isBooleanParameter(const juce::String &parameterName)
 {
 	return parameterName.contains("Play") ||
-		parameterName.contains("Stop") ||
-		parameterName.contains("Mute") ||
-		parameterName.contains("Solo") ||
-		parameterName.contains("Generate") ||
-		parameterName.contains("RandomRetrigger") ||
-		parameterName == "nextTrack" ||
-		parameterName == "prevTrack" ||
-		parameterName == "generate"; 
+		   parameterName.contains("Stop") ||
+		   parameterName.contains("Mute") ||
+		   parameterName.contains("Solo") ||
+		   parameterName.contains("Generate") ||
+		   parameterName.contains("RandomRetrigger") ||
+		   parameterName == "nextTrack" ||
+		   parameterName == "prevTrack" ||
+		   parameterName == "generate";
 }
 
 void MidiLearnManager::clearUICallbacks()
@@ -516,11 +506,11 @@ void MidiLearnManager::clearUICallbacks()
 	DBG("UI callbacks cleared");
 }
 
-void MidiLearnManager::registerUICallback(const juce::String& parameterName,
-	std::function<void(float)> callback)
+void MidiLearnManager::registerUICallback(const juce::String &parameterName,
+										  std::function<void(float)> callback)
 {
 	registeredUICallbacks[parameterName] = callback;
-	for (auto& mapping : mappings)
+	for (auto &mapping : mappings)
 	{
 		if (mapping.parameterName == parameterName)
 		{

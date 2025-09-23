@@ -1,10 +1,3 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/.
- *
- * Copyright (C) 2025 Anthony Charretier
- */
-
 #include "ColourPalette.h"
 
 constexpr auto COLOR_SUCCESS = 0xff5cb85c;
@@ -111,21 +104,21 @@ const juce::Colour ColourPalette::amber(COLOR_AMBER);
 juce::Colour ColourPalette::getTrackColour(int trackIndex)
 {
 	static const std::vector<juce::Colour> trackColours = {
-		track1, track2, track3, track4, track5, track6, track7, track8 };
+		track1, track2, track3, track4, track5, track6, track7, track8};
 	return trackColours[trackIndex % trackColours.size()];
 }
 
-juce::Colour ColourPalette::withAlpha(const juce::Colour& colour, float alpha)
+juce::Colour ColourPalette::withAlpha(const juce::Colour &colour, float alpha)
 {
 	return colour.withAlpha(alpha);
 }
 
-juce::Colour ColourPalette::darken(const juce::Colour& colour, float amount)
+juce::Colour ColourPalette::darken(const juce::Colour &colour, float amount)
 {
 	return colour.darker(amount);
 }
 
-juce::Colour ColourPalette::lighten(const juce::Colour& colour, float amount)
+juce::Colour ColourPalette::lighten(const juce::Colour &colour, float amount)
 {
 	return colour.brighter(amount);
 }

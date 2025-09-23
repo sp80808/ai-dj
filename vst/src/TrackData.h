@@ -1,10 +1,3 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/.
- *
- * Copyright (C) 2025 Anthony Charretier
- */
-
 #pragma once
 #include <JuceHeader.h>
 #include "DjIaClient.h"
@@ -28,16 +21,17 @@ struct TrackPage
 
 	double loopStart = 0.0;
 	double loopEnd = 4.0;
-	std::atomic<bool> useOriginalFile{ false };
-	std::atomic<bool> hasOriginalVersion{ false };
+	std::atomic<bool> useOriginalFile{false};
+	std::atomic<bool> hasOriginalVersion{false};
 	juce::AudioBuffer<float> originalStagingBuffer;
 
-	std::atomic<bool> isLoaded{ false };
-	std::atomic<bool> isLoading{ false };
+	std::atomic<bool> isLoaded{false};
+	std::atomic<bool> isLoading{false};
 
 	TrackPage() = default;
 
-	TrackPage(const TrackPage& other) {
+	TrackPage(const TrackPage &other)
+	{
 		audioBuffer = other.audioBuffer;
 		audioFilePath = other.audioFilePath;
 		numSamples = other.numSamples;
@@ -60,7 +54,8 @@ struct TrackPage
 		isLoading = other.isLoading.load();
 	}
 
-	void reset() {
+	void reset()
+	{
 		audioBuffer.setSize(0, 0);
 		audioFilePath.clear();
 		numSamples = 0;
@@ -92,21 +87,21 @@ struct TrackData
 
 	TrackPage pages[4];
 	int currentPageIndex = 0;
-	std::atomic<bool> usePages{ false };
+	std::atomic<bool> usePages{false};
 
-	std::atomic<bool> isPlaying{ false };
-	std::atomic<bool> isArmed{ false };
-	std::atomic<bool> isArmedToStop{ false };
-	std::atomic<bool> isCurrentlyPlaying{ false };
+	std::atomic<bool> isPlaying{false};
+	std::atomic<bool> isArmed{false};
+	std::atomic<bool> isArmedToStop{false};
+	std::atomic<bool> isCurrentlyPlaying{false};
 
 	float fineOffset = 0.0f;
-	std::atomic<double> cachedPlaybackRatio{ 1.0 };
+	std::atomic<double> cachedPlaybackRatio{1.0};
 
 	juce::AudioSampleBuffer stagingBuffer;
-	std::atomic<bool> hasStagingData{ false };
-	std::atomic<bool> swapRequested{ false };
-	std::atomic<int> stagingNumSamples{ 0 };
-	std::atomic<double> stagingSampleRate{ 48000.0 };
+	std::atomic<bool> hasStagingData{false};
+	std::atomic<bool> swapRequested{false};
+	std::atomic<int> stagingNumSamples{0};
+	std::atomic<double> stagingSampleRate{48000.0};
 	float stagingOriginalBpm = 126.0f;
 
 	int timeStretchMode = 4;
@@ -114,15 +109,15 @@ struct TrackData
 	double bpmOffset = 0.0;
 	int midiNote = 60;
 
-	std::atomic<bool> isEnabled{ true };
-	std::atomic<bool> isSolo{ false };
-	std::atomic<bool> isMuted{ false };
-	std::atomic<bool> loopPointsLocked{ false };
-	std::atomic<float> volume{ 0.8f };
-	std::atomic<float> pan{ 0.0f };
+	std::atomic<bool> isEnabled{true};
+	std::atomic<bool> isSolo{false};
+	std::atomic<bool> isMuted{false};
+	std::atomic<bool> loopPointsLocked{false};
+	std::atomic<float> volume{0.8f};
+	std::atomic<float> pan{0.0f};
 
 	float bpm = 126.0f;
-	std::atomic<double> readPosition{ 0.0 };
+	std::atomic<double> readPosition{0.0};
 
 	bool showWaveform = false;
 	bool showSequencer = false;
@@ -143,9 +138,9 @@ struct TrackData
 	int generationDuration;
 	std::vector<juce::String> preferredStems = {};
 	juce::String selectedPrompt;
-	std::atomic<bool> useOriginalFile{ false };
-	std::atomic<bool> hasOriginalVersion{ false };
-	std::atomic<bool> nextHasOriginalVersion{ false };
+	std::atomic<bool> useOriginalFile{false};
+	std::atomic<bool> hasOriginalVersion{false};
+	std::atomic<bool> nextHasOriginalVersion{false};
 	juce::AudioBuffer<float> originalStagingBuffer;
 
 	bool isVersionSwitch = false;
@@ -153,22 +148,22 @@ struct TrackData
 	double preservedLoopEnd = 4.0;
 	bool preservedLoopLocked = false;
 
-	std::atomic<bool> randomRetriggerEnabled{ false };
-	std::atomic<int> randomRetriggerInterval{ 3 };
-	std::atomic<double> lastRetriggerTime{ -1.0 };
-	std::atomic<double> nextRetriggerTime{ 0.0 };
-	std::atomic<bool> randomRetriggerActive{ false };
-	std::atomic<bool> beatRepeatActive{ false };
-	std::atomic<double> beatRepeatStartPosition{ 0.0 };
-	std::atomic<double> beatRepeatEndPosition{ 0.0 };
-	std::atomic<double> beatRepeatDuration{ 0.25 };
-	std::atomic<double> originalReadPosition{ 0.0 };
-	std::atomic<bool> beatRepeatPending{ false };
-	std::atomic<double> lastBeatTime{ -1.0 };
-	std::atomic<bool> beatRepeatStopPending{ false };
-	std::atomic<bool> randomRetriggerDurationEnabled{ false };
-	std::atomic<int64_t> pendingBeatNumber{ -1 };
-	std::atomic<int64_t> pendingStopBeatNumber{ -1 };
+	std::atomic<bool> randomRetriggerEnabled{false};
+	std::atomic<int> randomRetriggerInterval{3};
+	std::atomic<double> lastRetriggerTime{-1.0};
+	std::atomic<double> nextRetriggerTime{0.0};
+	std::atomic<bool> randomRetriggerActive{false};
+	std::atomic<bool> beatRepeatActive{false};
+	std::atomic<double> beatRepeatStartPosition{0.0};
+	std::atomic<double> beatRepeatEndPosition{0.0};
+	std::atomic<double> beatRepeatDuration{0.25};
+	std::atomic<double> originalReadPosition{0.0};
+	std::atomic<bool> beatRepeatPending{false};
+	std::atomic<double> lastBeatTime{-1.0};
+	std::atomic<bool> beatRepeatStopPending{false};
+	std::atomic<bool> randomRetriggerDurationEnabled{false};
+	std::atomic<int64_t> pendingBeatNumber{-1};
+	std::atomic<int64_t> pendingStopBeatNumber{-1};
 
 	int customStepCounter = 0;
 	double lastPpqPosition = -1.0;
@@ -209,7 +204,8 @@ struct TrackData
 		bpmOffset = 0.0;
 		onPlayStateChanged = nullptr;
 
-		for (int i = 0; i < 4; ++i) {
+		for (int i = 0; i < 4; ++i)
+		{
 			pages[i].reset();
 		}
 	}
@@ -221,18 +217,22 @@ struct TrackData
 		onArmedToStopStateChanged = nullptr;
 	}
 
-	TrackPage& getCurrentPage() {
+	TrackPage &getCurrentPage()
+	{
 		return pages[currentPageIndex];
 	}
 
-	const TrackPage& getCurrentPage() const {
+	const TrackPage &getCurrentPage() const
+	{
 		return pages[currentPageIndex];
 	}
 
-	void syncLegacyProperties() {
-		if (!usePages) return;
+	void syncLegacyProperties()
+	{
+		if (!usePages)
+			return;
 
-		auto& currentPage = getCurrentPage();
+		auto &currentPage = getCurrentPage();
 
 		audioBuffer = currentPage.audioBuffer;
 		audioFilePath = currentPage.audioFilePath;
@@ -259,8 +259,10 @@ struct TrackData
 		DBG("Synced legacy properties - loops: " << loopStart << " to " << loopEnd);
 	}
 
-	void migrateToPages() {
-		if (usePages) return;
+	void migrateToPages()
+	{
+		if (usePages)
+			return;
 
 		pages[0].audioBuffer = audioBuffer;
 		pages[0].audioFilePath = audioFilePath;
@@ -288,32 +290,37 @@ struct TrackData
 		DBG("Track " << trackName << " migrated to pages system");
 	}
 
-	void setCurrentPage(int pageIndex) {
-		if (pageIndex < 0 || pageIndex >= 4) return;
-		if (currentPageIndex == pageIndex) return;
+	void setCurrentPage(int pageIndex)
+	{
+		if (pageIndex < 0 || pageIndex >= 4)
+			return;
+		if (currentPageIndex == pageIndex)
+			return;
 
 		currentPageIndex = pageIndex;
 
-		if (usePages) {
+		if (usePages)
+		{
 			syncLegacyProperties();
 		}
 
-		DBG("Track " << trackName << " switched to page " << (char)('A' + pageIndex) <<
-			" - loops: " << getCurrentPage().loopStart << " to " << getCurrentPage().loopEnd);
+		DBG("Track " << trackName << " switched to page " << (char)('A' + pageIndex) << " - loops: " << getCurrentPage().loopStart << " to " << getCurrentPage().loopEnd);
 	}
 
 	DjIaClient::LoopRequest createLoopRequest() const
 	{
 		DjIaClient::LoopRequest request;
-		if (usePages) {
-			const auto& currentPage = getCurrentPage();
+		if (usePages)
+		{
+			const auto &currentPage = getCurrentPage();
 			request.prompt = !currentPage.selectedPrompt.isEmpty() ? currentPage.selectedPrompt : currentPage.generationPrompt;
 			request.bpm = currentPage.generationBpm;
 			request.key = currentPage.generationKey;
 			request.generationDuration = static_cast<float>(currentPage.generationDuration);
 			request.preferredStems = currentPage.preferredStems;
 		}
-		else {
+		else
+		{
 			request.prompt = !selectedPrompt.isEmpty() ? selectedPrompt : generationPrompt;
 			request.bpm = generationBpm;
 			request.key = generationKey;
@@ -323,10 +330,11 @@ struct TrackData
 		return request;
 	}
 
-	void updateFromRequest(const DjIaClient::LoopRequest& request)
+	void updateFromRequest(const DjIaClient::LoopRequest &request)
 	{
-		if (usePages) {
-			auto& currentPage = getCurrentPage();
+		if (usePages)
+		{
+			auto &currentPage = getCurrentPage();
 			currentPage.generationPrompt = request.prompt;
 			currentPage.generationBpm = request.bpm;
 			currentPage.generationKey = request.key;
@@ -334,7 +342,8 @@ struct TrackData
 			currentPage.preferredStems = request.preferredStems;
 			syncLegacyProperties();
 		}
-		else {
+		else
+		{
 			generationPrompt = request.prompt;
 			generationBpm = request.bpm;
 			generationKey = request.key;
@@ -345,14 +354,17 @@ struct TrackData
 
 	void reset()
 	{
-		if (usePages) {
-			for (int i = 0; i < 4; ++i) {
+		if (usePages)
+		{
+			for (int i = 0; i < 4; ++i)
+			{
 				pages[i].reset();
 			}
 			currentPageIndex = 0;
 			syncLegacyProperties();
 		}
-		else {
+		else
+		{
 			audioBuffer.setSize(0, 0);
 			numSamples = 0;
 			readPosition = 0.0;
@@ -380,11 +392,10 @@ struct TrackData
 		if (wasPlaying != playing && onPlayStateChanged && getCurrentAudioBuffer().getNumChannels() > 0 && isPlaying.load())
 		{
 			juce::MessageManager::callAsync([this, playing]()
-				{
+											{
 					if (onPlayStateChanged) {
 						onPlayStateChanged(playing);
-					}
-				});
+					} });
 		}
 	}
 
@@ -395,11 +406,10 @@ struct TrackData
 		if (wasArmed != armed && onArmedStateChanged && getCurrentAudioBuffer().getNumChannels() > 0 && isPlaying.load())
 		{
 			juce::MessageManager::callAsync([this, armed]()
-				{
+											{
 					if (onArmedStateChanged) {
 						onArmedStateChanged(armed);
-					}
-				});
+					} });
 		}
 	}
 
@@ -409,26 +419,25 @@ struct TrackData
 		if (onArmedToStopStateChanged && getCurrentAudioBuffer().getNumChannels() > 0 && isCurrentlyPlaying.load())
 		{
 			juce::MessageManager::callAsync([this, armedToStop]()
-				{
+											{
 					if (onArmedToStopStateChanged) {
 						onArmedToStopStateChanged(armedToStop);
-					}
-				});
+					} });
 		}
 	}
 
 	void setStop()
 	{
 		juce::MessageManager::callAsync([this]()
-			{
+										{
 				if (onPlayStateChanged) {
 					onPlayStateChanged(false);
-				}
-			});
+				} });
 	}
 
 private:
-	juce::AudioSampleBuffer& getCurrentAudioBuffer() {
+	juce::AudioSampleBuffer &getCurrentAudioBuffer()
+	{
 		return usePages ? pages[currentPageIndex].audioBuffer : audioBuffer;
 	}
 };
