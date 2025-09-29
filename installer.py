@@ -1,14 +1,110 @@
 import sys
-import platform
+import subprocess
 import os
+from pathlib import Path
+
+
+def safe_run(cmd, **kwargs):
+    if sys.platform == "win32":
+        kwargs.setdefault("creationflags", subprocess.CREATE_NO_WINDOW)
+    return subprocess.run(cmd, **kwargs)
+
+
+def check_and_install_dependencies():
+    print("=== OBSIDIAN-Neural Installer Bootstrap ===\n")
+
+    missing = []
+
+    try:
+        import tkinter
+
+        print("✓ tkinter available")
+    except ImportError:
+        missing.append(("tkinter", "CRITICAL - Reinstall Python with tkinter support"))
+
+    try:
+        from PIL import Image
+
+        print("✓ Pillow available")
+    except ImportError:
+        missing.append(("Pillow", "pip"))
+
+    try:
+        import psutil
+
+        print("✓ psutil available")
+    except ImportError:
+        missing.append(("psutil", "pip"))
+
+    try:
+        import GPUtil
+
+        print("✓ GPUtil available")
+    except ImportError:
+        missing.append(("GPUtil", "pip"))
+
+    if not missing:
+        print("\n✓ All installer dependencies available\n")
+        return True
+
+    print("\n⚠ Missing installer dependencies:")
+    for pkg, install_method in missing:
+        if install_method == "CRITICAL":
+            print(f"  ✗ {pkg} - {install_method}")
+        else:
+            print(f"  ✗ {pkg}")
+
+    tkinter_missing = any(pkg == "tkinter" for pkg, _ in missing)
+    if tkinter_missing:
+        print("\n❌ CRITICAL: tkinter is not available")
+        print("tkinter is required for the installer GUI.")
+        print("\nSolutions:")
+        print("  - Windows: Reinstall Python and check 'tcl/tk and IDLE'")
+        print("  - Linux: sudo apt install python3-tk")
+        print("  - macOS: tkinter should be included with Python")
+        input("\nPress Enter to exit...")
+        return False
+
+    print("\nThese packages are required to run the installer GUI.")
+    response = input("Install them now? (y/n): ").strip().lower()
+
+    if response != "y":
+        print("\n❌ Cannot proceed without dependencies.")
+        input("Press Enter to exit...")
+        return False
+
+    print("\nInstalling missing packages...\n")
+    for pkg, install_method in missing:
+        if install_method == "pip":
+            print(f"Installing {pkg}...")
+            try:
+                safe_run(
+                    [sys.executable, "-m", "pip", "install", pkg],
+                    check=True,
+                    capture_output=True,
+                )
+                print(f"  ✓ {pkg} installed successfully")
+            except subprocess.CalledProcessError as e:
+                print(f"  ✗ Failed to install {pkg}")
+                print(f"    Error: {e.stderr.decode() if e.stderr else 'Unknown'}")
+                return False
+
+    print("\n✓ All dependencies installed successfully!")
+    print("Restarting installer...\n")
+
+    os.execv(sys.executable, [sys.executable] + sys.argv)
+    return True
+
+
+if __name__ == "__main__":
+    if not check_and_install_dependencies():
+        sys.exit(1)
+
+import platform
 import time
 import ctypes
-from pathlib import Path
 import re
-import subprocess
-import sys
 import json
-import platform
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
 import threading
@@ -23,6 +119,7 @@ try:
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
+
 
 if platform.system() == "Windows":
     try:
