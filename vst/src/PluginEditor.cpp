@@ -13,6 +13,7 @@ DjIaVstEditor::DjIaVstEditor(DjIaVstProcessor& p)
 	: AudioProcessorEditor(&p), audioProcessor(p)
 {
 	setSize(1300, 800);
+	setLookAndFeel(&customLookAndFeel);
 	setWantsKeyboardFocus(true);
 	grabKeyboardFocus();
 	tooltipWindow = std::make_unique<juce::TooltipWindow>(this, 700);
@@ -65,6 +66,7 @@ DjIaVstEditor::~DjIaVstEditor()
 	audioProcessor.onUIUpdateNeeded = nullptr;
 	audioProcessor.setGenerationListener(nullptr);
 	audioProcessor.getMidiLearnManager().registerUICallback("promptPresetSelector", nullptr);
+	setLookAndFeel(nullptr);
 }
 
 void DjIaVstEditor::updateMidiIndicator(const juce::String& noteInfo)

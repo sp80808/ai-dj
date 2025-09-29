@@ -4,6 +4,7 @@
 #include "MixerPanel.h"
 #include "MidiLearnableComponents.h"
 #include "SampleBankPanel.h"
+#include "CustomLookAndFeel.h"
 
 class SequencerComponent;
 
@@ -49,6 +50,7 @@ public:
 
 private:
 	DjIaVstProcessor& audioProcessor;
+	CustomLookAndFeel customLookAndFeel;
 	juce::Image logoImage;
 	juce::Image bannerImage;
 	juce::Rectangle<int> bannerArea;
