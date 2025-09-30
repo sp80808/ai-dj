@@ -4,7 +4,7 @@ if(UNIX AND NOT APPLE)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()
 
-project(OBSIDIAN-Neural VERSION 1.0.0)
+project(Jambud VERSION 1.0.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -46,14 +46,14 @@ configure_file(
     @ONLY
 )
 
-juce_add_plugin(ObsidianNeuralVST
+juce_add_plugin(JambudVST
     VERSION "1.0.0"
-    PLUGIN_MANUFACTURER_CODE "OBSI"
-    PLUGIN_CODE "Obsi"
-    COMPANY_NAME "InnerMost47"
-    BUNDLE_ID "com.innermost47.obsidian-neural-vst" 
+    PLUGIN_MANUFACTURER_CODE "Jmbd"
+    PLUGIN_CODE "Jmbd"
+    COMPANY_NAME "sp8m8"
+    BUNDLE_ID "com.sp8m8.jambud-vst" 
     FORMATS VST3
-    PRODUCT_NAME "OBSIDIAN-Neural"
+    PRODUCT_NAME "Jambud"
     IS_SYNTH TRUE
     WANTS_MIDI_INPUT TRUE
     PRODUCES_MIDI_OUTPUT TRUE
@@ -61,7 +61,7 @@ juce_add_plugin(ObsidianNeuralVST
     NEEDS_CURL TRUE
 )
 
-target_sources(ObsidianNeuralVST PRIVATE
+target_sources(JambudVST PRIVATE
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
     src/BinaryData.cpp  
@@ -80,13 +80,13 @@ target_sources(ObsidianNeuralVST PRIVATE
     src/CategoryWindow.cpp
 )
 
-target_include_directories(ObsidianNeuralVST PRIVATE
+target_include_directories(JambudVST PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
     src
     ${soundtouch_SOURCE_DIR}/include 
 )
 
-target_compile_definitions(ObsidianNeuralVST 
+target_compile_definitions(JambudVST 
     PRIVATE
         JucePlugin_IsSynth=1
         JucePlugin_WantsMidiInput=1
@@ -101,7 +101,7 @@ target_compile_definitions(ObsidianNeuralVST
         JUCE_VST3_CAN_REPLACE_VST2=0
 )
 
-target_link_libraries(ObsidianNeuralVST PRIVATE
+target_link_libraries(JambudVST PRIVATE
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_gui_extra
@@ -115,40 +115,40 @@ target_link_libraries(ObsidianNeuralVST PRIVATE
 )
 
 if(WIN32)
-    target_link_libraries(ObsidianNeuralVST PRIVATE ws2_32 winmm)
+    target_link_libraries(JambudVST PRIVATE ws2_32 winmm)
 elseif(APPLE)
     find_library(ACCELERATE_FRAMEWORK Accelerate)
     find_library(COREAUDIO_FRAMEWORK CoreAudio)
     find_library(COREMIDI_FRAMEWORK CoreMIDI)
     
     if(ACCELERATE_FRAMEWORK)
-        target_link_libraries(ObsidianNeuralVST PRIVATE ${ACCELERATE_FRAMEWORK})
+        target_link_libraries(JambudVST PRIVATE ${ACCELERATE_FRAMEWORK})
     endif()
     if(COREAUDIO_FRAMEWORK)
-        target_link_libraries(ObsidianNeuralVST PRIVATE ${COREAUDIO_FRAMEWORK})
+        target_link_libraries(JambudVST PRIVATE ${COREAUDIO_FRAMEWORK})
     endif()
     if(COREMIDI_FRAMEWORK)
-        target_link_libraries(ObsidianNeuralVST PRIVATE ${COREMIDI_FRAMEWORK})
+        target_link_libraries(JambudVST PRIVATE ${COREMIDI_FRAMEWORK})
     endif()
-    set_target_properties(ObsidianNeuralVST PROPERTIES
+    set_target_properties(JambudVST PROPERTIES
         OSX_ARCHITECTURES "x86_64;arm64"
     )
 elseif(UNIX AND NOT APPLE)
-    target_compile_options(ObsidianNeuralVST PRIVATE -fPIC)
-    target_compile_options(ObsidianNeuralVST PRIVATE 
+    target_compile_options(JambudVST PRIVATE -fPIC)
+    target_compile_options(JambudVST PRIVATE 
         -Wno-macro-redefined
         -Wno-builtin-macro-redefined
     )
-    target_link_libraries(ObsidianNeuralVST PRIVATE 
+    target_link_libraries(JambudVST PRIVATE 
         pthread 
         dl 
         asound  
     )
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
-    target_link_libraries(ObsidianNeuralVST PRIVATE ${GTK3_LIBRARIES})
-    target_include_directories(ObsidianNeuralVST PRIVATE ${GTK3_INCLUDE_DIRS})
+    target_link_libraries(JambudVST PRIVATE ${GTK3_LIBRARIES})
+    target_include_directories(JambudVST PRIVATE ${GTK3_INCLUDE_DIRS})
 endif()
 
-message(STATUS "OBSIDIAN Neural Build Configuration:")
+message(STATUS "Jambud Build Configuration:")
 message(STATUS "    Build Number: ${BUILD_NUMBER}")
