@@ -412,7 +412,8 @@ class FluidSynthWrapper:
     FluidSynth wrapper for MIDI-to-audio conversion with real-time capabilities.
 
     Provides fast MIDI synthesis using SoundFont files for integration with
-    the MusicGen wrapper for melody conditioning.
+    the MusicGen wrapper for melody conditioning. Optimized for low-latency
+    real-time VST usage with <1s rendering times.
     """
 
     def __init__(self, soundfont_path: Optional[str] = None):
@@ -426,6 +427,11 @@ class FluidSynthWrapper:
         self.sample_rate = 44100  # Standard audio sample rate
         self.is_initialized = False
         self.synth = None
+        self.audio_driver = None
+
+        # Performance settings for real-time usage
+        self.buffer_size = 128  # Small buffer for low latency
+        self.period_size = 64   # Process audio in small chunks
 
         # Try to import fluidsynth
         try:
@@ -454,7 +460,7 @@ class FluidSynthWrapper:
 
     def init_synth(self) -> bool:
         """
-        Initialize FluidSynth synthesizer.
+        Initialize FluidSynth synthesizer with optimized settings for real-time usage.
 
         Returns:
             bool: True if initialization successful
@@ -466,7 +472,7 @@ class FluidSynthWrapper:
         try:
             logger.info(f"Initializing FluidSynth with SoundFont: {self.soundfont_path}")
 
-            # Create synthesizer
+            # Create synthesizer with optimized settings
             self.synth = self.fluidsynth.Synth()
 
             # Load SoundFont
@@ -475,15 +481,26 @@ class FluidSynthWrapper:
                 logger.error(f"Failed to load SoundFont: {self.soundfont_path}")
                 return False
 
-            # Set sample rate
+            # Optimized settings for real-time VST usage
             self.synth.setting('synth.sample-rate', self.sample_rate)
+            self.synth.setting('synth.polyphony', 64)  # Limit polyphony for performance
+            self.synth.setting('synth.gain', 0.5)      # Reduce gain to prevent clipping
 
-            # Configure for low latency
-            self.synth.setting('audio.periods', 8)
-            self.synth.setting('audio.period-size', 64)
+            # Low-latency audio settings
+            self.synth.setting('audio.periods', 3)      # Fewer periods for lower latency
+            self.synth.setting('audio.period-size', self.period_size)
+            self.synth.setting('audio.realtime-prio', 1)  # Higher priority for real-time
+
+            # Disable unnecessary features for performance
+            self.synth.setting('synth.reverb.active', 0)
+            self.synth.setting('synth.chorus.active', 0)
+            self.synth.setting('synth.ladspa.active', 0)
+
+            # Set master volume
+            self.synth.set_master(0.7)
 
             self.is_initialized = True
-            logger.info("FluidSynth initialized successfully")
+            logger.info(f"FluidSynth initialized successfully (sample rate: {self.sample_rate}Hz)")
             return True
 
         except Exception as e:
