@@ -723,6 +723,10 @@ void DjIaVstEditor::setupUI()
 	addAndMakeVisible(configButton);
 	configButton.setButtonText(juce::String::fromUTF8("\xE2\x98\xB0"));
 	configButton.setTooltip("Configure settings globally");
+
+	// Quick/Advanced toggle (annotation for future split UI)
+	addAndMakeVisible(showSampleBankButton);
+	showSampleBankButton.setTooltip("Toggle sample bank (Quick/Advanced UI coming)");
 	configButton.onClick = [this]()
 		{ showConfigDialog(); };
 
