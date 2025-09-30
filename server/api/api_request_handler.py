@@ -49,15 +49,49 @@ class APIRequestHandler:
             )
             musicgen_prompt = sample_details.get("musicgen_prompt", request.prompt)
 
-        self.dj_system.music_gen.init_model()
-        audio, sample_info = self.dj_system.music_gen.generate_sample(
-            musicgen_prompt=musicgen_prompt,
-            tempo=request.bpm,
-            generation_duration=request.generation_duration or 6,
-            sample_rate=int(request.sample_rate),
-        )
-        self.dj_system.music_gen.destroy_model()
-        return audio, sample_info
+        model_choice = getattr(request, "model", "stable_audio") or "stable_audio"
+
+        if model_choice == "musicgen":
+            # Lazy import to avoid hard dependency if not used
+            try:
+                from core.musicgen_wrapper import MusicGenWrapper  # type: ignore
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"MusicGen not available: {e}")
+
+            device = "cuda" if os.environ.get("FORCE_CPU", "0") != "1" else "cpu"
+            try:
+                wrapper = MusicGenWrapper(model_name=os.environ.get("MUSICGEN_MODEL", "facebook/musicgen-small"), device=device)
+                duration = float(request.generation_duration or 6.0)
+                wrapper.set_params(duration=duration, temperature=1.0, top_k=250, cfg_coef=3.0)
+                output_path = os.path.join(self.dj_system.output_dir_base, f"mg_{int(time.time())}.wav")
+                path = wrapper.generate_audio(
+                    prompt=musicgen_prompt,
+                    output_path=output_path,
+                    conditioning_audio_path=request.conditioning_audio_path,
+                    conditioning_midi_base64=request.conditioning_midi_base64,
+                    conditioning_strength=float(getattr(request, "conditioning_strength", 0.5) or 0.5),
+                    seed=request.seed,
+                )
+                # Load wav back into numpy for the existing pipeline expectations
+                import soundfile as sf  # type: ignore
+                audio, sr = sf.read(path)
+                sample_info = {"type": "musicgen", "tempo": request.bpm, "prompt": musicgen_prompt}
+                return audio, sample_info
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"MusicGen error: {e}")
+        else:
+            # Stable Audio path (existing behavior)
+            self.dj_system.music_gen.init_model()
+            audio, sample_info = self.dj_system.music_gen.generate_sample(
+                musicgen_prompt=musicgen_prompt,
+                tempo=request.bpm,
+                generation_duration=request.generation_duration or 6,
+                sample_rate=int(request.sample_rate),
+            )
+            self.dj_system.music_gen.destroy_model()
+            return audio, sample_info
 
     def process_audio_pipeline(self, audio, request: GenerateRequest, request_id):
         temp_path = os.path.join(
