@@ -92,8 +92,6 @@ private:
 	void startGenerationButtonAnimation();
 	void stopGenerationButtonAnimation();
 	void refreshUIForMode();
-	// UI Mode: Quick vs Advanced panels (annotation for future layout split)
-	bool useQuickMode = true; // when true, show minimal controls; when false, show advanced
 	void checkLocalModelsAndNotify();
 	void notifyTracksPromptUpdate();
 	void generateFromTrackComponent(const juce::String& trackId);

@@ -7,7 +7,7 @@ import hashlib
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import APIKeyHeader
 from fastapi.responses import Response
-from .models import GenerateRequest, VariationRequest
+from .models import GenerateRequest
 from config.config import API_KEYS, ENVIRONMENT, lock, IS_TEST, BYPASS_LLM
 from server.api.api_request_handler import APIRequestHandler
 from core.api_keys_manager import check_api_key_status, increment_api_key_usage
@@ -75,14 +75,6 @@ async def verify_api_key(api_key: str = Depends(api_key_header)):
 @router.post("/verify_key")
 async def verify_key(_: str = Depends(verify_api_key)):
     return {"status": "valid", "message": "API Key valid"}
-
-
-@router.get("/health")
-async def health_check():
-    try:
-        return {"status": "ok"}
-    except Exception:
-        raise create_error_response("SERVER_ERROR", "Health check failed", 500)
 
 
 @router.post("/generate")
@@ -182,22 +174,3 @@ async def generate_loop(
     finally:
         if processed_path and os.path.exists(processed_path):
             os.remove(processed_path)
-
-
-@router.post("/variation")
-async def generate_variation(
-    request: VariationRequest,
-    api_key: str = Depends(verify_api_key),
-    dj_system=Depends(get_dj_system),
-):
-    # For now, reuse generate_simple with prompt/seed/strength where supported
-    # Future: implement dedicated variation path in APIRequestHandler
-    base_request = GenerateRequest(
-        prompt=request.prompt or "",
-        bpm=request.bpm or 120.0,
-        key=request.key,
-        preferred_stems=request.preferred_stems,
-        generation_duration=request.generation_duration or 6.0,
-        sample_rate=request.sample_rate or 48000.0,
-    )
-    return await generate_loop(base_request, api_key, dj_system)
